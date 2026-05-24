@@ -45,10 +45,12 @@ function Portal({ user, onLogout }) {
       {/* Stats */}
       <div className="stats-row">
         <div className="stat-card">
+          <img src="/coin.png" alt="Coin" className="stat-icon" />
           <span className="stat-value text-coin">{student.coins}</span>
           <span className="stat-label">Coins</span>
         </div>
         <div className="stat-card">
+          <img src="/token.png" alt="Token" className="stat-icon" />
           <span className="stat-value text-token">{student.tokens}</span>
           <span className="stat-label">Tokens</span>
         </div>

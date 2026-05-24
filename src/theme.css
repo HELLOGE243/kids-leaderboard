@@ -120,6 +120,13 @@ body {
   background: var(--bg-card);
 }
 
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  margin-bottom: 8px;
+}
+
 .stat-value {
   font-family: var(--font-pixel);
   font-size: 1.5rem;
