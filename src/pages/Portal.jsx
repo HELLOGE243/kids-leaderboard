@@ -83,52 +83,53 @@ function Portal({ user, onLogout }) {
             {testEvents.length === 0 ? (
               <p className="text-dim">No test events yet. Your teacher will create them.</p>
             ) : (
-              <form onSubmit={handleAddScore} className="form-row">
+              <form onSubmit={handleAddScore} className="score-form">
                 <select
                   value={selectedEvent}
                   onChange={(e) => { setSelectedEvent(e.target.value); setScoreError('') }}
-                  className="select flex-1"
+                  className="score-select"
                 >
                   <option value="">Select event...</option>
                   {testEvents.map((ev) => (
                     <option key={ev.id} value={ev.id}>{ev.name}</option>
                   ))}
                 </select>
-                <input
-                  type="number"
-                  value={scoreValue}
-                  onChange={(e) => setScoreValue(e.target.value)}
-                  placeholder="Score"
-                  className="input"
-                  style={{ width: '80px', flex: 'none' }}
-                  min="1"
-                />
-                <button type="submit" className="btn btn-small">Add</button>
+                <div className="score-input-row">
+                  <input
+                    type="number"
+                    value={scoreValue}
+                    onChange={(e) => setScoreValue(e.target.value)}
+                    placeholder="Enter score"
+                    className="score-number-input"
+                    min="1"
+                  />
+                  <button type="submit" className="btn">Add</button>
+                </div>
               </form>
             )}
             {scoreError && <p className="error-text">{scoreError}</p>}
           </div>
 
           {/* Leaderboard */}
-          <div className="card">
-            <p className="pixel-heading">
+          <div className="card card-glow leaderboard-card">
+            <p className="lb-title">
               {classes.find((c) => c.id === activeTab)?.name} Leaderboard
             </p>
             {leaderboard.length === 0 ? (
               <p className="text-dim">No scores yet. Be the first!</p>
             ) : (
-              <div>
+              <div className="lb-list">
                 {leaderboard.map((entry, i) => {
                   const isMe = entry.id === user.id
                   return (
-                    <div key={entry.id} className={`lb-row ${isMe ? 'lb-row-me' : ''}`}>
-                      <span className="lb-rank">
+                    <div key={entry.id} className={`lb-row ${isMe ? 'lb-row-me' : ''} ${i < 3 ? 'lb-row-top3' : ''}`}>
+                      <span className={`lb-rank ${i === 0 ? 'lb-rank-1st' : i === 1 ? 'lb-rank-2nd' : i === 2 ? 'lb-rank-3rd' : ''}`}>
                         {i === 0 ? '1st' : i === 1 ? '2nd' : i === 2 ? '3rd' : `${i + 1}th`}
                       </span>
-                      <span className={`lb-name ${isMe ? 'bold' : ''}`}>
+                      <span className="lb-name">
                         {entry.name}{isMe ? ' (You)' : ''}
                       </span>
-                      <span className="lb-points">{entry.points}</span>
+                      <span className="lb-points">{entry.points} pts</span>
                     </div>
                   )
                 })}

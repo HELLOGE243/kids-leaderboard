@@ -305,36 +305,122 @@ body {
   box-shadow: 0 0 8px var(--accent-glow);
 }
 
+/* --- Score Input --- */
+.score-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.score-select {
+  width: 100%;
+  padding: 14px 16px;
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
+  border-radius: var(--radius);
+  border: 2px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text);
+  outline: none;
+}
+
+.score-select:focus {
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.score-input-row {
+  display: flex;
+  gap: 10px;
+}
+
+.score-number-input {
+  flex: 1;
+  padding: 14px 16px;
+  font-family: var(--font-pixel);
+  font-size: 1rem;
+  border-radius: var(--radius);
+  border: 2px solid var(--border);
+  background: var(--bg-input);
+  color: var(--coin);
+  outline: none;
+  text-align: center;
+  letter-spacing: 2px;
+}
+
+.score-number-input:focus {
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.score-number-input::placeholder {
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  color: var(--text-dim);
+  letter-spacing: 0;
+}
+
 /* --- Leaderboard --- */
+.leaderboard-card {
+  border-color: var(--coin);
+  box-shadow: 0 0 16px rgba(255, 215, 0, 0.15);
+}
+
+.lb-title {
+  font-family: var(--font-pixel);
+  font-size: 0.75rem;
+  color: var(--coin);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 16px;
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.4);
+  text-align: center;
+}
+
+.lb-list {
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
 .lb-row {
   display: flex;
   align-items: center;
-  padding: 12px 14px;
-  gap: 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  padding: 14px 16px;
+  gap: 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  transition: background 0.2s;
+}
+
+.lb-row-top3 {
+  background: rgba(255, 215, 0, 0.04);
 }
 
 .lb-row-me {
-  background: rgba(233, 69, 96, 0.1);
-  border-left: 3px solid var(--accent);
+  background: rgba(233, 69, 96, 0.12);
+  border-left: 4px solid var(--accent);
 }
 
 .lb-rank {
   font-family: var(--font-pixel);
   font-size: 0.6rem;
-  width: 36px;
+  width: 42px;
   color: var(--text-dim);
 }
 
+.lb-rank-1st { color: #ffd700; text-shadow: 0 0 6px rgba(255, 215, 0, 0.5); }
+.lb-rank-2nd { color: #c0c0c0; }
+.lb-rank-3rd { color: #cd7f32; }
+
 .lb-name {
   flex: 1;
-  font-size: 0.95rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
 }
 
 .lb-points {
   font-family: var(--font-pixel);
-  font-size: 0.6rem;
+  font-size: 0.65rem;
   color: var(--coin);
+  text-shadow: 0 0 4px rgba(255, 215, 0, 0.3);
 }
 
 /* --- Lists --- */
