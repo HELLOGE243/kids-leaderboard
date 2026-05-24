@@ -2,15 +2,20 @@
 // DATA STORE
 // All app data lives here. Uses localStorage for persistence.
 // Structure:
-//   organisations: { [orgId]: { name, teacherId } }
-//   teachers:      { [teacherId]: { name, orgId } }
-//   students:      { [studentId]: { name, orgId, coinsSpent, tokens } }
-//   classes:       { [classId]: { name, orgId, teacherId, studentIds[] } }
-//   testEvents:    [ { id, classId, name, date } ]
-//   scores:        [ { id, studentId, classId, testEventId, value, date } ]
+//   organisations:   { [orgId]: { name, teacherId } }
+//   teachers:        { [teacherId]: { name, orgId } }
+//   students:        { [studentId]: { name, orgId, coinsSpent, tokens } }
+//   classes:         { [classId]: { name, orgId, teacherId, studentIds[] } }
+//   eventTemplates:  [ { id, name, orgId } ]
+//   testEvents:      [ { id, classId, name, date, templateId? } ]
+//   scores:          [ { id, studentId, classId, testEventId, value, date } ]
 //
 // Coins = total score points across all classes - coinsSpent
 // Tokens = awarded by teachers only (separate currency)
+//
+// Ranking: when a testEvent has a templateId, rank against ALL scores
+//          from ALL events with that templateId. Otherwise rank within
+//          just that event's scores.
 // ============================================================
 
 const STORAGE_KEY = 'leaderboard_data'
@@ -21,6 +26,7 @@ function loadData() {
     const data = JSON.parse(raw)
     if (!data.scores) data.scores = []
     if (!data.testEvents) data.testEvents = []
+    if (!data.eventTemplates) data.eventTemplates = []
     // Migrate old students: rewardPoints -> tokens, add coinsSpent
     for (const id of Object.keys(data.students || {})) {
       const s = data.students[id]
@@ -38,7 +44,7 @@ function loadData() {
     }
     return data
   }
-  return { organisations: {}, teachers: {}, students: {}, classes: {}, scores: [], testEvents: [] }
+  return { organisations: {}, teachers: {}, students: {}, classes: {}, scores: [], testEvents: [], eventTemplates: [] }
 }
 
 function saveData(data) {
@@ -329,6 +335,32 @@ export function deleteScore(scoreId) {
   return true
 }
 
+// --- Event Templates ---
+
+export function createEventTemplate(name, orgId) {
+  const data = loadData()
+  const id = generateId(8)
+  data.eventTemplates.push({ id, name, orgId })
+  saveData(data)
+  return { id, name, orgId }
+}
+
+export function getEventTemplatesForOrg(orgId) {
+  const data = loadData()
+  return data.eventTemplates.filter((t) => t.orgId === orgId)
+}
+
+export function deleteEventTemplate(templateId) {
+  const data = loadData()
+  data.eventTemplates = data.eventTemplates.filter((t) => t.id !== templateId)
+  // Unlink events that used this template
+  for (const ev of data.testEvents) {
+    if (ev.templateId === templateId) ev.templateId = null
+  }
+  saveData(data)
+  return true
+}
+
 // --- Leaderboard ---
 
 export function getLeaderboard(classId) {
@@ -350,4 +382,69 @@ export function getLeaderboard(classId) {
       if (b.points !== a.points) return b.points - a.points
       return a.name.localeCompare(b.name)
     })
+}
+
+// --- Ranking per Event ---
+
+export function getRankingForStudentInClass(studentId, classId) {
+  // Returns [{ eventId, eventName, date, rank, totalStudents, score }]
+  // sorted by event date.
+  // If event has a templateId, rank against ALL scores from ALL events
+  // with that templateId. Otherwise rank within just that event.
+  const data = loadData()
+
+  const events = data.testEvents.filter((e) => e.classId === classId)
+  const results = []
+
+  for (const event of events) {
+    // Get this student's score for this event
+    const studentScore = data.scores.find(
+      (s) => s.studentId === studentId && s.testEventId === event.id
+    )
+    if (!studentScore) continue
+
+    // Determine the pool of scores to rank against
+    let poolScores
+    if (event.templateId) {
+      // Pool: all events with the same templateId
+      const linkedEventIds = data.testEvents
+        .filter((e) => e.templateId === event.templateId)
+        .map((e) => e.id)
+      poolScores = data.scores.filter((s) => linkedEventIds.includes(s.testEventId))
+    } else {
+      // Pool: just this event
+      poolScores = data.scores.filter((s) => s.testEventId === event.id)
+    }
+
+    // Deduplicate: one score per student (highest)
+    const bestByStudent = {}
+    for (const sc of poolScores) {
+      if (!bestByStudent[sc.studentId] || sc.value > bestByStudent[sc.studentId]) {
+        bestByStudent[sc.studentId] = sc.value
+      }
+    }
+
+    // Sort descending by score, then alphabetical
+    const ranked = Object.entries(bestByStudent)
+      .map(([sid, value]) => ({ sid, value }))
+      .sort((a, b) => {
+        if (b.value !== a.value) return b.value - a.value
+        const nameA = data.students[a.sid]?.name || ''
+        const nameB = data.students[b.sid]?.name || ''
+        return nameA.localeCompare(nameB)
+      })
+
+    const rank = ranked.findIndex((r) => r.sid === studentId) + 1
+
+    results.push({
+      eventId: event.id,
+      eventName: event.name,
+      date: event.date,
+      rank,
+      totalStudents: ranked.length,
+      score: studentScore.value,
+    })
+  }
+
+  return results.sort((a, b) => new Date(a.date) - new Date(b.date))
 }

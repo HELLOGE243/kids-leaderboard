@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import ProgressGraph from '../components/ProgressGraph.jsx'
-import { getClassesForStudent, getOrganisation, getStudentById, getLeaderboard, addScore, getTestEventsForClass, getScoresForStudentInClass } from '../data/store.js'
+import RankGraph from '../components/RankGraph.jsx'
+import { getClassesForStudent, getOrganisation, getStudentById, getLeaderboard, addScore, getTestEventsForClass, getScoresForStudentInClass, getRankingForStudentInClass } from '../data/store.js'
 
 function Portal({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState(null)
@@ -133,9 +134,9 @@ function Portal({ user, onLogout }) {
             )}
           </div>
 
-          {/* Progress Graph */}
+          {/* Score Progress */}
           <div className="card">
-            <p className="pixel-heading">My Progress</p>
+            <p className="pixel-heading">Score Progress</p>
             <ProgressGraph
               dataPoints={getScoresForStudentInClass(user.id, activeTab)
                 .slice()
@@ -146,6 +147,25 @@ function Portal({ user, onLogout }) {
                 })
               }
             />
+          </div>
+
+          {/* Class Ranking */}
+          <div className="card">
+            <p className="pixel-heading">My Ranking — This Class</p>
+            <RankGraph
+              dataPoints={getRankingForStudentInClass(user.id, activeTab)
+                .map((r) => ({
+                  date: r.date,
+                  rank: r.rank,
+                  totalStudents: r.totalStudents,
+                  eventName: r.eventName,
+                  score: r.score,
+                }))
+              }
+            />
+            <p className="text-dim mt-8" style={{ fontSize: '0.7rem' }}>
+              Rank based on this class. When templates are linked, rankings include all cohorts.
+            </p>
           </div>
         </>
       )}

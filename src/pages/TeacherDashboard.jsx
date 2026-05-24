@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import ProgressGraph from '../components/ProgressGraph.jsx'
+import RankGraph from '../components/RankGraph.jsx'
 import {
   createOrganisation,
   getOrganisation,
@@ -23,6 +24,7 @@ import {
   getTestEventsForClass,
   updateTestEvent,
   deleteTestEvent,
+  getRankingForStudentInClass,
 } from '../data/store.js'
 
 function TeacherDashboard({ teacher, onLogout }) {
@@ -307,10 +309,18 @@ function TeacherDashboard({ teacher, onLogout }) {
                       <button className="btn btn-small" onClick={handleManualScore}>Add</button>
                     </div>
 
-                    {/* Progress Graph */}
-                    <p className="pixel-heading">Progress</p>
+                    {/* Score Progress */}
+                    <p className="pixel-heading">Score Progress</p>
                     <ProgressGraph
                       dataPoints={classScores.slice().sort((a, b) => new Date(a.date) - new Date(b.date)).map((sc) => ({ date: sc.date, value: sc.value, label: getEventName(sc.testEventId) }))}
+                    />
+
+                    {/* Ranking Graph */}
+                    <p className="pixel-heading mt-16">Ranking</p>
+                    <RankGraph
+                      dataPoints={getRankingForStudentInClass(editingStudent, activeClass).map((r) => ({
+                        date: r.date, rank: r.rank, totalStudents: r.totalStudents, eventName: r.eventName, score: r.score,
+                      }))}
                     />
 
                     {/* Score History */}
