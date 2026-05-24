@@ -110,6 +110,30 @@ export function createOrganisation(name, teacherId) {
   return { id: orgId, name }
 }
 
+export function updateOrgCode(oldCode, newCode) {
+  const data = loadData()
+  const trimmed = newCode.trim()
+  if (!trimmed || !data.organisations[oldCode]) return false
+  if (trimmed === oldCode) return true
+  if (data.organisations[trimmed]) return false // code already taken
+
+  // Move org to new key
+  data.organisations[trimmed] = data.organisations[oldCode]
+  delete data.organisations[oldCode]
+
+  // Update teacher reference
+  const teacherId = data.organisations[trimmed].teacherId
+  if (data.teachers[teacherId]) data.teachers[teacherId].orgId = trimmed
+
+  // Update all students in this org
+  for (const s of Object.values(data.students)) {
+    if (s.orgId === oldCode) s.orgId = trimmed
+  }
+
+  saveData(data)
+  return true
+}
+
 export function getOrganisation(orgId) {
   const data = loadData()
   const org = data.organisations[orgId]

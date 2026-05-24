@@ -4,6 +4,7 @@ import RankGraph from '../components/RankGraph.jsx'
 import {
   createOrganisation,
   getOrganisation,
+  updateOrgCode,
   createStudent,
   deleteStudent,
   createClass,
@@ -37,6 +38,9 @@ function TeacherDashboard({ teacher, onLogout }) {
 
   // State
   const [orgName, setOrgName] = useState('')
+  const [editingCode, setEditingCode] = useState(false)
+  const [newCode, setNewCode] = useState('')
+  const [codeError, setCodeError] = useState('')
   const [className, setClassName] = useState('')
   const [activeClass, setActiveClass] = useState(null)
   const [studentName, setStudentName] = useState('')
@@ -150,8 +154,30 @@ function TeacherDashboard({ teacher, onLogout }) {
           <div className="org-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <span className="bold" style={{ fontSize: '1.1rem' }}>{org.name}</span>
-              <span className="org-code">CODE: {org.id}</span>
+              {editingCode ? (
+                <div className="form-row">
+                  <input
+                    value={newCode}
+                    onChange={(e) => { setNewCode(e.target.value); setCodeError('') }}
+                    placeholder="New code"
+                    className="input"
+                    style={{ width: '140px', fontSize: '0.85rem', padding: '8px 12px' }}
+                    autoFocus
+                  />
+                  <button className="btn btn-success btn-small" onClick={() => {
+                    const success = updateOrgCode(org.id, newCode.trim())
+                    if (success) { teacher.orgId = newCode.trim(); setEditingCode(false); setCodeError(''); forceRefresh() }
+                    else { setCodeError('Code taken or invalid.') }
+                  }}>Save</button>
+                  <button className="btn btn-outline btn-small" onClick={() => { setEditingCode(false); setCodeError('') }}>x</button>
+                </div>
+              ) : (
+                <span className="org-code" style={{ cursor: 'pointer' }} onClick={() => { setNewCode(org.id); setEditingCode(true) }}>
+                  CODE: {org.id}
+                </span>
+              )}
             </div>
+            {codeError && <p className="error-text mb-8">{codeError}</p>}
             <div style={{ display: 'flex', gap: '16px' }} className="font-pixel-sm text-dim">
               <span>{classes.length} Classes</span>
               <span>{students.length} Students</span>
