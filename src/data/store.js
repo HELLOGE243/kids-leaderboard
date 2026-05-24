@@ -131,15 +131,17 @@ export function getStudentById(studentId) {
   const data = loadData()
   const student = data.students[studentId]
   if (!student) return null
-  // Calculate coins: total scores - spent
-  const totalEarned = data.scores
+  // Calculate coins: (total scores x 10) - spent
+  const totalPoints = data.scores
     .filter((s) => s.studentId === studentId)
     .reduce((sum, s) => sum + s.value, 0)
+  const totalEarned = totalPoints * 10
   return {
     id: studentId,
     ...student,
     coins: totalEarned - student.coinsSpent,
     totalEarned,
+    totalPoints,
   }
 }
 
@@ -172,9 +174,10 @@ export function setCoinsBalance(studentId, newBalance) {
   // Teacher sets coins directly by adjusting coinsSpent
   const data = loadData()
   if (!data.students[studentId]) return false
-  const totalEarned = data.scores
+  const totalPoints = data.scores
     .filter((s) => s.studentId === studentId)
     .reduce((sum, s) => sum + s.value, 0)
+  const totalEarned = totalPoints * 10
   data.students[studentId].coinsSpent = totalEarned - newBalance
   saveData(data)
   return true
@@ -239,10 +242,11 @@ export function getStudentsInOrg(orgId) {
   return Object.entries(data.students)
     .filter(([, s]) => s.orgId === orgId)
     .map(([id, s]) => {
-      const totalEarned = data.scores
+      const totalPoints = data.scores
         .filter((sc) => sc.studentId === id)
         .reduce((sum, sc) => sum + sc.value, 0)
-      return { id, ...s, coins: totalEarned - s.coinsSpent, totalEarned }
+      const totalEarned = totalPoints * 10
+      return { id, ...s, coins: totalEarned - s.coinsSpent, totalEarned, totalPoints }
     })
 }
 
