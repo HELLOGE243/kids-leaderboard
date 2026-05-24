@@ -36,7 +36,7 @@ function TeacherDashboard({ teacher, onLogout }) {
   // State
   const [orgName, setOrgName] = useState('')
   const [className, setClassName] = useState('')
-  const [activeClass, setActiveClass] = useState(null) // classId or null
+  const [activeClass, setActiveClass] = useState(null)
   const [studentName, setStudentName] = useState('')
   const [addError, setAddError] = useState('')
   const [newStudentName, setNewStudentName] = useState('')
@@ -51,17 +51,10 @@ function TeacherDashboard({ teacher, onLogout }) {
   const [newEventName, setNewEventName] = useState('')
   const [confirmAction, setConfirmAction] = useState(null)
 
-  // --- Confirm & Execute ---
-  function requestConfirm(message, onConfirm) {
-    setConfirmAction({ message, onConfirm })
-  }
+  // --- Handlers ---
+  function requestConfirm(message, onConfirm) { setConfirmAction({ message, onConfirm }) }
+  function handleConfirm() { if (confirmAction) confirmAction.onConfirm(); setConfirmAction(null) }
 
-  function handleConfirm() {
-    if (confirmAction) confirmAction.onConfirm()
-    setConfirmAction(null)
-  }
-
-  // --- Open Student Profile ---
   function openStudentProfile(studentId) {
     const s = getStudentById(studentId)
     if (!s) return
@@ -73,17 +66,8 @@ function TeacherDashboard({ teacher, onLogout }) {
     setManualScoreEvent('')
   }
 
-  function handleSaveTokens() {
-    if (!editingStudent) return
-    updateStudent(editingStudent, { tokens: parseInt(editTokens, 10) || 0 })
-    forceRefresh()
-  }
-
-  function handleSaveCoins() {
-    if (!editingStudent) return
-    setCoinsBalance(editingStudent, parseInt(editCoins, 10) || 0)
-    forceRefresh()
-  }
+  function handleSaveTokens() { if (!editingStudent) return; updateStudent(editingStudent, { tokens: parseInt(editTokens, 10) || 0 }); forceRefresh() }
+  function handleSaveCoins() { if (!editingStudent) return; setCoinsBalance(editingStudent, parseInt(editCoins, 10) || 0); forceRefresh() }
 
   function handleManualScore() {
     if (!editingStudent || !activeClass) return
@@ -95,257 +79,135 @@ function TeacherDashboard({ teacher, onLogout }) {
     forceRefresh()
   }
 
-  function startEditScore(score) {
-    setEditingScoreId(score.id)
-    setEditScoreValue(String(score.value))
-  }
+  function startEditScore(score) { setEditingScoreId(score.id); setEditScoreValue(String(score.value)) }
+  function handleSaveScore() { if (!editingScoreId) return; updateScore(editingScoreId, { value: parseInt(editScoreValue, 10) || 0 }); setEditingScoreId(null); forceRefresh() }
 
-  function handleSaveScore() {
-    if (!editingScoreId) return
-    updateScore(editingScoreId, {
-      value: parseInt(editScoreValue, 10) || 0,
-    })
-    setEditingScoreId(null)
-    forceRefresh()
-  }
+  function handleCreateEvent(e) { e.preventDefault(); if (!newEventName.trim() || !activeClass) return; createTestEvent(activeClass, newEventName.trim()); setNewEventName(''); forceRefresh() }
+  function handleCreateOrg(e) { e.preventDefault(); if (!orgName.trim()) return; const newOrg = createOrganisation(orgName.trim(), teacher.id); teacher.orgId = newOrg.id; setOrgName(''); forceRefresh() }
+  function handleCreateClass(e) { e.preventDefault(); if (!className.trim() || !org) return; createClass(className.trim(), org.id, teacher.id); setClassName(''); forceRefresh() }
 
-  // --- Test Events ---
-  function handleCreateEvent(e) {
-    e.preventDefault()
-    if (!newEventName.trim() || !activeClass) return
-    createTestEvent(activeClass, newEventName.trim())
-    setNewEventName('')
-    forceRefresh()
-  }
-
-  // Get test events for active class
-  const testEvents = activeClass ? getTestEventsForClass(activeClass) : []
-
-  // --- Create Organisation ---
-  function handleCreateOrg(e) {
-    e.preventDefault()
-    if (!orgName.trim()) return
-    const newOrg = createOrganisation(orgName.trim(), teacher.id)
-    teacher.orgId = newOrg.id
-    setOrgName('')
-    forceRefresh()
-  }
-
-  // --- Create Class ---
-  function handleCreateClass(e) {
-    e.preventDefault()
-    if (!className.trim() || !org) return
-    createClass(className.trim(), org.id, teacher.id)
-    setClassName('')
-    forceRefresh()
-  }
-
-  // --- Create Student in Org ---
   function handleCreateStudent(e) {
     e.preventDefault()
     const name = newStudentName.trim()
     if (!name || !org) return
-
-    const duplicate = students.find(
-      (s) => s.name.toLowerCase() === name.toLowerCase()
-    )
-    if (duplicate) {
-      setCreateStudentError(`A student named "${duplicate.name}" already exists (ID: ${duplicate.id}). Add anyway?`)
-      return
-    }
-
+    const duplicate = students.find((s) => s.name.toLowerCase() === name.toLowerCase())
+    if (duplicate) { setCreateStudentError(`"${duplicate.name}" already exists (${duplicate.id}). Add anyway?`); return }
     createStudent(name, org.id)
     setNewStudentName('')
     setCreateStudentError('')
     forceRefresh()
   }
 
-  function handleForceCreateStudent() {
-    const name = newStudentName.trim()
-    if (!name || !org) return
-    createStudent(name, org.id)
-    setNewStudentName('')
-    setCreateStudentError('')
-    forceRefresh()
-  }
+  function handleForceCreateStudent() { const name = newStudentName.trim(); if (!name || !org) return; createStudent(name, org.id); setNewStudentName(''); setCreateStudentError(''); forceRefresh() }
 
-  // --- Add Student to Class by Nickname ---
   function handleAddStudent(e) {
     e.preventDefault()
     if (!studentName.trim() || !activeClass) return
     const student = findStudentInOrgByName(org.id, studentName.trim())
-    if (!student) {
-      setAddError('No student with that nickname found in your organisation.')
-      return
-    }
+    if (!student) { setAddError('Student not found in your org.'); return }
     assignStudentToClass(activeClass, student.id)
     setStudentName('')
     setAddError('')
     forceRefresh()
   }
 
-  // --- Remove Student from Class ---
-  function handleRemove(classId, studentId) {
-    removeStudentFromClass(classId, studentId)
-    forceRefresh()
-  }
+  function handleRemove(classId, studentId) { removeStudentFromClass(classId, studentId); forceRefresh() }
 
-  // Get active class data
+  // Computed
+  const testEvents = activeClass ? getTestEventsForClass(activeClass) : []
   const activeClassData = classes.find((c) => c.id === activeClass)
-  const activeClassStudents = activeClassData
-    ? activeClassData.studentIds.map((sid) => students.find((s) => s.id === sid)).filter(Boolean)
-    : []
-
-  // Students not in the active class (available to assign)
-  const unassignedToActiveClass = activeClassData
-    ? students.filter((s) => !activeClassData.studentIds.includes(s.id))
-    : []
-
-  // Students not in ANY class
+  const activeClassStudents = activeClassData ? activeClassData.studentIds.map((sid) => students.find((s) => s.id === sid)).filter(Boolean) : []
+  const unassignedToActiveClass = activeClassData ? students.filter((s) => !activeClassData.studentIds.includes(s.id)) : []
   const allAssignedIds = new Set(classes.flatMap((cls) => cls.studentIds))
   const unassignedStudents = students.filter((s) => !allAssignedIds.has(s.id))
 
+  // --- RENDER ---
   return (
-    <div style={styles.container}>
+    <div className="page">
       {/* Header */}
-      <header style={styles.header}>
-        <h1 style={styles.greeting}>Hey, {teacher.name}!</h1>
-        <button onClick={onLogout} style={styles.logoutBtn}>Logout</button>
-      </header>
+      <div className="header">
+        <h1 className="pixel-title">Hey, {teacher.name}!</h1>
+        <button className="btn btn-outline btn-small" onClick={onLogout}>Logout</button>
+      </div>
 
-      {/* Create Organisation - always visible */}
+      {/* Create Org */}
       {!org && (
-        <div style={styles.card}>
-          <h2 style={styles.cardTitle}>Create Your Organisation</h2>
-          <p style={styles.hint}>This gives you a code that students use to join.</p>
-          <form onSubmit={handleCreateOrg} style={styles.row}>
-            <input
-              type="text"
-              value={orgName}
-              onChange={(e) => setOrgName(e.target.value)}
-              placeholder="Organisation name"
-              style={styles.input}
-            />
-            <button type="submit" style={styles.primaryBtn}>Create</button>
+        <div className="card">
+          <p className="pixel-heading">Create Organisation</p>
+          <p className="text-dim mb-8">Get a code for students to join.</p>
+          <form onSubmit={handleCreateOrg} className="form-row">
+            <input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Organisation name" className="input flex-1" />
+            <button type="submit" className="btn btn-small">Create</button>
           </form>
         </div>
       )}
 
-      {/* Organisation Card */}
       {org && (
         <>
-          <div style={styles.orgCard}>
-            <div style={styles.orgHeader}>
-              <h2 style={styles.orgName}>{org.name}</h2>
-              <span style={styles.orgCode}>CODE: {org.id}</span>
+          {/* Org Card */}
+          <div className="org-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <span className="bold" style={{ fontSize: '1.1rem' }}>{org.name}</span>
+              <span className="org-code">CODE: {org.id}</span>
             </div>
-            <div style={styles.orgStats}>
-              <span style={styles.stat}>{classes.length} Classes</span>
-              <span style={styles.stat}>{students.length} Students</span>
-              <span style={styles.stat}>{unassignedStudents.length} Unassigned</span>
+            <div style={{ display: 'flex', gap: '16px' }} className="font-pixel-sm text-dim">
+              <span>{classes.length} Classes</span>
+              <span>{students.length} Students</span>
+              <span>{unassignedStudents.length} Unassigned</span>
             </div>
           </div>
 
-          {/* Create Student */}
-          <div style={styles.card}>
-            <h2 style={styles.cardTitle}>Add a Student</h2>
-            <form onSubmit={handleCreateStudent} style={styles.row}>
-              <input
-                type="text"
-                value={newStudentName}
-                onChange={(e) => { setNewStudentName(e.target.value); setCreateStudentError('') }}
-                placeholder="Student nickname"
-                style={styles.input}
-              />
-              <button type="submit" style={styles.primaryBtn}>Create</button>
+          {/* Add Student */}
+          <div className="card">
+            <p className="pixel-heading">Add a Student</p>
+            <form onSubmit={handleCreateStudent} className="form-row">
+              <input value={newStudentName} onChange={(e) => { setNewStudentName(e.target.value); setCreateStudentError('') }} placeholder="Student nickname" className="input flex-1" />
+              <button type="submit" className="btn btn-small">Create</button>
             </form>
             {createStudentError && (
-              <div style={styles.warningRow}>
-                <p style={styles.warning}>{createStudentError}</p>
-                <button onClick={handleForceCreateStudent} style={styles.warningBtn}>Yes, Add Anyway</button>
+              <div className="warning-box">
+                <span className="warning-text">{createStudentError}</span>
+                <button className="btn btn-small" style={{ background: 'var(--warning)', borderColor: 'var(--warning)', color: '#1a1a2e' }} onClick={handleForceCreateStudent}>Add Anyway</button>
               </div>
             )}
           </div>
 
-          {/* Unassigned Students */}
+          {/* Unassigned */}
           {unassignedStudents.length > 0 && (
-            <div style={styles.card}>
-              <h2 style={styles.cardTitle}>Unassigned Students</h2>
-              <p style={styles.hint}>These students joined your org but aren't in any class yet.</p>
-              <div style={styles.unassignedList}>
-                {unassignedStudents.map((s) => (
-                  <div key={s.id} style={styles.unassignedItem}>
-                    <span style={styles.unassignedName}>{s.name}</span>
-                    <span style={styles.unassignedId}>{s.id}</span>
-                    <button
-                      onClick={() => requestConfirm(
-                        `Delete student "${s.name}" (${s.id})? This cannot be undone.`,
-                        () => { deleteStudent(s.id); forceRefresh() }
-                      )}
-                      style={styles.deleteBtn}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                ))}
-              </div>
+            <div className="card">
+              <p className="pixel-heading">Unassigned Students</p>
+              {unassignedStudents.map((s) => (
+                <div key={s.id} className="unassigned-item">
+                  <span className="bold flex-1">{s.name}</span>
+                  <span className="text-dim" style={{ fontSize: '0.8rem' }}>{s.id}</span>
+                  <button className="btn btn-danger btn-small" onClick={() => requestConfirm(`Delete "${s.name}" (${s.id})? Cannot be undone.`, () => { deleteStudent(s.id); forceRefresh() })}>Del</button>
+                </div>
+              ))}
             </div>
           )}
 
-          {/* Class List */}
-          <div style={styles.card}>
-            <h2 style={styles.cardTitle}>Classes</h2>
-
-            {/* Create class form */}
-            <form onSubmit={handleCreateClass} style={styles.row}>
-              <input
-                type="text"
-                value={className}
-                onChange={(e) => setClassName(e.target.value)}
-                placeholder="New class name (e.g. Maths)"
-                style={styles.input}
-              />
-              <button type="submit" style={styles.primaryBtn}>Add</button>
+          {/* Classes */}
+          <div className="card">
+            <p className="pixel-heading">Classes</p>
+            <form onSubmit={handleCreateClass} className="form-row">
+              <input value={className} onChange={(e) => setClassName(e.target.value)} placeholder="New class name" className="input flex-1" />
+              <button type="submit" className="btn btn-small">Add</button>
             </form>
-
-            {/* Class tabs */}
             {classes.length > 0 && (
-              <div style={styles.classGrid}>
+              <div className="class-grid">
                 {classes.map((cls) => (
                   <div
                     key={cls.id}
-                    style={{
-                      ...styles.classTab,
-                      background: activeClass === cls.id ? '#6c5ce7' : '#fff',
-                      color: activeClass === cls.id ? '#fff' : '#2d3436',
-                      borderColor: activeClass === cls.id ? '#6c5ce7' : '#dfe6e9',
-                    }}
+                    className={`class-card ${activeClass === cls.id ? 'class-card-active' : ''}`}
+                    onClick={() => setActiveClass(activeClass === cls.id ? null : cls.id)}
                   >
-                    <div
-                      onClick={() => setActiveClass(activeClass === cls.id ? null : cls.id)}
-                      style={styles.classTabClickArea}
-                    >
-                      <strong>{cls.name}</strong>
-                      <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>
-                        {cls.studentIds.length} students
-                      </span>
-                    </div>
+                    <span className="font-pixel-sm">{cls.name}</span>
+                    <span className="text-dim" style={{ fontSize: '0.75rem' }}>{cls.studentIds.length} students</span>
                     <button
-                      onClick={() => requestConfirm(
-                        `Delete class "${cls.name}" and remove all student assignments? This cannot be undone.`,
-                        () => {
-                          if (activeClass === cls.id) setActiveClass(null)
-                          deleteClass(cls.id)
-                          forceRefresh()
-                        }
-                      )}
-                      style={{
-                        ...styles.classDeleteBtn,
-                        color: activeClass === cls.id ? 'rgba(255,255,255,0.7)' : '#d63031',
-                      }}
-                    >
-                      x
-                    </button>
+                      className="btn btn-danger btn-small"
+                      style={{ position: 'absolute', top: '4px', right: '4px', padding: '2px 6px', fontSize: '0.6rem' }}
+                      onClick={(e) => { e.stopPropagation(); requestConfirm(`Delete class "${cls.name}"?`, () => { if (activeClass === cls.id) setActiveClass(null); deleteClass(cls.id); forceRefresh() }) }}
+                    >x</button>
                   </div>
                 ))}
               </div>
@@ -354,41 +216,25 @@ function TeacherDashboard({ teacher, onLogout }) {
 
           {/* Test Events */}
           {activeClassData && (
-            <div style={styles.card}>
-              <h2 style={styles.cardTitle}>Test Events — {activeClassData.name}</h2>
-              <form onSubmit={handleCreateEvent} style={styles.row}>
-                <input
-                  type="text"
-                  value={newEventName}
-                  onChange={(e) => setNewEventName(e.target.value)}
-                  placeholder="New test event name (e.g. Week 3 Quiz)"
-                  style={styles.input}
-                />
-                <button type="submit" style={styles.primaryBtn}>Create</button>
+            <div className="card">
+              <p className="pixel-heading">Test Events — {activeClassData.name}</p>
+              <form onSubmit={handleCreateEvent} className="form-row">
+                <input value={newEventName} onChange={(e) => setNewEventName(e.target.value)} placeholder="Event name (e.g. Week 3 Quiz)" className="input flex-1" />
+                <button type="submit" className="btn btn-small">Create</button>
               </form>
               {testEvents.length > 0 && (
-                <div style={styles.eventList}>
+                <div className="mt-8">
                   {testEvents.map((ev) => (
-                    <div key={ev.id} style={styles.eventItem}>
-                      <span style={styles.eventName}>{ev.name}</span>
+                    <div key={ev.id} className="list-item">
+                      <span className="flex-1 bold">{ev.name}</span>
                       <input
                         type="date"
                         value={ev.date.slice(0, 10)}
-                        onChange={(e) => {
-                          updateTestEvent(ev.id, { date: new Date(e.target.value).toISOString() })
-                          forceRefresh()
-                        }}
-                        style={styles.eventDateInput}
+                        onChange={(e) => { updateTestEvent(ev.id, { date: new Date(e.target.value).toISOString() }); forceRefresh() }}
+                        className="select"
+                        style={{ fontSize: '0.8rem' }}
                       />
-                      <button
-                        onClick={() => requestConfirm(
-                          `Delete test event "${ev.name}" and all scores linked to it?`,
-                          () => { deleteTestEvent(ev.id); forceRefresh() }
-                        )}
-                        style={styles.scoreDeleteBtn}
-                      >
-                        x
-                      </button>
+                      <button className="btn btn-danger btn-small" onClick={() => requestConfirm(`Delete "${ev.name}" and all linked scores?`, () => { deleteTestEvent(ev.id); forceRefresh() })}>x</button>
                     </div>
                   ))}
                 </div>
@@ -398,49 +244,24 @@ function TeacherDashboard({ teacher, onLogout }) {
 
           {/* Student Roll */}
           {activeClassData && (
-            <div style={styles.card}>
-              <h2 style={styles.cardTitle}>{activeClassData.name} — Roll</h2>
-
-              {/* Add student form */}
-              <form onSubmit={handleAddStudent} style={styles.row}>
-                <input
-                  type="text"
-                  value={studentName}
-                  onChange={(e) => { setStudentName(e.target.value); setAddError('') }}
-                  placeholder="Student nickname"
-                  style={styles.input}
-                />
-                <button type="submit" style={styles.primaryBtn}>Add</button>
+            <div className="card">
+              <p className="pixel-heading">{activeClassData.name} — Roll</p>
+              <form onSubmit={handleAddStudent} className="form-row mb-8">
+                <input value={studentName} onChange={(e) => { setStudentName(e.target.value); setAddError('') }} placeholder="Student nickname" className="input flex-1" />
+                <button type="submit" className="btn btn-small">Add</button>
               </form>
-              {addError && <p style={styles.error}>{addError}</p>}
+              {addError && <p className="error-text">{addError}</p>}
 
-              {/* Student roll */}
               {activeClassStudents.length === 0 ? (
-                <p style={styles.hint}>No students in this class yet.</p>
+                <p className="text-dim">No students in this class yet.</p>
               ) : (
-                <div style={styles.rollList}>
+                <div>
                   {activeClassStudents.map((s, i) => (
-                    <div key={s.id} style={{
-                      ...styles.rollItem,
-                      background: editingStudent === s.id ? '#f0efff' : 'transparent',
-                    }}>
-                      <span style={styles.rollNumber}>{i + 1}.</span>
-                      <span
-                        style={styles.rollNameClickable}
-                        onClick={() => openStudentProfile(s.id)}
-                      >
-                        {s.name}
-                      </span>
-                      <span style={styles.rollMeta}>{s.coins} coins | {s.tokens} tokens</span>
-                      <button
-                        onClick={() => requestConfirm(
-                          `Remove "${s.name}" from this class?`,
-                          () => handleRemove(activeClass, s.id)
-                        )}
-                        style={styles.removeBtn}
-                      >
-                        Remove
-                      </button>
+                    <div key={s.id} className="list-item" style={{ background: editingStudent === s.id ? 'rgba(233,69,96,0.1)' : 'transparent' }}>
+                      <span className="text-dim" style={{ width: '20px' }}>{i + 1}.</span>
+                      <span className="text-accent bold flex-1" style={{ cursor: 'pointer' }} onClick={() => openStudentProfile(s.id)}>{s.name}</span>
+                      <span className="text-dim" style={{ fontSize: '0.75rem' }}>{s.coins}c | {s.tokens}t</span>
+                      <button className="btn btn-outline btn-small" onClick={() => requestConfirm(`Remove "${s.name}" from class?`, () => handleRemove(activeClass, s.id))}>x</button>
                     </div>
                   ))}
                 </div>
@@ -451,121 +272,68 @@ function TeacherDashboard({ teacher, onLogout }) {
                 const s = getStudentById(editingStudent)
                 if (!s) return null
                 const classScores = getScoresForStudentInClass(editingStudent, activeClass)
-                const getEventName = (eventId) => {
-                  if (!eventId) return '—'
-                  const ev = testEvents.find((e) => e.id === eventId)
-                  return ev ? ev.name : '—'
-                }
+                const getEventName = (eventId) => { if (!eventId) return '—'; const ev = testEvents.find((e) => e.id === eventId); return ev ? ev.name : '—' }
                 return (
-                  <div style={styles.editPanel}>
-                    <div style={styles.editHeader}>
-                      <h3 style={styles.editTitle}>{s.name}</h3>
-                      <button onClick={() => setEditingStudent(null)} style={styles.closeBtn}>Close</button>
+                  <div className="edit-panel">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <span className="pixel-heading" style={{ margin: 0 }}>{s.name}</span>
+                      <button className="btn btn-outline btn-small" onClick={() => setEditingStudent(null)}>Close</button>
                     </div>
 
-                    {/* Summary */}
-                    <div style={styles.profileStats}>
-                      <span>Total earned: <strong>{s.totalEarned}</strong></span>
+                    <p className="text-dim mb-8" style={{ fontSize: '0.8rem' }}>Total earned: {s.totalEarned}</p>
+
+                    {/* Coins */}
+                    <div className="form-row mb-8">
+                      <span className="font-pixel-sm" style={{ width: '70px' }}>Coins</span>
+                      <input type="number" value={editCoins} onChange={(e) => setEditCoins(e.target.value)} className="input flex-1" />
+                      <button className="btn btn-success btn-small" onClick={handleSaveCoins}>Save</button>
                     </div>
 
-                    {/* Coins edit */}
-                    <div style={styles.editRow}>
-                      <label style={styles.editLabel}>Coins</label>
-                      <input
-                        type="number"
-                        value={editCoins}
-                        onChange={(e) => setEditCoins(e.target.value)}
-                        style={styles.editInput}
-                      />
-                      <button onClick={handleSaveCoins} style={styles.smallSaveBtn}>Save</button>
+                    {/* Tokens */}
+                    <div className="form-row mb-8">
+                      <span className="font-pixel-sm" style={{ width: '70px' }}>Tokens</span>
+                      <input type="number" value={editTokens} onChange={(e) => setEditTokens(e.target.value)} className="input flex-1" />
+                      <button className="btn btn-success btn-small" onClick={handleSaveTokens}>Save</button>
                     </div>
 
-                    {/* Tokens edit */}
-                    <div style={styles.editRow}>
-                      <label style={styles.editLabel}>Tokens</label>
-                      <input
-                        type="number"
-                        value={editTokens}
-                        onChange={(e) => setEditTokens(e.target.value)}
-                        style={styles.editInput}
-                      />
-                      <button onClick={handleSaveTokens} style={styles.smallSaveBtn}>Save</button>
-                    </div>
-
-                    {/* Manual score input */}
-                    <h4 style={styles.scoreHistoryTitle}>Add Score Manually</h4>
-                    <div style={styles.manualScoreRow}>
-                      <input
-                        type="number"
-                        value={manualScoreValue}
-                        onChange={(e) => setManualScoreValue(e.target.value)}
-                        placeholder="Score"
-                        style={styles.scoreEditInput}
-                        min="1"
-                      />
-                      <select
-                        value={manualScoreEvent}
-                        onChange={(e) => setManualScoreEvent(e.target.value)}
-                        style={styles.eventSelect}
-                      >
-                        <option value="">No test event</option>
-                        {testEvents.map((ev) => (
-                          <option key={ev.id} value={ev.id}>{ev.name}</option>
-                        ))}
+                    {/* Manual Score */}
+                    <p className="pixel-heading mt-16">Add Score Manually</p>
+                    <div className="form-row mb-16">
+                      <input type="number" value={manualScoreValue} onChange={(e) => setManualScoreValue(e.target.value)} placeholder="Score" className="input" style={{ width: '70px', flex: 'none' }} min="1" />
+                      <select value={manualScoreEvent} onChange={(e) => setManualScoreEvent(e.target.value)} className="select flex-1">
+                        <option value="">No event</option>
+                        {testEvents.map((ev) => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
                       </select>
-                      <button onClick={handleManualScore} style={styles.smallSaveBtn}>Add</button>
+                      <button className="btn btn-small" onClick={handleManualScore}>Add</button>
                     </div>
 
-                    {/* Progression Graph */}
-                    <h4 style={styles.scoreHistoryTitle}>Progress — {activeClassData.name}</h4>
+                    {/* Progress Graph */}
+                    <p className="pixel-heading">Progress</p>
                     <ProgressGraph
-                      dataPoints={classScores
-                        .slice()
-                        .sort((a, b) => new Date(a.date) - new Date(b.date))
-                        .map((sc) => ({
-                          date: sc.date,
-                          value: sc.value,
-                          label: getEventName(sc.testEventId),
-                        }))
-                      }
+                      dataPoints={classScores.slice().sort((a, b) => new Date(a.date) - new Date(b.date)).map((sc) => ({ date: sc.date, value: sc.value, label: getEventName(sc.testEventId) }))}
                     />
 
                     {/* Score History */}
-                    <h4 style={styles.scoreHistoryTitle}>Score History — {activeClassData.name}</h4>
+                    <p className="pixel-heading mt-16">Score History</p>
                     {classScores.length === 0 ? (
-                      <p style={styles.hint}>No scores submitted yet.</p>
+                      <p className="text-dim">No scores yet.</p>
                     ) : (
-                      <div style={styles.scoreHistory}>
+                      <div>
                         {classScores.map((sc) => (
-                          <div key={sc.id} style={styles.scoreRow}>
+                          <div key={sc.id} className="score-row">
                             {editingScoreId === sc.id ? (
                               <>
-                                <input
-                                  type="number"
-                                  value={editScoreValue}
-                                  onChange={(e) => setEditScoreValue(e.target.value)}
-                                  style={styles.scoreEditInput}
-                                />
-                                <button onClick={handleSaveScore} style={styles.smallSaveBtn}>Save</button>
-                                <button onClick={() => setEditingScoreId(null)} style={styles.smallCancelBtn}>x</button>
+                                <input type="number" value={editScoreValue} onChange={(e) => setEditScoreValue(e.target.value)} className="input" style={{ width: '70px', flex: 'none' }} />
+                                <button className="btn btn-success btn-small" onClick={handleSaveScore}>Save</button>
+                                <button className="btn btn-outline btn-small" onClick={() => setEditingScoreId(null)}>x</button>
                               </>
                             ) : (
                               <>
-                                <span style={styles.scoreValue}>{sc.value} pts</span>
-                                <span style={styles.scoreLabel}>{getEventName(sc.testEventId)}</span>
-                                <span style={styles.scoreDate}>
-                                  {new Date(sc.date).toLocaleDateString()}
-                                </span>
-                                <button onClick={() => startEditScore(sc)} style={styles.scoreEditBtn}>Edit</button>
-                                <button
-                                  onClick={() => requestConfirm(
-                                    `Delete this score entry (${sc.value} pts)?`,
-                                    () => { deleteScore(sc.id); forceRefresh() }
-                                  )}
-                                  style={styles.scoreDeleteBtn}
-                                >
-                                  x
-                                </button>
+                                <span className="text-coin bold" style={{ minWidth: '50px' }}>{sc.value} pts</span>
+                                <span className="text-dim flex-1">{getEventName(sc.testEventId)}</span>
+                                <span className="text-dim" style={{ fontSize: '0.75rem' }}>{new Date(sc.date).toLocaleDateString()}</span>
+                                <button className="btn btn-outline btn-small" onClick={() => startEditScore(sc)}>Edit</button>
+                                <button className="btn btn-danger btn-small" onClick={() => requestConfirm(`Delete score (${sc.value} pts)?`, () => { deleteScore(sc.id); forceRefresh() })}>x</button>
                               </>
                             )}
                           </div>
@@ -576,17 +344,13 @@ function TeacherDashboard({ teacher, onLogout }) {
                 )
               })()}
 
-              {/* Available students - quick assign */}
+              {/* Available to add */}
               {unassignedToActiveClass.length > 0 && (
-                <div style={styles.availableSection}>
-                  <h3 style={styles.availableTitle}>Available to add:</h3>
-                  <div style={styles.availableGrid}>
+                <div className="mt-16">
+                  <p className="pixel-heading">Available to add</p>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     {unassignedToActiveClass.map((s) => (
-                      <button
-                        key={s.id}
-                        onClick={() => { assignStudentToClass(activeClass, s.id); forceRefresh() }}
-                        style={styles.availableBtn}
-                      >
+                      <button key={s.id} className="chip chip-add" onClick={() => { assignStudentToClass(activeClass, s.id); forceRefresh() }}>
                         + {s.name}
                       </button>
                     ))}
@@ -600,524 +364,18 @@ function TeacherDashboard({ teacher, onLogout }) {
 
       {/* Confirmation Modal */}
       {confirmAction && (
-        <div style={styles.overlay}>
-          <div style={styles.modal}>
-            <p style={styles.modalText}>{confirmAction.message}</p>
-            <div style={styles.modalActions}>
-              <button onClick={handleConfirm} style={styles.modalConfirmBtn}>Yes, Delete</button>
-              <button onClick={() => setConfirmAction(null)} style={styles.modalCancelBtn}>Cancel</button>
+        <div className="modal-overlay">
+          <div className="modal">
+            <p className="modal-text">{confirmAction.message}</p>
+            <div className="modal-actions">
+              <button className="btn btn-danger" onClick={handleConfirm}>Yes, Delete</button>
+              <button className="btn btn-outline" onClick={() => setConfirmAction(null)}>Cancel</button>
             </div>
           </div>
         </div>
       )}
     </div>
   )
-}
-
-const styles = {
-  container: {
-    minHeight: '100vh',
-    background: '#f8f9fa',
-    padding: '24px',
-    maxWidth: '700px',
-    margin: '0 auto',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '24px',
-  },
-  greeting: {
-    fontSize: '1.8rem',
-    color: '#2d3436',
-  },
-  logoutBtn: {
-    padding: '10px 16px',
-    fontSize: '0.9rem',
-    borderRadius: '8px',
-    border: '2px solid #636e72',
-    background: 'transparent',
-    cursor: 'pointer',
-    color: '#636e72',
-  },
-  card: {
-    background: '#fff',
-    borderRadius: '14px',
-    padding: '20px',
-    marginBottom: '16px',
-    border: '1px solid #dfe6e9',
-  },
-  cardTitle: {
-    fontSize: '1.2rem',
-    marginBottom: '12px',
-    color: '#2d3436',
-  },
-  hint: {
-    color: '#636e72',
-    fontSize: '0.95rem',
-    marginTop: '12px',
-  },
-  row: {
-    display: 'flex',
-    gap: '10px',
-  },
-  input: {
-    flex: 1,
-    padding: '12px 16px',
-    fontSize: '1rem',
-    borderRadius: '10px',
-    border: '2px solid #dfe6e9',
-    outline: 'none',
-  },
-  primaryBtn: {
-    padding: '12px 20px',
-    fontSize: '1rem',
-    fontWeight: 'bold',
-    borderRadius: '10px',
-    border: 'none',
-    background: '#6c5ce7',
-    color: '#fff',
-    cursor: 'pointer',
-  },
-  error: {
-    color: '#d63031',
-    fontSize: '0.9rem',
-    marginTop: '8px',
-  },
-
-  // Org card
-  orgCard: {
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    borderRadius: '14px',
-    padding: '24px',
-    marginBottom: '16px',
-    color: '#fff',
-  },
-  orgHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '12px',
-  },
-  orgName: {
-    fontSize: '1.4rem',
-    fontWeight: 'bold',
-  },
-  orgCode: {
-    background: 'rgba(255,255,255,0.2)',
-    padding: '6px 12px',
-    borderRadius: '8px',
-    fontSize: '0.9rem',
-    fontWeight: 'bold',
-    letterSpacing: '1px',
-  },
-  orgStats: {
-    display: 'flex',
-    gap: '20px',
-  },
-  stat: {
-    fontSize: '1rem',
-    opacity: 0.9,
-  },
-
-  // Class grid
-  classGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-    gap: '10px',
-    marginTop: '16px',
-  },
-  classTab: {
-    padding: '12px',
-    borderRadius: '10px',
-    border: '2px solid',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '4px',
-    fontSize: '1rem',
-    position: 'relative',
-  },
-  classTabClickArea: {
-    cursor: 'pointer',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '4px',
-    padding: '4px',
-    width: '100%',
-  },
-  classDeleteBtn: {
-    position: 'absolute',
-    top: '4px',
-    right: '6px',
-    background: 'none',
-    border: 'none',
-    fontSize: '0.9rem',
-    cursor: 'pointer',
-    fontWeight: 'bold',
-    lineHeight: 1,
-  },
-
-  // Roll list
-  rollList: {
-    marginTop: '16px',
-  },
-  rollItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '12px 0',
-    borderBottom: '1px solid #f0f0f0',
-  },
-  rollNumber: {
-    color: '#636e72',
-    fontWeight: 'bold',
-    width: '24px',
-  },
-  rollNameClickable: {
-    flex: 1,
-    fontWeight: '600',
-    fontSize: '1rem',
-    color: '#6c5ce7',
-    cursor: 'pointer',
-    textDecoration: 'underline',
-  },
-  rollMeta: {
-    color: '#636e72',
-    fontSize: '0.8rem',
-  },
-  removeBtn: {
-    padding: '6px 12px',
-    background: '#fff',
-    color: '#d63031',
-    border: '1px solid #d63031',
-    borderRadius: '6px',
-    fontSize: '0.8rem',
-    cursor: 'pointer',
-  },
-
-  // Unassigned students
-  unassignedList: {
-    marginTop: '12px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-  },
-  unassignedItem: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '10px 14px',
-    background: '#fff3cd',
-    borderRadius: '8px',
-    border: '1px solid #ffc107',
-  },
-  unassignedName: {
-    fontWeight: '600',
-    fontSize: '1rem',
-  },
-  unassignedId: {
-    color: '#636e72',
-    fontSize: '0.85rem',
-    flex: 1,
-  },
-  warningRow: {
-    marginTop: '10px',
-    padding: '12px',
-    background: '#fff3cd',
-    borderRadius: '8px',
-    border: '1px solid #ffc107',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    flexWrap: 'wrap',
-  },
-  warning: {
-    flex: 1,
-    color: '#856404',
-    fontSize: '0.9rem',
-  },
-  warningBtn: {
-    padding: '8px 16px',
-    fontSize: '0.9rem',
-    fontWeight: 'bold',
-    borderRadius: '6px',
-    border: 'none',
-    background: '#ffc107',
-    color: '#333',
-    cursor: 'pointer',
-  },
-  deleteBtn: {
-    padding: '6px 12px',
-    background: '#d63031',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '6px',
-    fontSize: '0.8rem',
-    cursor: 'pointer',
-  },
-
-  // Available to add (in class detail)
-  availableSection: {
-    marginTop: '20px',
-    paddingTop: '16px',
-    borderTop: '1px solid #dfe6e9',
-  },
-  availableTitle: {
-    fontSize: '0.95rem',
-    color: '#636e72',
-    marginBottom: '10px',
-  },
-  availableGrid: {
-    display: 'flex',
-    gap: '8px',
-    flexWrap: 'wrap',
-  },
-  availableBtn: {
-    padding: '8px 14px',
-    fontSize: '0.9rem',
-    borderRadius: '20px',
-    border: '2px dashed #00b894',
-    background: '#fff',
-    color: '#00b894',
-    fontWeight: '600',
-    cursor: 'pointer',
-  },
-
-  // Test events
-  eventList: {
-    marginTop: '12px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
-  },
-  eventItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    padding: '10px 14px',
-    background: '#f8f9fa',
-    borderRadius: '8px',
-  },
-  eventName: {
-    flex: 1,
-    fontWeight: '600',
-    fontSize: '0.95rem',
-  },
-  eventDateInput: {
-    padding: '6px 10px',
-    fontSize: '0.85rem',
-    borderRadius: '6px',
-    border: '1px solid #dfe6e9',
-    outline: 'none',
-    color: '#636e72',
-  },
-
-  // Manual score input
-  manualScoreRow: {
-    display: 'flex',
-    gap: '8px',
-    alignItems: 'center',
-    marginBottom: '16px',
-  },
-  eventSelect: {
-    flex: 2,
-    padding: '8px 12px',
-    fontSize: '0.9rem',
-    borderRadius: '6px',
-    border: '1px solid #dfe6e9',
-    outline: 'none',
-  },
-
-  // Student profile panel
-  editPanel: {
-    marginTop: '16px',
-    padding: '20px',
-    background: '#f0efff',
-    borderRadius: '12px',
-    border: '2px solid #6c5ce7',
-  },
-  editHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '12px',
-  },
-  editTitle: {
-    fontSize: '1.2rem',
-    fontWeight: 'bold',
-    color: '#6c5ce7',
-  },
-  closeBtn: {
-    padding: '6px 14px',
-    fontSize: '0.85rem',
-    borderRadius: '6px',
-    border: '1px solid #636e72',
-    background: 'transparent',
-    color: '#636e72',
-    cursor: 'pointer',
-  },
-  profileStats: {
-    display: 'flex',
-    gap: '20px',
-    marginBottom: '16px',
-    fontSize: '0.95rem',
-    color: '#2d3436',
-  },
-  editRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    marginBottom: '16px',
-  },
-  editLabel: {
-    width: '80px',
-    fontWeight: '600',
-    fontSize: '0.95rem',
-    color: '#2d3436',
-  },
-  editInput: {
-    flex: 1,
-    padding: '10px 14px',
-    fontSize: '1rem',
-    borderRadius: '8px',
-    border: '2px solid #dfe6e9',
-    outline: 'none',
-  },
-  smallSaveBtn: {
-    padding: '8px 16px',
-    fontSize: '0.9rem',
-    fontWeight: 'bold',
-    borderRadius: '6px',
-    border: 'none',
-    background: '#00b894',
-    color: '#fff',
-    cursor: 'pointer',
-  },
-  smallCancelBtn: {
-    padding: '6px 10px',
-    fontSize: '0.85rem',
-    borderRadius: '6px',
-    border: '1px solid #636e72',
-    background: 'transparent',
-    color: '#636e72',
-    cursor: 'pointer',
-  },
-  scoreHistoryTitle: {
-    fontSize: '1rem',
-    color: '#2d3436',
-    marginBottom: '10px',
-    paddingTop: '12px',
-    borderTop: '1px solid #dfe6e9',
-  },
-  scoreHistory: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
-  },
-  scoreRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    padding: '8px 12px',
-    background: '#fff',
-    borderRadius: '8px',
-    fontSize: '0.9rem',
-  },
-  scoreValue: {
-    fontWeight: 'bold',
-    minWidth: '60px',
-    color: '#6c5ce7',
-  },
-  scoreLabel: {
-    flex: 1,
-    color: '#636e72',
-  },
-  scoreDate: {
-    color: '#b2bec3',
-    fontSize: '0.8rem',
-  },
-  scoreEditInput: {
-    flex: 1,
-    padding: '6px 10px',
-    fontSize: '0.9rem',
-    borderRadius: '6px',
-    border: '1px solid #dfe6e9',
-    outline: 'none',
-  },
-  scoreEditBtn: {
-    padding: '4px 10px',
-    fontSize: '0.8rem',
-    borderRadius: '4px',
-    border: '1px solid #6c5ce7',
-    background: 'transparent',
-    color: '#6c5ce7',
-    cursor: 'pointer',
-  },
-  scoreDeleteBtn: {
-    padding: '4px 8px',
-    fontSize: '0.8rem',
-    borderRadius: '4px',
-    border: 'none',
-    background: '#d63031',
-    color: '#fff',
-    cursor: 'pointer',
-  },
-
-  // Confirmation modal
-  overlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: 'rgba(0,0,0,0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-    padding: '20px',
-  },
-  modal: {
-    background: '#fff',
-    borderRadius: '16px',
-    padding: '32px',
-    maxWidth: '400px',
-    width: '100%',
-    textAlign: 'center',
-  },
-  modalText: {
-    fontSize: '1.1rem',
-    color: '#2d3436',
-    marginBottom: '24px',
-    lineHeight: 1.5,
-  },
-  modalActions: {
-    display: 'flex',
-    gap: '12px',
-    justifyContent: 'center',
-  },
-  modalConfirmBtn: {
-    padding: '12px 24px',
-    fontSize: '1rem',
-    fontWeight: 'bold',
-    borderRadius: '8px',
-    border: 'none',
-    background: '#d63031',
-    color: '#fff',
-    cursor: 'pointer',
-  },
-  modalCancelBtn: {
-    padding: '12px 24px',
-    fontSize: '1rem',
-    borderRadius: '8px',
-    border: '2px solid #636e72',
-    background: 'transparent',
-    color: '#636e72',
-    cursor: 'pointer',
-  },
 }
 
 export default TeacherDashboard

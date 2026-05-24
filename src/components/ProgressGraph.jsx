@@ -1,9 +1,6 @@
 import { useRef, useEffect } from 'react'
 
-// Draws a line graph of scores over time on a canvas
-// dataPoints: [{ date: string (ISO), value: number, label: string }] sorted by date
-
-function ProgressGraph({ dataPoints, width = 500, height = 250, color = '#6c5ce7' }) {
+function ProgressGraph({ dataPoints, width = 500, height = 220, color = '#e94560' }) {
   const canvasRef = useRef(null)
 
   useEffect(() => {
@@ -20,22 +17,17 @@ function ProgressGraph({ dataPoints, width = 500, height = 250, color = '#6c5ce7
     const graphW = width - pad.left - pad.right
     const graphH = height - pad.top - pad.bottom
 
-    // Data bounds
     const values = dataPoints.map((d) => d.value)
     const maxVal = Math.max(...values, 1)
-    const minVal = 0
 
-    // Clear
-    ctx.clearRect(0, 0, width, height)
-
-    // Background
-    ctx.fillStyle = '#f8f9fa'
+    // Clear — dark background
+    ctx.fillStyle = '#0f3460'
     ctx.fillRect(0, 0, width, height)
 
     // Grid lines
-    ctx.strokeStyle = '#e0e0e0'
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)'
     ctx.lineWidth = 1
-    const gridLines = 5
+    const gridLines = 4
     for (let i = 0; i <= gridLines; i++) {
       const y = pad.top + (graphH / gridLines) * i
       ctx.beginPath()
@@ -45,8 +37,8 @@ function ProgressGraph({ dataPoints, width = 500, height = 250, color = '#6c5ce7
 
       // Y-axis labels
       const val = Math.round(maxVal - (maxVal / gridLines) * i)
-      ctx.fillStyle = '#636e72'
-      ctx.font = '11px sans-serif'
+      ctx.fillStyle = '#a0a0b0'
+      ctx.font = '10px "Press Start 2P", monospace'
       ctx.textAlign = 'right'
       ctx.fillText(val, pad.left - 8, y + 4)
     }
@@ -54,9 +46,13 @@ function ProgressGraph({ dataPoints, width = 500, height = 250, color = '#6c5ce7
     // Plot points
     const points = dataPoints.map((d, i) => {
       const x = pad.left + (dataPoints.length === 1 ? graphW / 2 : (i / (dataPoints.length - 1)) * graphW)
-      const y = pad.top + graphH - ((d.value - minVal) / (maxVal - minVal)) * graphH
+      const y = pad.top + graphH - (d.value / maxVal) * graphH
       return { x, y, ...d }
     })
+
+    // Glow effect
+    ctx.shadowColor = color
+    ctx.shadowBlur = 8
 
     // Line
     ctx.strokeStyle = color
@@ -69,47 +65,45 @@ function ProgressGraph({ dataPoints, width = 500, height = 250, color = '#6c5ce7
     })
     ctx.stroke()
 
-    // Dots
+    // Reset shadow for dots
+    ctx.shadowBlur = 0
+
+    // Dots (pixel squares)
     points.forEach((p) => {
-      ctx.beginPath()
-      ctx.arc(p.x, p.y, 5, 0, Math.PI * 2)
       ctx.fillStyle = color
-      ctx.fill()
+      ctx.fillRect(p.x - 4, p.y - 4, 8, 8)
       ctx.strokeStyle = '#fff'
-      ctx.lineWidth = 2
-      ctx.stroke()
+      ctx.lineWidth = 1.5
+      ctx.strokeRect(p.x - 4, p.y - 4, 8, 8)
     })
 
     // X-axis labels
-    ctx.fillStyle = '#636e72'
-    ctx.font = '10px sans-serif'
+    ctx.fillStyle = '#a0a0b0'
+    ctx.font = '8px "Press Start 2P", monospace'
     ctx.textAlign = 'center'
     points.forEach((p) => {
       const dateStr = new Date(p.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
       ctx.fillText(dateStr, p.x, height - pad.bottom + 16)
-      if (p.label) {
-        ctx.fillText(p.label, p.x, height - pad.bottom + 30)
-      }
     })
 
-    // Value labels on dots
-    ctx.fillStyle = '#2d3436'
-    ctx.font = 'bold 11px sans-serif'
+    // Value labels above dots
+    ctx.fillStyle = '#ffd700'
+    ctx.font = '9px "Press Start 2P", monospace'
     ctx.textAlign = 'center'
     points.forEach((p) => {
-      ctx.fillText(p.value, p.x, p.y - 12)
+      ctx.fillText(p.value, p.x, p.y - 14)
     })
 
   }, [dataPoints, width, height, color])
 
   if (dataPoints.length === 0) {
-    return <p style={{ color: '#636e72', fontSize: '0.9rem' }}>No scores to graph yet.</p>
+    return <p className="text-dim" style={{ fontSize: '0.85rem' }}>No scores to graph yet.</p>
   }
 
   return (
     <canvas
       ref={canvasRef}
-      style={{ width: '100%', maxWidth: width, height, borderRadius: '10px' }}
+      style={{ width: '100%', maxWidth: width, height, borderRadius: '4px', border: '2px solid rgba(233,69,96,0.3)' }}
     />
   )
 }
