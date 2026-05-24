@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import ProgressGraph from '../components/ProgressGraph.jsx'
 import {
   createOrganisation,
   getOrganisation,
@@ -20,6 +21,7 @@ import {
   deleteScore,
   createTestEvent,
   getTestEventsForClass,
+  updateTestEvent,
   deleteTestEvent,
 } from '../data/store.js'
 
@@ -369,7 +371,15 @@ function TeacherDashboard({ teacher, onLogout }) {
                   {testEvents.map((ev) => (
                     <div key={ev.id} style={styles.eventItem}>
                       <span style={styles.eventName}>{ev.name}</span>
-                      <span style={styles.eventDate}>{new Date(ev.date).toLocaleDateString()}</span>
+                      <input
+                        type="date"
+                        value={ev.date.slice(0, 10)}
+                        onChange={(e) => {
+                          updateTestEvent(ev.id, { date: new Date(e.target.value).toISOString() })
+                          forceRefresh()
+                        }}
+                        style={styles.eventDateInput}
+                      />
                       <button
                         onClick={() => requestConfirm(
                           `Delete test event "${ev.name}" and all scores linked to it?`,
@@ -505,6 +515,20 @@ function TeacherDashboard({ teacher, onLogout }) {
                       </select>
                       <button onClick={handleManualScore} style={styles.smallSaveBtn}>Add</button>
                     </div>
+
+                    {/* Progression Graph */}
+                    <h4 style={styles.scoreHistoryTitle}>Progress — {activeClassData.name}</h4>
+                    <ProgressGraph
+                      dataPoints={classScores
+                        .slice()
+                        .sort((a, b) => new Date(a.date) - new Date(b.date))
+                        .map((sc) => ({
+                          date: sc.date,
+                          value: sc.value,
+                          label: getEventName(sc.testEventId),
+                        }))
+                      }
+                    />
 
                     {/* Score History */}
                     <h4 style={styles.scoreHistoryTitle}>Score History — {activeClassData.name}</h4>
@@ -882,9 +906,13 @@ const styles = {
     fontWeight: '600',
     fontSize: '0.95rem',
   },
-  eventDate: {
+  eventDateInput: {
+    padding: '6px 10px',
+    fontSize: '0.85rem',
+    borderRadius: '6px',
+    border: '1px solid #dfe6e9',
+    outline: 'none',
     color: '#636e72',
-    fontSize: '0.8rem',
   },
 
   // Manual score input

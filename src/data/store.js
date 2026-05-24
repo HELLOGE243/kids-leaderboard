@@ -265,6 +265,15 @@ export function getTestEventsForClass(classId) {
   return data.testEvents.filter((e) => e.classId === classId)
 }
 
+export function updateTestEvent(eventId, updates) {
+  const data = loadData()
+  const idx = data.testEvents.findIndex((e) => e.id === eventId)
+  if (idx === -1) return null
+  Object.assign(data.testEvents[idx], updates)
+  saveData(data)
+  return data.testEvents[idx]
+}
+
 export function deleteTestEvent(eventId) {
   const data = loadData()
   data.testEvents = data.testEvents.filter((e) => e.id !== eventId)

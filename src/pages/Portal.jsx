@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { getClassesForStudent, getOrganisation, getStudentById, getLeaderboard, addScore, getTestEventsForClass } from '../data/store.js'
+import ProgressGraph from '../components/ProgressGraph.jsx'
+import { getClassesForStudent, getOrganisation, getStudentById, getLeaderboard, addScore, getTestEventsForClass, getScoresForStudentInClass } from '../data/store.js'
 
 function Portal({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState(null)
@@ -145,6 +146,21 @@ function Portal({ user, onLogout }) {
                 })}
               </div>
             )}
+          </div>
+
+          {/* My Progress */}
+          <div style={styles.progressCard}>
+            <h3 style={styles.panelTitle}>My Progress</h3>
+            <ProgressGraph
+              dataPoints={getScoresForStudentInClass(user.id, activeTab)
+                .slice()
+                .sort((a, b) => new Date(a.date) - new Date(b.date))
+                .map((sc) => {
+                  const ev = testEvents.find((e) => e.id === sc.testEventId)
+                  return { date: sc.date, value: sc.value, label: ev ? ev.name : '' }
+                })
+              }
+            />
           </div>
         </div>
       )}
@@ -301,6 +317,13 @@ const styles = {
     background: '#fff',
     borderRadius: '14px',
     padding: '20px',
+    border: '1px solid #dfe6e9',
+  },
+  progressCard: {
+    background: '#fff',
+    borderRadius: '14px',
+    padding: '20px',
+    marginTop: '16px',
     border: '1px solid #dfe6e9',
   },
   leaderboard: {
