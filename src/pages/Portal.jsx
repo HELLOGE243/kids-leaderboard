@@ -84,16 +84,18 @@ function Portal({ user, onLogout }) {
               <p className="text-dim">No test events yet. Your teacher will create them.</p>
             ) : (
               <form onSubmit={handleAddScore} className="score-form">
-                <select
-                  value={selectedEvent}
-                  onChange={(e) => { setSelectedEvent(e.target.value); setScoreError('') }}
-                  className="score-select"
-                >
-                  <option value="">Select event...</option>
+                <div className="event-btn-row">
                   {testEvents.map((ev) => (
-                    <option key={ev.id} value={ev.id}>{ev.name}</option>
+                    <button
+                      key={ev.id}
+                      type="button"
+                      className={`event-btn ${selectedEvent === ev.id ? 'event-btn-active' : ''}`}
+                      onClick={() => { setSelectedEvent(selectedEvent === ev.id ? '' : ev.id); setScoreError('') }}
+                    >
+                      {ev.name}
+                    </button>
                   ))}
-                </select>
+                </div>
                 <div className="score-input-row">
                   <input
                     type="number"

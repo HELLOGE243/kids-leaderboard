@@ -312,20 +312,35 @@ body {
   gap: 12px;
 }
 
-.score-select {
-  width: 100%;
-  padding: 14px 16px;
-  font-family: var(--font-pixel);
-  font-size: 0.6rem;
-  border-radius: var(--radius);
-  border: 2px solid var(--border);
-  background: var(--bg-input);
-  color: var(--text);
-  outline: none;
+.event-btn-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-.score-select:focus {
-  box-shadow: 0 0 8px var(--accent-glow);
+.event-btn {
+  padding: 12px 18px;
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  border-radius: var(--radius);
+  border: 2px solid var(--text-dim);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.2s;
+}
+
+.event-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.event-btn-active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 10px var(--accent-glow);
 }
 
 .score-input-row {
