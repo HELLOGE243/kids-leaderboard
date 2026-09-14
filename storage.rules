@@ -1,0 +1,26 @@
+rules_version = '2';
+
+// Quiz images uploaded by the importer (src/data/imageStore.js).
+//
+// Students load these through download URLs embedded in question HTML. Those
+// URLs carry their own access token, so viewing does not depend on the rules
+// below; the read rule covers SDK access.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    match /quiz-images/{file} {
+      allow read: if request.auth != null;
+
+      // Only teachers upload, only images, capped at 5 MB (optimised images
+      // are far smaller). Objects are content-addressed, so existing ones are
+      // never overwritten or deleted by clients.
+      allow create: if request.auth != null
+        && request.auth.token.role == 'teacher'
+        && request.resource.contentType.matches('image/.*')
+        && request.resource.size < 5 * 1024 * 1024;
+      allow update, delete: if false;
+    }
+
+    // Everything else is denied.
+  }
+}

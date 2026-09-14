@@ -1,0 +1,1342 @@
+/* ============================================================
+   SHOP THEME — Tavern / Woody
+   ============================================================ */
+
+:root {
+  --wood-dark: #3b2314;
+  --wood-mid: #5c3a1e;
+  --wood-light: #8b5e3c;
+  --wood-plank: #a0714f;
+  --wood-grain: #2e1a0e;
+  --tavern-bg: #1a0f07;
+  --tavern-glow: #ff9d2e;
+  --tavern-text: #f5e6d3;
+  --parchment: #f4e4c1;
+  --parchment-dark: #d4b896;
+}
+
+/* --- Shop Backdrop (wallpaper + overlay) --- */
+.shop-backdrop {
+  min-height: 100vh;
+  min-height: 100dvh;
+  position: relative;
+}
+.shop-backdrop::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 15, 7, 0.72);
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* --- Shop Page --- */
+.shop-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 24px;
+  width: 95%;
+  max-width: 1200px;
+  margin: 0 auto;
+  background: transparent;
+  position: relative;
+  z-index: 1;
+}
+
+/* --- Wooden Sign Header --- */
+.shop-sign {
+  background: linear-gradient(135deg, rgba(255, 157, 46, 0.12) 0%, rgba(255, 215, 0, 0.06) 50%, rgba(255, 157, 46, 0.12) 100%);
+  border: 2px solid rgba(255, 157, 46, 0.3);
+  border-radius: 8px;
+  padding: 22px 32px;
+  text-align: center;
+  margin-bottom: 12px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.shop-sign::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 200, 100, 0.06) 50%, transparent);
+  pointer-events: none;
+}
+
+.shop-sign::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--tavern-glow), transparent);
+}
+
+.shop-sign-title {
+  font-family: var(--font-pixel);
+  font-size: 1.2rem;
+  color: var(--tavern-glow);
+  text-shadow: 0 0 20px rgba(255, 157, 46, 0.5), 0 0 40px rgba(255, 157, 46, 0.2);
+  text-transform: uppercase;
+  letter-spacing: 4px;
+}
+
+/* --- Avatar Box --- */
+.shop-avatar-box {
+  width: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.shop-avatar-box:hover {
+  transform: scale(1.05);
+}
+
+.shop-avatar-placeholder {
+  width: 120px;
+  height: 120px;
+  border: 3px dashed var(--wood-light);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-pixel);
+  font-size: 2rem;
+  color: var(--wood-plank);
+  background: var(--wood-grain);
+}
+
+.shop-avatar-img {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  border: 3px solid var(--tavern-glow);
+  border-radius: 10px;
+  background: var(--wood-grain);
+}
+
+.shop-avatar-label {
+  font-family: var(--font-pixel);
+  font-size: 0.4rem;
+  color: var(--wood-plank);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* --- Avatar Popup --- */
+.shop-avatar-current {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto;
+  border: 3px dashed var(--tavern-glow);
+  border-radius: 8px;
+  background: var(--wood-grain);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 12px rgba(255, 157, 46, 0.3);
+}
+
+.shop-avatar-current-empty {
+  font-family: var(--font-pixel);
+  font-size: 2rem;
+  color: var(--wood-plank);
+  animation: coin-pulse 1.5s ease-in-out infinite;
+}
+
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  gap: 8px;
+  background: var(--wood-grain);
+  border: 2px solid var(--wood-mid);
+  border-radius: 4px;
+  padding: 12px;
+  min-height: 80px;
+  margin-bottom: 16px;
+}
+
+.avatar-cell {
+  width: 52px;
+  height: 52px;
+  border: 2px solid var(--wood-mid);
+  border-radius: 4px;
+  background: var(--wood-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.avatar-cell:hover {
+  border-color: var(--tavern-glow);
+  transform: scale(1.1);
+}
+
+.avatar-cell-selected {
+  border-color: var(--success);
+  box-shadow: 0 0 12px rgba(0, 230, 118, 0.5);
+  transform: scale(1.1);
+}
+
+/* --- Mystery Egg --- */
+.mystery-egg-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.mystery-egg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 20px;
+  border: 2px solid var(--token);
+  border-radius: 6px;
+  background: rgba(0, 255, 245, 0.05);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mystery-egg:hover {
+  box-shadow: 0 0 14px rgba(0, 255, 245, 0.4);
+  transform: scale(1.05);
+}
+
+.mystery-egg-label {
+  font-family: var(--font-pixel);
+  font-size: 0.45rem;
+  color: var(--token);
+  text-transform: uppercase;
+}
+
+.mystery-egg-cost {
+  font-family: var(--font-pixel);
+  font-size: 0.4rem;
+  color: var(--token);
+  opacity: 0.7;
+}
+
+/* --- Rarity Colors --- */
+.rarity-common { color: #b0b0b0; }
+.rarity-rare { color: #4caf50; }
+.rarity-super-rare { color: #2196f3; }
+.rarity-legendary { color: #ce44eb; }
+.rarity-mythic { color: #ffd700; text-shadow: 0 0 8px rgba(255, 215, 0, 0.6); }
+
+/* Avatar cell rarity borders */
+.avatar-rarity-common { border-color: #b0b0b0; }
+.avatar-rarity-rare { border-color: #4caf50; }
+.avatar-rarity-super-rare { border-color: #2196f3; box-shadow: 0 0 6px rgba(33, 150, 243, 0.3); }
+.avatar-rarity-legendary { border-color: #ce44eb; box-shadow: 0 0 6px rgba(206, 68, 235, 0.3); }
+.avatar-rarity-mythic { border-color: #ffd700; box-shadow: 0 0 10px rgba(255, 215, 0, 0.4); animation: legendary-pulse 2s ease-in-out infinite; }
+
+@keyframes legendary-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(255, 215, 0, 0.3); }
+  50% { box-shadow: 0 0 16px rgba(255, 215, 0, 0.7); }
+}
+
+/* Rarity badge on avatar cell */
+.avatar-rarity-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-family: var(--font-pixel);
+  font-size: 0.25rem;
+  padding: 1px 3px;
+  border-radius: 2px;
+  background: var(--wood-grain);
+  opacity: 0.9;
+}
+
+/* Rarity legend */
+.rarity-legend {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.rarity-label {
+  font-family: var(--font-pixel);
+  font-size: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Avatar cell needs relative for badge */
+.avatar-cell {
+  position: relative;
+}
+
+/* --- Egg Hatch Animation --- */
+.egg-hatching {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+}
+
+.egg-shake {
+  font-size: 3rem;
+  animation: egg-wobble 0.3s ease-in-out infinite;
+}
+
+@keyframes egg-wobble {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(-12deg) scale(1.05); }
+  75% { transform: rotate(12deg) scale(1.05); }
+}
+
+/* Reveal */
+.egg-reveal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  animation: reveal-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes reveal-pop {
+  0% { transform: scale(0); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.egg-reveal-card {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 3px solid var(--wood-light);
+  background: var(--wood-grain);
+}
+
+.rarity-glow-common .egg-reveal-card,
+.egg-reveal-card.rarity-glow-common { border-color: #b0b0b0; }
+.rarity-glow-common { border-color: #b0b0b0; }
+.egg-reveal-card.rarity-glow-rare, .rarity-glow-rare { border-color: #4caf50; box-shadow: 0 0 16px rgba(76, 175, 80, 0.5); }
+.egg-reveal-card.rarity-glow-super-rare, .rarity-glow-super-rare { border-color: #2196f3; box-shadow: 0 0 20px rgba(33, 150, 243, 0.6); }
+.egg-reveal-card.rarity-glow-legendary, .rarity-glow-legendary { border-color: #ce44eb; box-shadow: 0 0 24px rgba(206, 68, 235, 0.7); }
+.egg-reveal-card.rarity-glow-mythic, .rarity-glow-mythic { border-color: #ffd700; box-shadow: 0 0 30px rgba(255, 215, 0, 0.8); animation: legendary-reveal 1s ease-in-out infinite; }
+
+@keyframes legendary-reveal {
+  0%, 100% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.6); transform: scale(1); }
+  50% { box-shadow: 0 0 40px rgba(255, 215, 0, 1); transform: scale(1.05); }
+}
+
+.egg-reveal-rarity {
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.egg-reveal-name {
+  font-size: 0.85rem;
+  color: var(--tavern-text);
+}
+
+.egg-reveal-dupe {
+  font-family: var(--font-pixel);
+  font-size: 0.35rem;
+  color: var(--wood-plank);
+  opacity: 0.7;
+}
+
+/* --- Star Upgrade Feedback --- */
+.egg-star-up {
+  font-family: var(--font-pixel);
+  font-size: 0.35rem;
+  color: #ffd700;
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
+  animation: star-pulse 0.6s ease-in-out infinite alternate;
+}
+.egg-star-up-big {
+  font-family: var(--font-pixel);
+  font-size: 0.5rem;
+  color: #ffd700;
+  text-shadow: 0 0 12px rgba(255, 215, 0, 0.7);
+  animation: star-pulse 0.6s ease-in-out infinite alternate;
+}
+@keyframes star-pulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.1); text-shadow: 0 0 16px rgba(255, 215, 0, 0.9); }
+}
+
+/* --- Avatar Stars --- */
+.avatar-stars {
+  font-size: 0.5rem;
+  color: #ffd700;
+  line-height: 1;
+  letter-spacing: 1px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* --- Avatar Particle Effects (2+ stars) --- */
+.avatar-cell { position: relative; overflow: hidden; }
+.avatar-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+.avatar-particles::before,
+.avatar-particles::after {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  animation: avatar-float 2s ease-in-out infinite;
+}
+.avatar-particles::before {
+  left: 20%;
+  bottom: 10%;
+  animation-delay: 0s;
+}
+.avatar-particles::after {
+  right: 20%;
+  bottom: 15%;
+  animation-delay: 0.8s;
+}
+.avatar-particles-common::before, .avatar-particles-common::after {
+  background: #b0b0b0;
+  box-shadow: 0 0 4px #b0b0b0;
+}
+.avatar-particles-rare::before, .avatar-particles-rare::after {
+  background: #4caf50;
+  box-shadow: 0 0 6px rgba(76, 175, 80, 0.8);
+}
+.avatar-particles-super-rare::before, .avatar-particles-super-rare::after {
+  background: #2196f3;
+  box-shadow: 0 0 6px rgba(33, 150, 243, 0.8);
+}
+.avatar-particles-legendary::before, .avatar-particles-legendary::after {
+  background: #ce44eb;
+  box-shadow: 0 0 8px rgba(206, 68, 235, 0.8);
+}
+.avatar-particles-mythic::before, .avatar-particles-mythic::after {
+  background: #ffd700;
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.9);
+}
+@keyframes avatar-float {
+  0% { transform: translateY(0) scale(1); opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 0.8; }
+  100% { transform: translateY(-30px) scale(0.5); opacity: 0; }
+}
+
+/* 3-star avatars get a glow border */
+.avatar-starred { box-shadow: 0 0 8px rgba(255, 215, 0, 0.3); }
+
+/* --- Sprite Sheet Slicer --- */
+.slicer-drop {
+  width: 100%;
+  min-height: 80px;
+  border: 2px dashed var(--wood-light);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  padding: 8px;
+}
+
+.slicer-drop:hover,
+.slicer-drop-hover {
+  border-color: var(--tavern-glow);
+  background: rgba(255, 157, 46, 0.08);
+}
+
+.slicer-drop-filled {
+  border-style: solid;
+  border-color: var(--wood-mid);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.slicer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+  gap: 4px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+}
+
+.slicer-tile {
+  aspect-ratio: 1;
+  border: 2px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0.35;
+  transition: opacity 0.15s, border-color 0.15s;
+  background: var(--wood-grain);
+  padding: 2px;
+}
+
+.slicer-tile:hover {
+  opacity: 0.7;
+}
+
+.slicer-tile-selected {
+  opacity: 1;
+  border-color: var(--tavern-glow);
+  box-shadow: 0 0 6px rgba(255, 157, 46, 0.4);
+}
+
+/* --- Shop Layout --- */
+.shop-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.shop-search {
+  flex: 1;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  border-radius: 4px;
+  border: 2px solid var(--wood-light);
+  background: var(--wood-grain);
+  color: var(--tavern-text);
+  outline: none;
+}
+
+.shop-search::placeholder {
+  color: var(--wood-plank);
+}
+
+.shop-search:focus {
+  border-color: var(--tavern-glow);
+  box-shadow: 0 0 8px rgba(255, 157, 46, 0.3);
+}
+
+.shop-body {
+  display: flex;
+  gap: 16px;
+}
+
+/* --- Categories Sidebar --- */
+.shop-categories {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 110px;
+}
+
+.shop-cat-tile {
+  padding: 12px 14px;
+  font-family: var(--font-pixel);
+  font-size: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-radius: 4px;
+  border: 2px solid var(--wood-light);
+  background: var(--wood-dark);
+  color: var(--tavern-text);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.shop-cat-tile:hover {
+  border-color: var(--tavern-glow);
+  color: var(--tavern-glow);
+}
+
+.shop-cat-tile-active {
+  border-color: var(--tavern-glow);
+  background: var(--wood-mid);
+  color: var(--tavern-glow);
+  box-shadow: 0 0 10px rgba(255, 157, 46, 0.3);
+}
+
+/* --- Inventory Panel --- */
+.shop-inventory {
+  flex: 1;
+  background: var(--wood-grain);
+  border: 3px solid var(--wood-mid);
+  border-radius: 4px;
+  padding: 12px;
+  min-height: 300px;
+}
+
+/* --- Category Section (horizontal rows) --- */
+.shop-cat-section {
+  margin-bottom: 16px;
+}
+
+.shop-cat-section:last-child {
+  margin-bottom: 0;
+}
+
+.shop-cat-section-title {
+  font-family: var(--font-pixel);
+  font-size: 0.45rem;
+  color: var(--tavern-glow);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--wood-mid);
+}
+
+.shop-cat-section-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 8px;
+}
+
+/* --- Groups within categories --- */
+.shop-group-section {
+  margin: 8px 0 4px;
+  padding-left: 6px;
+  border-left: 2px solid var(--wood-mid);
+}
+
+.shop-group-title {
+  font-family: var(--font-pixel);
+  font-size: 0.35rem;
+  color: var(--parchment-dark);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.shop-group-add-btn {
+  font-family: var(--font-pixel);
+  font-size: 0.3rem;
+  color: var(--tavern-glow);
+  background: none;
+  border: 1px dashed var(--wood-mid);
+  border-radius: 3px;
+  padding: 3px 8px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.shop-group-add-btn:hover {
+  border-color: var(--tavern-glow);
+  color: var(--parchment);
+}
+
+/* --- Item Cells --- */
+.shop-item {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 12px 10px 10px;
+  border-radius: 6px;
+  border: 2px solid var(--wood-mid);
+  background: var(--wood-dark);
+  cursor: pointer;
+  transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Spotlight cone from above */
+.shop-item::before {
+  content: '';
+  position: absolute;
+  top: -30%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  height: 80%;
+  background: radial-gradient(ellipse at center, rgba(255, 220, 140, 0.15) 0%, transparent 70%);
+  pointer-events: none;
+  transition: opacity 0.25s;
+}
+
+/* Glass shelf reflection — stays within bounds */
+.shop-item::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.07) 45%, transparent 55%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.shop-item:hover::after {
+  opacity: 1;
+}
+
+.shop-item:hover {
+  border-color: var(--tavern-glow);
+  box-shadow: 0 0 18px rgba(255, 157, 46, 0.5), 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 1;
+}
+
+.shop-item:hover::before {
+  opacity: 1;
+  background: radial-gradient(ellipse at center, rgba(255, 220, 140, 0.3) 0%, transparent 70%);
+}
+
+.shop-item-add {
+  border-style: dashed;
+  opacity: 0.5;
+}
+.shop-item-add::before, .shop-item-add::after { display: none; }
+
+.shop-item-add:hover {
+  opacity: 1;
+}
+
+/* Pedestal base */
+.shop-item-pedestal {
+  width: 70%;
+  height: 6px;
+  background: linear-gradient(180deg, var(--wood-light) 0%, var(--wood-mid) 60%, var(--wood-grain) 100%);
+  border-radius: 2px 2px 0 0;
+  margin-top: 2px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 200, 100, 0.2);
+}
+
+.shop-item-icon {
+  font-size: 2.2rem;
+  line-height: 1;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+  transition: transform 0.25s;
+}
+
+.shop-item:hover .shop-item-icon {
+  transform: translateY(-4px) scale(1.1);
+}
+
+.shop-item-price {
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  color: var(--coin);
+  text-shadow: 0 0 4px rgba(255, 215, 0, 0.4);
+}
+
+.shop-item-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--tavern-text);
+  text-align: center;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+/* --- Purchase Confirmation Modal --- */
+.shop-modal {
+  background: linear-gradient(180deg, var(--wood-mid) 0%, var(--wood-dark) 100%);
+  border: 4px solid var(--wood-light);
+  border-radius: 6px;
+  padding: 32px;
+  max-width: 340px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 0 40px rgba(255, 157, 46, 0.2);
+}
+
+.shop-modal-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.shop-modal-name {
+  font-family: var(--font-pixel);
+  font-size: 0.7rem;
+  color: var(--tavern-text);
+  margin-bottom: 8px;
+}
+
+.shop-modal-price {
+  font-family: var(--font-pixel);
+  font-size: 0.9rem;
+  color: var(--coin);
+  margin-bottom: 20px;
+  text-shadow: 0 0 6px rgba(255, 215, 0, 0.4);
+}
+
+.shop-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.shop-btn-buy {
+  padding: 12px 24px;
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  border-radius: 4px;
+  border: 2px solid var(--success);
+  background: var(--success);
+  color: #1a1a2e;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+.shop-btn-buy:hover {
+  box-shadow: 0 0 12px rgba(0, 230, 118, 0.5);
+}
+
+.shop-btn-cancel {
+  padding: 12px 24px;
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  border-radius: 4px;
+  border: 2px solid var(--wood-light);
+  background: transparent;
+  color: var(--tavern-text);
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+.shop-btn-cancel:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* --- Purchase History --- */
+.shop-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.shop-tab {
+  padding: 10px 18px;
+  font-family: var(--font-pixel);
+  font-size: 0.5rem;
+  border-radius: 4px;
+  border: 2px solid var(--wood-light);
+  background: transparent;
+  color: var(--tavern-text);
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.2s;
+}
+
+.shop-tab-active {
+  border-color: var(--tavern-glow);
+  background: var(--wood-mid);
+  color: var(--tavern-glow);
+}
+
+.purchase-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.purchase-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--wood-dark);
+  border: 2px solid var(--wood-mid);
+  border-radius: 4px;
+}
+
+.purchase-icon {
+  font-size: 1.4rem;
+}
+
+.purchase-info {
+  flex: 1;
+}
+
+.purchase-name {
+  font-size: 0.9rem;
+  color: var(--tavern-text);
+  font-weight: 600;
+}
+
+.purchase-date {
+  font-size: 0.7rem;
+  color: var(--wood-plank);
+}
+
+.purchase-cost {
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  color: var(--coin);
+}
+
+.purchase-status {
+  font-family: var(--font-pixel);
+  font-size: 0.4rem;
+  padding: 4px 8px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+}
+
+.purchase-status-pending {
+  color: var(--warning);
+  border: 1px solid var(--warning);
+  background: rgba(255, 171, 0, 0.1);
+}
+
+.purchase-status-fulfilled {
+  color: var(--success);
+  border: 1px solid var(--success);
+  background: rgba(0, 230, 118, 0.1);
+}
+
+.purchase-status-on-hold {
+  color: var(--token);
+  border: 1px solid var(--token);
+  background: rgba(0, 255, 245, 0.1);
+}
+
+.purchase-status-cancelled {
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  background: rgba(233, 69, 96, 0.1);
+  text-decoration: line-through;
+}
+
+/* --- Empty State --- */
+.shop-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--wood-plank);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* --- Back Button --- */
+.shop-back {
+  padding: 8px 14px;
+  font-family: var(--font-pixel);
+  font-size: 0.5rem;
+  border-radius: 4px;
+  border: 2px solid var(--wood-light);
+  background: transparent;
+  color: var(--tavern-text);
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+.shop-back:hover {
+  border-color: var(--tavern-glow);
+  color: var(--tavern-glow);
+}
+
+/* --- Coins & Tokens display in shop --- */
+/* --- Notification Banner --- */
+@keyframes shop-notify-in {
+  0% { transform: translate(-50%, -100%); opacity: 0; }
+  10% { transform: translate(-50%, 0); opacity: 1; }
+  90% { transform: translate(-50%, 0); opacity: 1; }
+  100% { transform: translate(-50%, -100%); opacity: 0; }
+}
+
+@keyframes shop-notify-shake {
+  0%, 100% { transform: translate(-50%, 0) rotate(0deg); }
+  10% { transform: translate(-50%, 0) rotate(-2deg); }
+  20% { transform: translate(-50%, 0) rotate(2deg); }
+  30% { transform: translate(-50%, 0) rotate(-2deg); }
+  40% { transform: translate(-50%, 0) rotate(2deg); }
+  50% { transform: translate(-50%, 0) rotate(-1deg); }
+  60% { transform: translate(-50%, 0) rotate(1deg); }
+  70% { transform: translate(-50%, 0) rotate(0deg); }
+}
+
+.shop-notification {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  padding: 18px 36px;
+  font-family: var(--font-pixel);
+  font-size: 0.65rem;
+  color: var(--tavern-bg);
+  background: linear-gradient(135deg, #ffd700, #ffab00);
+  border-radius: 0 0 10px 10px;
+  box-shadow: 0 6px 30px rgba(255, 215, 0, 0.7), 0 0 60px rgba(255, 215, 0, 0.3);
+  animation: shop-notify-in 5s ease-in-out forwards, shop-notify-shake 0.6s ease-in-out 0.3s 4;
+  text-align: center;
+  white-space: nowrap;
+  letter-spacing: 1px;
+}
+
+/* --- Celebration Particles --- */
+.shop-celebration {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1500;
+  overflow: hidden;
+}
+
+@keyframes shop-particle-fall {
+  0% { transform: translateY(-20px) scale(1) rotate(0deg); opacity: 1; }
+  50% { opacity: 1; }
+  100% { transform: translateY(100vh) scale(0.5) rotate(1080deg); opacity: 0.3; }
+}
+
+@keyframes shop-particle-burst {
+  0% { transform: translate(0, 0) scale(0); opacity: 1; }
+  50% { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(1); opacity: 0; }
+}
+
+.shop-particle {
+  position: absolute;
+  top: -10px;
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  box-shadow: 0 0 6px currentColor;
+  animation: shop-particle-fall 2.5s ease-out forwards;
+}
+
+/* --- Upload Button --- */
+.shop-upload-btn {
+  padding: 8px 14px;
+  font-family: var(--font-pixel);
+  font-size: 0.45rem;
+  border-radius: 4px;
+  border: 2px dashed var(--wood-light);
+  background: var(--wood-grain);
+  color: var(--tavern-text);
+  cursor: pointer;
+  text-transform: uppercase;
+  text-align: center;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.shop-upload-btn:hover {
+  border-color: var(--tavern-glow);
+  color: var(--tavern-glow);
+}
+
+/* --- Coins & Tokens display in shop --- */
+.shop-coins,
+.shop-tokens {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-pixel);
+  font-size: 0.65rem;
+  text-shadow: 0 0 6px rgba(255, 215, 0, 0.4);
+}
+
+.shop-coins {
+  color: var(--coin);
+}
+
+.shop-tokens {
+  color: var(--token);
+  text-shadow: 0 0 6px rgba(0, 255, 245, 0.4);
+}
+
+/* --- Balance Header (new fixed-category layout) --- */
+.shop-balance-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 20px;
+  padding: 0 4px;
+  margin-bottom: 12px;
+  background: none;
+  border: none;
+}
+
+.shop-balance-coin {
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
+  color: var(--coin);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.shop-balance-token {
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
+  color: var(--token);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.shop-refresh-timer {
+  font-family: var(--font-pixel);
+  font-size: 0.35rem;
+  color: var(--parchment-dark);
+  letter-spacing: 1px;
+}
+.shop-balance-avatar {
+  margin-left: auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid var(--tavern-glow);
+  background: var(--wood-grain);
+  cursor: pointer;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.shop-balance-avatar:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 12px rgba(255, 157, 46, 0.4);
+}
+.shop-balance-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.shop-balance-avatar-empty {
+  font-family: var(--font-pixel);
+  font-size: 0.5rem;
+  color: var(--wood-plank);
+}
+
+/* --- Fixed Category Rows --- */
+.shop-fixed-categories {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.shop-category-row {
+  background: var(--wood-grain);
+  border: 2px solid var(--wood-mid);
+  border-radius: 6px;
+  padding: 16px;
+}
+
+.shop-category-row-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-family: var(--font-pixel);
+  font-size: 0.5rem;
+  color: var(--tavern-glow);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.shop-category-row-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 16px;
+}
+
+.shop-category-empty {
+  color: var(--wood-plank);
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+}
+
+/* --- Admin Pool Tabs --- */
+.shop-pool-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.shop-pool-tab {
+  padding: 10px 16px;
+  font-family: var(--font-pixel);
+  font-size: 0.45rem;
+  border-radius: 4px;
+  border: 2px solid var(--wood-light);
+  background: transparent;
+  color: var(--tavern-text);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+}
+
+.shop-pool-tab:hover {
+  border-color: var(--tavern-glow);
+  color: var(--tavern-glow);
+}
+
+.shop-pool-tab-active {
+  border-color: var(--tavern-glow);
+  background: var(--wood-mid);
+  color: var(--tavern-glow);
+  box-shadow: 0 0 10px rgba(255, 157, 46, 0.3);
+}
+
+.shop-pool-info {
+  font-family: var(--font-pixel);
+  font-size: 0.35rem;
+  color: var(--parchment-dark);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+
+.shop-pool-preview {
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px dashed var(--wood-light);
+  border-radius: 4px;
+}
+
+.shop-pool-preview-title {
+  font-family: var(--font-pixel);
+  font-size: 0.35rem;
+  color: var(--tavern-glow);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+/* Loot Chest animation (mirrors egg) */
+.loot-chest-hatching {
+  animation: egg-wobble 0.4s ease-in-out infinite;
+}
+
+@keyframes loot-chest-open {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+.loot-chest-reveal {
+  animation: loot-chest-open 0.6s ease-out;
+}
+
+/* ===== Glass Door Entry Animation ===== */
+.shop-door-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  perspective: 1200px;
+}
+
+.shop-door-left, .shop-door-right {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  background: linear-gradient(135deg, rgba(30, 18, 8, 0.95) 0%, rgba(60, 35, 15, 0.9) 50%, rgba(30, 18, 8, 0.95) 100%);
+  border: 3px solid var(--wood-mid);
+  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shop-door-left {
+  left: 0;
+  transform-origin: left center;
+  animation: door-open-left 2.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  border-right: 2px solid var(--wood-grain);
+}
+
+.shop-door-right {
+  right: 0;
+  transform-origin: right center;
+  animation: door-open-right 2.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  border-left: 2px solid var(--wood-grain);
+}
+
+/* Glass panel inset */
+.shop-door-left::before, .shop-door-right::before {
+  content: '';
+  position: absolute;
+  top: 10%;
+  width: 60%;
+  height: 70%;
+  background: linear-gradient(160deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 40%, rgba(255,255,255,0.06) 100%);
+  border: 1px solid rgba(255, 200, 100, 0.15);
+  border-radius: 4px;
+}
+.shop-door-left::before { right: 15%; }
+.shop-door-right::before { left: 15%; }
+
+/* Door handle */
+.shop-door-left::after, .shop-door-right::after {
+  content: '';
+  position: absolute;
+  top: 48%;
+  width: 8px;
+  height: 30px;
+  background: linear-gradient(180deg, #c9a050, #a07830);
+  border-radius: 3px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+}
+.shop-door-left::after { right: 12%; }
+.shop-door-right::after { left: 12%; }
+
+.shop-door-text {
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
+  color: rgba(255, 200, 100, 0.6);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  z-index: 1;
+}
+
+@keyframes door-open-left {
+  0% { transform: rotateY(0deg); opacity: 1; }
+  70% { transform: rotateY(-85deg); opacity: 1; }
+  100% { transform: rotateY(-95deg); opacity: 0; }
+}
+
+@keyframes door-open-right {
+  0% { transform: rotateY(0deg); opacity: 1; }
+  70% { transform: rotateY(85deg); opacity: 1; }
+  100% { transform: rotateY(95deg); opacity: 0; }
+}
+
+/* ===== 3D Tilt on Hover ===== */
+.shop-item-tilt {
+  transition: transform 0.15s ease-out, box-shadow 0.25s, border-color 0.25s;
+}

@@ -1,15 +1,26 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 
-// Draws a ranking graph — Y-axis is INVERTED (1st at top, last at bottom)
-// dataPoints: [{ date, rank, totalStudents, eventName, score }] sorted by date
-
-function RankGraph({ dataPoints, width = 500, height = 220 }) {
+function RankGraph({ dataPoints, height = 220 }) {
   const canvasRef = useRef(null)
+  const containerRef = useRef(null)
+  const [canvasWidth, setCanvasWidth] = useState(500)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(([entry]) => {
+      setCanvasWidth(Math.floor(entry.contentRect.width))
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas || dataPoints.length === 0) return
 
+    const width = canvasWidth
     const ctx = canvas.getContext('2d')
     const dpr = window.devicePixelRatio || 1
     canvas.width = width * dpr
@@ -22,11 +33,9 @@ function RankGraph({ dataPoints, width = 500, height = 220 }) {
 
     const maxRank = Math.max(...dataPoints.map((d) => d.totalStudents), 1)
 
-    // Dark background
     ctx.fillStyle = '#0f3460'
     ctx.fillRect(0, 0, width, height)
 
-    // Grid lines
     ctx.strokeStyle = 'rgba(255,255,255,0.08)'
     ctx.lineWidth = 1
     const gridLines = Math.min(maxRank, 5)
@@ -37,76 +46,73 @@ function RankGraph({ dataPoints, width = 500, height = 220 }) {
       ctx.lineTo(pad.left + graphW, y)
       ctx.stroke()
 
-      // Y-axis: rank labels (1st at top)
       const rankVal = Math.round(1 + ((maxRank - 1) / gridLines) * i)
       ctx.fillStyle = '#a0a0b0'
-      ctx.font = '9px "Press Start 2P", monospace'
+      ctx.font = '600 12px "Google Sans Flex", sans-serif'
       ctx.textAlign = 'right'
-      ctx.fillText(rankVal === 1 ? '1st' : rankVal + 'th', pad.left - 6, y + 4)
+      ctx.fillText(rankVal.toString(), pad.left - 6, y + 4)
     }
 
-    // Plot points — rank 1 at top, maxRank at bottom
-    const points = dataPoints.map((d, i) => {
+    const barWidth = Math.max(6, Math.min(20, graphW / dataPoints.length * 0.4))
+
+    dataPoints.forEach((d, i) => {
       const x = pad.left + (dataPoints.length === 1 ? graphW / 2 : (i / (dataPoints.length - 1)) * graphW)
-      const y = pad.top + ((d.rank - 1) / (maxRank - 1 || 1)) * graphH
-      return { x, y, ...d }
-    })
+      const rankY = pad.top + ((d.rank - 1) / (maxRank - 1 || 1)) * graphH
+      const totalY = pad.top + ((d.totalStudents - 1) / (maxRank - 1 || 1)) * graphH
 
-    // Glow
-    ctx.shadowColor = '#00fff5'
-    ctx.shadowBlur = 8
+      ctx.strokeStyle = 'rgba(0,255,245,0.35)'
+      ctx.lineWidth = 2
+      ctx.lineCap = 'butt'
+      ctx.beginPath()
+      ctx.moveTo(x, totalY)
+      ctx.lineTo(x, rankY)
+      ctx.stroke()
 
-    // Line
-    ctx.strokeStyle = '#00fff5'
-    ctx.lineWidth = 2.5
-    ctx.lineJoin = 'round'
-    ctx.beginPath()
-    points.forEach((p, i) => {
-      if (i === 0) ctx.moveTo(p.x, p.y)
-      else ctx.lineTo(p.x, p.y)
-    })
-    ctx.stroke()
-    ctx.shadowBlur = 0
-
-    // Dots (pixel squares)
-    points.forEach((p) => {
-      ctx.fillStyle = '#00fff5'
-      ctx.fillRect(p.x - 4, p.y - 4, 8, 8)
+      const ds = 5
+      ctx.fillStyle = '#ffd700'
+      ctx.beginPath()
+      ctx.moveTo(x, rankY - ds)
+      ctx.lineTo(x + ds, rankY)
+      ctx.lineTo(x, rankY + ds)
+      ctx.lineTo(x - ds, rankY)
+      ctx.closePath()
+      ctx.fill()
       ctx.strokeStyle = '#fff'
       ctx.lineWidth = 1.5
-      ctx.strokeRect(p.x - 4, p.y - 4, 8, 8)
+      ctx.stroke()
     })
 
-    // X-axis: event dates
     ctx.fillStyle = '#a0a0b0'
-    ctx.font = '8px "Press Start 2P", monospace'
+    ctx.font = '500 11px "Google Sans Flex", sans-serif'
     ctx.textAlign = 'center'
-    points.forEach((p) => {
-      const dateStr = new Date(p.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-      ctx.fillText(dateStr, p.x, height - pad.bottom + 16)
+    dataPoints.forEach((d, i) => {
+      const x = pad.left + (dataPoints.length === 1 ? graphW / 2 : (i / (dataPoints.length - 1)) * graphW)
+      const dateStr = new Date(d.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+      ctx.fillText(dateStr, x, height - pad.bottom + 16)
     })
 
-    // Rank labels above dots
-    ctx.font = '8px "Press Start 2P", monospace'
+    ctx.font = '700 11px "Google Sans Flex", sans-serif'
     ctx.textAlign = 'center'
-    points.forEach((p) => {
-      // Rank in gold
+    dataPoints.forEach((d, i) => {
+      const x = pad.left + (dataPoints.length === 1 ? graphW / 2 : (i / (dataPoints.length - 1)) * graphW)
+      const rankY = pad.top + ((d.rank - 1) / (maxRank - 1 || 1)) * graphH
       ctx.fillStyle = '#ffd700'
-      const suffix = p.rank === 1 ? 'st' : p.rank === 2 ? 'nd' : p.rank === 3 ? 'rd' : 'th'
-      ctx.fillText(`${p.rank}${suffix}/${p.totalStudents}`, p.x, p.y - 14)
+      ctx.fillText(`#${d.rank}/${d.totalStudents}`, x, rankY - 14)
     })
 
-  }, [dataPoints, width, height])
+  }, [dataPoints, canvasWidth, height])
 
   if (dataPoints.length === 0) {
     return <p className="text-dim" style={{ fontSize: '0.85rem' }}>No ranking data yet.</p>
   }
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{ width: '100%', maxWidth: width, height, borderRadius: '4px', border: '2px solid rgba(0,255,245,0.3)' }}
-    />
+    <div ref={containerRef} style={{ width: '100%' }}>
+      <canvas
+        ref={canvasRef}
+        style={{ width: '100%', height, borderRadius: '4px', border: '2px solid rgba(0,255,245,0.3)' }}
+      />
+    </div>
   )
 }
 

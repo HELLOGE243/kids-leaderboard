@@ -1,0 +1,81 @@
+rules_version = '2';
+
+// ============================================================
+// CleverSpace Firestore security rules
+//
+// Identity comes from Firebase Auth custom tokens minted by the authLogin /
+// authResetPassword functions after they verify credentials server-side.
+// request.auth.uid is the student or teacher id; request.auth.token.role is
+// 'student' or 'teacher'.
+//
+// The Admin SDK (Cloud Functions) bypasses these rules entirely, so the
+// aggregation trigger can still maintain leaderboards and quizStats.
+// ============================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isTeacher() {
+      return signedIn() && request.auth.token.role == 'teacher';
+    }
+
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    // --- Shared app structure -------------------------------------------
+    // Everyone signed in reads it (courses, classes, quizzes, shop config).
+    //
+    // Writes are open to any signed-in user for now: students still record
+    // test scores, shop purchases and profile changes in these shared chunks.
+    // Clients merge their own changes into the current document rather than
+    // overwriting it, so concurrent edits are preserved. Tightening this to
+    // teacher-only requires moving those student writes into studentData first.
+    match /appData/{docId} {
+      allow read: if signedIn();
+      allow write: if signedIn();
+    }
+
+    // --- Quiz content ----------------------------------------------------
+    match /quizSets/{setId} {
+      allow read: if signedIn();
+      allow write: if isTeacher();
+    }
+
+    // --- Per-student work ------------------------------------------------
+    // A student may read and write only their own document. Teachers may read
+    // and update any student's (awarding tokens, clearing attempts when a quiz
+    // is deleted, marking work).
+    match /studentData/{studentId} {
+      allow read: if isSelf(studentId) || isTeacher();
+      allow create, update: if isSelf(studentId) || isTeacher();
+      allow delete: if isTeacher();
+    }
+
+    // --- Derived aggregates ----------------------------------------------
+    // Maintained exclusively by the onStudentDataWrite trigger. Read-only to
+    // clients: this is what stops a student writing their own leaderboard
+    // score or percentile.
+    match /leaderboards/{classId}/entries/{studentId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /quizStats/{quizSetId}/attempts/{studentId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // --- Credentials ------------------------------------------------------
+    // Password hashes. No client may read or write these under any
+    // circumstance; only the auth functions touch them.
+    match /credentials/{docId} {
+      allow read, write: if false;
+    }
+
+    // Anything not matched above is denied by default.
+  }
+}

@@ -1,0 +1,417 @@
+.cd-page {
+  padding: 24px;
+  max-width: 960px;
+  margin: 0 auto;
+  font-family: var(--font-body, 'Segoe UI', sans-serif);
+  color: #e0e0e0;
+}
+
+.cd-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.cd-back-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #ccc;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.15s;
+}
+.cd-back-btn:hover { background: rgba(255,255,255,0.1); }
+
+.cd-title {
+  font-family: var(--font-pixel, monospace);
+  font-size: 0.7rem;
+  color: #fff;
+  margin: 0;
+}
+
+.cd-year {
+  font-size: 0.75rem;
+  color: #999;
+  background: rgba(255,255,255,0.08);
+  padding: 2px 10px;
+  border-radius: 4px;
+}
+
+/* Stats row */
+.cd-stats-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.cd-stat-card {
+  flex: 1;
+  min-width: 120px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.cd-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.cd-stat-label {
+  font-size: 0.7rem;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Donut chart */
+.cd-donut-section {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 28px;
+  padding: 16px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.cd-donut {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.cd-donut-hole {
+  position: absolute;
+  inset: 20px;
+  background: #1a1a2e;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.cd-donut-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.cd-donut-label {
+  font-size: 0.6rem;
+  color: #999;
+}
+
+.cd-donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cd-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cd-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cd-legend-text {
+  font-size: 0.78rem;
+  color: #ccc;
+}
+
+/* Sections */
+.cd-section {
+  margin-bottom: 28px;
+}
+
+.cd-section-title {
+  font-family: var(--font-pixel, monospace);
+  font-size: 0.55rem;
+  color: #fff;
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+/* Tables */
+.cd-table {
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.cd-table-header {
+  display: flex;
+  background: rgba(255,255,255,0.08);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.cd-th {
+  padding: 10px 14px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+  user-select: none;
+}
+.cd-th:hover { color: #fff; }
+
+.cd-th-name { flex: 2; }
+.cd-th-completion { flex: 2; }
+.cd-th-results { flex: 1; text-align: right; }
+
+.cd-table-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.cd-table-row:last-child { border-bottom: none; }
+.cd-table-row:hover { background: rgba(255,255,255,0.06); }
+
+.cd-td { padding: 10px 14px; font-size: 0.82rem; }
+.cd-td-name { flex: 2; color: #e0e0e0; font-weight: 500; }
+.cd-td-completion { flex: 2; display: flex; align-items: center; gap: 10px; }
+.cd-td-results { flex: 1; text-align: right; font-weight: 600; }
+
+.cd-text-dim { color: #888; font-weight: 400; }
+
+.cd-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  max-width: 120px;
+}
+
+.cd-progress-fill {
+  display: block;
+  height: 100%;
+  background: #42a5f5;
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+.cd-progress-text {
+  font-size: 0.72rem;
+  color: #aaa;
+  white-space: nowrap;
+}
+
+.cd-score-high { color: #4caf50; }
+.cd-score-mid { color: #ff9800; }
+.cd-score-low { color: #f44336; }
+
+.cd-empty {
+  padding: 24px;
+  text-align: center;
+  color: #777;
+  font-size: 0.82rem;
+}
+
+/* Quiz Results Grid */
+.cd-results-grid-wrap {
+  overflow-x: auto;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+}
+
+.cd-results-grid {
+  display: grid;
+  min-width: 600px;
+}
+
+.cd-rg-header {
+  padding: 10px 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #aaa;
+  background: rgba(255,255,255,0.08);
+  border-bottom: 2px solid rgba(255,255,255,0.12);
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+}
+.cd-rg-header:hover { color: #fff; }
+.cd-rg-header.cd-rg-name { text-align: left; padding-left: 12px; }
+.cd-rg-header.cd-rg-score { text-align: center; font-weight: 700; }
+
+.cd-rg-cell {
+  padding: 0;
+  font-size: 0.78rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+}
+.cd-rg-cell.cd-rg-name { justify-content: flex-start; padding: 0 12px; color: #e0e0e0; font-weight: 500; }
+.cd-rg-cell.cd-rg-score { font-weight: 600; }
+
+.cd-rg-avg-row {
+  background: rgba(255,255,255,0.04) !important;
+  border-bottom: 2px solid rgba(255, 200, 0, 0.3) !important;
+  font-size: 0.7rem;
+  color: #ccc;
+  font-weight: 500;
+}
+
+.cd-rg-cell.cd-rg-bar {
+  position: relative;
+  cursor: pointer;
+  margin: 3px 1px;
+  border-radius: 3px;
+  min-height: 32px;
+  transition: filter 0.12s;
+}
+.cd-rg-cell.cd-rg-bar:hover { filter: brightness(1.2); }
+
+.cd-rg-correct { background: rgba(76, 200, 130, 0.7) !important; }
+.cd-rg-incorrect { background: rgba(240, 80, 80, 0.65) !important; }
+.cd-rg-skipped { background: rgba(150, 150, 150, 0.3) !important; }
+
+.cd-rg-reported-header { color: #ff9800 !important; position: relative; }
+.cd-rg-report-icon {
+  font-size: 0.55rem;
+  color: #ff9800;
+  margin-left: 2px;
+  vertical-align: super;
+}
+
+.cd-rg-cell-report {
+  font-size: 0.6rem;
+  color: #ff9800;
+  filter: drop-shadow(0 0 2px rgba(255, 152, 0, 0.6));
+  position: absolute;
+  top: 2px;
+  right: 3px;
+}
+
+.cd-rg-time-tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #222;
+  color: #fff;
+  font-size: 0.68rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  pointer-events: none;
+}
+.cd-rg-time-tip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #222;
+}
+
+/* Student Report Card */
+.cd-report-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.cd-report-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.cd-report-row:last-child { border-bottom: none; }
+
+.cd-report-label {
+  font-size: 0.75rem;
+  color: #999;
+  text-transform: uppercase;
+}
+
+.cd-report-value {
+  font-size: 0.85rem;
+  color: #fff;
+  font-weight: 500;
+}
+
+/* Module blocks */
+.cd-module-block {
+  margin-bottom: 16px;
+}
+
+.cd-module-title {
+  font-size: 0.8rem;
+  color: #bbb;
+  margin: 0 0 8px;
+  padding-left: 8px;
+  border-left: 3px solid #42a5f5;
+}
+
+.cd-quiz-list {
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.cd-quiz-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.cd-quiz-row:last-child { border-bottom: none; }
+.cd-quiz-row:nth-child(even) { background: rgba(255,255,255,0.02); }
+
+.cd-quiz-name {
+  font-size: 0.8rem;
+  color: #ddd;
+  flex: 1;
+}
+
+.cd-quiz-score {
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .cd-page { padding: 12px; }
+  .cd-stats-row { gap: 8px; }
+  .cd-stat-card { min-width: 80px; padding: 10px; }
+  .cd-stat-value { font-size: 1.1rem; }
+  .cd-donut-section { flex-direction: column; }
+  .cd-th-completion, .cd-td-completion { display: none; }
+}
