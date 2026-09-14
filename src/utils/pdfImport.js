@@ -1,3 +1,4 @@
+import { authedFetch } from '../data/auth.js'
 let pdfjsLib = null
 
 async function getPdfjs() {
@@ -113,7 +114,7 @@ ${pdfText}`
 }
 
 async function callAI(prompt, onProgress) {
-  const response = await fetch('/api/claude/v1/messages', {
+  const response = await authedFetch('/api/claude/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

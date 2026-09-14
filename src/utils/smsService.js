@@ -1,4 +1,5 @@
 import { logSms } from '../data/store.js'
+import { authedFetch } from '../data/auth.js'
 
 const SMS_FUNCTION_URL = import.meta.env.VITE_SMS_FUNCTION_URL || ''
 
@@ -10,7 +11,7 @@ export async function sendOverdueSMS({ studentId, studentName, parentPhone, over
   const message = `Hi, this is ${orgName}. ${studentName} has ${overdueCount} overdue assignment${overdueCount !== 1 ? 's' : ''}. Please remind them to complete their homework. Thank you!`
 
   try {
-    const res = await fetch(SMS_FUNCTION_URL, {
+    const res = await authedFetch(SMS_FUNCTION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone: parentPhone, message }),

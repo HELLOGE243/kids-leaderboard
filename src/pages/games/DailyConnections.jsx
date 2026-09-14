@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getDailyGameState, saveDailyGameState, awardDailyGameCoins, getDailyPuzzles, setDailyPuzzles } from '../../data/store.js'
+import { authedFetch } from '../../data/auth.js'
 
 const GROUP_COLORS = ['#f9df6d', '#a0c35a', '#b0c4ef', '#ba81c5']
 const GROUP_LABELS = ['yellow', 'green', 'blue', 'purple']
@@ -68,7 +69,7 @@ function DailyConnections({ userId, onBack, onWin }) {
 
       if (!puzzles?.connections) {
         try {
-          const res = await fetch('/api/claude/v1/messages', {
+          const res = await authedFetch('/api/claude/v1/messages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

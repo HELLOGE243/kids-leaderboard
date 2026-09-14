@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { getDailyGameState, saveDailyGameState, awardDailyGameCoins, getDailyPuzzles, setDailyPuzzles } from '../../data/store.js'
+import { authedFetch } from '../../data/auth.js'
 
 const GAME_DURATION = 90
 const GRID_SIZE = 4
@@ -46,7 +47,7 @@ function DailyWordHunt({ userId, onBack, onWin }) {
 
       if (!puzzles?.wordhunt) {
         try {
-          const res = await fetch('/api/claude/v1/messages', {
+          const res = await authedFetch('/api/claude/v1/messages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

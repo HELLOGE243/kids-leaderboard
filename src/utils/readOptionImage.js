@@ -1,3 +1,4 @@
+import { authedFetch } from '../data/auth.js'
 // Reads the lettered option list (A-H sentences or paragraph summaries) out of
 // the image CleverSpace stores inside Drag Sentences / Drag Summaries passages.
 // CleverSpace keeps only the letters as answers, so this image is the sole
@@ -53,7 +54,7 @@ export async function readOptionImage(dataUri) {
 
   let res
   try {
-    res = await fetch('/api/claude/v1/messages', {
+    res = await authedFetch('/api/claude/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

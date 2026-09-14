@@ -125,6 +125,18 @@ export async function adminAction(action, payload = {}) {
   }
 }
 
+/**
+ * fetch() that sends the signed-in user's Firebase ID token. The Claude proxy
+ * and SMS function reject requests without one, so they can no longer be used
+ * by anyone who simply finds their URL.
+ */
+export async function authedFetch(url, init = {}) {
+  const headers = new Headers(init.headers || {})
+  const user = auth.currentUser
+  if (user) headers.set('Authorization', `Bearer ${await user.getIdToken()}`)
+  return fetch(url, { ...init, headers })
+}
+
 /** Signs the browser out of Firebase Auth. */
 export async function signOutUser() {
   try {

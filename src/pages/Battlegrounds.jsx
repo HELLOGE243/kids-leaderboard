@@ -8,6 +8,7 @@ import Arena from './games/Arena.jsx'
 import DutchGame from './games/DutchGame.jsx'
 import QuizBlitz from './games/QuizBlitz.jsx'
 import DailyVocabTrainer from './games/DailyVocabTrainer.jsx'
+import { authedFetch } from '../data/auth.js'
 
 const DAILY_CHALLENGES = [
   { id: 'wordle', name: 'Wordle', icon: '🟩', desc: 'Guess the 5-letter word in 6 tries', reward: '10 coins', color: '#538d4e' },
@@ -160,7 +161,7 @@ function DailyTrivia({ userId }) {
 
       setLoading(true)
       try {
-        const res = await fetch('/api/claude/v1/messages', {
+        const res = await authedFetch('/api/claude/v1/messages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

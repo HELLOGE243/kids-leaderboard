@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { getDailyGameState, saveDailyGameState, awardDailyGameCoins, getDailyPuzzles, setDailyPuzzles } from '../../data/store.js'
+import { authedFetch } from '../../data/auth.js'
 
 const GAME_DURATION = 120
 
@@ -30,7 +31,7 @@ function DailyWordBlitz({ userId, onBack, onWin }) {
 
       if (!puzzles?.wordblitz) {
         try {
-          const res = await fetch('/api/claude/v1/messages', {
+          const res = await authedFetch('/api/claude/v1/messages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

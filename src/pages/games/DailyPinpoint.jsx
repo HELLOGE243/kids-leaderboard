@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getDailyGameState, saveDailyGameState, awardDailyGameCoins, getDailyPuzzles, setDailyPuzzles } from '../../data/store.js'
+import { authedFetch } from '../../data/auth.js'
 
 const CLUE_POINTS = [50, 40, 30, 20, 10]
 
@@ -20,7 +21,7 @@ function DailyPinpoint({ userId, onBack, onWin }) {
 
       if (!puzzles?.pinpoint) {
         try {
-          const res = await fetch('/api/claude/v1/messages', {
+          const res = await authedFetch('/api/claude/v1/messages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

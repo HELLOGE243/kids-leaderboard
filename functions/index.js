@@ -1,11 +1,31 @@
 const functions = require('firebase-functions')
 const cors = require('cors')({ origin: true })
 
+/**
+ * Verifies the caller's Firebase ID token (`Authorization: Bearer <token>`).
+ * These endpoints spend real money (Claude, Twilio), so they must not be usable
+ * by anyone who simply finds the URL.
+ * @returns decoded token, or null when missing/invalid
+ */
+async function verifyCaller(req) {
+  const header = req.get('Authorization') || ''
+  const idToken = header.startsWith('Bearer ') ? header.slice(7) : null
+  if (!idToken) return null
+  try {
+    return await admin.auth().verifyIdToken(idToken)
+  } catch {
+    return null
+  }
+}
+
 // --- Claude API proxy ---
 exports.claudeProxy = functions.https.onRequest((req, res) => {
   cors(req, res, async () => {
     if (req.method !== 'POST') {
       return res.status(405).json({ error: 'Method not allowed' })
+    }
+    if (!(await verifyCaller(req))) {
+      return res.status(401).json({ error: { message: 'Sign in required' } })
     }
 
     const apiKey = process.env.CLAUDE_API_KEY
@@ -36,6 +56,11 @@ exports.sendSMS = functions.https.onRequest((req, res) => {
   cors(req, res, async () => {
     if (req.method !== 'POST') {
       return res.status(405).json({ success: false, error: 'Method not allowed' })
+    }
+    // Only teachers send parent notifications.
+    const caller = await verifyCaller(req)
+    if (!caller || caller.role !== 'teacher') {
+      return res.status(403).json({ success: false, error: 'Teacher sign-in required' })
     }
 
     const { phone, message } = req.body

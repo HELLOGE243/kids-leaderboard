@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { getDailyGameState, saveDailyGameState, awardDailyGameCoins } from '../../data/store.js'
+import { authedFetch } from '../../data/auth.js'
 
 const FALLBACK_SETS = [
   {
@@ -73,7 +74,7 @@ function DailyVocabTrainer({ userId, onBack, onCoinsEarned }) {
 
     let set
     try {
-      const res = await fetch('/api/claude/v1/messages', {
+      const res = await authedFetch('/api/claude/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,3 +1,4 @@
+import { authedFetch } from '../data/auth.js'
 export async function checkExplanation({ questionText, correctAnswer, officialExplanation, studentReason, studentExplanation }) {
   const explanationContext = officialExplanation
     ? `\nOfficial explanation (written by the teacher): "${officialExplanation}"\nThe student's explanation MUST align with the key concepts in the official explanation to be considered coherent.`
@@ -27,7 +28,7 @@ Reply with a JSON object only, no other text:
 If coherent is false, identify which key idea from the official explanation the student is MISSING and give a targeted hint about that specific concept. Do NOT reveal the answer — just point them in the right direction. For example: "You're close, but think about what happens to X when Y changes." Be encouraging but firm. Keep language simple and age-appropriate.`
 
   try {
-    const res = await fetch('/api/claude/v1/messages', {
+    const res = await authedFetch('/api/claude/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -131,7 +132,7 @@ RULES:
 - The questions should feel fresh, not just reworded copies.`
 
   try {
-    const res = await fetch('/api/claude/v1/messages', {
+    const res = await authedFetch('/api/claude/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -174,7 +175,7 @@ Each object:
 Return ONLY the JSON array, no other text. Make exercises age-appropriate and the distractors plausible but clearly wrong.`
 
   try {
-    const res = await fetch('/api/claude/v1/messages', {
+    const res = await authedFetch('/api/claude/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -212,7 +213,7 @@ Each object:
 Return ONLY a JSON array. Make questions age-appropriate. Distractors should be plausible but clearly wrong to someone who knows the rule.`
 
   try {
-    const res = await fetch('/api/claude/v1/messages', {
+    const res = await authedFetch('/api/claude/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -263,7 +264,7 @@ Keep language simple — a teacher should instantly understand each suggestion.
 Return ONLY the JSON array, no other text.`
 
   try {
-    const res = await fetch('/api/claude/v1/messages', {
+    const res = await authedFetch('/api/claude/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -315,7 +316,7 @@ Return ONLY a JSON object:
 }`
 
   try {
-    const res = await fetch('/api/claude/v1/messages', {
+    const res = await authedFetch('/api/claude/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -353,7 +354,7 @@ Return ONLY a JSON object:
 Keep it concise. This is for your own reference to give better feedback, not shown to the student.`
 
   try {
-    const res = await fetch('/api/claude/v1/messages', {
+    const res = await authedFetch('/api/claude/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -401,7 +402,7 @@ Return ONLY a JSON object:
 Do not change the meaning. Keep the student's voice. Fix grammar, vocabulary, sentence structure, or clarity issues.`
 
   try {
-    const res = await fetch('/api/claude/v1/messages', {
+    const res = await authedFetch('/api/claude/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -458,7 +459,7 @@ RULES:
 - For maths questions, prefer plain-language explanations and arithmetic (e.g. "3 groups of 4 is 12"). Only use algebra or formal equations when the concept genuinely requires it.`
 
   try {
-    const res = await fetch('/api/claude/v1/messages', {
+    const res = await authedFetch('/api/claude/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -487,9 +488,11 @@ RULES:
 
 export async function generateWordDefinition(word) {
   try {
-    const res = await fetch('/api/claude/v1/messages', {
+    const res = await authedFetch('/api/claude/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': import.meta.env.VITE_CLAUDE_API_KEY, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      // The proxy adds the API key server-side. Never send it from the browser:
+      // any VITE_ variable is compiled into the public bundle.
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 200,
