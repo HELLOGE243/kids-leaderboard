@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction } from 'firebase/firestore'
+import { getAuth } from 'firebase/auth'
 
 const firebaseConfig = {
   apiKey: "AIzaSyB4plF1oMkqzR2pW40Ecw094u-6ftbYuJI",
@@ -545,12 +546,66 @@ async function writeChunk(chunk, payload, forceAll) {
   })
 }
 
+// ------------------------------------------------------------
+// What a student may change in the shared chunks (mirrors firestore.rules).
+//
+// `keys` are the top-level fields a student write may touch; `ownMaps` are
+// maps keyed by student id where only the student's own entry may change.
+// Students cannot edit courses, quizzes, classes, the shop setup, teachers,
+// or anyone else's record.
+// ------------------------------------------------------------
+const STUDENT_WRITABLE = {
+  core: { keys: ['students', '_savedAt'], ownMaps: ['students'] },
+  activity: { keys: ['scores', 'dailyTrivia', 'dailyPuzzles'], ownMaps: [] },
+  shop: { keys: ['purchases'], ownMaps: [] },
+  extras: { keys: ['wordleSolvers', 'arenaGhosts', 'dojoClones', 'dojoKills'], ownMaps: ['dojoKills'] },
+  content: { keys: [], ownMaps: [] },
+}
+
+/**
+ * Restricts a student's chunk payload to what they are allowed to change,
+ * taking every other value from `base` (what this client last saw).
+ *
+ * Needed beyond the rules themselves: loading data fills in defaults across
+ * every record (other students, courses, classes), so an unrestricted student
+ * save would carry those edits too - and the rules would then reject the whole
+ * write, losing the student's genuine change along with it.
+ */
+function projectStudentPayload(chunk, payload, base, uid) {
+  const allowed = STUDENT_WRITABLE[chunk] || { keys: [], ownMaps: [] }
+  const out = {}
+  for (const key of CHUNK_KEYS[chunk]) {
+    const fromBase = base ? base[key] : undefined
+    if (!allowed.keys.includes(key)) {
+      if (fromBase !== undefined) out[key] = fromBase
+      continue
+    }
+    if (allowed.ownMaps.includes(key)) {
+      const merged = { ...(fromBase || {}) }
+      const mine = payload[key] ? payload[key][uid] : undefined
+      if (mine === undefined) delete merged[uid]
+      else merged[uid] = mine
+      out[key] = merged
+      continue
+    }
+    if (payload[key] !== undefined) out[key] = payload[key]
+    else if (fromBase !== undefined) out[key] = fromBase
+  }
+  return out
+}
+
 async function writeAllChunks(data, forceAll) {
   _lastWriteErrors = []
   let adoptedRemote = false
+  const studentUid = _syncScope === 'student' ? getAuth(app).currentUser?.uid : null
   for (const chunk of CHUNKS) {
-    const payload = buildPayload(chunk, data)
+    let payload = buildPayload(chunk, data)
     if (Object.keys(payload).length === 0) continue
+    if (_syncScope === 'student') {
+      const baseStr = _lastWrittenChunks[chunk]
+      if (!studentUid || !baseStr) continue // nothing a student can safely write
+      payload = projectStudentPayload(chunk, payload, JSON.parse(baseStr), studentUid)
+    }
 
     const payloadStr = JSON.stringify(payload)
     if (!forceAll && payloadStr === _lastWrittenChunks[chunk]) continue

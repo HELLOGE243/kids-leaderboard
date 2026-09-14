@@ -35,7 +35,7 @@ function DailyWordBlitz({ userId, onBack, onWin }) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              model: 'claude-sonnet-4-20250514',
+              model: 'claude-sonnet-5',
               max_tokens: 600,
               messages: [{
                 role: 'user',

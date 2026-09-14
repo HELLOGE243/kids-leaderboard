@@ -28,15 +28,46 @@ service cloud.firestore {
 
     // --- Shared app structure -------------------------------------------
     // Everyone signed in reads it (courses, classes, quizzes, shop config).
-    //
-    // Writes are open to any signed-in user for now: students still record
-    // test scores, shop purchases and profile changes in these shared chunks.
-    // Clients merge their own changes into the current document rather than
-    // overwriting it, so concurrent edits are preserved. Tightening this to
-    // teacher-only requires moving those student writes into studentData first.
+    // Teachers may change anything. Students may change only the specific
+    // fields their own activity produces - enforced per field, and for maps
+    // keyed by student id, per entry - so a student cannot edit courses,
+    // quizzes, classes, the shop setup, teachers, or another student's record.
+    // Mirrored client-side by STUDENT_WRITABLE in src/data/firebase.js.
+    function isStudent() {
+      return signedIn() && request.auth.token.role == 'student';
+    }
+
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // Within map `field`, only the caller's own entry may change.
+    function onlyOwnEntry(field) {
+      return !changedKeys().hasAny([field])
+        || request.resource.data.get(field, {}).diff(resource.data.get(field, {}))
+             .affectedKeys().hasOnly([request.auth.uid]);
+    }
+
+    function studentMayUpdate(docId) {
+      return (docId == 'core'
+              && changedKeys().hasOnly(['students', '_savedAt'])
+              && onlyOwnEntry('students'))
+          || (docId == 'activity'
+              && changedKeys().hasOnly(['scores', 'dailyTrivia', 'dailyPuzzles']))
+          || (docId == 'shop'
+              && changedKeys().hasOnly(['purchases']))
+          || (docId == 'extras'
+              && changedKeys().hasOnly(['wordleSolvers', 'arenaGhosts', 'dojoClones', 'dojoKills'])
+              && onlyOwnEntry('dojoKills'))
+          || docId == 'broadcasts';
+    }
+
     match /appData/{docId} {
       allow read: if signedIn();
-      allow write: if signedIn();
+      allow write: if isTeacher();
+      allow update: if isStudent() && studentMayUpdate(docId);
+      // "Finished a quiz" messages; the document may not exist yet.
+      allow create: if isStudent() && docId == 'broadcasts';
     }
 
     // --- Quiz content ----------------------------------------------------
