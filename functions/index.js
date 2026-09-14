@@ -330,6 +330,29 @@ function credentialRef(role, id) {
   return db.collection('credentials').doc(`${role}_${id}`)
 }
 
+// Parent contact details live in studentContacts/{studentId}, readable only by
+// teachers. They used to sit on each student record in the shared core
+// document, where any signed-in student could read other families' numbers.
+function contactRef(studentId) {
+  return db.collection('studentContacts').doc(String(studentId))
+}
+
+/** "0412 345 678" -> "••••678": enough to tell entries apart, not to call. */
+function maskPhone(phone) {
+  const digits = String(phone || '').replace(/[^\d]/g, '')
+  return digits ? `••••${digits.slice(-3)}` : ''
+}
+
+/** A student's parent contact, preferring the private store over legacy fields. */
+async function readContact(user) {
+  const snap = await contactRef(user.id).get()
+  const c = snap.exists ? snap.data() : {}
+  return {
+    parentPhone: c.parentPhone || user.parentPhone || '',
+    parentEmail: c.parentEmail || user.parentEmail || '',
+  }
+}
+
 /** Reads the effective stored credential, preferring the private collection. */
 async function readCredential(role, user) {
   const credSnap = await credentialRef(role, user.id).get()
@@ -395,7 +418,8 @@ exports.authResetPassword = functions
         const user = await findUser(role, name)
         // Same response whether or not the account exists, so this cannot be
         // used to discover which nicknames are registered.
-        const stored = String(user?.parentEmail || '').trim().toLowerCase()
+        const contact = user ? await readContact(user) : {}
+        const stored = String(contact.parentEmail || '').trim().toLowerCase()
         if (!user || !stored || stored !== String(parentEmail).trim().toLowerCase()) {
           return sendJson(res, 401, { error: 'Email does not match our records.' })
         }
@@ -528,6 +552,9 @@ exports.authSignup = functions
         if (!password || String(password).length < 1) return sendJson(res, 400, { error: 'Enter a password.' })
 
         const coreRef = db.collection('appData').doc('core')
+        const existingContacts = role === 'student'
+          ? (await db.collection('studentContacts').get()).docs.map((d) => d.data())
+          : []
         const created = await db.runTransaction(async (tx) => {
           const core = (await tx.get(coreRef)).data() || {}
           const bucketName = role === 'teacher' ? 'teachers' : 'students'
@@ -546,7 +573,7 @@ exports.authSignup = functions
             const p = profile || {}
             const phone = digitsOnly(p.parentPhone)
             const email = String(p.parentEmail || '').trim().toLowerCase()
-            for (const s of Object.values(core.students || {})) {
+            for (const s of [...existingContacts, ...Object.values(core.students || {})]) {
               if (phone && digitsOnly(s.parentPhone) === phone) {
                 return { error: 'This phone number is already registered to another student.', status: 409 }
               }
@@ -566,8 +593,6 @@ exports.authSignup = functions
               lastName: String(p.lastName || '').trim(),
               yearGroup: p.yearGroup || '',
               schoolName: String(p.schoolName || '').trim(),
-              parentPhone: String(p.parentPhone || '').trim(),
-              parentEmail: String(p.parentEmail || '').trim(),
             })
           } else {
             let orgId = Object.keys(orgs)[0]
@@ -586,6 +611,14 @@ exports.authSignup = functions
         _core = null // the cached core no longer contains the new account
 
         await credentialRef(role, created.id).set({ password: hashPassword(password), updatedAt: Date.now() })
+        if (role === 'student') {
+          const p = profile || {}
+          await contactRef(created.id).set({
+            parentPhone: String(p.parentPhone || '').trim(),
+            parentEmail: String(p.parentEmail || '').trim(),
+            updatedAt: Date.now(),
+          })
+        }
 
         if (role === 'teacher') {
           return sendJson(res, 200, { ok: true, pendingApproval: true })
@@ -635,6 +668,44 @@ exports.authAdmin = functions
           await coreRef.update(new admin.firestore.FieldPath('teachers', String(teacherId), 'password'), admin.firestore.FieldValue.delete())
             .catch(() => { /* no legacy field */ })
           return sendJson(res, 200, { ok: true })
+        }
+
+        if (action === 'migrateContacts') {
+          // Moves parent phone/email off the shared student records into the
+          // teacher-only studentContacts store, and masks phone numbers in the
+          // shared SMS log. A contact already in the private store is kept.
+          const core = (await coreRef.get()).data() || {}
+          const report = { moved: 0, keptExisting: 0, removedFromCore: 0, smsLogMasked: 0 }
+          const updates = []
+          for (const [id, s] of Object.entries(core.students || {})) {
+            const hasPhone = s.parentPhone !== undefined
+            const hasEmail = s.parentEmail !== undefined
+            if (!hasPhone && !hasEmail) continue
+            if (s.parentPhone || s.parentEmail) {
+              const existing = (await contactRef(id).get()).data() || {}
+              const merged = {
+                parentPhone: existing.parentPhone || s.parentPhone || '',
+                parentEmail: existing.parentEmail || s.parentEmail || '',
+                updatedAt: Date.now(),
+              }
+              if (existing.parentPhone || existing.parentEmail) report.keptExisting++
+              else report.moved++
+              await contactRef(id).set(merged)
+            }
+            if (hasPhone) { updates.push(new admin.firestore.FieldPath('students', id, 'parentPhone'), admin.firestore.FieldValue.delete()); report.removedFromCore++ }
+            if (hasEmail) { updates.push(new admin.firestore.FieldPath('students', id, 'parentEmail'), admin.firestore.FieldValue.delete()); report.removedFromCore++ }
+          }
+          if (Array.isArray(core.smsLog) && core.smsLog.some((l) => l && l.phone && !String(l.phone).startsWith('•'))) {
+            const masked = core.smsLog.map((l) => {
+              if (!l || !l.phone || String(l.phone).startsWith('•')) return l
+              report.smsLogMasked++
+              return { ...l, phone: maskPhone(l.phone) }
+            })
+            updates.push('smsLog', masked)
+          }
+          if (updates.length) await coreRef.update(...updates)
+          _core = null
+          return sendJson(res, 200, { ok: true, report })
         }
 
         if (action === 'migrateCredentials') {

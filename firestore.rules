@@ -69,6 +69,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // --- Parent contact details --------------------------------------------
+    // Phone numbers and emails of students' parents. Teachers only: these were
+    // previously on the shared student records every signed-in user can read.
+    match /studentContacts/{studentId} {
+      allow read, write: if isTeacher();
+    }
+
     // --- Credentials ------------------------------------------------------
     // Password hashes. No client may read or write these under any
     // circumstance; only the auth functions touch them.

@@ -91,15 +91,64 @@ function getLocalData() {
   return raw ? JSON.parse(raw) : null
 }
 
+// Fields that must never be written back into the shared (all-signed-in-users
+// readable) student records. They live in studentContacts, teacher-only.
+const PRIVATE_STUDENT_FIELDS = ['parentPhone', 'parentEmail', 'password']
+
+function withoutPrivateFields(students) {
+  if (!students || typeof students !== 'object') return students
+  const out = {}
+  for (const [id, s] of Object.entries(students)) {
+    if (!s || typeof s !== 'object' || !PRIVATE_STUDENT_FIELDS.some((f) => f in s)) { out[id] = s; continue }
+    const copy = { ...s }
+    for (const f of PRIVATE_STUDENT_FIELDS) delete copy[f]
+    out[id] = copy
+  }
+  return out
+}
+
 function buildPayload(chunk, data) {
   const keys = CHUNK_KEYS[chunk]
   const payload = {}
   for (const key of keys) {
     if (data[key] !== undefined) {
-      payload[key] = data[key]
+      payload[key] = chunk === 'core' && key === 'students' ? withoutPrivateFields(data[key]) : data[key]
     }
   }
   return payload
+}
+
+// ------------------------------------------------------------
+// Parent contact details (studentContacts/{studentId}, teachers only)
+// ------------------------------------------------------------
+let _contacts = null
+
+/** Loads every student's parent contact. Teachers only - rules refuse others. */
+export async function loadContacts(force = false) {
+  if (_contacts && !force) return _contacts
+  try {
+    const snap = await getDocs(collection(db, 'studentContacts'))
+    _contacts = {}
+    for (const d of snap.docs) _contacts[d.id] = d.data()
+    notifyChange()
+  } catch (e) {
+    console.warn('Firestore: could not load parent contacts:', e?.code || e)
+    _contacts = _contacts || {}
+  }
+  return _contacts
+}
+
+/** @returns {{parentPhone: string, parentEmail: string}} ('' when not loaded) */
+export function getContact(studentId) {
+  const c = (_contacts && _contacts[studentId]) || {}
+  return { parentPhone: c.parentPhone || '', parentEmail: c.parentEmail || '' }
+}
+
+export async function saveContact(studentId, fields) {
+  const next = { ...getContact(studentId), ...fields, updatedAt: Date.now() }
+  _contacts = { ...(_contacts || {}), [studentId]: next }
+  notifyChange()
+  await setDoc(doc(db, 'studentContacts', String(studentId)), next)
 }
 
 

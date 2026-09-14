@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { getOverdueStudents, updateStudentContact, getSmsLog, getNotificationPrefs, setNotificationPrefs, getOrganisation, onDataChange } from '../data/store.js'
+import { getOverdueStudents, updateStudentContact, getSmsLog, getNotificationPrefs, setNotificationPrefs, getOrganisation, onDataChange, loadContacts } from '../data/store.js'
 import { sendBulkOverdueSMS } from '../utils/smsService.js'
 
 function NotificationsPanel({ orgId, onBack }) {
@@ -13,6 +13,8 @@ function NotificationsPanel({ orgId, onBack }) {
 
   useEffect(() => {
     const unsub = onDataChange(() => setRefresh(r => r + 1))
+    // Parent contacts are teacher-only and not part of the shared data load.
+    loadContacts()
     return unsub
   }, [])
 

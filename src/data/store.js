@@ -23,9 +23,9 @@
 
 import { extractAndStoreImages, findImageRefs, deleteImages } from './imageStore.js'
 import { pickSolutionVideo } from '../utils/video.js'
-import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, scheduleLocalMirror } from './firebase.js'
+import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
 
-export { onDataChange, onBroadcast, sendBroadcast }
+export { onDataChange, onBroadcast, sendBroadcast, loadContacts }
 
 const STORAGE_KEY = 'leaderboard_data'
 
@@ -151,8 +151,6 @@ function buildData(data) {
     if (!data.notificationPrefs) data.notificationPrefs = {}
     for (const id of Object.keys(data.students || {})) {
       const s = data.students[id]
-      if (s.parentPhone === undefined) s.parentPhone = ''
-      if (s.parentEmail === undefined) s.parentEmail = ''
     }
     if (!data.quizFolders) data.quizFolders = []
     if (!data.leaderboardSnapshots) data.leaderboardSnapshots = []
@@ -785,22 +783,6 @@ export function findStudentByName(name) {
   )
   if (!entry) return null
   return { id: entry[0], ...entry[1] }
-}
-
-export function isPhoneTaken(phone, excludeId) {
-  const data = loadData()
-  const digits = phone.replace(/[^\d]/g, '')
-  return Object.entries(data.students).some(
-    ([id, s]) => id !== excludeId && s.parentPhone && s.parentPhone.replace(/[^\d]/g, '') === digits
-  )
-}
-
-export function isEmailTaken(email, excludeId) {
-  const data = loadData()
-  const lower = email.toLowerCase().trim()
-  return Object.entries(data.students).some(
-    ([id, s]) => id !== excludeId && s.parentEmail && s.parentEmail.toLowerCase().trim() === lower
-  )
 }
 
 // --- Test Event Actions ---
@@ -3827,14 +3809,15 @@ export function archiveVocabWord(wordId) {
 }
 
 // ===== SMS Notifications =====
+/**
+ * Parent contact details are stored in studentContacts (teachers only), never
+ * on the shared student record that every signed-in user can read.
+ */
 export function updateStudentContact(studentId, { parentPhone, parentEmail }) {
-  const data = loadData()
-  const student = data.students[studentId]
-  if (!student) return
-  if (parentPhone !== undefined) student.parentPhone = parentPhone
-  if (parentEmail !== undefined) student.parentEmail = parentEmail
-  saveData(data)
-
+  const fields = {}
+  if (parentPhone !== undefined) fields.parentPhone = parentPhone
+  if (parentEmail !== undefined) fields.parentEmail = parentEmail
+  return saveContact(studentId, fields)
 }
 
 export function getOverdueStudents(orgId) {
@@ -3846,7 +3829,8 @@ export function getOverdueStudents(orgId) {
     if (cls?.orgId !== orgId) continue
     const { pending, overdue } = getPendingHomeworkCount(id)
     if (overdue > 0) {
-      results.push({ studentId: id, name: fullName(s), parentPhone: s.parentPhone || '', parentEmail: s.parentEmail || '', overdue, pending })
+      const contact = getContact(id)
+      results.push({ studentId: id, name: fullName(s), parentPhone: contact.parentPhone, parentEmail: contact.parentEmail, overdue, pending })
     }
   }
   return results.sort((a, b) => b.overdue - a.overdue)
@@ -3854,7 +3838,11 @@ export function getOverdueStudents(orgId) {
 
 export function logSms(entry) {
   const data = loadData()
-  data.smsLog.push({ ...entry, id: 'sms_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8), sentAt: new Date().toISOString() })
+  // The log sits in shared data, so keep only enough of the number to tell
+  // entries apart - the full number stays in studentContacts.
+  const digits = String(entry.phone || '').replace(/[^\d]/g, '')
+  const phone = digits ? `••••${digits.slice(-3)}` : ''
+  data.smsLog.push({ ...entry, phone, id: 'sms_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8), sentAt: new Date().toISOString() })
   saveData(data)
 
 }
