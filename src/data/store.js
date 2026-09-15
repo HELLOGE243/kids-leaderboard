@@ -2773,7 +2773,7 @@ export function getSchoolNewsfeed(orgId) {
   return [
     { id: 'welcome', title: 'Welcome Back!', body: 'A new term begins — set your goals and aim high this semester.', color: '#42a5f5', icon: '🎓', date: new Date().toISOString(), upvotes: 24, views: 128 },
     { id: 'tip1', title: 'Study Tip', body: 'Review your notes within 24 hours of each lesson to boost retention by 60%.', color: '#66bb6a', icon: '💡', date: new Date().toISOString(), upvotes: 18, views: 94 },
-    { id: 'tip2', title: 'Dojo Reminder', body: 'Visit your Revision Dojo daily — spacing out practice is the key to long-term memory.', color: '#ab47bc', icon: '🥷', date: new Date().toISOString(), upvotes: 12, views: 67 },
+    { id: 'tip2', title: 'Revision Hall Reminder', body: 'Visit your Revision Hall daily — spacing out practice is the key to long-term memory.', color: '#ab47bc', icon: '🥷', date: new Date().toISOString(), upvotes: 12, views: 67 },
     { id: 'tip3', title: 'Coin Challenge', body: 'Complete all your assignments this week to earn bonus coins in the shop!', color: '#ffab00', icon: '🪙', date: new Date().toISOString(), upvotes: 31, views: 152 },
   ]
 }

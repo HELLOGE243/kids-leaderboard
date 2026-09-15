@@ -509,7 +509,7 @@ function ReportPage({ studentId, onBack }) {
         {/* Revision & Engagement */}
         <div className="hw-res-perf-row">
           <div className="hw-res-perf-panel">
-            <p className="hw-res-section-label">Revision Dojo</p>
+            <p className="hw-res-section-label">Revision Hall</p>
             <div className="rpt-dojo-stats">
               <div className="rpt-dojo-stat">
                 <span className="rpt-dojo-num" style={{ color: '#64ffda' }}>{data.dojoActive}</span>

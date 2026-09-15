@@ -64,7 +64,7 @@ const REPORT_LABELS = {
   unclear: "🤔 Doesn't make sense", incorrect: '❌ Explanation wrong', confusing: '🤔 Explanation confusing',
   video: '🎬 Video problem', offensive: '🚫 Inappropriate', other: '💬 Other',
 }
-const REPORT_SOURCES = { quiz: 'during quiz', review: 'in review', dojo: 'Revision Dojo', revision: 'daily revision' }
+const REPORT_SOURCES = { quiz: 'during quiz', review: 'in review', dojo: 'Revision Hall', revision: 'daily revision' }
 
 function reportQuestion(r) {
   const set = getImportedQuizSet(r.quizSetId)

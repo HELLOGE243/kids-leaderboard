@@ -36,6 +36,10 @@ const WALLPAPERS = [
 // Download and decode the background once, shared by every visit. Portal calls
 // this on load so the image is usually ready before the student opens the dojo.
 const wallpaperLoads = new Map()
+// Sources already decoded, and the Image objects kept alive so the browser keeps
+// the decoded bitmap: the hall can then paint its background on the first frame.
+const wallpaperReady = new Set()
+const wallpaperImages = []
 export function preloadDojoWallpapers() {
   for (const w of WALLPAPERS) loadWallpaper(w.src)
 }
@@ -43,8 +47,11 @@ function loadWallpaper(src) {
   if (!wallpaperLoads.has(src)) {
     const img = new Image()
     img.decoding = 'async'
+    img.fetchPriority = 'high'
     img.src = src
-    wallpaperLoads.set(src, (img.decode ? img.decode() : new Promise((res, rej) => { img.onload = res; img.onerror = rej })).then(() => true, () => false))
+    wallpaperImages.push(img)
+    wallpaperLoads.set(src, (img.decode ? img.decode() : new Promise((res, rej) => { img.onload = res; img.onerror = rej }))
+      .then(() => { wallpaperReady.add(src); return true }, () => false))
   }
   return wallpaperLoads.get(src)
 }
@@ -273,16 +280,16 @@ function shuffleArray(arr) {
 function RevisionDojo({ user, onBack, onNavigateToQuiz }) {
   const [sceneIdx] = useState(() => Math.floor(Math.random() * WALLPAPERS.length))
   const wallpaper = WALLPAPERS[sceneIdx]
-  // Hold the page behind a loading screen until the background is decoded, so
-  // it appears all at once. Give up waiting after 4s (slow connection).
-  const [bgReady, setBgReady] = useState(false)
+  // Everything renders at once. If the portal has already preloaded the image
+  // (the usual case) it paints on the first frame; otherwise the blurred
+  // placeholder shows until the full image is ready, without hiding the page.
+  const [bgReady, setBgReady] = useState(() => wallpaperReady.has(wallpaper.src))
   useEffect(() => {
+    if (bgReady) return
     let alive = true
-    const done = () => { if (alive) setBgReady(true) }
-    loadWallpaper(wallpaper.src).then(done)
-    const t = setTimeout(done, 4000)
-    return () => { alive = false; clearTimeout(t) }
-  }, [wallpaper.src])
+    loadWallpaper(wallpaper.src).then((ok) => { if (alive && ok) setBgReady(true) })
+    return () => { alive = false }
+  }, [wallpaper.src, bgReady])
   const [tab, setTab] = useState('training')
   const [dueCards, setDueCards] = useState([])
   const [currentIdx, setCurrentIdx] = useState(0)
@@ -719,19 +726,13 @@ Return ONLY valid JSON:
   }
 
   return (
-    <div className={`dojo-page${bgReady ? ' dojo-bg-ready' : ' dojo-bg-loading'}`}
+    <div className="dojo-page"
       style={{ background: `url("${bgReady ? wallpaper.src : wallpaper.placeholder}") center / cover no-repeat` }}>
-      {!bgReady && (
-        <div className="dojo-bg-loader">
-          <div className="dojo-loading-spinner" />
-          <p className="dojo-bg-loader-text">Entering the Dojo…</p>
-        </div>
-      )}
 
       <div className="dojo-inner">
         <div className="dojo-header-bar">
           <button className="dojo-back-btn" onClick={onBack}>&#9664; Back</button>
-          <span className="dojo-title">Revision Dojo</span>
+          <span className="dojo-title">Revision Hall</span>
           <div className="dojo-header-right">
             {kills > 0 && <button className="dojo-redeem-btn" onClick={handleRedeem}>Redeem {kills * 5}t</button>}
           </div>
@@ -1195,7 +1196,7 @@ Return ONLY valid JSON:
                 </div>
                 <div style={{ display: 'flex', gap: 12, marginTop: 16, justifyContent: 'center' }}>
                   <button className="btn btn-outline" onClick={() => { setUploadImg(null); setUploadPreview(null) }}>Retake</button>
-                  <button className="btn" onClick={handleConfirmUpload}>Add to Dojo</button>
+                  <button className="btn" onClick={handleConfirmUpload}>Add to Revision Hall</button>
                 </div>
               </div>
             )}

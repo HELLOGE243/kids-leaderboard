@@ -16032,19 +16032,6 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 
 @media (max-width: 640px) { .sr-correct-text { font-size: 1.6rem; } }
 
-/* Revision Dojo: hold the page until the background has loaded, then fade in together */
-.dojo-page.dojo-bg-loading > .dojo-inner { opacity: 0; }
-.dojo-page.dojo-bg-ready > .dojo-inner { animation: dojo-page-in .45s ease-out both; }
-.dojo-page.dojo-bg-ready { animation: dojo-bg-in .45s ease-out both; }
-.dojo-bg-loader {
-  position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
-  background: rgba(20, 14, 40, 0.55); backdrop-filter: blur(6px);
-}
-.dojo-bg-loader-text { font-family: var(--font-pixel); font-size: 0.8rem; color: #e8dcff; letter-spacing: 1px; text-shadow: 0 2px 8px rgba(0,0,0,.6); margin: 0; }
-@keyframes dojo-page-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-@keyframes dojo-bg-in { from { filter: blur(8px) brightness(.8); } to { filter: none; } }
-@media (prefers-reduced-motion: reduce) { .dojo-page.dojo-bg-ready, .dojo-page.dojo-bg-ready > .dojo-inner { animation: none; } }
-
 /* ===== Student report-a-problem popup (components/ReportIssueModal.jsx) ===== */
 .rim-overlay { z-index: 100001; }
 .rim {
@@ -16102,14 +16089,14 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 
 /* ===== Revision Dojo: gold & purple glow theme (matches the grand hall) ===== */
 .dojo-title {
-  color: #ffe08a;
-  background: linear-gradient(180deg, #fff3c4 0%, #ffd36b 45%, #e0a23a 100%);
+  color: #fff4c8;
+  background: linear-gradient(180deg, #ffffff 0%, #fff1b8 40%, #ffd66e 100%);
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 10px rgba(255, 196, 84, .55)) drop-shadow(0 0 26px rgba(168, 85, 247, .65)) drop-shadow(0 3px 3px rgba(20, 8, 40, .8));
+  filter: drop-shadow(0 0 8px rgba(255, 226, 140, .9)) drop-shadow(0 0 22px rgba(255, 196, 84, .6)) drop-shadow(0 0 34px rgba(216, 180, 254, .55));
   animation: dojo-title-glow 3.2s ease-in-out infinite;
 }
 @keyframes dojo-title-glow {
-  50% { filter: drop-shadow(0 0 16px rgba(255, 210, 110, .8)) drop-shadow(0 0 40px rgba(192, 132, 252, .85)) drop-shadow(0 3px 3px rgba(20, 8, 40, .8)); }
+  50% { filter: drop-shadow(0 0 12px rgba(255, 236, 170, 1)) drop-shadow(0 0 30px rgba(255, 210, 110, .75)) drop-shadow(0 0 46px rgba(233, 213, 255, .7)); }
 }
 .dojo-tab {
   background: rgba(40, 22, 70, .62); color: rgba(230, 214, 255, .75);
