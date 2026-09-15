@@ -15823,3 +15823,17 @@ button.hw-res-qth.active {
 /* Login submit button busy state */
 .landing-btn:disabled { opacity: 0.85; cursor: progress; }
 .login-spinner { display: inline-block; width: 0.9em; height: 0.9em; margin-right: 8px; vertical-align: -0.12em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; }
+
+/* Portal buttons: stop the flash when hover ends in Chrome. The scale-up
+   promoted each button to its own GPU layer; on unhover Chrome dropped the
+   layer and re-rasterised text and the large glow shadow, which flickered.
+   Keeping the layer permanently avoids that. The dojo rainbow now pauses
+   instead of snapping back to its start position. */
+.btn-homework, .btn-progress-quiz, .btn-dojo, .btn-battlegrounds, .btn-vocab, .btn-progress-tracker {
+  will-change: transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  transition: transform 0.18s ease-out, box-shadow 0.18s ease-out, border-bottom-width 0.1s;
+}
+.btn-dojo { animation: dojo-rainbow 6s linear infinite paused; }
+.btn-dojo:hover { animation-play-state: running; }
