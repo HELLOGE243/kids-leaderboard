@@ -2909,10 +2909,44 @@ function findLiveQuestion(quizSetId, questionId, questionIndex) {
   return q ? { question: q, index: questionIndex } : null
 }
 
+function isCustomCard(card) {
+  return !!card?.custom || String(card?.sourceId || '').startsWith('custom_')
+}
+
+// Fills in where the card came from (quiz and course) when the card was saved
+// without it, using the quiz set's current title and its place in a course.
+function withOrigin(card, data) {
+  if (isCustomCard(card) || (card.quizTitle && card.courseName && card.className)) return card
+  const set = (data.importedQuizSets || []).find((s) => s.id === card.sourceId)
+  const course = (data.courses || []).find((c) => (c.modules || []).some((m) => (m.quizSetIds || []).includes(card.sourceId)))
+  const cls = course && (data.classes || {})[course.classId]
+  return {
+    ...card,
+    className: card.className || cls?.name || '',
+    courseName: card.courseName || course?.name || '',
+    quizTitle: card.quizTitle || set?.friendlyTitle || set?.rawTitle || set?.name || '',
+  }
+}
+
 function withLiveQuestion(card) {
-  if (!card || String(card.sourceId || '').startsWith('custom_')) return card
+  if (!card || isCustomCard(card)) return card
   const live = findLiveQuestion(card.sourceId, card.questionId, card.questionIndex)
-  return live ? { ...card, question: live.question, questionIndex: live.index } : card
+  const base = live ? { ...card, question: live.question, questionIndex: live.index } : card
+  return withOrigin(base, loadData())
+}
+
+// A card only stays in the dojo while its question still exists. If quiz sets
+// have not loaded at all (offline, failed read), keep everything rather than
+// wiping the student's deck from view.
+function questionStillExists(card) {
+  if (isCustomCard(card)) return true
+  const data = loadData()
+  if (!(data.importedQuizSets || []).length) return true
+  return !!findLiveQuestion(card.sourceId, card.questionId, card.questionIndex)
+}
+
+function liveDojoCards(studentId, keep) {
+  return getStudentArray(studentId, 'dojoCards').filter((c) => keep(c) && questionStillExists(c)).map(withLiveQuestion)
 }
 
 // One-off per student: record the question id on cards created before ids
@@ -2935,20 +2969,20 @@ export function linkDojoCardQuestionIds(studentId) {
 }
 
 export function getDojoCardsForStudent(studentId) {
-  return getStudentArray(studentId, 'dojoCards').filter(c => !c.archived).map(withLiveQuestion)
+  return liveDojoCards(studentId, c => !c.archived)
 }
 
 export function getDueDojoCards(studentId) {
   const now = new Date().toISOString()
-  return getStudentArray(studentId, 'dojoCards').filter(c => !c.archived && !c.askTeacher && (!c.nextReviewDate || c.nextReviewDate <= now)).map(withLiveQuestion)
+  return liveDojoCards(studentId, c => !c.archived && !c.askTeacher && (!c.nextReviewDate || c.nextReviewDate <= now))
 }
 
 export function getDojoAskTeacherCards(studentId) {
-  return getStudentArray(studentId, 'dojoCards').filter(c => c.askTeacher && !c.archived).map(withLiveQuestion)
+  return liveDojoCards(studentId, c => c.askTeacher && !c.archived)
 }
 
 export function getDojoArchivedCards(studentId) {
-  return getStudentArray(studentId, 'dojoCards').filter(c => c.archived).map(withLiveQuestion)
+  return liveDojoCards(studentId, c => c.archived)
 }
 
 function findDojoCardOwner(cardId) {
@@ -3111,7 +3145,7 @@ export function reportDojoClone(cardId, studentId, questionIndex) {
 
 // --- Dojo: Endless Practice ---
 export function getDojoEndlessCards(studentId, { topic, count } = {}) {
-  let cards = getStudentArray(studentId, 'dojoCards').filter(c => !c.archived && !c.askTeacher)
+  let cards = liveDojoCards(studentId, c => !c.archived && !c.askTeacher)
   if (topic && topic !== 'all') {
     cards = cards.filter(c => (c.topic || '') === topic)
   }
@@ -3123,7 +3157,7 @@ export function getDojoEndlessCards(studentId, { topic, count } = {}) {
 }
 
 export function getDojoTopics(studentId) {
-  const cards = getStudentArray(studentId, 'dojoCards').filter(c => !c.archived && !c.askTeacher)
+  const cards = getStudentArray(studentId, 'dojoCards').filter(c => !c.archived && !c.askTeacher && questionStillExists(c))
   const topics = {}
   for (const c of cards) {
     const t = c.topic || 'Uncategorised'
