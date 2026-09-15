@@ -6,7 +6,7 @@ import { resolve } from 'path'
 function getApiKey() {
   try {
     const content = readFileSync(resolve(process.cwd(), '.env'), 'utf-8')
-    const match = content.match(/VITE_CLAUDE_API_KEY=(.+)/)
+    const match = content.match(/^CLAUDE_API_KEY=(.+)/m) // no VITE_ prefix: never bundled into the site
     return match ? match[1].trim() : ''
   } catch { return '' }
 }

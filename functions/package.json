@@ -1,7 +1,7 @@
 {
   "name": "cleverspace-functions",
   "description": "Cloud Functions for Cleverspace EduPortal",
-  "engines": { "node": "20" },
+  "engines": { "node": "22" },
   "main": "index.js",
   "dependencies": {
     "cors": "^2.8.5",

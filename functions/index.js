@@ -1,3 +1,4 @@
+// Runtime: Node.js 22 (set in firebase.json and package.json engines).
 const functions = require('firebase-functions')
 const cors = require('cors')({ origin: true })
 
@@ -18,6 +19,56 @@ async function verifyCaller(req) {
   }
 }
 
+// --- Claude API credentials ---
+// Preferred: Workload Identity Federation. The function's Google service
+// account identity token is exchanged for a short-lived Anthropic token, so no
+// static key is stored anywhere. Enabled when ANTHROPIC_FEDERATION_RULE_ID,
+// ANTHROPIC_ORGANIZATION_ID and ANTHROPIC_SERVICE_ACCOUNT_ID are set (these are
+// ids, not secrets). Falls back to CLAUDE_API_KEY until then.
+const ANTHROPIC_AUDIENCE = 'https://api.anthropic.com'
+let federatedToken = null // { value, expiresAt }
+
+async function exchangeFederatedToken() {
+  // Google identity tokens carry a jti and are single-use, so fetch a fresh one per exchange.
+  const idRes = await fetch(
+    'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity'
+      + `?audience=${encodeURIComponent(ANTHROPIC_AUDIENCE)}&format=full`,
+    { headers: { 'Metadata-Flavor': 'Google' } },
+  )
+  if (!idRes.ok) throw new Error(`Metadata identity token failed: ${idRes.status}`)
+  const assertion = (await idRes.text()).trim()
+
+  const body = {
+    grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+    assertion,
+    federation_rule_id: process.env.ANTHROPIC_FEDERATION_RULE_ID,
+    organization_id: process.env.ANTHROPIC_ORGANIZATION_ID,
+    service_account_id: process.env.ANTHROPIC_SERVICE_ACCOUNT_ID,
+  }
+  if (process.env.ANTHROPIC_WORKSPACE_ID) body.workspace_id = process.env.ANTHROPIC_WORKSPACE_ID
+
+  const tokRes = await fetch('https://api.anthropic.com/v1/oauth/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!tokRes.ok) throw new Error(`Anthropic token exchange failed: ${tokRes.status} ${await tokRes.text()}`)
+  const { access_token, expires_in } = await tokRes.json()
+  return { value: access_token, expiresAt: Date.now() + expires_in * 1000 }
+}
+
+async function claudeAuthHeader() {
+  if (process.env.ANTHROPIC_FEDERATION_RULE_ID) {
+    // Refresh two minutes before expiry.
+    if (!federatedToken || Date.now() > federatedToken.expiresAt - 120000) {
+      federatedToken = await exchangeFederatedToken()
+    }
+    return { Authorization: `Bearer ${federatedToken.value}` }
+  }
+  const apiKey = process.env.CLAUDE_API_KEY
+  return apiKey ? { 'x-api-key': apiKey } : null
+}
+
 // --- Claude API proxy ---
 exports.claudeProxy = functions.https.onRequest((req, res) => {
   cors(req, res, async () => {
@@ -28,17 +79,16 @@ exports.claudeProxy = functions.https.onRequest((req, res) => {
       return res.status(401).json({ error: { message: 'Sign in required' } })
     }
 
-    const apiKey = process.env.CLAUDE_API_KEY
-    if (!apiKey) {
-      return res.status(500).json({ error: 'Claude API key not configured' })
-    }
-
     try {
+      const auth = await claudeAuthHeader()
+      if (!auth) {
+        return res.status(500).json({ error: 'Claude API credentials not configured' })
+      }
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': apiKey,
+          ...auth,
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify(req.body),
