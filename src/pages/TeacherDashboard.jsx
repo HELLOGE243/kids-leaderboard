@@ -9,6 +9,7 @@ import NewsfeedManager from './NewsfeedManager.jsx'
 import ClassDashboard from './ClassDashboard.jsx'
 import AdminTeacherPanel from '../components/AdminTeacherPanel.jsx'
 import '../teacher-dashboard.css'
+import '../teacher-fonts.css'
 import {
   createOrganisation,
   getOrganisation,

@@ -173,7 +173,7 @@ function App() {
   }
 
   if (session.role === 'teacher') {
-    return <>{overlay}<GpuNotice /><TeacherDashboard teacher={session.user} isAdmin={!!session.isAdmin} onLogout={handleLogout} /></>
+    return <>{overlay}<GpuNotice /><div className="teacher-app"><TeacherDashboard teacher={session.user} isAdmin={!!session.isAdmin} onLogout={handleLogout} /></div></>
   }
 
   const revisionKey = `revisionDoneAt_${session.user.id}`
