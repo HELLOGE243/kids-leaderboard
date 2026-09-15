@@ -174,6 +174,7 @@ function App() {
             page-start one had reached rather than restarting it from empty. */}
         <div className="boot-loader" role="status" aria-label="Loading">
           <div className="boot-logo"><img src="/avant-logo.png" alt="AVANT OC & Selective" /></div>
+          <h1 className="boot-title">CleverSpace EduPortal</h1>
           <div className="boot-bar">
             <div className="boot-bar-fill" style={{ animationDelay: `-${Math.round(performance.now())}ms` }} />
           </div>

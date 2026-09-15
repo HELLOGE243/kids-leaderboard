@@ -8,13 +8,15 @@
     <title>AVANT CleverSpace</title>
     <link rel="preload" as="image" href="/avant-logo.png" />
     <style>
-      /* Start-up loader: large AVANT logo with a progress bar beneath it that fills
+      /* Start-up loader: AVANT logo above a large CleverSpace EduPortal title, with a progress bar beneath that fills
          left to right, yellow to green. Lives here (not theme.css) so it shows
          before any JavaScript loads; App.jsx reuses the same markup while data
          loads and offsets the animation by the time already elapsed, so the bar
          carries on instead of restarting. */
       .boot-loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(20px, 4vh, 40px); padding: 0 16px; background: #1a1a2e; z-index: 50; }
-      .boot-logo { width: 30vw; min-width: 240px; max-width: 90vw; line-height: 0; }
+      .boot-logo { width: 14vw; min-width: 130px; max-width: 60vw; line-height: 0; }
+      .boot-title { margin: 0; font-family: 'Outfit', 'Google Sans Flex', 'Segoe UI', sans-serif; font-weight: 800; font-size: clamp(2rem, 4.6vw, 4.6rem); line-height: 1.05; letter-spacing: -0.02em; text-align: center; color: #eaf1ff;
+        background: linear-gradient(180deg, #ffffff 0%, #b8cdf5 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
       .boot-logo img { width: 100%; height: auto; display: block; user-select: none; -webkit-user-drag: none; }
       .boot-bar { position: relative; width: 30vw; min-width: 240px; max-width: 90vw; height: 14px; border-radius: 999px; overflow: hidden;
         background: rgba(255, 255, 255, .08); box-shadow: inset 0 1px 3px rgba(0, 0, 0, .5); }
@@ -36,6 +38,7 @@
     <div id="root">
       <div class="boot-loader" role="status" aria-label="Loading">
         <div class="boot-logo"><img src="/avant-logo.png" alt="AVANT OC &amp; Selective" /></div>
+        <h1 class="boot-title">CleverSpace EduPortal</h1>
         <div class="boot-bar"><div class="boot-bar-fill"></div></div>
         <div class="boot-text">Loading</div>
       </div>
