@@ -6,7 +6,7 @@ import SessionRevision from './pages/SessionRevision.jsx'
 import GpuNotice from './components/GpuNotice.jsx'
 import ScreenLeaveNotice from './components/ScreenLeaveNotice.jsx'
 import { initFirestore, setSyncScope, refreshSharedData, unsubscribeAggregates } from './data/firebase.js'
-import { initStudentData } from './data/store.js'
+import { initStudentData, linkDojoCardQuestionIds } from './data/store.js'
 import { auth, signOutUser } from './data/auth.js'
 
 const SESSION_KEY = 'leaderboard_session'
@@ -54,7 +54,13 @@ function App() {
     return initFirestore()
       .then(() => {
         setDbReady(true)
-        if (s.role === 'student' && s.user?.id) initStudentData(s.user.id)
+        if (s.role === 'student' && s.user?.id) {
+          // Link cards once the student's document and quiz sets are loaded.
+          initStudentData(s.user.id)
+            .then(() => refreshSharedData())
+            .then(() => linkDojoCardQuestionIds(s.user.id))
+            .catch((e) => console.warn('Linking dojo cards to question ids failed:', e))
+        }
       })
       .catch((err) => {
         console.error('Firestore init failed, falling back to local:', err)

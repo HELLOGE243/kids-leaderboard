@@ -673,7 +673,7 @@ Return ONLY valid JSON:
                         rightContent: !cloneAnswered
                           ? <button className="qt-submit-btn" disabled={cloneSelected === -1} onClick={handleCloneSubmit}>Submit</button>
                           : <button className="qt-nav-btn qt-nav-next" onClick={nextClone}>{cloneIdx < 1 ? 'Next' : 'Finish'} &#9654;</button>,
-                        onReportError: () => setReportOpen({ sourceId: currentCard?.sourceId, qIndex: 0 })
+                        onReportError: () => setReportOpen({ sourceId: currentCard?.sourceId, qIndex: currentCard?.questionIndex || 0 })
                       }
                     )}
                   </div>
@@ -775,7 +775,7 @@ Return ONLY valid JSON:
                             ? <button className="qt-submit-btn" disabled={selectedAnswer === -1} onClick={handleSubmitAnswer}>Submit</button>
                             : result === 'correct' ? <button className="qt-nav-btn qt-nav-next" onClick={nextCard}>Next &#9654;</button>
                             : !chaosMode ? <span className="dojo-feedback-sub">Entering Shadow Practice...</span> : null,
-                          onReportError: () => setReportOpen({ sourceId: currentCard.sourceId, qIndex: 0 })
+                          onReportError: () => setReportOpen({ sourceId: currentCard.sourceId, qIndex: currentCard.questionIndex || 0 })
                         }
                       )}
                     </div>
@@ -815,7 +815,7 @@ Return ONLY valid JSON:
                     ? <button className="qt-submit-btn" disabled={askSel === -1} onClick={handleAskSubmit}>Submit</button>
                     : <button className="qt-nav-btn qt-nav-next" onClick={() => setAskViewCard(null)}>Back to list &#9654;</button>,
                   onBack: () => setAskViewCard(null),
-                  onReportError: () => setReportOpen({ sourceId: askViewCard.sourceId, qIndex: 0 })
+                  onReportError: () => setReportOpen({ sourceId: askViewCard.sourceId, qIndex: askViewCard.questionIndex || 0 })
                 }
               )}
             </div>
@@ -958,7 +958,7 @@ Return ONLY valid JSON:
                                 <button className="dojo-endless-archive-btn" onClick={handleEndlessArchive} title="Send to archive">📦 Send to Archive</button>
                                 <button className="qt-nav-btn qt-nav-next" onClick={nextEndlessCard}>Next &#9654;</button>
                               </div>,
-                          onReportError: () => setReportOpen({ sourceId: endlessDeck[endlessIdx]?.sourceId, qIndex: 0 })
+                          onReportError: () => setReportOpen({ sourceId: endlessDeck[endlessIdx]?.sourceId, qIndex: endlessDeck[endlessIdx]?.questionIndex || 0 })
                         }
                       )}
                     </div>

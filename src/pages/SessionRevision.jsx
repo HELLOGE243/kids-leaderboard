@@ -259,7 +259,7 @@ function SessionRevision({ user, onComplete }) {
             <div style={{ display: 'flex', gap: 12, marginTop: 16, justifyContent: 'center' }}>
               <button className="btn btn-outline" onClick={() => setReportOpen(false)}>Cancel</button>
               <button className="btn" disabled={!reportType} onClick={() => {
-                reportQuestionError(card.sourceId || '', 0, user.id, reportType, reportDetails)
+                reportQuestionError(card.sourceId || '', card.questionIndex || 0, user.id, reportType, reportDetails)
                 setReportOpen(false)
                 setReportType('')
                 setReportDetails('')

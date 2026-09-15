@@ -1603,6 +1603,7 @@ export async function importQuizzesFromJSON(jsonArray, onProgress) {
       const newQs = questions.map((q) => {
         const split = extractPrompt(q.text)
         return {
+          id: newQuestionId(),
           text: split.body,
           prompt: split.prompt,
           options: q.options,
@@ -1773,10 +1774,35 @@ export function getImportedQuizSet(id) {
   return (data.importedQuizSets || []).find((s) => s.id === id) || null
 }
 
+// Every quiz-set question carries a permanent id so attempts' dojo cards,
+// reports and reviews can find it again after edits or reordering.
+export function newQuestionId() {
+  return 'q-' + generateId(10)
+}
+
+function withQuestionIds(questions) {
+  return (questions || []).map((q) => (q.id ? q : { ...q, id: newQuestionId() }))
+}
+
+/** Teacher-side backfill: give ids to questions in sets saved before ids existed. */
+export function backfillQuestionIds() {
+  const data = loadData()
+  let changed = 0
+  for (const set of data.importedQuizSets || []) {
+    if ((set.questions || []).some((q) => !q.id)) {
+      set.questions = withQuestionIds(set.questions)
+      changed++
+    }
+  }
+  if (changed) saveData(data)
+  return changed
+}
+
 export function updateImportedQuizSet(id, updates) {
   const data = loadData()
   const set = (data.importedQuizSets || []).find((s) => s.id === id)
   if (!set) return null
+  if (updates.questions) updates = { ...updates, questions: withQuestionIds(updates.questions) }
   Object.assign(set, updates)
   saveData(data)
   return set
@@ -2749,7 +2775,8 @@ export function getStudentFeedData(studentId) {
 
 export function addDojoCard(studentId, question, sourceType, sourceId, questionIndex, meta) {
   const existingCards = getStudentArray(studentId, 'dojoCards')
-  const exists = existingCards.find(c => c.sourceId === sourceId && c.questionIndex === questionIndex && !c.archived)
+  const exists = existingCards.find(c => c.sourceId === sourceId && !c.archived &&
+    (question?.id && c.questionId ? c.questionId === question.id : c.questionIndex === questionIndex))
   if (exists) {
     if (meta && (!exists.courseName || !exists.quizTitle || !exists.className)) {
       mutateStudentArray(studentId, 'dojoCards', (arr) => {
@@ -2772,6 +2799,7 @@ export function addDojoCard(studentId, question, sourceType, sourceId, questionI
     sourceType,
     sourceId,
     questionIndex,
+    questionId: question?.id || null,
     className: meta?.className || '',
     courseName: meta?.courseName || '',
     quizTitle: meta?.quizTitle || '',
@@ -2798,21 +2826,63 @@ export function findQuizSetLocation(quizSetId) {
   return null
 }
 
+// --- Live question lookup ---
+// Cards keep a copy of the question from when they were created, but a teacher
+// may edit it since. Show the current version from the quiz set, matched by
+// the question's stable id (falling back to its position for cards made before
+// ids existed). The stored copy is used only if the question is gone.
+function findLiveQuestion(quizSetId, questionId, questionIndex) {
+  const data = loadData()
+  const set = (data.importedQuizSets || []).find((s) => s.id === quizSetId)
+  if (!set) return null
+  if (questionId) {
+    const i = set.questions.findIndex((q) => q.id === questionId)
+    return i === -1 ? null : { question: set.questions[i], index: i }
+  }
+  const q = set.questions[questionIndex]
+  return q ? { question: q, index: questionIndex } : null
+}
+
+function withLiveQuestion(card) {
+  if (!card || String(card.sourceId || '').startsWith('custom_')) return card
+  const live = findLiveQuestion(card.sourceId, card.questionId, card.questionIndex)
+  return live ? { ...card, question: live.question, questionIndex: live.index } : card
+}
+
+// One-off per student: record the question id on cards created before ids
+// existed, while positions still line up, so later reordering can't mislink them.
+export function linkDojoCardQuestionIds(studentId) {
+  const cards = getStudentArray(studentId, 'dojoCards')
+  const updates = []
+  for (const c of cards) {
+    if (c.questionId || String(c.sourceId || '').startsWith('custom_')) continue
+    const live = findLiveQuestion(c.sourceId, null, c.questionIndex)
+    if (live?.question.id) updates.push([c.id, live.question.id])
+  }
+  if (!updates.length) return
+  mutateStudentArray(studentId, 'dojoCards', (arr) => {
+    for (const [id, qid] of updates) {
+      const card = arr.find((c) => c.id === id)
+      if (card) card.questionId = qid
+    }
+  })
+}
+
 export function getDojoCardsForStudent(studentId) {
-  return getStudentArray(studentId, 'dojoCards').filter(c => !c.archived)
+  return getStudentArray(studentId, 'dojoCards').filter(c => !c.archived).map(withLiveQuestion)
 }
 
 export function getDueDojoCards(studentId) {
   const now = new Date().toISOString()
-  return getStudentArray(studentId, 'dojoCards').filter(c => !c.archived && !c.askTeacher && (!c.nextReviewDate || c.nextReviewDate <= now))
+  return getStudentArray(studentId, 'dojoCards').filter(c => !c.archived && !c.askTeacher && (!c.nextReviewDate || c.nextReviewDate <= now)).map(withLiveQuestion)
 }
 
 export function getDojoAskTeacherCards(studentId) {
-  return getStudentArray(studentId, 'dojoCards').filter(c => c.askTeacher && !c.archived)
+  return getStudentArray(studentId, 'dojoCards').filter(c => c.askTeacher && !c.archived).map(withLiveQuestion)
 }
 
 export function getDojoArchivedCards(studentId) {
-  return getStudentArray(studentId, 'dojoCards').filter(c => c.archived)
+  return getStudentArray(studentId, 'dojoCards').filter(c => c.archived).map(withLiveQuestion)
 }
 
 function findDojoCardOwner(cardId) {

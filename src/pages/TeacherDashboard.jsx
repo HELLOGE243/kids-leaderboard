@@ -49,6 +49,7 @@ import {
   setBattlegroundsApproval,
   onDataChange,
   fullName,
+  backfillQuestionIds,
 } from '../data/store.js'
 
 function TeacherDashboard({ teacher, isAdmin, onLogout }) {
@@ -59,6 +60,9 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
     const unsub = onDataChange(() => setRefresh(r => r + 1))
     return unsub
   }, [])
+
+  // One-off: give permanent ids to questions saved before ids existed.
+  useEffect(() => { backfillQuestionIds() }, [])
 
   const org = teacher.orgId ? getOrganisation(teacher.orgId) : (isAdmin ? getFirstOrg() : null)
   const classes = org ? getClassesForOrg(org.id) : []

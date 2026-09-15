@@ -20,6 +20,7 @@ import {
   getAssignedQuizSetIds,
   getImportedQuizSet,
   updateImportedQuizSet,
+  newQuestionId,
   deleteImportedQuizSet,
   mergeImportedQuizSets,
   getLastImportBatch,
@@ -294,6 +295,9 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
       const trimmed = await Promise.all(quizQuestions.map(async (q) => {
         const type = q.type || 'multiple-choice'
         const base = {
+          // Permanent id: dojo cards, reports and reviews find the question by it.
+          id: q.id || newQuestionId(),
+          ...(typeof q.number === 'number' ? { number: q.number } : {}),
           type,
           text: await extractAndStoreImages((q.text || '').trim()),
           prompt: (q.prompt || '').trim(),
@@ -317,7 +321,10 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
         if (type === 'multi-matching') base.matchQuestions = q.matchQuestions || []
         return base
       }))
-      const valid = trimmed.filter((q) => {
+      // Blank questions are dropped only if newly added. Removing an existing
+      // one would shift every later question and misalign past answers.
+      const valid = trimmed.filter((q, i) => {
+        if (quizQuestions[i]?.id) return true
         const t = q.type || 'multiple-choice'
         if (t === 'multiple-choice') return stripHtml(q.text) && q.options.some((o) => o)
         if (t === 'multi-description') return q.descriptions?.some((d) => stripHtml(d.content)) && q.options.some((o) => o)
