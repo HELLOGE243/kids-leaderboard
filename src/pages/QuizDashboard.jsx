@@ -26,37 +26,89 @@ function youtubeEmbedUrl(url) {
 // Class progress bar. Remembers the last percentage this student saw for the
 // class; when it has gone up (a checkpoint quiz was finished) the bar animates
 // from the old value to the new one and shows a "+N%" pop.
-export function ProgressBar({ storageKey, done, total, size = 'md' }) {
+const TIERS = [
+  { min: 100, key: 'champion', label: 'Champion', icon: '🏆' },
+  { min: 75, key: 'gold', label: 'Gold', icon: '🥇' },
+  { min: 50, key: 'silver', label: 'Silver', icon: '🥈' },
+  { min: 25, key: 'bronze', label: 'Bronze', icon: '🥉' },
+  { min: 1, key: 'started', label: 'On the board', icon: '🚀' },
+  { min: 0, key: 'new', label: 'Ready to start', icon: '✨' },
+]
+const tierFor = (pct) => TIERS.find((t) => pct >= t.min)
+const MILESTONES = [25, 50, 75]
+
+/**
+ * A whole subject row drawn as one big progress bar. Remembers the last
+ * percentage this student saw (per browser); when it has gone up since - a
+ * checkpoint quiz was finished - the fill sweeps across, the number counts up,
+ * passed milestones light up, and reaching a new tier bursts with sparks.
+ */
+export function SubjectBar({ storageKey, done, total, title, subtitle, thumb, badge, onClick, size = 'md' }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
-  const [shown, setShown] = useState(() => {
+  const startPct = (() => {
     try {
       const prev = localStorage.getItem(storageKey)
       return prev !== null && Number(prev) < pct ? Number(prev) : pct
     } catch { return pct }
-  })
+  })()
+  const [fill, setFill] = useState(startPct)
+  const [count, setCount] = useState(startPct)
   const [gain, setGain] = useState(null)
+  const [unlocked, setUnlocked] = useState(null)
 
   useEffect(() => {
-    let t1, t2
-    if (shown < pct) {
-      const from = shown
-      t1 = setTimeout(() => { setShown(pct); setGain(pct - from) }, 350)
-      t2 = setTimeout(() => setGain(null), 2600)
-    } else if (shown !== pct) {
-      setShown(pct)
-    }
     try { localStorage.setItem(storageKey, String(pct)) } catch { /* private mode */ }
-    return () => { clearTimeout(t1); clearTimeout(t2) }
+    if (fill >= pct) { setFill(pct); setCount(pct); return }
+    const from = fill
+    const timers = []
+    let raf
+    timers.push(setTimeout(() => {
+      setFill(pct)
+      setGain(pct - from)
+      const t0 = performance.now()
+      const step = (now) => {
+        const k = Math.min(1, (now - t0) / 1400)
+        setCount(Math.round(from + (pct - from) * (1 - Math.pow(1 - k, 3))))
+        if (k < 1) raf = requestAnimationFrame(step)
+      }
+      raf = requestAnimationFrame(step)
+    }, 400))
+    if (tierFor(pct).key !== tierFor(from).key && pct >= 25) {
+      timers.push(setTimeout(() => setUnlocked(tierFor(pct)), 1500))
+      timers.push(setTimeout(() => setUnlocked(null), 4300))
+    }
+    timers.push(setTimeout(() => setGain(null), 3000))
+    return () => { timers.forEach(clearTimeout); cancelAnimationFrame(raf) }
   }, [pct, storageKey])
 
+  const tier = tierFor(count)
   return (
-    <div className={`pq-progress pq-progress-${size}${pct === 100 ? ' is-complete' : ''}`}>
-      <div className="pq-progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
-        <div className="pq-progress-fill" style={{ width: `${shown}%` }} />
-        {gain !== null && <span className="pq-progress-gain">+{gain}%</span>}
-      </div>
-      <span className="pq-progress-pct">{shown}%</span>
-    </div>
+    <button className={`pq-bar pq-bar-${size} tier-${tier.key}${onClick ? '' : ' is-static'}`} onClick={onClick} tabIndex={onClick ? 0 : -1}
+      role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={`${title}: ${pct}% complete`}>
+      <span className="pq-bar-fill" style={{ width: `${fill}%` }}><span className="pq-bar-shine" /></span>
+      {MILESTONES.map((m) => (
+        <span key={m} className={`pq-bar-tick${count >= m ? ' is-lit' : ''}`} style={{ left: `${m}%` }} />
+      ))}
+      <span className="pq-bar-content">
+        {thumb}
+        <span className="pq-bar-text">
+          <span className="pq-bar-title">{title}</span>
+          {subtitle && <span className="pq-bar-sub">{subtitle}</span>}
+        </span>
+        {badge}
+        <span className="pq-bar-score">
+          <span className="pq-bar-pct">{count}<small>%</small></span>
+          <span className="pq-bar-tier">{tier.icon} {tier.label}</span>
+        </span>
+      </span>
+      {gain !== null && (
+        <span className="pq-bar-gain" style={{ left: `${Math.min(fill, 92)}%` }}>
+          +{gain}%
+          {[...Array(10)].map((_, i) => <i key={i} className="pq-spark" style={{ '--a': `${i * 36}deg`, '--d': `${28 + (i % 3) * 14}px` }} />)}
+        </span>
+      )}
+      {unlocked && <span className="pq-bar-unlock">{unlocked.icon} {unlocked.label} unlocked!</span>}
+    </button>
   )
 }
 
@@ -737,11 +789,14 @@ function QuizDashboard({ user, onBack, initialNav }) {
           const doneCount = allQuizzes.filter((q) => getAttemptForQuiz(q.id, user.id)).length
           return (
             <div className="pq-class-progress">
-              <div className="pq-class-progress-label">
-                <span>Class progress</span>
-                <span>{doneCount} of {allQuizzes.length} checkpoint quizzes complete</span>
-              </div>
-              <ProgressBar storageKey={`pq-progress-${user.id}-${selectedClass.id}`} done={doneCount} total={allQuizzes.length} size="lg" />
+              <SubjectBar
+                size="lg"
+                storageKey={`pq-progress-${user.id}-${selectedClass.id}`}
+                done={doneCount}
+                total={allQuizzes.length}
+                title="Class progress"
+                subtitle={`${doneCount} of ${allQuizzes.length} checkpoint quizzes complete`}
+              />
             </div>
           )
         })()}
@@ -869,18 +924,17 @@ function QuizDashboard({ user, onBack, initialNav }) {
             const totalQuizzes = topics.reduce((sum, t) => sum + getQuizzesForTopic(t.id).length, 0)
             const completedQuizzes = topics.reduce((sum, t) => sum + getQuizzesForTopic(t.id).filter(q => getAttemptForQuiz(q.id, user.id)).length, 0)
             return (
-              <button key={cls.id} className="pq-row" onClick={() => setSelectedClass(cls)}>
-                <span className="pq-row-thumb" style={cls.image ? { backgroundImage: `url(${cls.image})` } : {}}>{!cls.image && '📋'}</span>
-                <span className="pq-row-info">
-                  <span className="pq-row-name">{cls.name}{cls.yearGroup ? <span className="pq-row-year"> · Year {cls.yearGroup}</span> : null}</span>
-                  <span className="pq-row-meta">{topics.length} topic{topics.length !== 1 ? 's' : ''} · {completedQuizzes}/{totalQuizzes} quizzes done</span>
-                </span>
-                <span className="pq-row-progress">
-                  <ProgressBar storageKey={`pq-progress-${user.id}-${cls.id}`} done={completedQuizzes} total={totalQuizzes} />
-                </span>
-                {classPending > 0 ? <span className="pq-row-badge" title="Quizzes ready to start">{classPending} to do</span> : <span className="pq-row-badge pq-row-badge-empty" />}
-                <span className="pq-row-chevron" aria-hidden="true">›</span>
-              </button>
+              <SubjectBar
+                key={cls.id}
+                storageKey={`pq-progress-${user.id}-${cls.id}`}
+                done={completedQuizzes}
+                total={totalQuizzes}
+                onClick={() => setSelectedClass(cls)}
+                thumb={<span className="pq-bar-thumb" style={cls.image ? { backgroundImage: `url(${cls.image})` } : {}}>{!cls.image && '📋'}</span>}
+                title={<>{cls.name}{cls.yearGroup ? <span className="pq-bar-year"> · Year {cls.yearGroup}</span> : null}</>}
+                subtitle={`${completedQuizzes} of ${totalQuizzes} checkpoint quizzes · ${topics.length} topic${topics.length !== 1 ? 's' : ''}`}
+                badge={classPending > 0 ? <span className="pq-bar-badge">{classPending} to do</span> : null}
+              />
             )
           })}
         </div>
