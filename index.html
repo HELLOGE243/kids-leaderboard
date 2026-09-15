@@ -6,9 +6,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link href="https://fonts.googleapis.com/css2?family=Bungee+Shade&family=Cinzel:wght@700&family=Outfit:wght@500;600;700;800&family=Google+Sans+Flex:wght@400;500;600;700&family=Press+Start+2P&family=Shojumaru&display=swap" rel="stylesheet">
     <title>AVANT CleverSpace</title>
+    <link rel="preload" as="image" href="/avant-logo.png" />
+    <style>
+      /* Start-up loader: the AVANT logo fills in left to right with a glowing edge.
+         Lives here (not theme.css) so it shows before any JavaScript loads; the
+         same markup is reused by App.jsx while data loads. */
+      .boot-loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; background: #1a1a2e; z-index: 50; }
+      .boot-logo { position: relative; width: 200px; max-width: 60vw; line-height: 0; }
+      .boot-logo img { width: 100%; height: auto; display: block; user-select: none; -webkit-user-drag: none; }
+      .boot-logo-base { opacity: .22; filter: grayscale(1); }
+      .boot-logo-fill { position: absolute; inset: 0; clip-path: inset(0 100% 0 0); animation: boot-fill 1.8s cubic-bezier(.45, 0, .2, 1) infinite; }
+      .boot-logo-edge { position: absolute; top: -6%; bottom: -6%; width: 3px; left: 0; border-radius: 3px; background: #fff;
+        box-shadow: 0 0 10px 3px rgba(233, 69, 96, .9), 0 0 26px 8px rgba(233, 69, 96, .45); animation: boot-edge 1.8s cubic-bezier(.45, 0, .2, 1) infinite; }
+      .boot-text { font-family: 'Google Sans Flex', 'Segoe UI', sans-serif; font-size: .8rem; letter-spacing: .3em; text-transform: uppercase; color: #a0a0b0; animation: boot-pulse 1.8s ease-in-out infinite; }
+      @keyframes boot-fill { 0% { clip-path: inset(0 100% 0 0); opacity: 1; } 70% { clip-path: inset(0 0 0 0); opacity: 1; } 88% { clip-path: inset(0 0 0 0); opacity: 1; } 100% { clip-path: inset(0 0 0 0); opacity: 0; } }
+      @keyframes boot-edge { 0% { left: 0; opacity: 0; } 8% { opacity: 1; } 70% { left: 100%; opacity: 1; } 78%, 100% { left: 100%; opacity: 0; } }
+      @keyframes boot-pulse { 50% { opacity: .45; } }
+      @media (prefers-reduced-motion: reduce) { .boot-logo-fill { animation: none; clip-path: none; } .boot-logo-edge { display: none; } .boot-text { animation: none; } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot-loader" role="status" aria-label="Loading">
+        <div class="boot-logo">
+          <img class="boot-logo-base" src="/avant-logo.png" alt="" />
+          <img class="boot-logo-fill" src="/avant-logo.png" alt="AVANT OC &amp; Selective" />
+          <span class="boot-logo-edge"></span>
+        </div>
+        <div class="boot-text">Loading</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

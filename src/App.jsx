@@ -170,10 +170,14 @@ function App() {
     return (
       <>
         {overlay}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', gap: 24, background: 'var(--bg)' }}>
-          <img src="/avant-logo.png" alt="AVANT OC & Selective" style={{ width: 160, marginBottom: 8 }} />
-          <div style={{ width: 64, height: 64, border: '2px solid rgba(150,150,150,0.2)', borderTop: '2px solid var(--accent)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-          <div style={{ fontFamily: "'Google Sans Flex', sans-serif", fontSize: '0.95rem', fontWeight: 400, color: 'var(--text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Loading</div>
+        {/* Same logo-fill loader as the one in index.html, so the start-up animation carries straight on. */}
+        <div className="boot-loader" role="status" aria-label="Loading">
+          <div className="boot-logo">
+            <img className="boot-logo-base" src="/avant-logo.png" alt="" />
+            <img className="boot-logo-fill" src="/avant-logo.png" alt="AVANT OC & Selective" />
+            <span className="boot-logo-edge" />
+          </div>
+          <div className="boot-text">Loading</div>
         </div>
       </>
     )
