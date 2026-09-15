@@ -4,6 +4,7 @@ import Portal from './pages/Portal.jsx'
 import TeacherDashboard from './pages/TeacherDashboard.jsx'
 import SessionRevision from './pages/SessionRevision.jsx'
 import GpuNotice from './components/GpuNotice.jsx'
+import ScreenLeaveNotice from './components/ScreenLeaveNotice.jsx'
 import { initFirestore, setSyncScope, refreshSharedData, unsubscribeAggregates } from './data/firebase.js'
 import { initStudentData } from './data/store.js'
 import { auth, signOutUser } from './data/auth.js'
@@ -183,7 +184,7 @@ function App() {
     return <>{overlay}<GpuNotice /><SessionRevision user={session.user} onComplete={() => { localStorage.setItem(revisionKey, String(Date.now())); setSession({ ...session }) }} /></>
   }
 
-  return <>{overlay}<GpuNotice /><Portal user={session.user} onLogout={handleLogout} /></>
+  return <>{overlay}<GpuNotice /><ScreenLeaveNotice /><Portal user={session.user} onLogout={handleLogout} /></>
 }
 
 export default App

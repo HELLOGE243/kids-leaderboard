@@ -1379,7 +1379,8 @@ export function getQuizById(quizId) {
 // --- Quiz Attempts ---
 // attempt: { id, quizId, studentId, answers: [number], score, total, date }
 
-export function submitQuizAttempt(quizId, studentId, answers, questionTimes) {
+// meta: { screenLeaves, lockedOut } from the screen-leave guard.
+export function submitQuizAttempt(quizId, studentId, answers, questionTimes, meta = {}) {
   const data = loadData()
   const quiz = data.quizzes.find((q) => q.id === quizId)
   if (!quiz) return null
@@ -1393,7 +1394,7 @@ export function submitQuizAttempt(quizId, studentId, answers, questionTimes) {
   const student = data.students[studentId]
   const orgId = student?.orgId || null
   const term = orgId ? (data.organisations[orgId]?.activeTerm || null) : null
-  const attempt = { id, quizId, studentId, answers, score, total: quiz.questions.length, date: new Date().toISOString(), questionTimes: questionTimes || [], term, orgId }
+  const attempt = { id, quizId, studentId, answers, score, total: quiz.questions.length, date: new Date().toISOString(), questionTimes: questionTimes || [], term, orgId, ...screenMeta(meta) }
   mutateStudentArray(studentId, 'quizAttempts', (arr) => arr.push(attempt))
   return attempt
 }
@@ -2111,7 +2112,11 @@ function totalMarksForQuestion(q) {
   return 1
 }
 
-export function submitHomeworkAttempt(quizSetId, studentId, answers, questionTimes) {
+function screenMeta(meta) {
+  return { screenLeaves: meta.screenLeaves || 0, lockedOut: !!meta.lockedOut }
+}
+
+export function submitHomeworkAttempt(quizSetId, studentId, answers, questionTimes, meta = {}) {
   const existing = getStudentArray(studentId, 'homeworkAttempts').find(a => a.quizSetId === quizSetId)
   if (existing) return null
   const data = loadData()
@@ -2127,7 +2132,7 @@ export function submitHomeworkAttempt(quizSetId, studentId, answers, questionTim
   const student = data.students[studentId]
   const orgId = student?.orgId || null
   const term = orgId ? (data.organisations[orgId]?.activeTerm || null) : null
-  const attempt = { id, quizSetId, studentId, answers, score, total, questionTimes: questionTimes || [], date: new Date().toISOString(), term, orgId }
+  const attempt = { id, quizSetId, studentId, answers, score, total, questionTimes: questionTimes || [], date: new Date().toISOString(), term, orgId, ...screenMeta(meta) }
   mutateStudentArray(studentId, 'homeworkAttempts', (arr) => arr.push(attempt))
   return attempt
 }
@@ -2256,7 +2261,7 @@ export function clearHomeworkProgress(quizSetId, studentId) {
   })
 }
 
-export function submitHomeworkRedo(quizSetId, studentId, answers, questionTimes) {
+export function submitHomeworkRedo(quizSetId, studentId, answers, questionTimes, meta = {}) {
   const data = loadData()
   const set = (data.importedQuizSets || []).find((s) => s.id === quizSetId)
   if (!set) return null
@@ -2270,7 +2275,7 @@ export function submitHomeworkRedo(quizSetId, studentId, answers, questionTimes)
   const student = data.students[studentId]
   const orgId = student?.orgId || null
   const term = orgId ? (data.organisations[orgId]?.activeTerm || null) : null
-  const attempt = { id, quizSetId, studentId, answers, score, total, questionTimes: questionTimes || [], date: new Date().toISOString(), term, orgId }
+  const attempt = { id, quizSetId, studentId, answers, score, total, questionTimes: questionTimes || [], date: new Date().toISOString(), term, orgId, ...screenMeta(meta) }
   mutateStudentArray(studentId, 'homeworkRedos', (arr) => arr.push(attempt))
   return attempt
 }
@@ -3950,10 +3955,11 @@ export function getStudentClassScores(studentId, classId) {
     const modules = course.modules.map(mod => {
       const quizzes = mod.quizSetIds.map(qsId => {
         const qs = (data.importedQuizSets || []).find(s => s.id === qsId)
-        const attempt = (data.homeworkAttempts || []).find(a => a.quizSetId === qsId && a.studentId === studentId)
-        const redo = (data.homeworkRedos || []).find(a => a.quizSetId === qsId && a.studentId === studentId)
+        // Per-student documents are authoritative; shared arrays are no longer written.
+        const attempt = getStudentArray(studentId, 'homeworkAttempts').find(a => a.quizSetId === qsId)
+        const redo = getStudentArray(studentId, 'homeworkRedos').filter(a => a.quizSetId === qsId).pop()
         const best = redo && (!attempt || new Date(redo.date) > new Date(attempt.date)) ? redo : attempt
-        return { id: qsId, title: qs?.rawTitle || qs?.name || qsId, score: best?.score ?? null, total: best?.total ?? null, pct: best && best.total > 0 ? Math.round((best.score / best.total) * 100) : null, date: best?.date || null }
+        return { id: qsId, title: qs?.rawTitle || qs?.name || qsId, score: best?.score ?? null, total: best?.total ?? null, pct: best && best.total > 0 ? Math.round((best.score / best.total) * 100) : null, date: best?.date || null, lockedOut: !!best?.lockedOut, screenLeaves: best?.screenLeaves || 0 }
       })
       return { name: mod.name, quizzes }
     })

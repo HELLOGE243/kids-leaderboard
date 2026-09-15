@@ -339,7 +339,11 @@ function StudentClassReport({ studentId, classId, onBack, refresh }) {
               <div className="cd-quiz-list">
                 {mod.quizzes.map(q => (
                   <div key={q.id} className="cd-quiz-row">
-                    <span className="cd-quiz-name">{q.title}</span>
+                    <span className="cd-quiz-name">
+                      {q.title}
+                      {q.lockedOut && <span className="cd-locked-tag" title={`Left the quiz screen ${q.screenLeaves} times; submitted automatically`}>Locked out</span>}
+                      {!q.lockedOut && q.screenLeaves > 0 && <span className="cd-leaves-tag" title="Times the student left the quiz screen">Left screen ×{q.screenLeaves}</span>}
+                    </span>
                     {q.score !== null ? (
                       <span className={`cd-quiz-score ${q.pct >= 70 ? 'cd-score-high' : q.pct >= 50 ? 'cd-score-mid' : 'cd-score-low'}`}>
                         {q.score}/{q.total} ({q.pct}%)

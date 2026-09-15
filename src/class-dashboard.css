@@ -415,3 +415,8 @@
   .cd-donut-section { flex-direction: column; }
   .cd-th-completion, .cd-td-completion { display: none; }
 }
+
+/* Screen-leave markers on quiz results */
+.cd-locked-tag, .cd-leaves-tag { margin-left: 8px; padding: 1px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; vertical-align: middle; }
+.cd-locked-tag { background: rgba(255, 23, 68, 0.15); color: #ff5c7a; }
+.cd-leaves-tag { background: rgba(255, 171, 0, 0.14); color: #ffb74d; }

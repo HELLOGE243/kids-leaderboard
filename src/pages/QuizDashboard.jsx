@@ -14,6 +14,7 @@ import {
   sendBroadcast,
 } from '../data/store.js'
 import { RichText } from '../components/RichTextEditor.jsx'
+import { useScreenGuard } from '../utils/screenGuard.js'
 import { checkExplanation, parseExplanation } from '../utils/aiChat.js'
 
 function youtubeEmbedUrl(url) {
@@ -50,6 +51,7 @@ function QuizDashboard({ user, onBack, initialNav }) {
   const timerRef = useRef(null)
   const questionTimes = useRef([])
   const questionEnteredAt = useRef(Date.now())
+  const screenLeaves = useRef(0)
 
   const classes = getClassesForStudent(user.id)
 
@@ -115,14 +117,15 @@ function QuizDashboard({ user, onBack, initialNav }) {
     if (activeQuiz) questionEnteredAt.current = Date.now()
   }, [currentQ, activeQuiz])
 
-  function doSubmit() {
+  function doSubmit({ lockedOut = false } = {}) {
     if (!activeQuiz) return
     clearInterval(timerRef.current)
+    setShowSubmitConfirm(false)
     const spent = Date.now() - questionEnteredAt.current
     questionTimes.current[currentQ] = (questionTimes.current[currentQ] || 0) + spent
     const finalAnswers = answers.map((a) => (a === -1 ? -1 : a))
     const times = questionTimes.current.map((t) => Math.round((t || 0) / 1000))
-    const result = submitQuizAttempt(activeQuiz.id, user.id, finalAnswers, times)
+    const result = submitQuizAttempt(activeQuiz.id, user.id, finalAnswers, times, { screenLeaves: screenLeaves.current, lockedOut })
     setSubmitted(result)
     setQuizStartTime(null)
     setTimeLeft(null)
@@ -134,6 +137,15 @@ function QuizDashboard({ user, onBack, initialNav }) {
       sendBroadcast(`${user.name} finished ${quizLabel}`)
     }
   }
+
+  const doSubmitRef = useRef(null)
+  doSubmitRef.current = doSubmit
+  // Leaving the screen too often submits the attempt (utils/screenGuard.js).
+  useScreenGuard({
+    active: !!(activeQuiz && quizStartTime && !submitted),
+    countRef: screenLeaves,
+    onLockout: () => doSubmitRef.current?.({ lockedOut: true }),
+  })
 
   function handleStartQuiz(quiz, topic) {
     if (topic) setSelectedTopic(topic)
@@ -151,6 +163,7 @@ function QuizDashboard({ user, onBack, initialNav }) {
     setFlagged(new Set())
     setShowTimerDisplay(true)
     questionTimes.current = Array(quiz.questions.length).fill(0)
+    screenLeaves.current = 0
     questionEnteredAt.current = Date.now()
   }
 

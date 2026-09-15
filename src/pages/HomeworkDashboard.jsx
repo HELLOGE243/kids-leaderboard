@@ -41,6 +41,7 @@ import { RichText, default as RichTextEditor } from '../components/RichTextEdito
 import { playCoinSound } from '../utils/soundManager.js'
 import { resolveImages } from '../data/imageStore.js'
 import { parseVideoUrl } from '../utils/video.js'
+import { useScreenGuard } from '../utils/screenGuard.js'
 import { checkExplanation, parseExplanation, generateWordDefinition } from '../utils/aiChat.js'
 
 const TRIAL_INSTRUCTIONS = {
@@ -335,6 +336,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   const questionTimes = useRef([])
   const questionEnteredAt = useRef(Date.now())
   const doSubmitRef = useRef(null)
+  const screenLeaves = useRef(0)
 
   const courses = getCoursesForStudent(user.id)
   const classes = getClassesForStudent(user.id)
@@ -543,6 +545,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     setCurrentQ(0)
     setFlagged(new Set(progress.flagged || []))
     questionTimes.current = progress.questionTimes || Array(resolved.length).fill(0)
+    screenLeaves.current = progress.screenLeaves || 0
     setVisitedQuestions(new Set(progress.visited || []))
     if (progress.dragShuffles) setDragShuffles(progress.dragShuffles)
     setTakingQuiz(quizSet)
@@ -583,6 +586,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     })
     setDragShuffles(shuffles)
     questionTimes.current = Array(resolved.length).fill(0)
+    screenLeaves.current = 0
     questionEnteredAt.current = Date.now()
     setTakingQuiz(quizSet)
     setShowVocabHint(true)
@@ -599,16 +603,19 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     setQuizStartTime(Date.now())
   }
 
-  function doSubmit() {
+  function doSubmit({ lockedOut = false } = {}) {
     if (!takingQuiz) return
     clearInterval(timerRef.current)
+    setShowSubmitConfirm(false)
+    setShowSaveExitConfirm(false)
     const spent = Date.now() - questionEnteredAt.current
     questionTimes.current[currentQ] = (questionTimes.current[currentQ] || 0) + spent
     const finalAnswers = quizAnswers.map((a) => (a === -1 ? -1 : a))
     const times = questionTimes.current.map((t) => Math.round((t || 0) / 1000))
+    const meta = { screenLeaves: screenLeaves.current, lockedOut }
     const result = isRedo
-      ? submitHomeworkRedo(takingQuiz.id, user.id, finalAnswers, times)
-      : submitHomeworkAttempt(takingQuiz.id, user.id, finalAnswers, times)
+      ? submitHomeworkRedo(takingQuiz.id, user.id, finalAnswers, times, meta)
+      : submitHomeworkAttempt(takingQuiz.id, user.id, finalAnswers, times, meta)
     setSubmittedResult(result)
     setQuizStartTime(null)
     setTimeLeft(null)
@@ -633,6 +640,13 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   }
 
   doSubmitRef.current = doSubmit
+
+  // Leaving the screen too often submits the attempt (utils/screenGuard.js).
+  useScreenGuard({
+    active: !!(takingQuiz && quizStartTime && !submittedResult),
+    countRef: screenLeaves,
+    onLockout: () => doSubmitRef.current?.({ lockedOut: true }),
+  })
   const saveProgressRef = useRef(null)
   saveProgressRef.current = () => {
     if (!takingQuiz?.homeworkMode || submittedResult) return
@@ -645,6 +659,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       questionTimes: questionTimes.current.map(t => t || 0),
       visited: [...visitedQuestions],
       dragShuffles,
+      screenLeaves: screenLeaves.current,
     })
   }
 
@@ -719,6 +734,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       questionTimes: questionTimes.current.map(t => t || 0),
       visited: [...visitedQuestions],
       dragShuffles,
+      screenLeaves: screenLeaves.current,
     })
     exitQuiz()
   }
