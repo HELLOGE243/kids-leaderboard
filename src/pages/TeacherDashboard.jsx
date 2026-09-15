@@ -8,6 +8,7 @@ import NotificationsPanel from './NotificationsPanel.jsx'
 import NewsfeedManager from './NewsfeedManager.jsx'
 import ClassDashboard from './ClassDashboard.jsx'
 import AdminTeacherPanel from '../components/AdminTeacherPanel.jsx'
+import '../teacher-dashboard.css'
 import {
   createOrganisation,
   getOrganisation,
@@ -103,6 +104,9 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
   const [reportViewStudent, setReportViewStudent] = useState(null)
   const [studentRollTab, setStudentRollTab] = useState('active')
   const [termSwitchStep, setTermSwitchStep] = useState(null)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [menuFor, setMenuFor] = useState(null)
+  const [rollSearch, setRollSearch] = useState('')
 
 
   // --- Handlers ---
@@ -218,467 +222,361 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
   if (showShopAdmin && org) return <ShopAdmin orgId={org.id} onBack={() => setShowShopAdmin(false)} />
   if (showClassDashboard && org) return <ClassDashboard classId={showClassDashboard} orgId={org.id} onBack={() => setShowClassDashboard(null)} />
 
+  const navItems = [
+    ['Courses', () => setShowCourseBuilder(true)],
+    ['Quizzes', () => setShowQuizBuilder(true)],
+    ['Writing Review', () => setShowWritingReview(true)],
+    ['Notifications', () => setShowNotifications(true)],
+    ['Newsfeed', () => setShowNewsfeed(true)],
+    ['Shop', () => setShowShopAdmin(true)],
+  ]
+  const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const studentClasses = (sid) => classes.filter((c) => c.studentIds.includes(sid))
+  const rollList = (studentRollTab === 'archived' ? archivedStudents : studentRollTab === 'pending' ? pendingApprovalStudents : activeStudents)
+    .filter((s) => !rollSearch.trim() || fullName(s).toLowerCase().includes(rollSearch.trim().toLowerCase()))
+  const sortedClasses = [...classes].sort((a, b) => {
+    const dir = classSort.asc ? 1 : -1
+    if (classSort.key === 'yearGroup') return dir * (a.yearGroup || '').localeCompare(b.yearGroup || '')
+    if (classSort.key === 'students') return dir * (a.studentIds.length - b.studentIds.length)
+    return dir * a.name.localeCompare(b.name)
+  })
+  const attentionCount = pendingApprovalStudents.length + pendingOrders.length + onHoldOrders.length
+
+  function pickImage(onData) {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*'
+    input.onchange = (ev) => {
+      const file = ev.target.files[0]
+      if (!file) return
+      const reader = new FileReader()
+      reader.onload = (re) => onData(re.target.result)
+      reader.readAsDataURL(file)
+    }
+    input.click()
+  }
+
   return (
-    <div className="td-page">
-      {/* Header */}
-      <div className="header">
-        <h1 className="pixel-title">Hey, {teacher.name}!</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {org && <button className="btn" style={{ padding: '12px 24px', fontSize: '0.7rem' }} onClick={() => setShowCourseBuilder(true)}>Courses</button>}
-          {org && <button className="btn" style={{ padding: '12px 24px', fontSize: '0.7rem' }} onClick={() => setShowQuizBuilder(true)}>Quizzes</button>}
-          {org && <button className="btn" style={{ padding: '12px 24px', fontSize: '0.7rem' }} onClick={() => setShowWritingReview(true)}>Writing Review</button>}
-          {org && <button className="btn" style={{ padding: '12px 24px', fontSize: '0.7rem' }} onClick={() => setShowNotifications(true)}>📲 Notifications</button>}
-          {org && <button className="btn" style={{ padding: '12px 24px', fontSize: '0.7rem' }} onClick={() => setShowNewsfeed(true)}>📰 Newsfeed</button>}
-          {org && <button className="btn" style={{ padding: '12px 24px', fontSize: '0.7rem' }} onClick={() => setShowShopAdmin(true)}>Edit Shop</button>}
-          <button className="btn-logout" onClick={() => requestConfirm('Are you sure you want to log out?', onLogout, 'Log Out')}>Log Out</button>
+    <div className="td2">
+      {/* Top bar */}
+      <header className="td2-topbar">
+        <div className="td2-brand">
+          {org && (
+            <div className="td2-logo" style={{ backgroundImage: `url(${org.logo || '/logo.svg'})` }} title="Change logo"
+              onClick={() => pickImage((data) => { updateOrganisation(org.id, { logo: data }); forceRefresh() })} />
+          )}
+          {org && (editingOrgName ? (
+            <form onSubmit={(e) => { e.preventDefault(); if (editOrgNameValue.trim()) { updateOrganisationName(org.id, editOrgNameValue.trim()); forceRefresh() } setEditingOrgName(false) }}>
+              <input value={editOrgNameValue} onChange={(e) => setEditOrgNameValue(e.target.value)} className="td2-input" autoFocus
+                onBlur={() => { if (editOrgNameValue.trim()) { updateOrganisationName(org.id, editOrgNameValue.trim()); forceRefresh() } setEditingOrgName(false) }} />
+            </form>
+          ) : (
+            <button className="td2-org-name" onClick={() => { setEditOrgNameValue(org.name); setEditingOrgName(true) }} title="Rename organisation">{org.name}</button>
+          ))}
         </div>
-      </div>
-
-      {/* Create Org */}
-      {!org && (
-        <div className="card">
-          <p className="pixel-heading">Create Organisation</p>
-          <p className="text-dim mb-8">Get a code for students to join.</p>
-          <form onSubmit={handleCreateOrg} className="form-row">
-            <input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Organisation name" className="input flex-1" />
-            <button type="submit" className="btn btn-small">Create</button>
-          </form>
+        {org && (
+          <nav className="td2-nav">
+            {navItems.map(([label, go]) => <button key={label} className="td2-nav-link" onClick={go}>{label}</button>)}
+          </nav>
+        )}
+        <div className="td2-profile">
+          <button className="td2-avatar" onClick={() => setProfileOpen((o) => !o)} aria-label="Account menu">{teacher.name.slice(0, 1).toUpperCase()}</button>
+          {profileOpen && (
+            <>
+              <div className="td2-menu-backdrop" onClick={() => setProfileOpen(false)} />
+              <div className="td2-menu td2-menu-right">
+                <div className="td2-menu-label">Signed in as {teacher.name}</div>
+                <button className="td2-menu-item td2-menu-danger" onClick={() => { setProfileOpen(false); requestConfirm('Are you sure you want to log out?', onLogout, 'Log Out') }}>Log out</button>
+              </div>
+            </>
+          )}
         </div>
-      )}
+      </header>
 
-      {org && (
-        <>
-          {/* Org Bar — horizontal */}
-          <div className="td-org-bar">
-            <div
-              className="td-org-logo"
-              style={{ backgroundImage: `url(${org.logo || '/logo.svg'})`, borderStyle: 'solid' }}
-              onClick={() => {
-                const input = document.createElement('input')
-                input.type = 'file'
-                input.accept = 'image/*'
-                input.onchange = (ev) => {
-                  const file = ev.target.files[0]
-                  if (!file) return
-                  const reader = new FileReader()
-                  reader.onload = (re) => { updateOrganisation(org.id, { logo: re.target.result }); forceRefresh() }
-                  reader.readAsDataURL(file)
-                }
-                input.click()
-              }}
-            >
-            </div>
-            {editingOrgName ? (
-              <form onSubmit={(e) => { e.preventDefault(); if (editOrgNameValue.trim()) { updateOrganisationName(org.id, editOrgNameValue.trim()); forceRefresh() } setEditingOrgName(false) }} style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                <input value={editOrgNameValue} onChange={(e) => setEditOrgNameValue(e.target.value)} className="input" style={{ fontSize: '1.05rem', width: 200 }} autoFocus onBlur={() => { if (editOrgNameValue.trim()) { updateOrganisationName(org.id, editOrgNameValue.trim()); forceRefresh() } setEditingOrgName(false) }} />
-              </form>
-            ) : (
-              <span className="bold" style={{ fontSize: '1.05rem', cursor: 'pointer' }} onClick={() => { setEditOrgNameValue(org.name); setEditingOrgName(true) }} title="Click to edit">{org.name} ✏️</span>
-            )}
-            <div className="td-org-stats">
-              <div className="td-stat"><span className="td-stat-val">{classes.length}</span><span className="td-stat-lbl">Classes</span></div>
-              <div className="td-stat"><span className="td-stat-val">{activeStudents.length}</span><span className="td-stat-lbl">Students</span></div>
-              <div className="td-stat"><span className="td-stat-val">{pendingApprovalStudents.length}</span><span className="td-stat-lbl">Pending</span></div>
-              <div className="td-stat"><span className="td-stat-val">{pendingOrders.length}</span><span className="td-stat-lbl">Orders</span></div>
-            </div>
-          </div>
-
-          {/* Global Term */}
-          <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-            <p className="pixel-heading" style={{ margin: 0 }}>Global Term</p>
-            <span className="text-dim" style={{ fontSize: '0.7rem' }}>Controls what students and parents see.</span>
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="font-pixel-sm" style={{ color: 'var(--accent)' }}>Current: {activeTerm}</span>
-              <div className="td-term-selector">
+      <main className="td2-main">
+        <div className="td2-greeting">
+          <h1 className="td2-hello">Hey, {teacher.name}!</h1>
+          {org && (
+            <div className="td2-term">
+              <span className="td2-term-label" title="Controls what students and parents see">Term</span>
+              <div className="td2-segment">
                 {['T1', 'T2', 'T3', 'T4'].map((t) => (
-                  <button
-                    key={t}
-                    className={`td-term-btn ${activeTerm === t ? 'td-term-btn-active' : ''}`}
-                    disabled={activeTerm === t}
-                    onClick={() => setTermSwitchStep({ target: t, step: 1 })}
-                  >
-                    {t}
-                  </button>
+                  <button key={t} className={`td2-segment-btn ${activeTerm === t ? 'is-active' : ''}`} disabled={activeTerm === t}
+                    onClick={() => setTermSwitchStep({ target: t, step: 1 })}>{t}</button>
                 ))}
               </div>
             </div>
-          </div>
+          )}
+        </div>
 
-          {/* Two-column layout */}
-          <div className="td-columns">
-            {/* LEFT COLUMN */}
-            <div className="td-col-left">
+        {/* Create Org */}
+        {!org && (
+          <section className="td2-card">
+            <h2 className="td2-h2">Create organisation</h2>
+            <p className="td2-muted">Get a code for students to join.</p>
+            <form onSubmit={handleCreateOrg} className="td2-row">
+              <input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Organisation name" className="td2-input td2-grow" />
+              <button type="submit" className="td2-btn">Create</button>
+            </form>
+          </section>
+        )}
 
-              {/* Student Roll */}
-              <div className="card">
-                <p className="pixel-heading">Student Roll</p>
-                <form onSubmit={handleCreateStudent} className="form-row mb-8">
-                  <input value={newStudentName} onChange={(e) => { setNewStudentName(e.target.value); setCreateStudentError('') }} placeholder="Add student nickname" className="input flex-1" />
-                  <button type="submit" className="btn btn-small">Add</button>
+        {org && (
+          <>
+            {/* Stats */}
+            <div className="td2-stats">
+              {[
+                ['Classes', classes.length, 'td2-classes'],
+                ['Students', activeStudents.length, 'td2-students'],
+                ['Pending sign-ups', pendingApprovalStudents.length, 'td2-attention'],
+                ['Shop orders', pendingOrders.length, 'td2-attention'],
+              ].map(([label, val, target]) => (
+                <button key={label} className={`td2-stat ${label !== 'Classes' && label !== 'Students' && val > 0 ? 'is-alert' : ''}`} onClick={() => scrollTo(target)}>
+                  <span className="td2-stat-val">{val}</span>
+                  <span className="td2-stat-lbl">{label}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="td2-grid">
+              {/* Classes */}
+              <section className="td2-card" id="td2-classes">
+                <div className="td2-card-head">
+                  <h2 className="td2-h2">Classes</h2>
+                  <select className="td2-select" value={`${classSort.key}:${classSort.asc}`} onChange={(e) => { const [key, asc] = e.target.value.split(':'); setClassSort({ key, asc: asc === 'true' }) }}>
+                    <option value="name:true">Name A–Z</option>
+                    <option value="name:false">Name Z–A</option>
+                    <option value="yearGroup:true">Year group</option>
+                    <option value="students:false">Most students</option>
+                  </select>
+                </div>
+                <form onSubmit={handleCreateClass} className="td2-row">
+                  <input value={className} onChange={(e) => setClassName(e.target.value)} placeholder="New class name" className="td2-input td2-grow" />
+                  <input value={classYear} onChange={(e) => setClassYear(e.target.value)} placeholder="Year" className="td2-input td2-input-sm" />
+                  <button type="submit" className="td2-btn">Add class</button>
                 </form>
-                {createStudentError && (
-                  <div className="warning-box mb-8">
-                    <span className="warning-text">{createStudentError}</span>
-                    <button className="btn btn-small" style={{ background: 'var(--warning)', borderColor: 'var(--warning)', color: '#1a1a2e' }} onClick={handleForceCreateStudent}>Add Anyway</button>
+                {classes.length === 0 ? (
+                  <p className="td2-empty">No classes yet — add one above.</p>
+                ) : (
+                  <div className="td2-class-grid">
+                    {sortedClasses.map((cls) => {
+                      const activeInClass = cls.studentIds.filter((id) => activeStudents.some((s) => s.id === id)).length
+                      const evCount = getTestEventsForClass(cls.id).length
+                      return (
+                        <div key={cls.id} className={`td2-class ${activeClass === cls.id ? 'is-open' : ''}`}>
+                          <div className="td2-class-img" style={cls.image ? { backgroundImage: `url(${cls.image})` } : {}} />
+                          <div className="td2-class-body">
+                            <div className="td2-class-name">{cls.name}</div>
+                            <div className="td2-class-meta">
+                              {cls.yearGroup ? `Year ${cls.yearGroup} · ` : ''}{activeInClass} student{activeInClass !== 1 ? 's' : ''} · {evCount} event{evCount !== 1 ? 's' : ''}
+                            </div>
+                            <div className="td2-class-actions">
+                              <button className="td2-btn td2-btn-sm" onClick={() => setShowClassDashboard(cls.id)}>Open dashboard</button>
+                              <button className="td2-btn-ghost td2-btn-sm" onClick={() => { const opening = activeClass !== cls.id; setActiveClass(opening ? cls.id : null); if (opening) setTimeout(() => scrollTo('td2-class-manage'), 50) }}>{activeClass === cls.id ? 'Close' : 'Manage'}</button>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </section>
+
+              {/* Needs attention */}
+              <section className="td2-card" id="td2-attention">
+                <div className="td2-card-head">
+                  <h2 className="td2-h2">Needs attention</h2>
+                  {attentionCount > 0 && <span className="td2-badge">{attentionCount}</span>}
+                </div>
+                {attentionCount === 0 && <p className="td2-empty">All clear — nothing waiting on you.</p>}
+
+                {pendingApprovalStudents.length > 0 && (
+                  <div className="td2-group">
+                    <div className="td2-group-title">Sign-ups to approve</div>
+                    {pendingApprovalStudents.map((s) => (
+                      <div key={s.id} className="td2-item">
+                        <span className="td2-grow td2-strong">{fullName(s)}</span>
+                        <button className="td2-btn td2-btn-sm" onClick={() => { approveStudent(s.id); forceRefresh() }}>Approve</button>
+                        <button className="td2-btn-danger td2-btn-sm" onClick={() => requestConfirm(`Reject "${fullName(s)}"? This will delete their account.`, () => { deleteStudent(s.id); forceRefresh() }, 'Reject')}>Reject</button>
+                      </div>
+                    ))}
                   </div>
                 )}
 
-                <div className="portal-panel-tabs" style={{ marginBottom: 8 }}>
-                  <button className={`portal-panel-tab ${studentRollTab === 'active' ? 'portal-panel-tab-active' : ''}`} onClick={() => setStudentRollTab('active')}>
-                    Active ({activeStudents.length})
-                  </button>
-                  <button className={`portal-panel-tab ${studentRollTab === 'pending' ? 'portal-panel-tab-active' : ''}`} onClick={() => setStudentRollTab('pending')} style={{ position: 'relative' }}>
-                    Pending ({pendingApprovalStudents.length})
-                    {pendingApprovalStudents.length > 0 && <span className="td-pending-badge">{pendingApprovalStudents.length}</span>}
-                  </button>
-                  <button className={`portal-panel-tab ${studentRollTab === 'archived' ? 'portal-panel-tab-active' : ''}`} onClick={() => setStudentRollTab('archived')}>
-                    Archived ({archivedStudents.length})
-                  </button>
-                </div>
-
-                {studentRollTab === 'active' && (
-                  activeStudents.length === 0 ? (
-                    <p className="text-dim" style={{ fontSize: '0.85rem' }}>No active students.</p>
-                  ) : (
-                    <div className="td-student-table">
-                      <div className="td-st-header">
-                        <span className="td-st-cell td-st-name">Name</span>
-                        <span className="td-st-cell td-st-status">Status</span>
-                        <span className="td-st-cell td-st-actions"></span>
-                      </div>
-                      {activeStudents.map((s) => (
-                        <div key={s.id} className={`td-st-row ${editingStudent === s.id ? 'td-st-row-active' : ''}`}>
-                          <span className="td-st-cell td-st-name text-accent bold" style={{ cursor: 'pointer' }} onClick={() => openStudentProfile(s.id)}>{fullName(s)}</span>
-                          <span className="td-st-cell td-st-status">
-                            <span style={{ fontSize: '0.55rem', color: 'var(--success)' }}>Active</span>
-                          </span>
-                          <span className="td-st-cell td-st-actions">
-                            <button className="btn btn-outline btn-small" style={{ padding: '3px 8px', fontSize: '0.4rem' }} onClick={() => openStudentProfile(s.id)}>Edit</button>
-                            <button className={`btn btn-small`} style={{ padding: '3px 8px', fontSize: '0.4rem', background: s.battlegroundsApproved ? '#5c1a2a' : 'var(--bg-deep)', borderColor: s.battlegroundsApproved ? '#7a2040' : 'var(--border)', color: s.battlegroundsApproved ? '#fff' : 'var(--text-dim)' }} onClick={() => { setBattlegroundsApproval(s.id, !s.battlegroundsApproved); forceRefresh() }} title={s.battlegroundsApproved ? 'Lock Battlegrounds' : 'Unlock Battlegrounds'}>⚔️</button>
-                            <button className="btn btn-small" style={{ padding: '3px 8px', fontSize: '0.4rem', background: 'var(--text-dim)', borderColor: 'var(--text-dim)', color: '#1a1a2e' }} onClick={() => requestConfirm(`Archive "${fullName(s)}"? They can still log in but won't appear in classes.`, () => { archiveStudent(s.id); setEditingStudent(null); forceRefresh() }, 'Archive')}>Arc</button>
-                            <button className="btn btn-danger btn-small" style={{ padding: '3px 8px', fontSize: '0.4rem' }} onClick={() => requestConfirm(`Delete "${fullName(s)}"? All scores, assignments, and data will be permanently wiped.`, () => { deleteStudent(s.id); setEditingStudent(null); forceRefresh() })}>Del</button>
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )
-                )}
-
-                {studentRollTab === 'pending' && (
-                  pendingApprovalStudents.length === 0 ? (
-                    <p className="text-dim" style={{ fontSize: '0.85rem' }}>No pending sign-ups.</p>
-                  ) : (
-                    <div className="td-student-table">
-                      <div className="td-st-header">
-                        <span className="td-st-cell td-st-name">Name</span>
-                        <span className="td-st-cell td-st-status">Status</span>
-                        <span className="td-st-cell td-st-actions"></span>
-                      </div>
-                      {pendingApprovalStudents.map((s) => (
-                        <div key={s.id} className="td-st-row td-st-row-pending">
-                          <span className="td-st-cell td-st-name text-accent bold">{fullName(s)}</span>
-                          <span className="td-st-cell td-st-status">
-                            <span style={{ fontSize: '0.55rem', color: 'var(--warning)' }}>Pending</span>
-                          </span>
-                          <span className="td-st-cell td-st-actions">
-                            <button className="btn btn-small" style={{ padding: '3px 8px', fontSize: '0.4rem', background: 'var(--success)', borderColor: 'var(--success)', color: '#1a1a2e' }} onClick={() => { approveStudent(s.id); forceRefresh() }}>Approve</button>
-                            <button className="btn btn-danger btn-small" style={{ padding: '3px 8px', fontSize: '0.4rem' }} onClick={() => requestConfirm(`Reject "${fullName(s)}"? This will delete their account.`, () => { deleteStudent(s.id); forceRefresh() })}>Reject</button>
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )
-                )}
-
-                {studentRollTab === 'archived' && (
-                  archivedStudents.length === 0 ? (
-                    <p className="text-dim" style={{ fontSize: '0.85rem' }}>No archived students.</p>
-                  ) : (
-                    <div className="td-student-table">
-                      <div className="td-st-header">
-                        <span className="td-st-cell td-st-name">Name</span>
-                        <span className="td-st-cell td-st-status">Status</span>
-                        <span className="td-st-cell td-st-actions"></span>
-                      </div>
-                      {archivedStudents.map((s) => (
-                        <div key={s.id} className={`td-st-row ${editingStudent === s.id ? 'td-st-row-active' : ''}`} style={{ opacity: 0.7 }}>
-                          <span className="td-st-cell td-st-name text-accent bold" style={{ cursor: 'pointer' }} onClick={() => openStudentProfile(s.id)}>{fullName(s)}</span>
-                          <span className="td-st-cell td-st-status">
-                            <span style={{ fontSize: '0.55rem', color: 'var(--text-dim)' }}>Archived</span>
-                          </span>
-                          <span className="td-st-cell td-st-actions">
-                            <button className="btn btn-small" style={{ padding: '3px 8px', fontSize: '0.4rem', background: 'var(--success)', borderColor: 'var(--success)', color: '#1a1a2e' }} onClick={() => { unarchiveStudent(s.id); forceRefresh() }}>Restore</button>
-                            <button className="btn btn-danger btn-small" style={{ padding: '3px 8px', fontSize: '0.4rem' }} onClick={() => requestConfirm(`Permanently delete "${fullName(s)}"? All scores, homework, and data will be wiped.`, () => { deleteStudent(s.id); setEditingStudent(null); forceRefresh() })}>Del</button>
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )
-                )}
-
-                {/* Inline Student Edit */}
-                {editingStudent && (() => {
-                  const s = getStudentById(editingStudent)
-                  if (!s) return null
-                  return (
-                    <div className="edit-panel" style={{ marginTop: 12 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                        <span className="pixel-heading" style={{ margin: 0 }}>Edit — {fullName(s)}</span>
-                        <button className="btn btn-outline btn-small" onClick={() => setEditingStudent(null)}>Close</button>
-                      </div>
-                      <div className="form-row mb-8">
-                        <span className="font-pixel-sm" style={{ width: 70 }}>Name</span>
-                        <input value={editStudentName} onChange={(e) => setEditStudentName(e.target.value)} className="input flex-1" />
-                        <button className="btn btn-success btn-small" onClick={handleSaveName}>Save</button>
-                      </div>
-                      <div className="form-row mb-8">
-                        <span className="font-pixel-sm" style={{ width: 70 }}>Coins</span>
-                        <input type="number" value={editCoins} onChange={(e) => setEditCoins(e.target.value)} className="input flex-1" />
-                        <button className="btn btn-success btn-small" onClick={handleSaveCoins}>Save</button>
-                      </div>
-                      <div className="form-row">
-                        <span className="font-pixel-sm" style={{ width: 70 }}>Tokens</span>
-                        <input type="number" value={editTokens} onChange={(e) => setEditTokens(e.target.value)} className="input flex-1" />
-                        <button className="btn btn-success btn-small" onClick={handleSaveTokens}>Save</button>
-                      </div>
-                    </div>
-                  )
-                })()}
-              </div>
-
-              {/* Class Management */}
-              <div className="card">
-                <p className="pixel-heading">Class Management</p>
-                <form onSubmit={handleCreateClass} className="form-row mb-8">
-                  <input value={className} onChange={(e) => setClassName(e.target.value)} placeholder="Class name" className="input flex-1" />
-                  <input value={classYear} onChange={(e) => setClassYear(e.target.value)} placeholder="Year group" className="input" style={{ width: 90 }} />
-                  <button type="submit" className="btn btn-small">Add</button>
-                </form>
-
-                {classes.length > 0 && (
-                  <div className="td-class-table">
-                    <div className="td-ct-header">
-                      <span className="td-ct-cell td-ct-name td-sortable" onClick={() => toggleClassSort('name')}>Class {classSort.key === 'name' ? (classSort.asc ? '▲' : '▼') : ''}</span>
-                      <span className="td-ct-cell td-ct-year td-sortable" onClick={() => toggleClassSort('yearGroup')}>Year {classSort.key === 'yearGroup' ? (classSort.asc ? '▲' : '▼') : ''}</span>
-                      <span className="td-ct-cell td-ct-count td-sortable" onClick={() => toggleClassSort('students')}>Students {classSort.key === 'students' ? (classSort.asc ? '▲' : '▼') : ''}</span>
-                      <span className="td-ct-cell td-ct-events td-sortable" onClick={() => toggleClassSort('events')}>Events {classSort.key === 'events' ? (classSort.asc ? '▲' : '▼') : ''}</span>
-                      <span className="td-ct-cell td-ct-actions"></span>
-                    </div>
-                    {[...classes].sort((a, b) => {
-                      const dir = classSort.asc ? 1 : -1
-                      if (classSort.key === 'name') return dir * a.name.localeCompare(b.name)
-                      if (classSort.key === 'yearGroup') return dir * (a.yearGroup || '').localeCompare(b.yearGroup || '')
-                      if (classSort.key === 'students') {
-                        const aActive = a.studentIds.filter(id => activeStudents.some(s => s.id === id)).length
-                        const bActive = b.studentIds.filter(id => activeStudents.some(s => s.id === id)).length
-                        return dir * (aActive - bActive)
-                      }
-                      if (classSort.key === 'events') return dir * (getTestEventsForClass(a.id).length - getTestEventsForClass(b.id).length)
-                      return 0
-                    }).map((cls) => {
-                      const evCount = getTestEventsForClass(cls.id).length
-                      const activeInClass = cls.studentIds.filter(id => activeStudents.some(s => s.id === id)).length
-                      const archivedInClass = cls.studentIds.filter(id => archivedStudents.some(s => s.id === id)).length
+                {pendingOrders.length > 0 && (
+                  <div className="td2-group">
+                    <div className="td2-group-title">Shop orders</div>
+                    {pendingOrders.map((order) => {
+                      const s = students.find((st) => st.id === order.studentId)
                       return (
-                        <div key={cls.id} className={`td-ct-row ${activeClass === cls.id ? 'td-ct-row-active' : ''}`} onClick={() => setActiveClass(activeClass === cls.id ? null : cls.id)}>
-                          <span className="td-ct-cell td-ct-name bold">{cls.name}</span>
-                          <span className="td-ct-cell td-ct-year">{cls.yearGroup || '—'}</span>
-                          <span className="td-ct-cell td-ct-count">
-                            {activeInClass}
-                            {archivedInClass > 0 && <span className="text-dim" style={{ fontSize: '0.55rem', marginLeft: 4 }}>+{archivedInClass} arc</span>}
-                          </span>
-                          <span className="td-ct-cell td-ct-events">{evCount}</span>
-                          <span className="td-ct-cell td-ct-actions" style={{ display: 'flex', gap: 4 }}>
-                            <button className="btn btn-small" style={{ padding: '3px 8px', fontSize: '0.4rem' }} onClick={(e) => { e.stopPropagation(); setShowClassDashboard(cls.id) }}>Dashboard</button>
-                            <button className="btn btn-danger btn-small" style={{ padding: '3px 8px', fontSize: '0.4rem' }} onClick={(e) => { e.stopPropagation(); requestConfirm(`Delete class "${cls.name}"?`, () => { if (activeClass === cls.id) setActiveClass(null); deleteClass(cls.id); forceRefresh() }) }}>x</button>
-                          </span>
+                        <div key={order.id} className="td2-item">
+                          <div className="td2-grow">
+                            <div><span className="td2-strong">{s ? fullName(s) : order.studentId}</span> · {order.itemName} <span className="td2-coin">{order.price}c</span></div>
+                            <div className="td2-muted td2-small">{new Date(order.date).toLocaleString()}</div>
+                          </div>
+                          <button className="td2-btn td2-btn-sm" onClick={() => { setPurchaseStatus(order.id, 'fulfilled'); forceRefresh() }}>Fulfil</button>
+                          <button className="td2-btn-ghost td2-btn-sm" onClick={() => { setPurchaseStatus(order.id, 'on-hold'); forceRefresh() }}>Hold</button>
+                          <button className="td2-btn-danger td2-btn-sm" onClick={() => { setPurchaseStatus(order.id, 'cancelled'); forceRefresh() }}>Cancel</button>
                         </div>
                       )
                     })}
                   </div>
                 )}
 
-                {/* Expanded class details */}
-                {activeClassData && (
-                  <div className="td-class-detail">
-                    <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', marginBottom: 12 }}>
-                      <div
-                        className="td-class-img"
-                        style={activeClassData.image ? { backgroundImage: `url(${activeClassData.image})` } : {}}
-                        onClick={() => {
-                          const input = document.createElement('input')
-                          input.type = 'file'
-                          input.accept = 'image/*'
-                          input.onchange = (e) => {
-                            const file = e.target.files[0]
-                            if (!file) return
-                            const reader = new FileReader()
-                            reader.onload = (ev) => {
-                              updateClass(activeClass, { image: ev.target.result })
-                              forceRefresh()
-                            }
-                            reader.readAsDataURL(file)
-                          }
-                          input.click()
-                        }}
-                      >
-                        {!activeClassData.image && <span className="td-class-img-placeholder">+</span>}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <p className="pixel-heading">{activeClassData.name} — Roll</p>
-                        {activeClassData.yearGroup && <p className="text-dim" style={{ fontSize: '0.7rem', marginTop: 2 }}>{activeClassData.yearGroup}</p>}
-                      </div>
+                {onHoldOrders.length > 0 && (
+                  <div className="td2-group">
+                    <div className="td2-group-title">Orders on hold</div>
+                    {onHoldOrders.map((order) => {
+                      const s = students.find((st) => st.id === order.studentId)
+                      return (
+                        <div key={order.id} className="td2-item">
+                          <span className="td2-grow"><span className="td2-strong">{s ? fullName(s) : order.studentId}</span> · {order.itemName} <span className="td2-coin">{order.price}c</span></span>
+                          <button className="td2-btn td2-btn-sm" onClick={() => { setPurchaseStatus(order.id, 'fulfilled'); forceRefresh() }}>Fulfil</button>
+                          <button className="td2-btn-ghost td2-btn-sm" onClick={() => { setPurchaseStatus(order.id, 'pending'); forceRefresh() }}>Back</button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {(fulfilledOrders.length > 0 || cancelledOrders.length > 0) && (
+                  <details className="td2-details">
+                    <summary>Order history ({fulfilledOrders.length + cancelledOrders.length})</summary>
+                    {[...fulfilledOrders, ...cancelledOrders].map((order) => {
+                      const s = students.find((st) => st.id === order.studentId)
+                      return (
+                        <div key={order.id} className="td2-item td2-item-done">
+                          <span className="td2-grow">{s ? fullName(s) : order.studentId} · {order.itemName} <span className="td2-muted td2-small">({order.status})</span></span>
+                          <button className="td2-btn-ghost td2-btn-sm" onClick={() => { setPurchaseStatus(order.id, 'pending'); forceRefresh() }}>Reopen</button>
+                        </div>
+                      )
+                    })}
+                  </details>
+                )}
+              </section>
+            </div>
+
+            {/* Expanded class management */}
+            {activeClassData && (
+              <section className="td2-card td2-anchor" id="td2-class-manage">
+                <div className="td2-card-head">
+                  <div className="td2-row td2-row-tight">
+                    <div className="td2-class-thumb" style={activeClassData.image ? { backgroundImage: `url(${activeClassData.image})` } : {}} title="Change class image"
+                      onClick={() => pickImage((data) => { updateClass(activeClass, { image: data }); forceRefresh() })}>
+                      {!activeClassData.image && '+'}
                     </div>
-                    <div style={{ position: 'relative', marginBottom: 8 }}>
-                      <input
-                        value={studentName}
-                        onChange={(e) => { setStudentName(e.target.value); setAddError('') }}
-                        placeholder="Search student to add..."
-                        className="input w-full"
-                      />
+                    <div>
+                      <h2 className="td2-h2">{activeClassData.name}</h2>
+                      {activeClassData.yearGroup && <div className="td2-muted td2-small">Year {activeClassData.yearGroup}</div>}
+                    </div>
+                  </div>
+                  <div className="td2-row td2-row-tight">
+                    <button className="td2-btn-danger td2-btn-sm" onClick={() => requestConfirm(`Delete class "${activeClassData.name}"?`, () => { const id = activeClass; setActiveClass(null); deleteClass(id); forceRefresh() })}>Delete class</button>
+                    <button className="td2-btn-ghost td2-btn-sm" onClick={() => setActiveClass(null)}>Close</button>
+                  </div>
+                </div>
+
+                <div className="td2-split">
+                  <div>
+                    <div className="td2-group-title">Class roll ({activeClassStudents.length})</div>
+                    <div className="td2-search-wrap">
+                      <input value={studentName} onChange={(e) => { setStudentName(e.target.value); setAddError('') }} placeholder="Search a student to add…" className="td2-input td2-full" />
                       {studentName.trim() && (() => {
-                        const matches = unassignedToActiveClass.filter((s) =>
-                          fullName(s).toLowerCase().includes(studentName.trim().toLowerCase())
-                        )
-                        return matches.length > 0 ? (
-                          <div className="search-dropdown">
-                            {matches.map((s) => (
-                              <div key={s.id} className="search-dropdown-item" onClick={() => {
-                                assignStudentToClass(activeClass, s.id)
-                                setStudentName('')
-                                setAddError('')
-                                forceRefresh()
-                              }}>
-                                <span className="bold">{fullName(s)}</span>
-                                <span className="text-dim" style={{ fontSize: '0.65rem' }}>{s.coins}c | {s.tokens}t</span>
-                              </div>
+                        const matches = unassignedToActiveClass.filter((s) => fullName(s).toLowerCase().includes(studentName.trim().toLowerCase()))
+                        return (
+                          <div className="td2-dropdown">
+                            {matches.length === 0 ? <div className="td2-dropdown-empty">No matching students</div> : matches.map((s) => (
+                              <button key={s.id} className="td2-dropdown-item" onClick={() => { assignStudentToClass(activeClass, s.id); setStudentName(''); setAddError(''); forceRefresh() }}>
+                                <span className="td2-strong">{fullName(s)}</span>
+                                <span className="td2-muted td2-small">{s.coins}c · {s.tokens}t</span>
+                              </button>
                             ))}
-                          </div>
-                        ) : (
-                          <div className="search-dropdown">
-                            <div className="search-dropdown-empty">No matching students</div>
                           </div>
                         )
                       })()}
                     </div>
-                    {addError && <p className="error-text mb-8">{addError}</p>}
-
-                    {activeClassStudents.length === 0 ? (
-                      <p className="text-dim" style={{ fontSize: '0.85rem' }}>No students in this class.</p>
-                    ) : (
-                      <div>
-                        {activeClassStudents.map((s, i) => (
-                          <div key={s.id} className="list-item">
-                            <span className="text-dim" style={{ width: 20 }}>{i + 1}.</span>
-                            <span className="bold flex-1">{fullName(s)}</span>
-                            <span className="text-dim" style={{ fontSize: '0.75rem' }}>{s.coins}c | {s.tokens}t</span>
-                            <button className="btn btn-outline btn-small" style={{ padding: '3px 8px', fontSize: '0.4rem' }} onClick={() => requestConfirm(`Remove "${fullName(s)}" from class?`, () => handleRemove(activeClass, s.id))}>x</button>
-                          </div>
-                        ))}
+                    {addError && <p className="td2-error">{addError}</p>}
+                    {activeClassStudents.length === 0 ? <p className="td2-empty">No students in this class.</p> : activeClassStudents.map((s, i) => (
+                      <div key={s.id} className="td2-item">
+                        <span className="td2-muted td2-num">{i + 1}</span>
+                        <span className="td2-grow td2-strong">{fullName(s)}</span>
+                        <span className="td2-muted td2-small">{s.coins}c · {s.tokens}t</span>
+                        <button className="td2-btn-ghost td2-btn-sm" onClick={() => requestConfirm(`Remove "${fullName(s)}" from class?`, () => handleRemove(activeClass, s.id), 'Remove')}>Remove</button>
                       </div>
-                    )}
+                    ))}
+                  </div>
 
-                    {/* Test Events */}
-                    <p className="pixel-heading mt-16">Test Events</p>
-                    <form onSubmit={handleCreateEvent} className="form-row mb-8" style={{ flexWrap: 'wrap' }}>
-                      <input value={newEventName} onChange={(e) => setNewEventName(e.target.value)} placeholder="Event name" className="input flex-1" />
-                      <input value={newEventTotal} onChange={(e) => setNewEventTotal(e.target.value)} placeholder="Total marks" type="number" min="1" className="input" style={{ width: 100 }} />
-                      <select value={newEventTerm || activeTerm} onChange={(e) => setNewEventTerm(e.target.value)} className="input" style={{ width: 70 }}>
+                  <div>
+                    <div className="td2-group-title">Test events · {activeTerm}</div>
+                    <form onSubmit={handleCreateEvent} className="td2-row td2-wrap">
+                      <input value={newEventName} onChange={(e) => setNewEventName(e.target.value)} placeholder="Event name" className="td2-input td2-grow" />
+                      <input value={newEventTotal} onChange={(e) => setNewEventTotal(e.target.value)} placeholder="Marks" type="number" min="1" className="td2-input td2-input-sm" />
+                      <select value={newEventTerm || activeTerm} onChange={(e) => setNewEventTerm(e.target.value)} className="td2-select">
                         {['T1', 'T2', 'T3', 'T4'].map((t) => <option key={t} value={t}>{t}</option>)}
                       </select>
-                      <select value={newEventWeek} onChange={(e) => setNewEventWeek(e.target.value)} className="input" style={{ width: 80 }}>
+                      <select value={newEventWeek} onChange={(e) => setNewEventWeek(e.target.value)} className="td2-select">
                         {Array.from({ length: 10 }, (_, i) => <option key={i} value={`W${i + 1}`}>W{i + 1}</option>)}
                       </select>
-                      <button type="submit" className="btn btn-small">Create</button>
+                      <button type="submit" className="td2-btn">Create</button>
                     </form>
-                    {testEvents.length > 0 && testEvents.map((ev) => {
+                    {testEvents.length === 0 && <p className="td2-empty">No events this term.</p>}
+                    {testEvents.map((ev) => {
                       const isOpen = viewEventId === ev.id
                       const evScores = isOpen ? getScoresForTestEvent(ev.id) : []
+                      const saveEdit = (s, sc) => {
+                        const val = parseInt(eventScoreEdits[s.id], 10)
+                        if (isNaN(val) || val < 0) return
+                        if (sc) updateScore(sc.id, { value: val })
+                        else addScore(s.id, activeClass, val, ev.id)
+                        setEventScoreEdits((prev) => { const next = { ...prev }; delete next[s.id]; return next })
+                        forceRefresh()
+                      }
                       return (
-                        <div key={ev.id}>
-                          <div className="list-item" style={{ cursor: 'pointer' }} onClick={() => { setViewEventId(isOpen ? null : ev.id); setEventScoreEdits({}) }}>
-                            <span className="flex-1 bold" style={{ wordBreak: 'break-word', minWidth: 0 }}>{ev.name}</span>
-                            {ev.week && <span className="text-dim font-pixel-sm" style={{ marginRight: 8 }}>{ev.week}</span>}
-                            <span className="text-dim font-pixel-sm">/{ev.totalMarks || '?'}</span>
-                            <input
-                              type="date"
-                              value={ev.date.slice(0, 10)}
-                              onChange={(e) => { e.stopPropagation(); updateTestEvent(ev.id, { date: new Date(e.target.value + 'T00:00:00').toISOString() }); forceRefresh() }}
-                              onClick={(e) => e.stopPropagation()}
-                              className="select"
-                              style={{ fontSize: '0.75rem', padding: '4px 8px' }}
-                            />
-                            <button className="btn btn-danger btn-small" style={{ padding: '3px 8px', fontSize: '0.4rem' }} onClick={(e) => { e.stopPropagation(); requestConfirm(`Delete "${ev.name}" and all linked scores?`, () => { deleteTestEvent(ev.id); setViewEventId(null); forceRefresh() }) }}>x</button>
-                            <span className="text-dim" style={{ fontSize: '0.7rem', marginLeft: 4 }}>{isOpen ? '▲' : '▼'}</span>
+                        <div key={ev.id} className={`td2-event ${isOpen ? 'is-open' : ''}`}>
+                          <div className="td2-item td2-clickable" onClick={() => { setViewEventId(isOpen ? null : ev.id); setEventScoreEdits({}) }}>
+                            <span className="td2-grow td2-strong">{ev.name}</span>
+                            {ev.week && <span className="td2-chip">{ev.week}</span>}
+                            <span className="td2-muted td2-small">/{ev.totalMarks || '?'}</span>
+                            <input type="date" value={ev.date.slice(0, 10)} className="td2-input td2-input-date" onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => { updateTestEvent(ev.id, { date: new Date(e.target.value + 'T00:00:00').toISOString() }); forceRefresh() }} />
+                            <button className="td2-icon-btn" title="Delete event" onClick={(e) => { e.stopPropagation(); requestConfirm(`Delete "${ev.name}" and all linked scores?`, () => { deleteTestEvent(ev.id); setViewEventId(null); forceRefresh() }) }}>🗑</button>
+                            <span className="td2-muted">{isOpen ? '▴' : '▾'}</span>
                           </div>
                           {isOpen && (
-                            <div className="card" style={{ marginTop: 0, borderTop: 'none', borderTopLeftRadius: 0, borderTopRightRadius: 0, padding: '8px 12px' }}>
-                              <table className="table w-full">
-                                <thead>
-                                  <tr>
-                                    <th style={{ textAlign: 'left' }}>Student</th>
-                                    <th style={{ textAlign: 'center', width: 100 }}>Score</th>
-                                    <th style={{ textAlign: 'center', width: 60 }}>Action</th>
-                                  </tr>
-                                </thead>
+                            <div className="td2-table-wrap">
+                              <table className="td2-table">
+                                <thead><tr><th>Student</th><th className="td2-center">Score</th><th /></tr></thead>
                                 <tbody>
                                   {activeClassStudents.map((s) => {
                                     const sc = evScores.find((x) => x.studentId === s.id)
                                     const isEditing = eventScoreEdits[s.id] !== undefined
+                                    const startEdit = () => setEventScoreEdits((prev) => ({ ...prev, [s.id]: sc ? String(sc.value) : '' }))
                                     return (
                                       <tr key={s.id}>
                                         <td>{fullName(s)}</td>
-                                        <td style={{ textAlign: 'center' }}>
+                                        <td className="td2-center">
                                           {isEditing ? (
-                                            <input
-                                              type="number"
-                                              className="input"
-                                              style={{ width: 70, textAlign: 'center', padding: '2px 4px', fontSize: '0.8rem' }}
-                                              value={eventScoreEdits[s.id]}
-                                              min={0}
-                                              max={ev.totalMarks || undefined}
+                                            <input type="number" className="td2-input td2-input-score" value={eventScoreEdits[s.id]} min={0} max={ev.totalMarks || undefined} autoFocus
                                               onChange={(e) => {
                                                 let v = e.target.value
                                                 if (v !== '' && ev.totalMarks && parseInt(v, 10) > ev.totalMarks) v = String(ev.totalMarks)
                                                 setEventScoreEdits((prev) => ({ ...prev, [s.id]: v }))
                                               }}
-                                              autoFocus
                                               onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                  const val = parseInt(eventScoreEdits[s.id], 10)
-                                                  if (isNaN(val) || val < 0) return
-                                                  if (sc) { updateScore(sc.id, { value: val }); }
-                                                  else { addScore(s.id, activeClass, val, ev.id); }
-                                                  setEventScoreEdits((prev) => { const next = { ...prev }; delete next[s.id]; return next })
-                                                  forceRefresh()
-                                                }
+                                                if (e.key === 'Enter') saveEdit(s, sc)
                                                 if (e.key === 'Escape') setEventScoreEdits((prev) => { const next = { ...prev }; delete next[s.id]; return next })
-                                              }}
-                                            />
+                                              }} />
                                           ) : (
-                                            <span style={{ color: sc ? 'var(--text)' : 'var(--text-dim)', cursor: 'pointer' }} onClick={() => setEventScoreEdits((prev) => ({ ...prev, [s.id]: sc ? String(sc.value) : '' }))}>
-                                              {sc ? `${sc.value}/${ev.totalMarks || '?'}` : '—'}
-                                            </span>
+                                            <button className="td2-score" onClick={startEdit}>{sc ? `${sc.value}/${ev.totalMarks || '?'}` : '—'}</button>
                                           )}
                                         </td>
-                                        <td style={{ textAlign: 'center', display: 'flex', gap: 4, justifyContent: 'center' }}>
+                                        <td className="td2-right">
                                           {isEditing ? (
-                                            <button className="btn btn-small" style={{ padding: '2px 8px', fontSize: '0.4rem' }} onClick={() => {
-                                              const val = parseInt(eventScoreEdits[s.id], 10)
-                                              if (isNaN(val) || val < 0) return
-                                              if (sc) { updateScore(sc.id, { value: val }); }
-                                              else { addScore(s.id, activeClass, val, ev.id); }
-                                              setEventScoreEdits((prev) => { const next = { ...prev }; delete next[s.id]; return next })
-                                              forceRefresh()
-                                            }}>Save</button>
+                                            <button className="td2-btn td2-btn-sm" onClick={() => saveEdit(s, sc)}>Save</button>
                                           ) : (
                                             <>
-                                              <button className="btn btn-outline btn-small" style={{ padding: '2px 8px', fontSize: '0.4rem' }} onClick={() => setEventScoreEdits((prev) => ({ ...prev, [s.id]: sc ? String(sc.value) : '' }))}>
-                                                {sc ? 'Edit' : 'Add'}
-                                              </button>
-                                              {sc && (
-                                                <button className="btn btn-danger btn-small" style={{ padding: '2px 6px', fontSize: '0.4rem' }} onClick={() => requestConfirm(`Delete score for "${fullName(s)}" on "${ev.name}"?`, () => { deleteScore(sc.id); forceRefresh() })}>x</button>
-                                              )}
+                                              <button className="td2-btn-ghost td2-btn-sm" onClick={startEdit}>{sc ? 'Edit' : 'Add'}</button>
+                                              {sc && <button className="td2-icon-btn" title="Delete score" onClick={() => requestConfirm(`Delete score for "${fullName(s)}" on "${ev.name}"?`, () => { deleteScore(sc.id); forceRefresh() })}>🗑</button>}
                                             </>
                                           )}
                                         </td>
@@ -693,134 +591,144 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                       )
                     })}
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
+              </section>
+            )}
 
-            {/* RIGHT COLUMN */}
-            <div className="td-col-right">
-
-              {/* Shop Orders */}
-              <div className="card">
-                <p className="pixel-heading">Shop Orders {pendingOrders.length > 0 && <span className="text-accent">({pendingOrders.length})</span>}</p>
-
-                {orgPurchases.length === 0 && <p className="text-dim" style={{ fontSize: '0.85rem' }}>No orders yet.</p>}
-
-                {pendingOrders.length > 0 && pendingOrders.map((order) => {
-                  const s = students.find((st) => st.id === order.studentId)
-                  return (
-                    <div key={order.id} className="td-order-row" style={{ borderLeft: '3px solid var(--warning)', background: 'rgba(255,171,0,0.08)' }}>
-                      <div className="flex-1" style={{ minWidth: 0 }}>
-                        <span className="bold">{s ? fullName(s) : order.studentId}</span>
-                        <span className="text-dim"> — </span>
-                        <span>{order.itemName}</span>
-                        <span className="text-coin font-pixel-sm" style={{ marginLeft: 6 }}>{order.price}c</span>
-                        <div className="text-dim" style={{ fontSize: '0.65rem' }}>{new Date(order.date).toLocaleString()}</div>
-                      </div>
-                      <div style={{ display: 'flex', gap: 3 }}>
-                        <button className="btn btn-success btn-small" style={{ padding: '4px 8px' }} onClick={() => { setPurchaseStatus(order.id, 'fulfilled'); forceRefresh() }}>✓</button>
-                        <button className="btn btn-small" style={{ padding: '4px 8px', borderColor: 'var(--token)', background: 'transparent', color: 'var(--token)' }} onClick={() => { setPurchaseStatus(order.id, 'on-hold'); forceRefresh() }}>Hold</button>
-                        <button className="btn btn-danger btn-small" style={{ padding: '4px 8px' }} onClick={() => { setPurchaseStatus(order.id, 'cancelled'); forceRefresh() }}>✕</button>
-                      </div>
-                    </div>
-                  )
-                })}
-
-                {onHoldOrders.length > 0 && (
-                  <details open style={{ marginTop: 8 }}>
-                    <summary className="font-pixel-sm" style={{ cursor: 'pointer', marginBottom: 6, color: 'var(--token)' }}>On Hold ({onHoldOrders.length})</summary>
-                    {onHoldOrders.map((order) => {
-                      const s = students.find((st) => st.id === order.studentId)
-                      return (
-                        <div key={order.id} className="td-order-row" style={{ borderLeft: '3px solid var(--token)', background: 'rgba(0,255,245,0.05)' }}>
-                          <div className="flex-1">
-                            <span className="bold">{s ? fullName(s) : order.studentId}</span><span className="text-dim"> — </span><span>{order.itemName}</span>
-                            <span className="text-coin font-pixel-sm" style={{ marginLeft: 6 }}>{order.price}c</span>
-                          </div>
-                          <div style={{ display: 'flex', gap: 3 }}>
-                            <button className="btn btn-success btn-small" style={{ padding: '4px 8px' }} onClick={() => { setPurchaseStatus(order.id, 'fulfilled'); forceRefresh() }}>✓</button>
-                            <button className="btn btn-outline btn-small" style={{ padding: '4px 8px', fontSize: '0.4rem' }} onClick={() => { setPurchaseStatus(order.id, 'pending'); forceRefresh() }}>Back</button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </details>
-                )}
-
-                {fulfilledOrders.length > 0 && (
-                  <details style={{ marginTop: 8 }}>
-                    <summary className="font-pixel-sm" style={{ cursor: 'pointer', marginBottom: 6, color: 'var(--success)' }}>Fulfilled ({fulfilledOrders.length})</summary>
-                    {fulfilledOrders.map((order) => {
-                      const s = students.find((st) => st.id === order.studentId)
-                      return (
-                        <div key={order.id} className="td-order-row" style={{ opacity: 0.5 }}>
-                          <span className="flex-1" style={{ textDecoration: 'line-through' }}>{s ? fullName(s) : order.studentId} — {order.itemName}</span>
-                          <button className="btn btn-outline btn-small" style={{ padding: '3px 6px', fontSize: '0.4rem' }} onClick={() => { setPurchaseStatus(order.id, 'pending'); forceRefresh() }}>Undo</button>
-                        </div>
-                      )
-                    })}
-                  </details>
-                )}
-
-                {cancelledOrders.length > 0 && (
-                  <details style={{ marginTop: 8 }}>
-                    <summary className="font-pixel-sm" style={{ cursor: 'pointer', marginBottom: 6, color: 'var(--danger)' }}>Cancelled ({cancelledOrders.length})</summary>
-                    {cancelledOrders.map((order) => {
-                      const s = students.find((st) => st.id === order.studentId)
-                      return (
-                        <div key={order.id} className="td-order-row" style={{ opacity: 0.4 }}>
-                          <span className="flex-1" style={{ textDecoration: 'line-through' }}>{s ? fullName(s) : order.studentId} — {order.itemName}</span>
-                          <button className="btn btn-outline btn-small" style={{ padding: '3px 6px', fontSize: '0.4rem' }} onClick={() => { setPurchaseStatus(order.id, 'pending'); forceRefresh() }}>Restore</button>
-                        </div>
-                      )
-                    })}
-                  </details>
-                )}
-
-                {orgPurchases.length > 0 && pendingOrders.length === 0 && onHoldOrders.length === 0 && (
-                  <p className="text-dim" style={{ fontSize: '0.8rem' }}>All orders handled!</p>
-                )}
-              </div>
-
-              {/* Report Database */}
-              <div className="card">
-                <p className="pixel-heading">Report Database</p>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    value={reportSearch}
-                    onChange={(e) => setReportSearch(e.target.value)}
-                    placeholder="Search student nickname..."
-                    className="input w-full"
-                  />
-                  {reportSearch.trim() && (
-                    <div className="search-dropdown">
-                      {reportResults.length === 0 ? (
-                        <div className="search-dropdown-empty">No students found.</div>
-                      ) : reportResults.map((s) => (
-                        <div key={s.id} className="search-dropdown-item" onClick={() => { setReportViewStudent(s.id); setReportSearch('') }}>
-                          <span className="bold">{fullName(s)}</span>
-                          <span className="text-dim" style={{ fontSize: '0.65rem' }}>{s.coins}c | {s.tokens}t</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+            {/* Students */}
+            <section className="td2-card" id="td2-students">
+              <div className="td2-card-head td2-wrap">
+                <h2 className="td2-h2">Students</h2>
+                <div className="td2-tabs">
+                  {[['active', 'Active', activeStudents.length], ['pending', 'Pending', pendingApprovalStudents.length], ['archived', 'Archived', archivedStudents.length]].map(([key, label, n]) => (
+                    <button key={key} className={`td2-tab ${studentRollTab === key ? 'is-active' : ''}`} onClick={() => setStudentRollTab(key)}>
+                      {label} <span className="td2-tab-count">{n}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
+              <div className="td2-row td2-wrap">
+                <input value={rollSearch} onChange={(e) => setRollSearch(e.target.value)} placeholder="Search students…" className="td2-input td2-grow" />
+                <form onSubmit={handleCreateStudent} className="td2-row td2-row-tight td2-grow">
+                  <input value={newStudentName} onChange={(e) => { setNewStudentName(e.target.value); setCreateStudentError('') }} placeholder="New student nickname" className="td2-input td2-grow" />
+                  <button type="submit" className="td2-btn">Add student</button>
+                </form>
+              </div>
+              {createStudentError && (
+                <div className="td2-warning">
+                  <span className="td2-grow">{createStudentError}</span>
+                  <button className="td2-btn td2-btn-sm" onClick={handleForceCreateStudent}>Add anyway</button>
+                </div>
+              )}
 
+              {rollList.length === 0 ? (
+                <p className="td2-empty">{rollSearch.trim() ? 'No students match your search.' : `No ${studentRollTab} students.`}</p>
+              ) : (
+                <div className="td2-table-wrap">
+                  <table className="td2-table td2-roll">
+                    <thead>
+                      <tr><th>Name</th><th>Classes</th><th className="td2-right">Coins</th><th className="td2-right">Tokens</th><th className="td2-center" title="Battlegrounds access">Battlegrounds</th><th /></tr>
+                    </thead>
+                    <tbody>
+                      {rollList.map((s) => (
+                        <tr key={s.id} className={studentRollTab === 'archived' ? 'is-dim' : ''}>
+                          <td>
+                            {studentRollTab === 'pending'
+                              ? <span className="td2-strong">{fullName(s)}</span>
+                              : <button className="td2-link" onClick={() => openStudentProfile(s.id)}>{fullName(s)}</button>}
+                          </td>
+                          <td>
+                            <div className="td2-chips">
+                              {studentClasses(s.id).map((c) => <span key={c.id} className="td2-chip">{c.name}</span>)}
+                              {studentClasses(s.id).length === 0 && <span className="td2-muted td2-small">—</span>}
+                            </div>
+                          </td>
+                          <td className="td2-right td2-coin">{s.coins}</td>
+                          <td className="td2-right td2-token">{s.tokens}</td>
+                          <td className="td2-center">
+                            {studentRollTab === 'active' && (
+                              <button className={`td2-switch ${s.battlegroundsApproved ? 'is-on' : ''}`} role="switch" aria-checked={!!s.battlegroundsApproved}
+                                title={s.battlegroundsApproved ? 'Lock Battlegrounds' : 'Unlock Battlegrounds'}
+                                onClick={() => { setBattlegroundsApproval(s.id, !s.battlegroundsApproved); forceRefresh() }}><span /></button>
+                            )}
+                          </td>
+                          <td className="td2-right">
+                            {studentRollTab === 'pending' ? (
+                              <div className="td2-row td2-row-tight td2-justify-end">
+                                <button className="td2-btn td2-btn-sm" onClick={() => { approveStudent(s.id); forceRefresh() }}>Approve</button>
+                                <button className="td2-btn-danger td2-btn-sm" onClick={() => requestConfirm(`Reject "${fullName(s)}"? This will delete their account.`, () => { deleteStudent(s.id); forceRefresh() }, 'Reject')}>Reject</button>
+                              </div>
+                            ) : (
+                              <div className="td2-menu-wrap">
+                                <button className="td2-icon-btn" aria-label="More actions" onClick={() => setMenuFor(menuFor === s.id ? null : s.id)}>⋯</button>
+                                {menuFor === s.id && (
+                                  <>
+                                    <div className="td2-menu-backdrop" onClick={() => setMenuFor(null)} />
+                                    <div className="td2-menu td2-menu-right">
+                                      <button className="td2-menu-item" onClick={() => { setMenuFor(null); openStudentProfile(s.id) }}>Edit details</button>
+                                      <button className="td2-menu-item" onClick={() => { setMenuFor(null); setReportViewStudent(s.id) }}>View report</button>
+                                      {studentRollTab === 'archived' ? (
+                                        <button className="td2-menu-item" onClick={() => { setMenuFor(null); unarchiveStudent(s.id); forceRefresh() }}>Restore</button>
+                                      ) : (
+                                        <button className="td2-menu-item" onClick={() => { setMenuFor(null); requestConfirm(`Archive "${fullName(s)}"? They can still log in but won't appear in classes.`, () => { archiveStudent(s.id); setEditingStudent(null); forceRefresh() }, 'Archive') }}>Archive</button>
+                                      )}
+                                      <button className="td2-menu-item td2-menu-danger" onClick={() => { setMenuFor(null); requestConfirm(`Permanently delete "${fullName(s)}"? All scores, homework, and data will be wiped.`, () => { deleteStudent(s.id); setEditingStudent(null); forceRefresh() }) }}>Delete</button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            {/* Admin */}
+            {isAdmin && (
+              <details className="td2-card td2-admin">
+                <summary className="td2-h2">Admin · Teacher accounts</summary>
+                <AdminTeacherPanel
+                  teachers={getAllTeachers()}
+                  requestConfirm={requestConfirm}
+                  onDeleteTeacher={(id) => { deleteTeacher(id); forceRefresh() }}
+                  onChanged={forceRefresh}
+                />
+              </details>
+            )}
+          </>
+        )}
+      </main>
+
+      {/* Student edit */}
+      {editingStudent && (() => {
+        const s = getStudentById(editingStudent)
+        if (!s) return null
+        return (
+          <div className="modal-overlay" onClick={() => setEditingStudent(null)}>
+            <div className="td2-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="td2-card-head">
+                <h2 className="td2-h2">Edit {fullName(s)}</h2>
+                <button className="td2-icon-btn" aria-label="Close" onClick={() => setEditingStudent(null)}>✕</button>
+              </div>
+              {[
+                ['Name', 'text', editStudentName, setEditStudentName, handleSaveName],
+                ['Coins', 'number', editCoins, setEditCoins, handleSaveCoins],
+                ['Tokens', 'number', editTokens, setEditTokens, handleSaveTokens],
+              ].map(([label, type, value, set, save]) => (
+                <label key={label} className="td2-field">
+                  <span className="td2-field-label">{label}</span>
+                  <input type={type} value={value} onChange={(e) => set(e.target.value)} className="td2-input td2-grow" />
+                  <button type="button" className="td2-btn td2-btn-sm" onClick={save}>Save</button>
+                </label>
+              ))}
             </div>
           </div>
-
-          {/* Admin: Teacher Management */}
-          {isAdmin && (
-            <AdminTeacherPanel
-              teachers={getAllTeachers()}
-              requestConfirm={requestConfirm}
-              onDeleteTeacher={(id) => { deleteTeacher(id); forceRefresh() }}
-              onChanged={forceRefresh}
-            />
-          )}
-        </>
-      )}
+        )
+      })()}
 
       {/* Term Switch Confirmation */}
       {termSwitchStep && termSwitchStep.step === 1 && (
