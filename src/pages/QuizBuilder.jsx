@@ -1,3 +1,4 @@
+import QuestionTagBar from '../components/QuestionTagBar.jsx'
 import { useState, useRef, useEffect } from 'react'
 import {
   getClassesForOrg,
@@ -299,6 +300,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
           id: q.id || newQuestionId(),
           ...(typeof q.number === 'number' ? { number: q.number } : {}),
           ...(q.sourceItems?.length ? { sourceItems: q.sourceItems } : {}),
+          ...(q.tags?.length ? { tags: q.tags } : {}),
           type,
           text: await extractAndStoreImages((q.text || '').trim()),
           prompt: (q.prompt || '').trim(),
@@ -766,6 +768,13 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
               )}
             </div>
           </div>
+
+          <QuestionTagBar
+            questions={quizQuestions}
+            currentIdx={currentEditQ}
+            onChangeTags={(i, tags) => updateQuestion(i, 'tags', tags)}
+            quizSet={isImported ? getImportedQuizSet(editingImported) : null}
+          />
 
           {/* Two-panel content area */}
           <div className="qt-split">

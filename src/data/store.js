@@ -1610,6 +1610,8 @@ export async function importQuizzesFromJSON(jsonArray, onProgress) {
           // CleverSpace item numbers this question was built from; re-importing
           // them replaces this question rather than adding a copy.
           sourceItems: pq.source?.items || [],
+          // Cloze, drag and matching already say which reading skill they test.
+          tags: typeTagsFor({ type: pq.type }, subjectForQuizSet({ rawTitle: key })),
         }
         if (type === 'multiple-choice' || type === 'multi-description') {
           if (pq.prompt) {
@@ -1683,6 +1685,7 @@ export async function importQuizzesFromJSON(jsonArray, onProgress) {
             nq.id = keep.id || nq.id
             if (keep.explanation && !nq.explanation) nq.explanation = keep.explanation
             if (keep.videoUrl && !nq.videoUrl) nq.videoUrl = keep.videoUrl
+            if (keep.tags?.length) nq.tags = [...new Set([...(nq.tags || []), ...keep.tags])]
             existing.questions = existing.questions.filter((eq) => !covered.includes(eq))
             existing.questions.push(nq)
             rebuilt++
@@ -4209,4 +4212,108 @@ export function getStudentClassScores(studentId, classId) {
     result.push({ courseId: course.id, courseName: course.name, term: course.term, modules })
   }
   return { student: { id: studentId, name: fullName(student), yearGroup: student.yearGroup || cls?.yearGroup || '', school: student.school || '' }, courses: result }
+}
+
+// ============================================================
+// QUESTION TAGS
+//
+// A teacher-managed library of skills, grouped by subject. Questions carry
+// `tags: [tagId]`; reports turn per-tag accuracy into strengths and weak spots.
+// The library lives in shared content (tagLibrary) and is seeded with the
+// OC / Selective skill areas the first time it is opened.
+// ============================================================
+export const TAG_SUBJECTS = [
+  { id: 'reading', name: 'Reading' },
+  { id: 'math', name: 'Mathematical Reasoning' },
+  { id: 'thinking', name: 'Thinking Skills' },
+  { id: 'writing', name: 'Writing' },
+]
+
+const DEFAULT_TAGS = {
+  reading: ['Main idea', 'Inference', 'Vocabulary in context', "Author's purpose & tone", 'Text structure', 'Figurative language', 'Poetry analysis', 'Cloze vocabulary', 'Sentence insertion', 'Comparing texts'],
+  math: ['Number & place value', 'Fractions, decimals & percentages', 'Ratio & rates', 'Algebra & patterns', 'Measurement', 'Geometry & spatial', 'Time & money', 'Data & probability', 'Multi-step word problems'],
+  thinking: ['Identifying assumptions', 'Strengthen or weaken an argument', 'Drawing conclusions', 'Evaluating reasoning', 'Logic puzzles', 'Spatial reasoning', 'Sequences & codes', 'Mathematical problem solving'],
+  writing: ['Ideas & content', 'Structure', 'Language & vocabulary', 'Grammar & punctuation', 'Narrative', 'Persuasive', 'Informative'],
+}
+
+function tagId(subject, name) {
+  return `tag-${subject}-${String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`
+}
+
+/** Every tag, seeding the defaults on first use. Teachers only (writes shared content). */
+export function getTagLibrary({ includeArchived = false } = {}) {
+  const data = loadData()
+  if (!Array.isArray(data.tagLibrary) || !data.tagLibrary.length) {
+    data.tagLibrary = Object.entries(DEFAULT_TAGS).flatMap(([subject, names]) => names.map((name) => ({ id: tagId(subject, name), subject, name, archived: false })))
+    saveData(data)
+  }
+  return includeArchived ? data.tagLibrary : data.tagLibrary.filter((t) => !t.archived)
+}
+
+/** Read-only lookup that never seeds (safe for students). */
+export function getTagMap() {
+  const map = {}
+  for (const t of loadData().tagLibrary || []) map[t.id] = t
+  return map
+}
+
+export function addTag(subject, name) {
+  const clean = String(name || '').trim()
+  if (!clean || !TAG_SUBJECTS.some((s) => s.id === subject)) return null
+  const lib = getTagLibrary({ includeArchived: true })
+  const data = loadData()
+  const existing = lib.find((t) => t.subject === subject && t.name.toLowerCase() === clean.toLowerCase())
+  if (existing) { if (existing.archived) { existing.archived = false; data.tagLibrary = lib; saveData(data) } return existing }
+  let id = tagId(subject, clean)
+  while (lib.some((t) => t.id === id)) id += '-' + generateId(3)
+  const tag = { id, subject, name: clean, archived: false }
+  lib.push(tag)
+  data.tagLibrary = lib
+  saveData(data)
+  return tag
+}
+
+export function updateTag(id, fields) {
+  const data = loadData()
+  const tag = (data.tagLibrary || []).find((t) => t.id === id)
+  if (!tag) return
+  if (fields.name !== undefined) tag.name = String(fields.name).trim() || tag.name
+  if (fields.archived !== undefined) tag.archived = !!fields.archived
+  saveData(data)
+}
+
+/** Guesses a quiz set's subject from its trial subject or title. */
+export function subjectForQuizSet(set) {
+  const hint = `${set?.trialTestSubject || ''} ${set?.rawTitle || ''} ${set?.friendlyTitle || ''}`.toLowerCase()
+  if (/writ/.test(hint)) return 'writing'
+  if (/read|comprehension|cloze/.test(hint)) return 'reading'
+  if (/think|_ts\b|\bts\b|critical/.test(hint)) return 'thinking'
+  if (/math|maths/.test(hint)) return 'math'
+  return null
+}
+
+// Question types that already say which reading skill they test.
+const TYPE_TAGS = {
+  'dropdown-cloze': tagId('reading', 'Cloze vocabulary'),
+  'drag-sentence': tagId('reading', 'Sentence insertion'),
+  'drag-summary': tagId('reading', 'Text structure'),
+  'multi-matching': tagId('reading', 'Comparing texts'),
+}
+
+/** Tags that follow from a question's type alone (used on import). */
+export function typeTagsFor(question, subject) {
+  if (subject !== 'reading') return []
+  const t = TYPE_TAGS[question?.type]
+  return t ? [t] : []
+}
+
+/** Sets the tags of many questions in one quiz set: { questionId: [tagId] }. */
+export function setQuestionTags(quizSetId, tagsByQuestionId) {
+  const data = loadData()
+  const set = (data.importedQuizSets || []).find((s) => s.id === quizSetId)
+  if (!set) return
+  for (const q of set.questions) {
+    if (q.id && tagsByQuestionId[q.id]) q.tags = [...new Set(tagsByQuestionId[q.id])]
+  }
+  saveData(data)
 }

@@ -25,7 +25,7 @@ const UNASSIGNED_DOC = 'unassigned'
 
 const CHUNK_KEYS = {
   core: ['organisations', 'teachers', 'students', 'classes', '_savedAt', 'notificationPrefs', 'smsLog', 'leaderboardSnapshots'],
-  content: ['topics', 'quizzes', 'quizAttempts', 'courses', 'quizFolders', 'writingMarks', 'questionReports', 'explanationReports', 'newsfeedPosts'],
+  content: ['topics', 'tagLibrary', 'quizzes', 'quizAttempts', 'courses', 'quizFolders', 'writingMarks', 'questionReports', 'explanationReports', 'newsfeedPosts'],
   activity: ['scores', 'testEvents', 'eventTemplates', 'homeworkAttempts', 'homeworkStarts', 'homeworkRedos', 'homeworkProgress', 'dailyTrivia', 'dailyPuzzles'],
   shop: ['shopItems', 'shopCategories', 'purchases', 'avatarPool', 'shopPools', 'lootChestPool', 'voucherConfig'],
   extras: ['battlegroundsData', 'dojoCards', 'dojoClones', 'dojoKills', 'dojoCustomReview', 'vocabBank', 'wordleSolvers', 'arenaGhosts'],
