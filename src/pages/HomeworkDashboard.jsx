@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { loadOwnContact } from '../data/firebase.js'
 import {
   getCoursesForStudent,
   getCourseById,
@@ -324,6 +325,15 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   const [dragShuffles, setDragShuffles] = useState({})
   const [dragSource, setDragSource] = useState(null)
   const dragScrollRef = useRef(null)
+  // Watermark: student name plus their parent's email, so a shared screenshot
+  // traces back to the family.
+  const [watermarkEmail, setWatermarkEmail] = useState('')
+  useEffect(() => {
+    if (!user?.id) return
+    let live = true
+    loadOwnContact(user.id).then((c) => { if (live) setWatermarkEmail(c.parentEmail || '') })
+    return () => { live = false }
+  }, [user?.id])
   const autoScrollRef = useRef(null)
   const [trialScreen, setTrialScreen] = useState(null)
   const [trialNameInput, setTrialNameInput] = useState('')
@@ -1157,9 +1167,9 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                       {Array.from({ length: 6 }, (_, i) => (
                         <div key={i} className="qt-watermark-row">
                           <img src="/avant-logo.png" className="qt-watermark-logo" alt="" />
-                          <span className="qt-watermark-name">{user.name}</span>
+                          <span className="qt-watermark-name">{user.name}{watermarkEmail && <span className="qt-watermark-email">{watermarkEmail}</span>}</span>
                           <img src="/avant-logo.png" className="qt-watermark-logo" alt="" />
-                          <span className="qt-watermark-name">{user.name}</span>
+                          <span className="qt-watermark-name">{user.name}{watermarkEmail && <span className="qt-watermark-email">{watermarkEmail}</span>}</span>
                         </div>
                       ))}
                     </div>
@@ -1205,9 +1215,9 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                 {Array.from({ length: 6 }, (_, i) => (
                   <div key={i} className="qt-watermark-row">
                     <img src="/avant-logo.png" className="qt-watermark-logo" alt="" />
-                    <span className="qt-watermark-name">{user.name}</span>
+                    <span className="qt-watermark-name">{user.name}{watermarkEmail && <span className="qt-watermark-email">{watermarkEmail}</span>}</span>
                     <img src="/avant-logo.png" className="qt-watermark-logo" alt="" />
-                    <span className="qt-watermark-name">{user.name}</span>
+                    <span className="qt-watermark-name">{user.name}{watermarkEmail && <span className="qt-watermark-email">{watermarkEmail}</span>}</span>
                   </div>
                 ))}
                 </div>

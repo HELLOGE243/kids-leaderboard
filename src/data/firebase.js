@@ -145,6 +145,16 @@ export function getContact(studentId) {
   return { parentPhone: c.parentPhone || '', parentEmail: c.parentEmail || '' }
 }
 
+/** A signed-in student's own parent contact (rules allow only their own). */
+export async function loadOwnContact(studentId) {
+  try {
+    const snap = await getDoc(doc(db, 'studentContacts', String(studentId)))
+    return snap.exists() ? snap.data() : {}
+  } catch {
+    return {}
+  }
+}
+
 export async function saveContact(studentId, fields) {
   const next = { ...getContact(studentId), ...fields, updatedAt: Date.now() }
   _contacts = { ...(_contacts || {}), [studentId]: next }

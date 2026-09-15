@@ -105,6 +105,8 @@ service cloud.firestore {
     // previously on the shared student records every signed-in user can read.
     match /studentContacts/{studentId} {
       allow read, write: if isTeacher();
+      // A student reads only their own family's contact (quiz watermark).
+      allow get: if isSelf(studentId);
     }
 
     // --- Credentials ------------------------------------------------------
