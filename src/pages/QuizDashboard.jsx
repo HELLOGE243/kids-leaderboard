@@ -85,10 +85,13 @@ export function SubjectBar({ storageKey, done, total, title, subtitle, thumb, ba
   return (
     <button className={`pq-bar pq-bar-${size} tier-${tier.key}${onClick ? '' : ' is-static'}`} onClick={onClick} tabIndex={onClick ? 0 : -1}
       role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={`${title}: ${pct}% complete`}>
-      <span className="pq-bar-fill" style={{ width: `${fill}%` }}><span className="pq-bar-shine" /></span>
-      {MILESTONES.map((m) => (
-        <span key={m} className={`pq-bar-tick${count >= m ? ' is-lit' : ''}`} style={{ left: `${m}%` }} />
-      ))}
+      {/* Clipped layer: fill and milestone marks stay inside the rounded bar. */}
+      <span className="pq-bar-track" aria-hidden="true">
+        <span className="pq-bar-fill" style={{ width: `${fill}%` }}><span className="pq-bar-shine" /></span>
+        {MILESTONES.map((m) => (
+          <span key={m} className={`pq-bar-tick${count >= m ? ' is-lit' : ''}`} style={{ left: `${m}%` }} />
+        ))}
+      </span>
       <span className="pq-bar-content">
         {thumb}
         <span className="pq-bar-text">

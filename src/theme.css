@@ -8505,8 +8505,8 @@ button.hw-res-qth.active {
   100% { background: transparent; }
 }
 .sr-correct-text {
-  font-family: 'Google Sans Flex', Arial, sans-serif;
-  font-size: 4rem; font-weight: 800; color: #4caf50;
+  font-family: var(--font-pixel);
+  font-size: 2.6rem; font-weight: 400; color: #4caf50;
   text-shadow: 0 0 40px rgba(76,175,80,0.6), 0 0 80px rgba(76,175,80,0.3), 0 4px 12px rgba(0,0,0,0.3);
   animation: sr-text-pop 1.4s ease-out forwards;
   letter-spacing: 0.04em;
@@ -15910,13 +15910,13 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .tier-gold     { --fill-a: #f57f17; --fill-b: #ffd54f; --glow: rgba(255, 213, 79, 0.55); }
 .tier-champion { --fill-a: #00c853; --fill-b: #69f0ae; --glow: rgba(105, 240, 174, 0.6); }
 
+.pq-bar-track { position: absolute; inset: 0; z-index: -1; border-radius: 16px; overflow: hidden; }
 .pq-bar-fill {
-  position: absolute; inset: 0 auto 0 0; z-index: -1; border-radius: 16px 0 0 16px; overflow: hidden;
+  position: absolute; inset: 0 auto 0 0; overflow: hidden;
   background: linear-gradient(90deg, var(--fill-a), var(--fill-b));
   box-shadow: 0 0 24px var(--glow);
   transition: width 1.4s cubic-bezier(.22, 1, .36, 1), background .6s;
 }
-.pq-bar-fill[style*="width: 100%"] { border-radius: 16px; }
 /* diagonal stripes drifting + a light sweep */
 .pq-bar-fill::before {
   content: ''; position: absolute; inset: 0; opacity: .16;
@@ -15928,18 +15928,19 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
   background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.45) 50%, transparent 70%);
   transform: translateX(-100%); animation: pq-sweep 3.2s ease-in-out infinite;
 }
-.pq-bar-tick { position: absolute; top: 12px; bottom: 12px; width: 2px; z-index: -1; background: rgba(255,255,255,.14); border-radius: 2px; }
+.pq-bar-tick { position: absolute; bottom: 0; height: 14px; width: 2px; margin-left: -1px; background: rgba(255,255,255,.18); }
 .pq-bar-tick::after {
-  content: ''; position: absolute; left: 50%; bottom: -7px; width: 10px; height: 10px; transform: translateX(-50%) rotate(45deg);
+  content: ''; position: absolute; left: 50%; top: -5px; width: 8px; height: 8px; transform: translateX(-50%) rotate(45deg);
   background: rgba(255,255,255,.18); border-radius: 2px; transition: background .3s, box-shadow .3s;
 }
-.pq-bar-tick.is-lit { background: rgba(255,255,255,.35); }
+.pq-bar-tick.is-lit { background: rgba(255,255,255,.6); }
 .pq-bar-tick.is-lit::after { background: #fff; box-shadow: 0 0 10px #fff; }
 
 .pq-bar-content { position: relative; display: flex; align-items: center; gap: 16px; min-height: inherit; padding: 14px 22px 14px 16px; box-sizing: border-box; }
 .pq-bar-thumb {
   width: 76px; height: 60px; flex: none; border-radius: 12px; display: grid; place-items: center; font-size: 1.6rem;
-  background: rgba(0,0,0,.25) center / cover no-repeat; box-shadow: 0 4px 12px rgba(0,0,0,.35); border: 2px solid rgba(255,255,255,.25);
+  background: rgba(0,0,0,.25) center / cover no-repeat; box-shadow: 0 4px 12px rgba(0,0,0,.35);
+  overflow: hidden; outline: 2px solid rgba(255,255,255,.22); outline-offset: -2px;
 }
 .pq-bar-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; text-shadow: 0 1px 4px rgba(0,0,0,.55); }
 .pq-bar-title { font-size: 1.2rem; font-weight: 800; line-height: 1.2; }
@@ -16016,3 +16017,5 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 
 
 }
+
+@media (max-width: 640px) { .sr-correct-text { font-size: 1.6rem; } }
