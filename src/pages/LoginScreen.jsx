@@ -2,6 +2,29 @@ import { useState, useRef, useMemo } from 'react'
 import SYDNEY_SCHOOLS from '../data/sydneySchools.js'
 import { lookupUser, loginUser, resetPassword, signupUser } from '../data/auth.js'
 
+// Password field with an eye button to show or hide what was typed.
+function PasswordInput(props) {
+  const [visible, setVisible] = useState(false)
+  return (
+    <div className="pw-field">
+      <input {...props} type={visible ? 'text' : 'password'} />
+      <button
+        type="button"
+        className="pw-toggle"
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? 'Hide password' : 'Show password'}
+        title={visible ? 'Hide password' : 'Show password'}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+          <circle cx="12" cy="12" r="3" />
+          {visible && <line x1="3" y1="3" x2="21" y2="21" />}
+        </svg>
+      </button>
+    </div>
+  )
+}
+
 function LoginScreen({ onLogin }) {
   const [role, setRole] = useState(null)
   const [nickname, setNickname] = useState('')
@@ -28,8 +51,14 @@ function LoginScreen({ onLogin }) {
   async function withResult(label, fn) {
     if (busy) return null
     setBusy(label)
-    try { return await fn() } finally { setBusy('') }
+    try { return await fn() } finally {
+      setBusy('')
+      // The inert form dropped focus; put the cursor back (e.g. after "Wrong password").
+      setTimeout(() => document.querySelector('form.form-stack input:not([type=hidden])')?.focus(), 0)
+    }
   }
+  // While busy the whole form is inert: no typing, clicking or re-submitting.
+  const formBusyProps = busy ? { inert: true, 'aria-busy': true } : {}
   const submitLabel = (text) => busy ? <><span className="login-spinner" aria-hidden="true" />{busy}</> : text
 
   const filteredSchools = useMemo(() => {
@@ -247,7 +276,7 @@ function LoginScreen({ onLogin }) {
       <div className="page-center landing-page">
         <img src="/avant-logo.png" alt="AVANT OC & Selective" className="landing-logo" />
         <h1 className="landing-heading">A bit about you, <span style={{ color: '#ffd700' }}>{pendingUser.name}</span></h1>
-        <form onSubmit={handleProfileSubmit} className="form-stack">
+        <form onSubmit={handleProfileSubmit} {...formBusyProps} className="form-stack">
           <input
             type="text"
             value={firstName}
@@ -325,17 +354,15 @@ function LoginScreen({ onLogin }) {
         <img src="/avant-logo.png" alt="AVANT OC & Selective" className="landing-logo" />
         <h1 className="landing-heading">Welcome, <span style={{ color: '#ffd700' }}>{pendingUser.name}</span>!</h1>
         <p className="landing-text">Set a password for your account</p>
-        <form onSubmit={handleSetPassword} className="form-stack">
-          <input
-            type="password"
+        <form onSubmit={handleSetPassword} {...formBusyProps} className="form-stack">
+          <PasswordInput
             value={password}
             onChange={(e) => { setPassword(e.target.value); setError('') }}
             placeholder="Create password"
             className="input input-center landing-input"
             autoFocus
           />
-          <input
-            type="password"
+          <PasswordInput
             value={confirmPassword}
             onChange={(e) => { setConfirmPassword(e.target.value); setError('') }}
             placeholder="Confirm password"
@@ -358,9 +385,8 @@ function LoginScreen({ onLogin }) {
         <img src="/avant-logo.png" alt="AVANT OC & Selective" className="landing-logo" />
         <h1 className="landing-heading"><>Welcome, <span style={{ color: '#ffd700' }}>{pendingUser.name}</span>!</></h1>
         <p className="landing-text">Enter your password</p>
-        <form onSubmit={handleEnterPassword} className="form-stack">
-          <input
-            type="password"
+        <form onSubmit={handleEnterPassword} {...formBusyProps} className="form-stack">
+          <PasswordInput
             value={password}
             onChange={(e) => { setPassword(e.target.value); setError('') }}
             placeholder="Password"
@@ -398,7 +424,7 @@ function LoginScreen({ onLogin }) {
         <img src="/avant-logo.png" alt="AVANT OC & Selective" className="landing-logo" />
         <h1 className="landing-heading">Reset Password</h1>
         <p className="landing-text">Enter the parent email linked to <span style={{ color: '#ffd700' }}>{pendingUser.name}</span>'s account</p>
-        <form onSubmit={handleForgotSubmit} className="form-stack">
+        <form onSubmit={handleForgotSubmit} {...formBusyProps} className="form-stack">
           <input
             type="email"
             value={forgotEmail}
@@ -442,17 +468,15 @@ function LoginScreen({ onLogin }) {
         <img src="/avant-logo.png" alt="AVANT OC & Selective" className="landing-logo" />
         <h1 className="landing-heading">New Password</h1>
         <p className="landing-text">Set a new password for <span style={{ color: '#ffd700' }}>{pendingUser.name}</span></p>
-        <form onSubmit={handleResetSubmit} className="form-stack">
-          <input
-            type="password"
+        <form onSubmit={handleResetSubmit} {...formBusyProps} className="form-stack">
+          <PasswordInput
             value={password}
             onChange={(e) => { setPassword(e.target.value); setError('') }}
             placeholder="New password"
             className="input input-center landing-input"
             autoFocus
           />
-          <input
-            type="password"
+          <PasswordInput
             value={confirmPassword}
             onChange={(e) => { setConfirmPassword(e.target.value); setError('') }}
             placeholder="Confirm new password"
@@ -474,7 +498,7 @@ function LoginScreen({ onLogin }) {
       <img src="/avant-logo.png" alt="AVANT OC & Selective" className="landing-logo" />
       <h1 className="landing-heading">{label} Login</h1>
       <p className="landing-text">Enter your nickname</p>
-      <form onSubmit={handleNicknameSubmit} className="form-stack">
+      <form onSubmit={handleNicknameSubmit} {...formBusyProps} className="form-stack">
         <input
           ref={nicknameRef}
           type="text"

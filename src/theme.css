@@ -15837,3 +15837,19 @@ button.hw-res-qth.active {
 }
 .btn-dojo { animation: dojo-rainbow 6s linear infinite paused; }
 .btn-dojo:hover { animation-play-state: running; }
+
+/* Login password field with show/hide eye button */
+.pw-field { position: relative; width: 100%; }
+.pw-field > input { width: 100%; box-sizing: border-box; padding-left: 44px; padding-right: 44px; }
+.pw-toggle {
+  position: absolute; top: 50%; right: 8px; transform: translateY(-50%);
+  width: 34px; height: 34px; display: grid; place-items: center;
+  background: none; border: 0; border-radius: 8px; cursor: pointer;
+  color: rgba(255, 255, 255, 0.55);
+}
+.pw-toggle:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+.theme-light .pw-toggle { color: rgba(0, 0, 0, 0.5); }
+.theme-light .pw-toggle:hover { color: #000; background: rgba(0, 0, 0, 0.06); }
+
+/* Login form locked while waiting on the server */
+form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; cursor: progress; }
