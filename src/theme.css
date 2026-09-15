@@ -16291,3 +16291,18 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .pa-status-preview, .pa-status-pending { background: #dbeafe; color: #1d4ed8; }
 .pa-status-failed, .pa-status-unreachable { background: #fee2e2; color: #b91c1c; }
 @media (max-width: 600px) { .pa-mode { flex-direction: column; align-items: flex-start; } .pa-item-row { grid-template-columns: 1fr; } }
+
+/* Bulk AI tagging run (components/BulkTagPanel.jsx) */
+.bulk-tag { width: min(680px, calc(100vw - 32px)); }
+.bt-controls { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; font-size: 0.88rem; }
+.bt-controls label { display: flex; align-items: center; gap: 8px; }
+.bt-check { font-weight: 500; }
+.bt-progress { margin: 10px 0; }
+.bt-bar { height: 10px; border-radius: 99px; background: #eceff4; overflow: hidden; }
+.bt-bar span { display: block; height: 100%; background: linear-gradient(90deg, #6366f1, #22c55e); transition: width 0.3s; }
+.bt-proposal { border: 1px solid #c4b5fd; background: #f5f3ff; border-radius: 12px; padding: 12px 14px; margin: 10px 0; }
+.bt-proposal h4 { margin: 0 0 8px; font-family: inherit; }
+.bt-proposal-row { display: flex; gap: 10px; align-items: flex-start; padding: 5px 0; font-size: 0.88rem; }
+.bt-proposal-row span { display: flex; flex-direction: column; }
+.bt-proposal-row small { color: #5b6275; }
+.bt-log { max-height: 190px; overflow-y: auto; background: #f7f8fb; border: 1px solid #e3e6ee; border-radius: 10px; padding: 8px 10px; font-size: 0.82rem; line-height: 1.6; margin: 10px 0; }

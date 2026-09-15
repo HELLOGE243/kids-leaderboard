@@ -1,4 +1,5 @@
 import QuestionTagBar from '../components/QuestionTagBar.jsx'
+import BulkTagPanel from '../components/BulkTagPanel.jsx'
 import { useState, useRef, useEffect } from 'react'
 import {
   getClassesForOrg,
@@ -91,6 +92,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
   const [lockSearch, setLockSearch] = useState('')
   const [lockDropOpen, setLockDropOpen] = useState(false)
   const [currentEditQ, setCurrentEditQ] = useState(0)
+  const [showBulkTag, setShowBulkTag] = useState(false)
   const [showEditSettings, setShowEditSettings] = useState(false)
   const [activeDescTab, setActiveDescTab] = useState(0)
   const [confirmAction, setConfirmAction] = useState(null)
@@ -1289,6 +1291,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
   // ===== MAIN 3-COLUMN VIEW =====
   return (
     <div className="page" style={{ maxWidth: 1400, margin: '0 auto', display: 'flex', flexDirection: 'column', minHeight: 'calc(100dvh - 40px)' }}>
+      {showBulkTag && <BulkTagPanel onClose={() => { setShowBulkTag(false); forceRefresh() }} />}
       <div className="header">
         <h1 className="pixel-title">Quiz Builder</h1>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -1406,6 +1409,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                   </button>
                 )}
                 <button className="btn btn-small" style={{ fontSize: '0.45rem', padding: '4px 8px' }} onClick={() => fileInputRef.current?.click()} disabled={!!importProgress}>{importProgress ? 'Importing...' : 'Import JSON'}</button>
+                <button className="btn btn-small" style={{ fontSize: '0.45rem', padding: '4px 8px' }} onClick={() => setShowBulkTag(true)}>{'✨'} Tag all with AI</button>
                 <button className="btn btn-small" style={{ fontSize: '0.45rem', padding: '4px 8px', background: '#7c3aed' }} onClick={() => pdfInputRef.current?.click()} disabled={!!pdfProgress}>
                   {pdfProgress ? 'Processing...' : 'Import PDF'}
                 </button>
