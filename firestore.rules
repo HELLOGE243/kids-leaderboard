@@ -100,6 +100,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // --- Parent notification queue (written only by Cloud Functions) ---------
+    match /parentNotifications/{id} {
+      allow read: if isTeacher();
+    }
+
     // --- Parent contact details --------------------------------------------
     // Phone numbers and emails of students' parents. Teachers only: these were
     // previously on the shared student records every signed-in user can read.

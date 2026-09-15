@@ -310,6 +310,8 @@ exports.onStudentDataWrite = functions
     }
 
     await Promise.all(writes)
+    // Parent alerts (auto-submitted, test finished). Never blocks the stats.
+    try { await queueAttemptAlerts(studentId, after, before) } catch (e) { console.error('queueAttemptAlerts failed', e) }
     return null
   })
 
@@ -968,6 +970,315 @@ exports.authAdmin = functions
       } catch (e) {
         console.error('authAdmin failed:', e)
         return sendJson(res, 500, { error: 'Admin action failed' })
+      }
+    })
+  })
+
+// ============================================================
+// PARENT NOTIFICATIONS
+//
+// Every parent message goes through one queue: parentNotifications/{key}.
+// The key names the event (lockout_<student>_<attempt>, test_..., deadline_
+// <student>_<course>_<module>, weekly_<student>_<week>), so an event can only
+// ever be queued - and sent - once, however often a trigger re-runs.
+//
+//   onStudentDataWrite  queues "auto-submitted" and "test finished" as they happen
+//   parentNotifyTick    every 15 min: queues passed deadlines and the Friday
+//                       weekly summary, then sends everything pending
+//
+// Sending respects quiet hours (8pm-7am Sydney) and each organisation's
+// settings (core.notificationPrefs[orgId].parentAlerts). Until an organisation
+// switches to live, messages are recorded as "preview" and not sent, so a
+// teacher can check exactly what parents would receive. Email goes out when
+// SMTP is configured; SMS additionally when Twilio is.
+// ============================================================
+const APP_URL = 'https://cleverspacev2.web.app'
+const TZ = 'Australia/Sydney'
+const DEADLINE_WINDOW_MS = 2 * 24 * 60 * 60 * 1000 // only deadlines that passed recently
+const notifyRef = (key) => db.collection('parentNotifications').doc(key)
+
+const DEFAULT_PARENT_ALERTS = { live: false, lockout: true, test: true, deadline: true, weekly: true }
+
+function parentAlertPrefs(core, orgId) {
+  return { ...DEFAULT_PARENT_ALERTS, ...((core.notificationPrefs || {})[orgId]?.parentAlerts || {}) }
+}
+
+function sydneyParts(ms) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-AU', { timeZone: TZ, weekday: 'short', hour: 'numeric', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit' })
+    .formatToParts(new Date(ms)).map((p) => [p.type, p.value]))
+  return { weekday: parts.weekday, hour: Number(parts.hour), date: `${parts.year}-${parts.month}-${parts.day}` }
+}
+
+const isQuietHours = (ms) => { const h = sydneyParts(ms).hour; return h >= 20 || h < 7 }
+const firstName = (s) => String(s?.firstName || s?.name || 'Your child').trim().split(/\s+/)[0]
+const pct = (score, total) => (total > 0 ? Math.round((score / total) * 100) : null)
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+
+function emailHtml(title, lines, link) {
+  return `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:24px;color:#1a1a2e">
+    <p style="margin:0 0 4px;color:#6b7280;font-size:13px">Avant CleverSpace</p>
+    <h2 style="margin:0 0 14px;font-size:20px">${esc(title)}</h2>
+    ${lines.map((l) => `<p style="margin:0 0 10px;font-size:15px;line-height:1.5">${l}</p>`).join('')}
+    ${link ? `<p style="margin:18px 0"><a href="${link}" style="background:#2563eb;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:bold">View full report</a></p>
+    <p style="color:#6b7280;font-size:12px">Log in with your child's CleverSpace account to see the report.</p>` : ''}
+  </div>`
+}
+
+/** Queues a message unless this event was queued before. */
+async function enqueueParentMessage(key, msg) {
+  const ref = notifyRef(key)
+  try {
+    await ref.create({ ...msg, status: 'pending', createdAt: Date.now() })
+    return true
+  } catch (e) {
+    if (e.code === 6 || /already exists/i.test(e.message)) return false // ALREADY_EXISTS
+    throw e
+  }
+}
+
+let _quizMeta = null
+let _quizMetaAt = 0
+/** quizSetId -> { title, trialTest } (titles only, not questions). */
+async function getQuizMeta() {
+  if (_quizMeta && Date.now() - _quizMetaAt < 10 * 60 * 1000) return _quizMeta
+  const snap = await db.collection('quizSets').select('rawTitle', 'friendlyTitle', 'trialTest').get()
+  _quizMeta = new Map(snap.docs.map((d) => [d.id, { title: d.get('friendlyTitle') || d.get('rawTitle') || 'Quiz', trialTest: !!d.get('trialTest') }]))
+  _quizMetaAt = Date.now()
+  return _quizMeta
+}
+
+async function percentileOf(quizId, studentId) {
+  const rows = (await db.collection('quizStats').doc(quizId).collection('attempts').get()).docs.map((d) => d.data())
+  const me = rows.find((r) => r.studentId === studentId)
+  if (!me || rows.length < 5) return null
+  const below = rows.filter((r) => r.pct < me.pct).length
+  const equal = rows.filter((r) => r.pct === me.pct).length - 1
+  return Math.round(((below + equal / 2) / (rows.length - 1)) * 100)
+}
+
+const ordinal = (n) => `${n}${['th', 'st', 'nd', 'rd'][(n % 100 > 10 && n % 100 < 14) || n % 10 > 3 ? 0 : n % 10]}`
+
+function courseForQuiz(courses, classIds, quizSetId) {
+  for (const c of courses) {
+    if (!classIds.includes(c.classId)) continue
+    if ((c.modules || []).some((m) => (m.quizSetIds || []).includes(quizSetId))) return c
+  }
+  return null
+}
+
+/** Called from onStudentDataWrite with the new and previous student document. */
+async function queueAttemptAlerts(studentId, after, before) {
+  if (!before) return
+  const core = await getCore()
+  const student = (core.students || {})[studentId]
+  if (!student || student.archived) return
+  const content = (await db.collection('appData').doc('content').get()).data() || {}
+  const classIds = Object.entries(core.classes || {}).filter(([, c]) => (c.studentIds || []).includes(studentId)).map(([id]) => id)
+  const name = firstName(student)
+  const seen = new Set([...(before?.homeworkAttempts || []), ...(before?.quizAttempts || [])].map((a) => a && a.id))
+  const quizMeta = await getQuizMeta()
+
+  // Only attempts that are genuinely new: not in the previous document and
+  // submitted in the last day (a restored or migrated document re-adds old ones).
+  const recent = (x) => x && !seen.has(x.id) && Date.now() - new Date(x.date).getTime() < 24 * 60 * 60 * 1000
+  const fresh = [
+    ...(after.homeworkAttempts || []).filter(recent).map((a) => ({ a, kind: 'homework', quizId: a.quizSetId })),
+    ...(after.quizAttempts || []).filter(recent).map((a) => ({ a, kind: 'checkpoint', quizId: a.quizId })),
+  ]
+  for (const { a, kind, quizId } of fresh) {
+    const checkpoint = kind === 'checkpoint' ? (content.quizzes || []).find((q) => q.id === quizId) : null
+    const topic = checkpoint ? (content.topics || []).find((t) => t.id === checkpoint.topicId) : null
+    const title = checkpoint ? `${topic?.name || 'Checkpoint'} · Quiz ${checkpoint.number}` : (quizMeta.get(quizId)?.title || 'Quiz')
+    const course = kind === 'homework' ? courseForQuiz(content.courses || [], classIds, quizId) : null
+    const link = course ? `${APP_URL}/?report=${encodeURIComponent(course.id)}` : `${APP_URL}/?report=all`
+    const score = `${a.score}/${a.total}${pct(a.score, a.total) != null ? ` (${pct(a.score, a.total)}%)` : ''}`
+
+    if (a.lockedOut) {
+      await enqueueParentMessage(`lockout_${studentId}_${a.id}`, {
+        studentId, orgId: student.orgId || null, kind: 'lockout',
+        subject: `${name}'s quiz was auto-submitted`,
+        text: `${name}'s quiz "${title}" was automatically submitted after leaving the quiz screen 3 times. Score: ${score}. Please remind ${name} to stay on the quiz tab until it's finished.`,
+        sms: `Avant: ${name}'s quiz "${title}" was auto-submitted after leaving the quiz screen 3 times. Score ${score}. Please remind ${name} to stay on the quiz tab. ${link}`,
+        html: emailHtml(`${name}'s quiz was auto-submitted`, [
+          `<b>${esc(title)}</b> was automatically submitted because ${esc(name)} left the quiz screen 3 times.`,
+          `Score: <b>${esc(score)}</b>`,
+          `Please remind ${esc(name)} to stay on the quiz tab until the quiz is finished - switching tabs or apps counts as leaving.`,
+        ], link),
+      })
+    }
+
+    const isTest = kind === 'checkpoint' || quizMeta.get(quizId)?.trialTest
+    if (isTest) {
+      const percentile = await percentileOf(quizId, studentId).catch(() => null)
+      const rank = percentile != null ? `, ${ordinal(percentile)} percentile in the class` : ''
+      await enqueueParentMessage(`test_${studentId}_${a.id}`, {
+        studentId, orgId: student.orgId || null, kind: 'test',
+        subject: `${name} scored ${score} on ${title}`,
+        text: `${name} finished "${title}": ${score}${rank}.${a.lockedOut ? ' (Auto-submitted after leaving the quiz screen.)' : ''} View the full report: ${link}`,
+        sms: `Avant: ${name} scored ${score} on ${title}${rank}. Report: ${link}`,
+        html: emailHtml(`${name} finished ${title}`, [
+          `Score: <b>${esc(score)}</b>${percentile != null ? ` - <b>${ordinal(percentile)} percentile</b> in the class` : ''}.`,
+          a.lockedOut ? 'This test was auto-submitted after leaving the quiz screen 3 times.' : '',
+        ].filter(Boolean), link),
+      })
+    }
+  }
+}
+
+/** Deadlines that passed recently and the Friday weekly summary. */
+async function queueScheduledAlerts(now) {
+  const core = await getCore(true)
+  const content = (await db.collection('appData').doc('content').get()).data() || {}
+  const courses = content.courses || []
+  const quizMeta = await getQuizMeta()
+  const syd = sydneyParts(now)
+  const weeklyDue = syd.weekday === 'Fri' && syd.hour >= 17
+  const studentDocs = await db.collection('studentData').get()
+
+  for (const doc of studentDocs.docs) {
+    const studentId = doc.id
+    const student = (core.students || {})[studentId]
+    if (!student || student.archived || student.approved === false) continue
+    const data = doc.data() || {}
+    const attempts = data.homeworkAttempts || []
+    const starts = data.homeworkStarts || []
+    const classIds = Object.entries(core.classes || {}).filter(([, c]) => (c.studentIds || []).includes(studentId)).map(([id]) => id)
+    const name = firstName(student)
+    const weekly = []
+    const queued = []
+
+    for (const course of courses.filter((c) => classIds.includes(c.classId))) {
+      const start = starts.find((h) => h.courseId === course.id)
+      if (!start) continue
+      const startMs = new Date(start.startedDate).getTime()
+      const link = `${APP_URL}/?report=${encodeURIComponent(course.id)}`
+      let courseDone = 0
+      let courseAssigned = 0
+      let courseScore = 0
+      let courseTotal = 0
+      let courseMissing = 0;
+      (course.modules || []).forEach((mod, mi) => {
+        const quizIds = mod.quizSetIds || []
+        if (!quizIds.length) return
+        const deadline = startMs + (mi + 1) * WEEK_MS
+        const unlocked = now >= startMs + mi * WEEK_MS
+        const rows = quizIds.map((id) => ({ id, title: quizMeta.get(id)?.title || 'Quiz', attempt: attempts.find((a) => a.quizSetId === id) }))
+        const done = rows.filter((r) => r.attempt && new Date(r.attempt.date).getTime() <= deadline)
+        const late = rows.filter((r) => r.attempt && new Date(r.attempt.date).getTime() > deadline)
+        const missing = rows.filter((r) => !r.attempt)
+        if (unlocked) {
+          courseAssigned += rows.length
+          courseDone += done.length + late.length
+          courseMissing += now > deadline ? missing.length : 0
+          for (const r of [...done, ...late]) { courseScore += r.attempt.score; courseTotal += r.attempt.total }
+        }
+        if (deadline > now || now - deadline > DEADLINE_WINDOW_MS) return
+        const score = done.reduce((s, r) => s + r.attempt.score, 0)
+        const total = done.reduce((s, r) => s + r.attempt.total, 0)
+        const avg = pct(score, total)
+        const locked = rows.filter((r) => r.attempt?.lockedOut)
+        const week = mod.name || `Week ${mi + 1}`
+        const summary = `${done.length} of ${rows.length} on time${avg != null ? `, average ${avg}%` : ''}`
+        queued.push(enqueueParentMessage(`deadline_${studentId}_${course.id}_${mi}`, {
+          studentId, orgId: student.orgId || null, kind: 'deadline',
+          subject: `${name}: ${course.name} - ${week} results`,
+          text: `${course.name} - ${week} has closed. ${name} completed ${summary}.${missing.length ? ` Missed: ${missing.map((r) => r.title).join(', ')}.` : ''}${late.length ? ` Submitted late: ${late.map((r) => r.title).join(', ')}.` : ''}${locked.length ? ` Auto-submitted: ${locked.map((r) => r.title).join(', ')}.` : ''} Report: ${link}`,
+          sms: `Avant: ${name} - ${course.name} ${week} closed. ${summary}.${missing.length ? ` Missed ${missing.length}: please finish.` : ' All done!'} ${link}`,
+          html: emailHtml(`${course.name} - ${week} results`, [
+            `${esc(name)} completed <b>${esc(summary)}</b>.`,
+            missing.length ? `<b style="color:#b91c1c">Missed:</b> ${missing.map((r) => esc(r.title)).join(', ')} - please make sure these are finished.` : '✓ Every quiz for this week was submitted.',
+            late.length ? `<b>Submitted late:</b> ${late.map((r) => esc(r.title)).join(', ')}` : '',
+            locked.length ? `<b>Auto-submitted for leaving the quiz screen:</b> ${locked.map((r) => esc(r.title)).join(', ')}` : '',
+          ].filter(Boolean), link),
+        }).catch((e) => console.warn('queue deadline failed', e)))
+      })
+      if (courseAssigned) weekly.push({ course, done: courseDone, assigned: courseAssigned, avg: pct(courseScore, courseTotal), missing: courseMissing })
+    }
+
+    await Promise.all(queued)
+    if (weeklyDue && weekly.length) {
+      const lines = weekly.map((w) => `${w.course.name}: ${w.done}/${w.assigned} done${w.avg != null ? `, avg ${w.avg}%` : ''}${w.missing ? `, ${w.missing} missing` : ''}`)
+      await enqueueParentMessage(`weekly_${studentId}_${syd.date}`, {
+        studentId, orgId: student.orgId || null, kind: 'weekly',
+        subject: `${name}'s week at Avant`,
+        text: `This week for ${name}:\n${lines.join('\n')}\nFull report: ${APP_URL}/?report=all`,
+        sms: `Avant weekly - ${name}: ${weekly.map((w) => `${w.course.name} ${w.done}/${w.assigned}${w.avg != null ? ` ${w.avg}%` : ''}`).join('; ')}. ${APP_URL}/?report=all`,
+        html: emailHtml(`${name}'s week at Avant`, weekly.map((w) => `<b>${esc(w.course.name)}</b>: ${w.done}/${w.assigned} quizzes done${w.avg != null ? `, average <b>${w.avg}%</b>` : ''}${w.missing ? ` - <b style="color:#b91c1c">${w.missing} missing</b>` : ''}`), `${APP_URL}/?report=all`),
+      })
+    }
+  }
+}
+
+/** Sends (or previews) pending messages. */
+async function sendPendingParentMessages(now) {
+  if (isQuietHours(now)) return { skipped: 'quiet-hours' }
+  const core = await getCore(true)
+  const pending = await db.collection('parentNotifications').where('status', '==', 'pending').limit(200).get()
+  let sent = 0
+  for (const doc of pending.docs) {
+    const msg = doc.data()
+    const student = (core.students || {})[msg.studentId]
+    const prefs = parentAlertPrefs(core, msg.orgId || student?.orgId)
+    if (!student || student.archived) { await doc.ref.update({ status: 'skipped', reason: 'student removed', sentAt: now }); continue }
+    if (!prefs[msg.kind]) { await doc.ref.update({ status: 'skipped', reason: `${msg.kind} alerts are off`, sentAt: now }); continue }
+    const contactSnap = await contactRef(msg.studentId).get()
+    const contact = contactSnap.exists ? contactSnap.data() : {}
+    const email = normaliseEmail(contact.parentEmail)
+    const phone = normaliseAuMobile(contact.parentPhone)
+    const channels = {}
+    if (email && emailConfigured()) channels.email = { to: email }
+    if (phone && smsConfigured()) channels.sms = { to: maskPhone(phone) }
+    if (!Object.keys(channels).length) {
+      await doc.ref.update({ status: 'unreachable', reason: !email && !phone ? 'no parent contact' : 'no email or SMS service set up', sentAt: now })
+      continue
+    }
+    if (!prefs.live) {
+      await doc.ref.update({ status: 'preview', channels, sentAt: now })
+      continue
+    }
+    try {
+      if (channels.email) { await sendEmail(email, msg.subject, msg.text, msg.html); channels.email.ok = true }
+      if (channels.sms) { await sendTwilio(phone, msg.sms); channels.sms.ok = true }
+      await doc.ref.update({ status: 'sent', channels, sentAt: now })
+      sent++
+    } catch (e) {
+      console.error('parent message failed', doc.id, e)
+      await doc.ref.update({ status: 'failed', channels, error: String(e.message || e).slice(0, 300), sentAt: now })
+    }
+  }
+  return { sent, processed: pending.size }
+}
+
+exports.parentNotifyTick = functions
+  .region('australia-southeast1')
+  .runWith({ timeoutSeconds: 300, memory: '512MB' })
+  .pubsub.schedule('every 15 minutes')
+  .timeZone(TZ)
+  .onRun(async () => {
+    const now = Date.now()
+    await queueScheduledAlerts(now)
+    const result = await sendPendingParentMessages(now)
+    console.log('parentNotifyTick', result)
+    return null
+  })
+
+/** Teacher-triggered run of the same check, so previews don't wait 15 minutes. */
+exports.parentNotifyRun = functions
+  .region('australia-southeast1')
+  .runWith({ timeoutSeconds: 300, memory: '512MB' })
+  .https.onRequest((req, res) => {
+    cors(req, res, async () => {
+      if (req.method !== 'POST') return sendJson(res, 405, { error: 'Method not allowed' })
+      const caller = await verifyCaller(req)
+      if (!caller || caller.role !== 'teacher') return sendJson(res, 403, { error: 'Teacher sign-in required' })
+      try {
+        const now = Date.now()
+        await queueScheduledAlerts(now)
+        const result = await sendPendingParentMessages(now)
+        return sendJson(res, 200, { ok: true, ...result, email: emailConfigured(), sms: smsConfigured() })
+      } catch (e) {
+        console.error('parentNotifyRun failed', e)
+        return sendJson(res, 500, { error: 'Check failed' })
       }
     })
   })

@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from 'react'
 import { getOverdueStudents, updateStudentContact, getSmsLog, getNotificationPrefs, setNotificationPrefs, getOrganisation, onDataChange, loadContacts } from '../data/store.js'
 import { sendBulkOverdueSMS } from '../utils/smsService.js'
+import ParentAlertsPanel from '../components/ParentAlertsPanel.jsx'
 
 function NotificationsPanel({ orgId, onBack }) {
   const [refresh, setRefresh] = useState(0)
-  const [tab, setTab] = useState('overdue')
+  const [tab, setTab] = useState('parent')
   const [sending, setSending] = useState(false)
   const [sendResults, setSendResults] = useState(null)
   const [editingContact, setEditingContact] = useState(null)
@@ -54,10 +55,13 @@ function NotificationsPanel({ orgId, onBack }) {
       </div>
 
       <div className="notif-tabs">
+        <button className={`notif-tab ${tab === 'parent' ? 'notif-tab-active' : ''}`} onClick={() => setTab('parent')}>Parent alerts</button>
         <button className={`notif-tab ${tab === 'overdue' ? 'notif-tab-active' : ''}`} onClick={() => setTab('overdue')}>Overdue ({overdue.length})</button>
         <button className={`notif-tab ${tab === 'log' ? 'notif-tab-active' : ''}`} onClick={() => setTab('log')}>SMS Log ({smsLog.length})</button>
         <button className={`notif-tab ${tab === 'settings' ? 'notif-tab-active' : ''}`} onClick={() => setTab('settings')}>Settings</button>
       </div>
+
+      {tab === 'parent' && <ParentAlertsPanel orgId={orgId} />}
 
       {tab === 'overdue' && (
         <div className="notif-section">

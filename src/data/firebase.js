@@ -917,3 +917,10 @@ export function unsubscribeAggregates() {
   }
 }
 
+
+/** Most recent parent notifications (teachers only). */
+export async function loadParentNotifications(max = 100) {
+  const { query, orderBy, limit } = await import('firebase/firestore')
+  const snap = await getDocs(query(collection(db, 'parentNotifications'), orderBy('createdAt', 'desc'), limit(max)))
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
