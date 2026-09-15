@@ -23,6 +23,43 @@ function youtubeEmbedUrl(url) {
   return m ? `https://www.youtube.com/embed/${m[1]}` : null
 }
 
+// Class progress bar. Remembers the last percentage this student saw for the
+// class; when it has gone up (a checkpoint quiz was finished) the bar animates
+// from the old value to the new one and shows a "+N%" pop.
+export function ProgressBar({ storageKey, done, total, size = 'md' }) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0
+  const [shown, setShown] = useState(() => {
+    try {
+      const prev = localStorage.getItem(storageKey)
+      return prev !== null && Number(prev) < pct ? Number(prev) : pct
+    } catch { return pct }
+  })
+  const [gain, setGain] = useState(null)
+
+  useEffect(() => {
+    let t1, t2
+    if (shown < pct) {
+      const from = shown
+      t1 = setTimeout(() => { setShown(pct); setGain(pct - from) }, 350)
+      t2 = setTimeout(() => setGain(null), 2600)
+    } else if (shown !== pct) {
+      setShown(pct)
+    }
+    try { localStorage.setItem(storageKey, String(pct)) } catch { /* private mode */ }
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [pct, storageKey])
+
+  return (
+    <div className={`pq-progress pq-progress-${size}${pct === 100 ? ' is-complete' : ''}`}>
+      <div className="pq-progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
+        <div className="pq-progress-fill" style={{ width: `${shown}%` }} />
+        {gain !== null && <span className="pq-progress-gain">+{gain}%</span>}
+      </div>
+      <span className="pq-progress-pct">{shown}%</span>
+    </div>
+  )
+}
+
 function QuizDashboard({ user, onBack, initialNav }) {
   const [selectedClass, setSelectedClass] = useState(initialNav?.classId || null)
   const [selectedTopic, setSelectedTopic] = useState(initialNav?.topicId || null)
@@ -695,6 +732,20 @@ function QuizDashboard({ user, onBack, initialNav }) {
           <button className="btn-logout" onClick={() => { setSelectedClass(null); setSelectedTopic(null) }}>Back</button>
         </div>
 
+        {(() => {
+          const allQuizzes = topics.flatMap((t) => getQuizzesForTopic(t.id))
+          const doneCount = allQuizzes.filter((q) => getAttemptForQuiz(q.id, user.id)).length
+          return (
+            <div className="pq-class-progress">
+              <div className="pq-class-progress-label">
+                <span>Class progress</span>
+                <span>{doneCount} of {allQuizzes.length} checkpoint quizzes complete</span>
+              </div>
+              <ProgressBar storageKey={`pq-progress-${user.id}-${selectedClass.id}`} done={doneCount} total={allQuizzes.length} size="lg" />
+            </div>
+          )
+        })()}
+
         {topics.length === 0 ? (
           <div className="card mt-16">
             <p className="text-dim">No topics available yet.</p>
@@ -734,7 +785,7 @@ function QuizDashboard({ user, onBack, initialNav }) {
                   {activeQuizzes.length === 0 ? (
                     <p className="text-dim" style={{ fontSize: '0.8rem' }}>No quizzes for this topic yet.</p>
                   ) : (
-                    <div className="hw-quiz-grid">
+                    <div className="pq-rows">
                       {activeQuizzes.map(quiz => {
                         const isUnlocked = isQuizUnlocked(quiz.id, user.id)
                         const attempt = getAttemptForQuiz(quiz.id, user.id)
@@ -751,10 +802,10 @@ function QuizDashboard({ user, onBack, initialNav }) {
                         }
                         const isHighlighted = highlightQuizId === quiz.id
                         return (
-                          <div
+                          <button
                             key={quiz.id}
-                            className={`hw-quiz-card${!isUnlocked ? ' hw-quiz-card-locked' : ''}${hasAttempt && pct === 100 ? ' hw-quiz-card-mastery' : ''}${isHighlighted ? ' hw-quiz-card-highlight' : ''}`}
-                            style={{ position: 'relative' }}
+                            className={`pq-row pq-quiz-row${!isUnlocked ? ' is-locked' : ''}${hasAttempt ? ' is-done' : ''}${isHighlighted ? ' is-highlight' : ''}`}
+                            disabled={!isUnlocked}
                             onClick={() => {
                               if (!isUnlocked) return
                               setHighlightQuizId(null)
@@ -762,23 +813,20 @@ function QuizDashboard({ user, onBack, initialNav }) {
                               else handleStartQuiz(quiz, activeTopic)
                             }}
                           >
-                            {isUnlocked && !hasAttempt && <span className="hw-badge-warn" style={{ position: 'absolute', top: -6, right: -6 }}>!</span>}
-                            <div className="hw-quiz-paper" />
-                            <div className="hw-quiz-title-row">
-                              <span className="hw-quiz-title">Quiz {quiz.number}</span>
-                              <span className="hw-quiz-icon">{!isUnlocked ? '🔒' : '📝'}</span>
-                            </div>
-                            <div className="hw-quiz-meta">{quiz.questions.length} questions · {quiz.timeLimit || 10} min</div>
+                            <span className="pq-row-check" aria-hidden="true">{!isUnlocked ? '🔒' : hasAttempt ? '✓' : quiz.number}</span>
+                            <span className="pq-row-info">
+                              <span className="pq-row-name">Quiz {quiz.number}</span>
+                              <span className="pq-row-meta">{quiz.questions.length} questions · {quiz.timeLimit || 10} min</span>
+                            </span>
                             {!isUnlocked ? (
-                              <div className="hw-quiz-status hw-quiz-status-locked">Locked</div>
+                              <span className="hw-quiz-status hw-quiz-status-locked">Locked</span>
                             ) : hasAttempt ? (
-                              <div className={`hw-quiz-status ${cardGradeClass}`}>
-                                {attempt.score}/{attempt.total} ({pct}%) — {cardGrade}
-                              </div>
+                              <span className={`hw-quiz-status ${cardGradeClass}`}>{attempt.score}/{attempt.total} ({pct}%) · {cardGrade}</span>
                             ) : (
-                              <div className="hw-quiz-status hw-quiz-status-new">Not Started</div>
+                              <span className="hw-quiz-status hw-quiz-status-new">Start</span>
                             )}
-                          </div>
+                            <span className="pq-row-chevron" aria-hidden="true">{isUnlocked ? '›' : ''}</span>
+                          </button>
                         )
                       })}
                     </div>
@@ -809,7 +857,7 @@ function QuizDashboard({ user, onBack, initialNav }) {
           <p className="text-dim">Not enrolled in any classes yet.</p>
         </div>
       ) : (
-        <div className="hw-course-grid">
+        <div className="pq-rows">
           {classes.map((cls) => {
             const topics = getTopicsForClass(cls.id)
             let classPending = 0
@@ -821,17 +869,18 @@ function QuizDashboard({ user, onBack, initialNav }) {
             const totalQuizzes = topics.reduce((sum, t) => sum + getQuizzesForTopic(t.id).length, 0)
             const completedQuizzes = topics.reduce((sum, t) => sum + getQuizzesForTopic(t.id).filter(q => getAttemptForQuiz(q.id, user.id)).length, 0)
             return (
-              <div key={cls.id} className="hw-course-card" style={{ position: 'relative' }} onClick={() => setSelectedClass(cls)}>
-                {classPending > 0 && <span className="hw-badge-warn" style={{ position: 'absolute', top: -6, right: -6, zIndex: 2 }}>{classPending}</span>}
-                <div className="hw-course-img" style={cls.image ? { backgroundImage: `url(${cls.image})` } : {}}>
-                  {!cls.image && <span className="hw-course-img-placeholder">📋</span>}
-                </div>
-                <div className="pq-class-card-body">
-                  <span className="pq-class-card-name">{cls.name}{cls.yearGroup ? ` — ${cls.yearGroup}` : ''}</span>
-                  <span className="pq-class-card-stat">{topics.length} topics · {completedQuizzes}/{totalQuizzes} quizzes done</span>
-                </div>
-                <div className="hw-course-shine" />
-              </div>
+              <button key={cls.id} className="pq-row" onClick={() => setSelectedClass(cls)}>
+                <span className="pq-row-thumb" style={cls.image ? { backgroundImage: `url(${cls.image})` } : {}}>{!cls.image && '📋'}</span>
+                <span className="pq-row-info">
+                  <span className="pq-row-name">{cls.name}{cls.yearGroup ? <span className="pq-row-year"> · Year {cls.yearGroup}</span> : null}</span>
+                  <span className="pq-row-meta">{topics.length} topic{topics.length !== 1 ? 's' : ''} · {completedQuizzes}/{totalQuizzes} quizzes done</span>
+                </span>
+                <span className="pq-row-progress">
+                  <ProgressBar storageKey={`pq-progress-${user.id}-${cls.id}`} done={completedQuizzes} total={totalQuizzes} />
+                </span>
+                {classPending > 0 ? <span className="pq-row-badge" title="Quizzes ready to start">{classPending} to do</span> : <span className="pq-row-badge pq-row-badge-empty" />}
+                <span className="pq-row-chevron" aria-hidden="true">›</span>
+              </button>
             )
           })}
         </div>
