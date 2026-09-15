@@ -22,6 +22,15 @@ function LoginScreen({ onLogin }) {
   const [forgotEmail, setForgotEmail] = useState('')
   const nicknameRef = useRef(null)
   const schoolRef = useRef(null)
+  // Label shown on the submit button while a server call is in flight.
+  const [busy, setBusy] = useState('')
+  // Runs fn with the busy label shown; returns its result, or null if a call is already running.
+  async function withResult(label, fn) {
+    if (busy) return null
+    setBusy(label)
+    try { return await fn() } finally { setBusy('') }
+  }
+  const submitLabel = (text) => busy ? <><span className="login-spinner" aria-hidden="true" />{busy}</> : text
 
   const filteredSchools = useMemo(() => {
     if (schoolSearch.length < 2) return []
@@ -39,7 +48,8 @@ function LoginScreen({ onLogin }) {
 
     // Ask the server whether the account exists and has a password set. The
     // browser is never told what the password is.
-    const res = await lookupUser(role, name)
+    const res = await withResult('Checking…', () => lookupUser(role, name))
+    if (!res) return
     if (res.error === 'network') {
       setError('Could not reach the server. Check your connection.')
       return
@@ -110,7 +120,8 @@ function LoginScreen({ onLogin }) {
         firstName: firstName.trim(), lastName: lastName.trim(), yearGroup,
         schoolName: schoolName.trim(), parentPhone: parentPhone.trim(), parentEmail: parentEmail.trim(),
       }
-      const res = await signupUser(role, pendingUser.name, password, profile)
+      const res = await withResult('Creating account…', () => signupUser(role, pendingUser.name, password, profile))
+      if (!res) return
       if (!res.ok) {
         const msg = res.error === 'network' ? 'Could not reach the server.' : (res.error || 'Could not create account.')
         setError(msg)
@@ -128,7 +139,8 @@ function LoginScreen({ onLogin }) {
 
     // The server stores the hash and signs this browser in. Nothing about the
     // credential is kept client-side.
-    const res = await loginUser(role, pendingUser.name, password)
+    const res = await withResult('Signing in…', () => loginUser(role, pendingUser.name, password))
+    if (!res) return
     if (!res.ok) {
       setError(res.error === 'network' ? 'Could not reach the server.' : 'Could not set password.')
       return
@@ -149,7 +161,8 @@ function LoginScreen({ onLogin }) {
 
     // Verified server-side; on success the browser is signed in with a
     // Firebase Auth custom token.
-    const res = await loginUser(role, pendingUser.name, password)
+    const res = await withResult('Signing in…', () => loginUser(role, pendingUser.name, password))
+    if (!res) return
     if (res.error === 'pending-approval') {
       setError('')
       setPassword('')
@@ -296,7 +309,7 @@ function LoginScreen({ onLogin }) {
             className="input input-center landing-input"
           />
           {error && <p className="error-text text-center">{error}</p>}
-          <button type="submit" className="btn landing-btn">Next</button>
+          <button type="submit" className="btn landing-btn" disabled={!!busy}>{submitLabel("Next")}</button>
           <button type="button" className="btn btn-outline landing-btn" onClick={resetToNickname}>
             Back
           </button>
@@ -329,7 +342,7 @@ function LoginScreen({ onLogin }) {
             className="input input-center landing-input"
           />
           {error && <p className="error-text text-center">{error}</p>}
-          <button type="submit" className="btn landing-btn">Set Password</button>
+          <button type="submit" className="btn landing-btn" disabled={!!busy}>{submitLabel("Set Password")}</button>
           <button type="button" className="btn btn-outline landing-btn" onClick={resetToNickname}>
             Back
           </button>
@@ -355,7 +368,7 @@ function LoginScreen({ onLogin }) {
             autoFocus
           />
           {error && <p className="error-text text-center">{error}</p>}
-          <button type="submit" className="btn landing-btn">Let's Go!</button>
+          <button type="submit" className="btn landing-btn" disabled={!!busy}>{submitLabel("Let's Go!")}</button>
           {pendingUser && (
             <button type="button" className="landing-forgot-btn" onClick={() => { setError(''); setForgotEmail(''); setPassword(''); setStep('forgot-password') }}>
               Forgot password?
@@ -410,7 +423,8 @@ function LoginScreen({ onLogin }) {
       e.preventDefault()
       if (!password.trim()) { setError('Enter a new password.'); return }
       if (password !== confirmPassword) { setError('Passwords do not match.'); return }
-      resetPassword(role, pendingUser.name, forgotEmail.trim(), password).then((res) => {
+      withResult('Saving…', () => resetPassword(role, pendingUser.name, forgotEmail.trim(), password)).then((res) => {
+        if (!res) return
         if (!res.ok) {
           setError(res.error === 'network' ? 'Could not reach the server.' : res.error)
           setStep('forgot-password')
@@ -445,7 +459,7 @@ function LoginScreen({ onLogin }) {
             className="input input-center landing-input"
           />
           {error && <p className="error-text text-center">{error}</p>}
-          <button type="submit" className="btn landing-btn">Reset Password</button>
+          <button type="submit" className="btn landing-btn" disabled={!!busy}>{submitLabel("Reset Password")}</button>
           <button type="button" className="btn btn-outline landing-btn" onClick={() => { setError(''); setPassword(''); setConfirmPassword(''); setStep('forgot-password') }}>
             Back
           </button>
@@ -471,7 +485,7 @@ function LoginScreen({ onLogin }) {
           autoFocus
         />
         {error && <p className="error-text text-center">{error}</p>}
-        <button type="submit" className="btn landing-btn">Let's Go!</button>
+        <button type="submit" className="btn landing-btn" disabled={!!busy}>{submitLabel("Let's Go!")}</button>
         <button type="button" className="btn btn-outline landing-btn" onClick={() => { setRole(null); setNickname(''); setError('') }}>
           Back
         </button>

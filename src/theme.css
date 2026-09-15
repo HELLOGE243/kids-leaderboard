@@ -15819,3 +15819,7 @@ button.hw-res-qth.active {
   border-color: rgba(0, 0, 0, 0.12);
 }
 .theme-light .gpu-notice-never { border-color: rgba(0, 0, 0, 0.15); }
+
+/* Login submit button busy state */
+.landing-btn:disabled { opacity: 0.85; cursor: progress; }
+.login-spinner { display: inline-block; width: 0.9em; height: 0.9em; margin-right: 8px; vertical-align: -0.12em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; }
