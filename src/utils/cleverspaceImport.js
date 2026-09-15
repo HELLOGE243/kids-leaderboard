@@ -66,11 +66,12 @@ export function classify(q) {
   const text = htmlToText(q.description)
   if (q.answersType === 'FREE_WRITE' || /^Writing\b/i.test(q.subcategory || '')) return 'free-writing'
 
+  // Two bodies of text -> multi-description; three or more -> matching.
   const extracts = (q.multiDescriptions || []).filter((d) => htmlToText(d.description))
-  if (extracts.length >= 2 && allLetters(q) && answerTexts(q).length <= extracts.length + 1) {
+  if (extracts.length >= 3 && allLetters(q) && answerTexts(q).length <= extracts.length + 1) {
     return 'multi-matching'
   }
-  if (extracts.length >= 1 && !allLetters(q)) return 'multi-description'
+  if (extracts.length >= 2) return 'multi-description'
 
   // Drag: bare letters A-G (5+) as answers, the lettered options shown as an
   // image (or described as "(A - G)"), and a numbered gap to fill.
@@ -83,7 +84,7 @@ export function classify(q) {
   }
   // Matching with the texts pasted into the description instead of the extract
   // fields: bare letters A-E as answers and sections headed A, B, C...
-  if (allLetters(q) && answerTexts(q).length >= 2 && answerTexts(q).length <= 6 && !hasImage) {
+  if (allLetters(q) && answerTexts(q).length >= 3 && answerTexts(q).length <= 6 && !hasImage) {
     const body = splitAtDivider(q.description)?.passage || q.description
     if (splitLetteredSections(body, answerTexts(q).length)) return 'multi-matching'
   }
@@ -451,7 +452,11 @@ function passageTitle(passage) {
   return first && first.length <= 60 && !/[.?!]$/.test(first) ? first : 'Extract'
 }
 
-/** One item with its passage split out -> a platform question. */
+/**
+ * One item with its single passage split out -> multiple choice with the
+ * passage as the question body and the item's own question as the prompt.
+ * (Multi-description is for two bodies of text; three or more is matching.)
+ */
 function extractQuestion(part, lead, passage, flags = []) {
   const q = part.q
   const { instructions, question } = splitLead(lead)
@@ -460,10 +465,9 @@ function extractQuestion(part, lead, passage, flags = []) {
   if (ci < 0) f.push('No correct answer marked in CleverSpace.')
   if (!htmlToText(question)) f.push('Could not find this item\'s question line - check the prompt.')
   return {
-    type: 'multi-description',
-    text: instructions,
+    type: 'multiple-choice',
+    text: instructions + passage,
     prompt: question,
-    descriptions: [{ title: passageTitle(passage), content: passage }],
     options: answerTexts(q),
     correctIndex: Math.max(0, ci),
     videoUrl: q.solutionVideo || '',
