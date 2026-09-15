@@ -1249,7 +1249,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                   <div className="qt-desc-tabs">
                     {q.descriptions.map((d, di) => (
                       <button key={di} className={`qt-desc-tab${studentDescTab === di ? ' qt-desc-tab-active' : ''}`} onClick={() => setStudentDescTab(di)}>
-                        {d.title || `Extract ${String.fromCharCode(65 + di)}`}
+                        {qType === 'multi-matching' ? `Extract ${String.fromCharCode(65 + di)}` : (d.title || `Extract ${String.fromCharCode(65 + di)}`)}
                       </button>
                     ))}
                   </div>
@@ -1494,8 +1494,8 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                           <div key={mi} className={`qt-sub-review-row ${isRight ? 'qt-sub-correct' : 'qt-sub-wrong'}`}>
                             <span className="qt-sub-review-label" dangerouslySetInnerHTML={{ __html: mq.question }} />
                             <span className="qt-sub-review-icon">{isRight ? '✓' : '✗'}</span>
-                            {!isRight && <span className="qt-sub-review-picked">Your answer: {studentPick >= 0 ? (descs[studentPick]?.title || `Extract ${String.fromCharCode(65 + studentPick)}`) : 'Skipped'}</span>}
-                            <span className="qt-sub-review-correct">Correct: {descs[mq.correctExtract]?.title || `Extract ${String.fromCharCode(65 + mq.correctExtract)}`}</span>
+                            {!isRight && <span className="qt-sub-review-picked">Your answer: {studentPick >= 0 ? `Extract ${String.fromCharCode(65 + studentPick)}` : 'Skipped'}</span>}
+                            <span className="qt-sub-review-correct">Correct: {`Extract ${String.fromCharCode(65 + mq.correctExtract)}`}</span>
                           </div>
                         )
                       })}
@@ -1762,7 +1762,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                             setQuizAnswers(prev => { const next = [...prev]; const arr = Array.isArray(next[currentQ]) ? [...next[currentQ]] : new Array(q.matchQuestions.length).fill(-1); arr[mi] = val; next[currentQ] = arr; return next })
                           }}>
                             <option value={-1} disabled hidden></option>
-                            {(q.descriptions || []).map((d, di) => <option key={di} value={di}>{d.title || `Extract ${String.fromCharCode(65 + di)}`}</option>)}
+                            {(q.descriptions || []).map((d, di) => <option key={di} value={di}>{String.fromCharCode(65 + di)}</option>)}
                           </select>
                         </div>
                       ))}
@@ -1882,24 +1882,41 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
           const answeredCount = quizAnswers.filter((a, ai) => isAnswered(a, resolvedQuestions[ai]?.type || 'multiple-choice')).length
           const unansweredCount = quizAnswers.length - answeredCount
           const flaggedCount = flagged.size
+          const total = quizAnswers.length || 1
+          const pct = Math.round((answeredCount / total) * 100)
+          const unansweredIdx = quizAnswers.map((a, ai) => ai).filter((ai) => !isAnswered(quizAnswers[ai], resolvedQuestions[ai]?.type || 'multiple-choice'))
+          const flaggedIdx = [...flagged].sort((a, b) => a - b)
+          const jump = (i) => { setCurrentQ(i); setShowSubmitConfirm(false) }
           return (
             <div className="neon-overlay">
-              <div className="neon-popup" style={{ maxWidth: 460 }}>
-                <div style={{ display: 'flex', justifyContent: 'center', gap: 32, marginBottom: 16 }}>
-                  <span className="neon-popup-stat">{answeredCount} answered</span>
-                  <span className="neon-popup-stat">{unansweredCount} unanswered</span>
+              <div className="submit-card" role="dialog" aria-labelledby="submit-card-title">
+                <h2 id="submit-card-title" className="submit-card-title">{unansweredCount === 0 ? 'All done — ready to submit?' : 'Ready to submit?'}</h2>
+                <div className="submit-card-bar" aria-hidden="true"><div className="submit-card-bar-fill" style={{ width: `${pct}%` }} /></div>
+                <div className="submit-card-stats">
+                  <div className="submit-stat submit-stat-done"><b>{answeredCount}</b><span>Answered</span></div>
+                  <div className={`submit-stat ${unansweredCount ? 'submit-stat-todo' : 'submit-stat-clear'}`}><b>{unansweredCount}</b><span>Unanswered</span></div>
+                  {flaggedCount > 0 && <div className="submit-stat submit-stat-flag"><b>{flaggedCount}</b><span>Flagged</span></div>}
                 </div>
-                {flaggedCount > 0 && (
-                  <p className="neon-popup-warning" style={{ margin: '0 0 16px' }}>
-                    {flaggedCount} flagged {flaggedCount === 1 ? 'question' : 'questions'} remaining
-                  </p>
+                {unansweredIdx.length > 0 && (
+                  <div className="submit-card-group">
+                    <div className="submit-card-label">Not answered — tap to go back</div>
+                    <div className="submit-card-chips">
+                      {unansweredIdx.map((i) => <button key={i} className="submit-chip submit-chip-todo" onClick={() => jump(i)}>{i + 1}</button>)}
+                    </div>
+                  </div>
                 )}
-                <p className="neon-popup-text" style={{ fontWeight: 600, marginBottom: 28 }}>
-                  Are you sure you want to finish the quiz?
-                </p>
-                <div className="neon-popup-actions">
-                  <button className="btn btn-danger" autoFocus onClick={confirmSubmit}>Yes</button>
-                  <button className="btn btn-outline" onClick={() => setShowSubmitConfirm(false)}>No</button>
+                {flaggedIdx.length > 0 && (
+                  <div className="submit-card-group">
+                    <div className="submit-card-label">Flagged for review</div>
+                    <div className="submit-card-chips">
+                      {flaggedIdx.map((i) => <button key={i} className="submit-chip submit-chip-flag" onClick={() => jump(i)}>{i + 1}</button>)}
+                    </div>
+                  </div>
+                )}
+                <p className="submit-card-note">You can't change your answers after submitting.</p>
+                <div className="submit-card-actions">
+                  <button className="submit-btn submit-btn-back" onClick={() => setShowSubmitConfirm(false)}>Keep working</button>
+                  <button className="submit-btn submit-btn-go" autoFocus onClick={confirmSubmit}>Submit quiz</button>
                 </div>
               </div>
             </div>

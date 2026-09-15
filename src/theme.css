@@ -16196,3 +16196,33 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .import-report-modal .modal-actions { flex: none; }
 
 .import-type-chip { display: inline-block; margin: 0 6px 4px 0; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.08); font-size: .55rem; }
+
+/* Quiz submit confirmation */
+.submit-card { width: min(480px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow-y: auto; background: #fff; color: #1a1a2e; border-radius: 16px; padding: 28px 28px 22px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); font-family: 'Outfit', system-ui, sans-serif; animation: submit-card-in 0.18s ease-out; }
+@keyframes submit-card-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+.submit-card-title { margin: 0 0 14px; font-size: 1.35rem; font-weight: 700; text-align: center; color: #1a1a2e; font-family: inherit; }
+.submit-card-bar { height: 10px; border-radius: 99px; background: #eceff4; overflow: hidden; margin-bottom: 18px; }
+.submit-card-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #22c55e, #16a34a); transition: width 0.3s; }
+.submit-card-stats { display: flex; gap: 10px; margin-bottom: 18px; }
+.submit-stat { flex: 1; border-radius: 12px; padding: 12px 8px; text-align: center; display: flex; flex-direction: column; gap: 2px; }
+.submit-stat b { font-size: 1.6rem; line-height: 1.1; }
+.submit-stat span { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.submit-stat-done { background: #ecfdf3; color: #15803d; }
+.submit-stat-todo { background: #fff7e6; color: #b45309; }
+.submit-stat-clear { background: #f3f4f6; color: #6b7280; }
+.submit-stat-flag { background: #eef2ff; color: #4338ca; }
+.submit-card-group { margin-bottom: 14px; }
+.submit-card-label { font-size: 0.8rem; font-weight: 600; color: #6b7280; margin-bottom: 8px; }
+.submit-card-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.submit-chip { min-width: 36px; height: 36px; padding: 0 8px; border-radius: 8px; font: 600 0.9rem 'Outfit', system-ui, sans-serif; cursor: pointer; border: 1.5px solid; background: #fff; transition: background 0.15s; }
+.submit-chip-todo { border-color: #f59e0b; color: #b45309; }
+.submit-chip-todo:hover { background: #fff7e6; }
+.submit-chip-flag { border-color: #6366f1; color: #4338ca; }
+.submit-chip-flag:hover { background: #eef2ff; }
+.submit-card-note { margin: 6px 0 16px; font-size: 0.82rem; color: #6b7280; text-align: center; }
+.submit-card-actions { display: flex; gap: 10px; }
+.submit-btn { flex: 1; padding: 12px 16px; border-radius: 10px; font: 700 0.95rem 'Outfit', system-ui, sans-serif; cursor: pointer; border: none; }
+.submit-btn-back { background: #f3f4f6; color: #374151; }
+.submit-btn-back:hover { background: #e5e7eb; }
+.submit-btn-go { background: #16a34a; color: #fff; }
+.submit-btn-go:hover { background: #15803d; }
