@@ -36,12 +36,12 @@
   padding: 8px 12px; border-radius: 8px; font-size: 0.88rem; font-weight: 600;
 }
 .td2-nav-link:hover { color: var(--text); background: var(--td2-hover); }
-.td2-profile { position: relative; margin-left: auto; }
+.td2-profile { position: relative; margin-left: auto; display: flex; align-items: center; gap: 10px; flex: none; }
 .td2-avatar {
-  width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-weight: 700;
+  width: 34px; height: 34px; border-radius: 50%; font-weight: 700; display: grid; place-items: center; box-sizing: border-box;
   border: 1px solid var(--td2-line); background: var(--td2-soft); color: var(--text);
 }
-.td2-avatar:hover { background: var(--td2-hover); }
+
 
 /* Main */
 .td2-main { max-width: 1200px; margin: 0 auto; padding: 24px 24px 60px; display: flex; flex-direction: column; gap: 20px; }

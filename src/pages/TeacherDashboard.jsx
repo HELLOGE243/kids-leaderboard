@@ -105,7 +105,6 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
   const [reportViewStudent, setReportViewStudent] = useState(null)
   const [studentRollTab, setStudentRollTab] = useState('active')
   const [termSwitchStep, setTermSwitchStep] = useState(null)
-  const [profileOpen, setProfileOpen] = useState(false)
   const [menuFor, setMenuFor] = useState(null)
   const [rollSearch, setRollSearch] = useState('')
 
@@ -281,16 +280,8 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
           </nav>
         )}
         <div className="td2-profile">
-          <button className="td2-avatar" onClick={() => setProfileOpen((o) => !o)} aria-label="Account menu">{teacher.name.slice(0, 1).toUpperCase()}</button>
-          {profileOpen && (
-            <>
-              <div className="td2-menu-backdrop" onClick={() => setProfileOpen(false)} />
-              <div className="td2-menu td2-menu-right">
-                <div className="td2-menu-label">Signed in as {teacher.name}</div>
-                <button className="td2-menu-item td2-menu-danger" onClick={() => { setProfileOpen(false); requestConfirm('Are you sure you want to log out?', onLogout, 'Log Out') }}>Log out</button>
-              </div>
-            </>
-          )}
+          <span className="td2-avatar" title={`Signed in as ${teacher.name}`}>{teacher.name.slice(0, 1).toUpperCase()}</span>
+          <button className="td2-btn-ghost td2-btn-sm" onClick={() => requestConfirm('Are you sure you want to log out?', onLogout, 'Log Out')}>Log out</button>
         </div>
       </header>
 
