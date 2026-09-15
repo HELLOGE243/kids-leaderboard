@@ -118,28 +118,35 @@ exports.sendSMS = functions.https.onRequest((req, res) => {
       return res.status(400).json({ success: false, error: 'Missing phone or message' })
     }
 
-    const accountSid = process.env.TWILIO_SID
-    const authToken = process.env.TWILIO_AUTH
-    const fromNumber = process.env.TWILIO_PHONE
-
-    if (!accountSid || !authToken || !fromNumber) {
+    if (!smsConfigured()) {
       return res.status(500).json({ success: false, error: 'Twilio not configured' })
     }
 
     try {
-      const twilio = require('twilio')
-      const client = twilio(accountSid, authToken)
-      const result = await client.messages.create({
-        body: message,
-        from: fromNumber,
-        to: phone,
-      })
+      const result = await sendTwilio(phone, message)
       return res.json({ success: true, sid: result.sid })
     } catch (err) {
       return res.status(500).json({ success: false, error: err.message })
     }
   })
 })
+
+function smsConfigured() {
+  return !!(process.env.TWILIO_SID && process.env.TWILIO_AUTH && process.env.TWILIO_PHONE)
+}
+
+async function sendTwilio(to, body) {
+  const twilio = require('twilio')
+  const client = twilio(process.env.TWILIO_SID, process.env.TWILIO_AUTH)
+  return client.messages.create({ body, from: process.env.TWILIO_PHONE, to })
+}
+
+/** Australian mobile in any common form -> "+614XXXXXXXX", else null. */
+function normaliseAuMobile(raw) {
+  let d = String(raw || '').replace(/[^\d]/g, '')
+  if (d.startsWith('61')) d = '0' + d.slice(2)
+  return /^04\d{8}$/.test(d) ? '+61' + d.slice(1) : null
+}
 
 // ============================================================
 // LEADERBOARD + QUIZ STATS AGGREGATION
@@ -589,6 +596,91 @@ function randomDigits(n) {
 
 const digitsOnly = (s) => String(s || '').replace(/[^\d]/g, '')
 
+// ============================================================
+// PARENT PHONE VERIFICATION
+//
+// Sign-up texts a 6-digit code to the parent's mobile. Only hashes are stored,
+// in phoneVerifications/{sha256(phone)} (no client access under the rules).
+// A correct code returns a short-lived token that authSignup requires, so an
+// account can't be created with a number nobody can receive texts on.
+// While Twilio isn't configured, verification is switched off (status says so)
+// rather than blocking every sign-up.
+// ============================================================
+const CODE_TTL_MS = 10 * 60 * 1000
+const TOKEN_TTL_MS = 30 * 60 * 1000
+const MAX_SENDS_PER_HOUR = 3
+const MIN_RESEND_MS = 30 * 1000
+const MAX_CODE_ATTEMPTS = 5
+const sha256 = (s) => crypto.createHash('sha256').update(String(s)).digest('hex')
+const verificationRef = (phone) => db.collection('phoneVerifications').doc(sha256(phone))
+
+exports.phoneVerify = functions
+  .region('australia-southeast1')
+  .https.onRequest((req, res) => {
+    cors(req, res, async () => {
+      if (req.method !== 'POST') return sendJson(res, 405, { error: 'Method not allowed' })
+      try {
+        const { action, phone: rawPhone, code } = req.body || {}
+        if (action === 'status') return sendJson(res, 200, { required: smsConfigured() })
+        if (!smsConfigured()) return sendJson(res, 503, { error: 'Text messages are not set up yet.' })
+
+        const phone = normaliseAuMobile(rawPhone)
+        if (!phone) return sendJson(res, 400, { error: 'Enter an Australian mobile number starting with 04.' })
+        const ref = verificationRef(phone)
+        const now = Date.now()
+
+        if (action === 'send') {
+          const result = await db.runTransaction(async (tx) => {
+            const cur = (await tx.get(ref)).data() || {}
+            const sends = (cur.sends || []).filter((t) => now - t < 60 * 60 * 1000)
+            if (sends.length && now - sends[sends.length - 1] < MIN_RESEND_MS) return { error: 'Please wait 30 seconds before asking for another code.', status: 429 }
+            if (sends.length >= MAX_SENDS_PER_HOUR) return { error: 'Too many codes sent to this number. Try again in an hour.', status: 429 }
+            const newCode = randomDigits(6)
+            tx.set(ref, { codeHash: sha256(phone + newCode), expiresAt: now + CODE_TTL_MS, attempts: 0, sends: [...sends, now], tokenHash: null, tokenExpires: 0 })
+            return { code: newCode }
+          })
+          if (result.error) return sendJson(res, result.status, { error: result.error })
+          await sendTwilio(phone, `Your CleverSpace verification code is ${result.code}. It expires in 10 minutes.`)
+          return sendJson(res, 200, { ok: true })
+        }
+
+        if (action === 'check') {
+          const result = await db.runTransaction(async (tx) => {
+            const cur = (await tx.get(ref)).data()
+            if (!cur || !cur.codeHash || now > cur.expiresAt) return { error: 'That code has expired. Send a new one.', status: 400 }
+            if ((cur.attempts || 0) >= MAX_CODE_ATTEMPTS) return { error: 'Too many wrong attempts. Send a new code.', status: 429 }
+            if (sha256(phone + String(code || '').trim()) !== cur.codeHash) {
+              tx.update(ref, { attempts: (cur.attempts || 0) + 1 })
+              return { error: 'That code is not right. Check the text and try again.', status: 400 }
+            }
+            const token = crypto.randomBytes(24).toString('hex')
+            tx.update(ref, { codeHash: null, tokenHash: sha256(token), tokenExpires: now + TOKEN_TTL_MS })
+            return { token }
+          })
+          if (result.error) return sendJson(res, result.status, { error: result.error })
+          return sendJson(res, 200, { ok: true, token: result.token })
+        }
+
+        return sendJson(res, 400, { error: 'Unknown action' })
+      } catch (e) {
+        console.error('phoneVerify failed:', e)
+        return sendJson(res, 500, { error: 'Could not send the code. Check the number and try again.' })
+      }
+    })
+  })
+
+/** True if `token` proves `rawPhone` was verified recently; consumes it. */
+async function consumePhoneToken(rawPhone, token) {
+  const phone = normaliseAuMobile(rawPhone)
+  if (!phone || !token) return false
+  const ref = verificationRef(phone)
+  const snap = await ref.get()
+  const cur = snap.data()
+  if (!cur || !cur.tokenHash || Date.now() > cur.tokenExpires || cur.tokenHash !== sha256(token)) return false
+  await ref.delete()
+  return true
+}
+
 exports.authSignup = functions
   .region('australia-southeast1')
   .https.onRequest((req, res) => {
@@ -600,6 +692,16 @@ exports.authSignup = functions
         if (!['student', 'teacher'].includes(role)) return sendJson(res, 400, { error: 'Invalid role' })
         if (cleanName.length < 1 || cleanName.length > 40) return sendJson(res, 400, { error: 'Please enter a nickname.' })
         if (!password || String(password).length < 1) return sendJson(res, 400, { error: 'Enter a password.' })
+
+        let phoneVerified = false
+        if (role === 'student') {
+          const p = profile || {}
+          if (!normaliseAuMobile(p.parentPhone)) return sendJson(res, 400, { error: "Enter the parent's mobile number (04XX XXX XXX)." })
+          if (smsConfigured()) {
+            phoneVerified = await consumePhoneToken(p.parentPhone, p.phoneToken)
+            if (!phoneVerified) return sendJson(res, 400, { error: "Please verify the parent's phone number again." })
+          }
+        }
 
         const coreRef = db.collection('appData').doc('core')
         const existingContacts = role === 'student'
@@ -666,6 +768,8 @@ exports.authSignup = functions
           await contactRef(created.id).set({
             parentPhone: String(p.parentPhone || '').trim(),
             parentEmail: String(p.parentEmail || '').trim(),
+            phoneVerified,
+            ...(phoneVerified ? { phoneVerifiedAt: Date.now() } : {}),
             updatedAt: Date.now(),
           })
         }

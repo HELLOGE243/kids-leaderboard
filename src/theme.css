@@ -16215,3 +16215,4 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .submit-btn-go:hover { background: #15803d; }
 .qt-watermark-name { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.2; }
 .qt-watermark-email { font-size: 1.6rem; letter-spacing: 2px; text-transform: none; font-weight: 600; }
+.verify-code-input { font-size: 1.6rem; letter-spacing: 0.5em; font-weight: 700; }

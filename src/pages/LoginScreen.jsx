@@ -1,6 +1,6 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import SYDNEY_SCHOOLS from '../data/sydneySchools.js'
-import { lookupUser, loginUser, resetPassword, signupUser } from '../data/auth.js'
+import { lookupUser, loginUser, resetPassword, signupUser, phoneVerification } from '../data/auth.js'
 
 // Password field with an eye button to show or hide what was typed.
 function PasswordInput(props) {
@@ -43,6 +43,18 @@ function LoginScreen({ onLogin }) {
   const [lastName, setLastName] = useState('')
   const [parentEmail, setParentEmail] = useState('')
   const [forgotEmail, setForgotEmail] = useState('')
+  // Parent phone verification: the code texted to the parent, and the token the
+  // server returns once it's correct (sent with the sign-up).
+  const [smsCode, setSmsCode] = useState('')
+  const [phoneToken, setPhoneToken] = useState('')
+  const [verifiedPhone, setVerifiedPhone] = useState('')
+  const [resendAt, setResendAt] = useState(0)
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    if (resendAt <= Date.now()) return
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [resendAt])
   const nicknameRef = useRef(null)
   const schoolRef = useRef(null)
   // Label shown on the submit button while a server call is in flight.
@@ -124,18 +136,48 @@ function LoginScreen({ onLogin }) {
     setError('')
   }
 
-  function handleProfileSubmit(e) {
+  async function handleProfileSubmit(e) {
     e.preventDefault()
     if (!firstName.trim()) { setError('Please enter your first name.'); return }
     if (!lastName.trim()) { setError('Please enter your last name.'); return }
     if (!yearGroup) { setError('Please select your year group.'); return }
     if (!schoolName.trim()) { setError('Please enter your school name.'); return }
     const phoneDigits = parentPhone.replace(/[^\d]/g, '')
-    if (phoneDigits.length < 10) { setError("Please enter a valid phone number."); return }
+    if (!/^04\d{8}$/.test(phoneDigits)) { setError("Please enter the parent's mobile number (04XX XXX XXX) - codes and updates are sent by text."); return }
     if (!parentEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(parentEmail.trim())) { setError("Please enter a valid parent email."); return }
     // Duplicate phone/email is checked by the server at sign-up, so the browser
     // never needs other students' contact details.
     setError('')
+    // Already verified this exact number (e.g. came back from the password step).
+    if (phoneToken && verifiedPhone === phoneDigits) { setStep('set-password'); return }
+    const status = await withResult('Checking…', () => phoneVerification('status'))
+    if (!status) return
+    if (status.ok && !status.required) { setStep('set-password'); return }
+    await sendCode()
+  }
+
+  async function sendCode() {
+    const res = await withResult('Sending code…', () => phoneVerification('send', parentPhone))
+    if (!res) return
+    if (!res.ok) { setError(res.error); return }
+    setError('')
+    setSmsCode('')
+    setPhoneToken('')
+    setResendAt(Date.now() + 30000)
+    setNow(Date.now())
+    setStep('verify-phone')
+  }
+
+  async function handleVerifySubmit(e) {
+    e.preventDefault()
+    const code = smsCode.replace(/[^\d]/g, '')
+    if (code.length !== 6) { setError('Enter the 6-digit code from the text message.'); return }
+    const res = await withResult('Checking code…', () => phoneVerification('check', parentPhone, code))
+    if (!res) return
+    if (!res.ok) { setError(res.error); return }
+    setError('')
+    setPhoneToken(res.token)
+    setVerifiedPhone(parentPhone.replace(/[^\d]/g, ''))
     setStep('set-password')
   }
 
@@ -147,7 +189,7 @@ function LoginScreen({ onLogin }) {
     if (pendingUser?.isNew) {
       const profile = isTeacher ? null : {
         firstName: firstName.trim(), lastName: lastName.trim(), yearGroup,
-        schoolName: schoolName.trim(), parentPhone: parentPhone.trim(), parentEmail: parentEmail.trim(),
+        schoolName: schoolName.trim(), parentPhone: parentPhone.trim(), parentEmail: parentEmail.trim(), phoneToken,
       }
       const res = await withResult('Creating account…', () => signupUser(role, pendingUser.name, password, profile))
       if (!res) return
@@ -155,7 +197,7 @@ function LoginScreen({ onLogin }) {
         const msg = res.error === 'network' ? 'Could not reach the server.' : (res.error || 'Could not create account.')
         setError(msg)
         // A duplicate phone/email is fixed on the profile form.
-        if (/phone|email/i.test(msg) && !isTeacher) setStep('profile')
+        if (/phone|email/i.test(msg) && !isTeacher) { if (/verify/i.test(msg)) setPhoneToken(''); setStep('profile') }
         return
       }
       setError('')
@@ -266,6 +308,41 @@ function LoginScreen({ onLogin }) {
             Sign in with Google
           </button>
         </div>
+      </div>
+    )
+  }
+
+  // Verify the parent's mobile (new student only)
+  if (step === 'verify-phone' && pendingUser) {
+    const wait = Math.max(0, Math.ceil((resendAt - now) / 1000))
+    return (
+      <div className="page-center landing-page">
+        <img src="/avant-logo.png" alt="AVANT OC & Selective" className="landing-logo" />
+        <h1 className="landing-heading">Check the parent's phone</h1>
+        <p className="landing-text" style={{ margin: '0 0 12px', textAlign: 'center' }}>
+          We sent a 6-digit code to <b>{parentPhone}</b>.<br />Homework and test updates will go to this number.
+        </p>
+        <form onSubmit={handleVerifySubmit} {...formBusyProps} className="form-stack">
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            value={smsCode}
+            onChange={(e) => { setSmsCode(e.target.value.replace(/[^\d]/g, '').slice(0, 6)); setError('') }}
+            placeholder="6-digit code"
+            className="input input-center landing-input verify-code-input"
+            autoFocus
+          />
+          {error && <p className="error-text text-center">{error}</p>}
+          <button type="submit" className="btn landing-btn" disabled={!!busy}>{submitLabel('Verify')}</button>
+          <button type="button" className="btn btn-outline landing-btn" disabled={wait > 0 || !!busy} onClick={sendCode}>
+            {wait > 0 ? `Resend code in ${wait}s` : 'Resend code'}
+          </button>
+          <button type="button" className="btn btn-outline landing-btn" onClick={() => { setError(''); setStep('profile') }}>
+            Change number
+          </button>
+        </form>
       </div>
     )
   }

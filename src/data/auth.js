@@ -71,6 +71,23 @@ export async function signupUser(role, name, password, profile) {
 }
 
 /**
+ * Parent phone verification at sign-up.
+ *   phoneVerification('status')              -> { ok, required }
+ *   phoneVerification('send', phone)         -> { ok } (texts a 6-digit code)
+ *   phoneVerification('check', phone, code)  -> { ok, token } (pass token to sign-up)
+ */
+export async function phoneVerification(action, phone, code) {
+  try {
+    const { ok, data } = await postJson('phoneVerify', { action, phone, code })
+    if (!ok) return { ok: false, error: data?.error || 'Something went wrong. Try again.' }
+    return { ok: true, ...data }
+  } catch (e) {
+    console.error('phoneVerification failed:', e)
+    return { ok: false, error: 'Could not reach the server.' }
+  }
+}
+
+/**
  * Resets a password after the server verifies the parent email on file.
  * @returns {Promise<{ok:boolean, user?:object, error?:string}>}
  */
