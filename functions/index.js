@@ -627,6 +627,16 @@ const normaliseEmail = (e) => {
 }
 const verificationRef = (email) => db.collection('contactVerifications').doc(sha256(email))
 
+/** The organisation's logo for email headers (falls back to the Avant logo). */
+async function schoolLogo() {
+  try {
+    const orgs = (await getCore()).organisations || {}
+    const url = Object.values(orgs).map((o) => o && o.logo).find((u) => typeof u === 'string' && u.startsWith('https://'))
+    if (url) return url
+  } catch { /* fall through to the default */ }
+  return 'https://cleverspacev2.web.app/avant-logo.png'
+}
+
 function emailConfigured() {
   return !!(process.env.SMTP_USER && process.env.SMTP_PASS)
 }
@@ -678,6 +688,7 @@ exports.phoneVerify = functions
             `Your CleverSpace code: ${result.code}`,
             `Your CleverSpace verification code is ${result.code}. It expires in 10 minutes.\n\nIf you didn't sign up a student at Avant, you can ignore this email.`,
             `<div style="font-family:Arial,sans-serif;max-width:420px;margin:auto;padding:24px;color:#1a1a2e">
+              <img src="${await schoolLogo()}" alt="" width="132" style="display:block;max-width:132px;height:auto;margin:0 0 12px">
               <h2 style="margin:0 0 12px">Verify your email</h2>
               <p>Use this code to finish signing up your child on Avant CleverSpace:</p>
               <p style="font-size:32px;font-weight:700;letter-spacing:8px;background:#f3f4f6;border-radius:10px;padding:14px;text-align:center">${result.code}</p>
@@ -1014,9 +1025,18 @@ const firstName = (s) => String(s?.firstName || s?.name || 'Your child').trim().
 const pct = (score, total) => (total > 0 ? Math.round((score / total) * 100) : null)
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 
-function emailHtml(title, lines, link) {
+const DEFAULT_LOGO = `${APP_URL}/avant-logo.png`
+
+/** The school's own logo when it has one, else the Avant logo. */
+function logoFor(core, orgId) {
+  const url = (core?.organisations || {})[orgId]?.logo
+  // Only an https image can be shown in an email; data: URIs are stripped.
+  return typeof url === 'string' && url.startsWith('https://') ? url : DEFAULT_LOGO
+}
+
+function emailHtml(title, lines, link, logo = DEFAULT_LOGO) {
   return `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:24px;color:#1a1a2e">
-    <p style="margin:0 0 4px;color:#6b7280;font-size:13px">Avant CleverSpace</p>
+    <img src="${logo}" alt="" width="132" style="display:block;max-width:132px;height:auto;margin:0 0 12px">
     <h2 style="margin:0 0 14px;font-size:20px">${esc(title)}</h2>
     ${lines.map((l) => `<p style="margin:0 0 10px;font-size:15px;line-height:1.5">${l}</p>`).join('')}
     ${link ? `<p style="margin:18px 0"><a href="${link}" style="background:#2563eb;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:bold">View full report</a></p>
@@ -1075,6 +1095,7 @@ async function queueAttemptAlerts(studentId, after, before) {
   const content = (await db.collection('appData').doc('content').get()).data() || {}
   const classIds = Object.entries(core.classes || {}).filter(([, c]) => (c.studentIds || []).includes(studentId)).map(([id]) => id)
   const name = firstName(student)
+  const logo = logoFor(core, student.orgId)
   const seen = new Set([...(before?.homeworkAttempts || []), ...(before?.quizAttempts || [])].map((a) => a && a.id))
   const quizMeta = await getQuizMeta()
 
@@ -1103,7 +1124,7 @@ async function queueAttemptAlerts(studentId, after, before) {
           `<b>${esc(title)}</b> was automatically submitted because ${esc(name)} left the quiz screen 3 times.`,
           `Score: <b>${esc(score)}</b>`,
           `Please remind ${esc(name)} to stay on the quiz tab until the quiz is finished - switching tabs or apps counts as leaving.`,
-        ], link),
+        ], link, logo),
       })
     }
 
@@ -1119,7 +1140,7 @@ async function queueAttemptAlerts(studentId, after, before) {
         html: emailHtml(`${name} finished ${title}`, [
           `Score: <b>${esc(score)}</b>${percentile != null ? ` - <b>${ordinal(percentile)} percentile</b> in the class` : ''}.`,
           a.lockedOut ? 'This test was auto-submitted after leaving the quiz screen 3 times.' : '',
-        ].filter(Boolean), link),
+        ].filter(Boolean), link, logo),
       })
     }
   }
@@ -1144,6 +1165,7 @@ async function queueScheduledAlerts(now) {
     const starts = data.homeworkStarts || []
     const classIds = Object.entries(core.classes || {}).filter(([, c]) => (c.studentIds || []).includes(studentId)).map(([id]) => id)
     const name = firstName(student)
+    const logo = logoFor(core, student.orgId)
     const weekly = []
     const queued = []
 
@@ -1189,7 +1211,7 @@ async function queueScheduledAlerts(now) {
             missing.length ? `<b style="color:#b91c1c">Missed:</b> ${missing.map((r) => esc(r.title)).join(', ')} - please make sure these are finished.` : '✓ Every quiz for this week was submitted.',
             late.length ? `<b>Submitted late:</b> ${late.map((r) => esc(r.title)).join(', ')}` : '',
             locked.length ? `<b>Auto-submitted for leaving the quiz screen:</b> ${locked.map((r) => esc(r.title)).join(', ')}` : '',
-          ].filter(Boolean), link),
+          ].filter(Boolean), link, logo),
         }).catch((e) => console.warn('queue deadline failed', e)))
       })
       if (courseAssigned) weekly.push({ course, done: courseDone, assigned: courseAssigned, avg: pct(courseScore, courseTotal), missing: courseMissing })
@@ -1203,7 +1225,7 @@ async function queueScheduledAlerts(now) {
         subject: `${name}'s week at Avant`,
         text: `This week for ${name}:\n${lines.join('\n')}\nFull report: ${APP_URL}/?report=all`,
         sms: `Avant weekly - ${name}: ${weekly.map((w) => `${w.course.name} ${w.done}/${w.assigned}${w.avg != null ? ` ${w.avg}%` : ''}`).join('; ')}. ${APP_URL}/?report=all`,
-        html: emailHtml(`${name}'s week at Avant`, weekly.map((w) => `<b>${esc(w.course.name)}</b>: ${w.done}/${w.assigned} quizzes done${w.avg != null ? `, average <b>${w.avg}%</b>` : ''}${w.missing ? ` - <b style="color:#b91c1c">${w.missing} missing</b>` : ''}`), `${APP_URL}/?report=all`),
+        html: emailHtml(`${name}'s week at Avant`, weekly.map((w) => `<b>${esc(w.course.name)}</b>: ${w.done}/${w.assigned} quizzes done${w.avg != null ? `, average <b>${w.avg}%</b>` : ''}${w.missing ? ` - <b style="color:#b91c1c">${w.missing} missing</b>` : ''}`), `${APP_URL}/?report=all`, logo),
       })
     }
   }
