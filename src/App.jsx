@@ -170,12 +170,12 @@ function App() {
     return (
       <>
         {overlay}
-        {/* Same logo-fill loader as the one in index.html, so the start-up animation carries straight on. */}
+        {/* Same loader as index.html. The negative delay resumes the bar where the
+            page-start one had reached rather than restarting it from empty. */}
         <div className="boot-loader" role="status" aria-label="Loading">
-          <div className="boot-logo">
-            <img className="boot-logo-base" src="/avant-logo.png" alt="" />
-            <img className="boot-logo-fill" src="/avant-logo.png" alt="AVANT OC & Selective" />
-            <span className="boot-logo-edge" />
+          <div className="boot-logo"><img src="/avant-logo.png" alt="AVANT OC & Selective" /></div>
+          <div className="boot-bar">
+            <div className="boot-bar-fill" style={{ animationDelay: `-${Math.round(performance.now())}ms` }} />
           </div>
           <div className="boot-text">Loading</div>
         </div>
