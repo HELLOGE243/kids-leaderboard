@@ -23,6 +23,7 @@
 
 import { extractAndStoreImages, findImageRefs, deleteImages } from './imageStore.js'
 import { pickSolutionVideo } from '../utils/video.js'
+import { planImport } from '../utils/cleverspaceImport.js'
 import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
 
 export { onDataChange, onBroadcast, sendBroadcast, loadContacts }
@@ -1543,12 +1544,11 @@ export async function importQuizzesFromJSON(jsonArray, onProgress) {
   if (!data.unassignedQuestions) data.unassignedQuestions = []
   const localSets = [...data.importedQuizSets]
 
-  const quizMap = {}
   const unmatched = []
   for (const q of jsonArray) {
-    if (!q.title || !q.answers) continue
+    if (!q || !q.title) continue
     const match = q.title.match(/^(.+?)Q(\d+)(?:\(([a-z])\))?$/)
-    if (!match) {
+    if (!match && q.answers) {
       const options = q.answers.map((a) => unescapeHtml(a.text))
       const correctIndex = q.answers.findIndex((a) => a.isCorrect)
       unmatched.push({
@@ -1562,74 +1562,102 @@ export async function importQuizzesFromJSON(jsonArray, onProgress) {
       })
       continue
     }
-    const quizKey = match[1]
-    const baseNum = parseInt(match[2])
-    const subLetter = match[3]
-    const questionNum = subLetter ? baseNum * 100 + (subLetter.charCodeAt(0) - 96) : baseNum * 100
-    if (!quizMap[quizKey]) quizMap[quizKey] = []
-    const options = q.answers.map((a) => unescapeHtml(a.text))
-    const correctIndex = q.answers.findIndex((a) => a.isCorrect)
-    quizMap[quizKey].push({
-      number: questionNum,
-      text: unescapeHtml(q.description || ''),
-      options,
-      correctIndex: correctIndex >= 0 ? correctIndex : 0,
-      explanation: '',
-      // CleverSpace's solution video (or one embedded in the solution or
-      // question) goes into the question's "Solution video" field.
-      videoUrl: pickSolutionVideo(q),
-    })
   }
 
-  const entries = Object.entries(quizMap)
+  // Titled questions go through the classifier: composite CleverSpace items
+  // (extracts, matching, drag sentences/summaries) are rebuilt into one
+  // platform question each, and free-write questions (no answers) are kept.
+  const plan = planImport(jsonArray.filter((q) => q && q.title && /^(.+?)Q(\d+)(?:\([a-z]\))?$/.test(q.title)))
+  const entries = plan.sets.map((s) => [s.quizKey, s.questions])
+  const typeCounts = { ...plan.totals.byType }
+  const flagged = []
   const batchId = 'batch-' + Date.now()
   const added = []
   const duplicates = []
+  // Same identity used to skip questions already in a set on re-import.
+  const identity = (q) => `${q.type || 'multiple-choice'}|${(q.text || '').replace(/<[^>]*>/g, '').trim().slice(0, 100)}|${(q.descriptions || []).map((d) => (d.content || '').replace(/<[^>]*>/g, '').trim().slice(0, 40)).join('|')}`
+  const storeHtml = async (html, key, number) => {
+    try { return fixMojibake(await extractAndStoreImages(unescapeHtml(html || ''))) } catch (e) {
+      console.warn(`Import: image extraction failed for ${key} Q${number}:`, e)
+      return fixMojibake(unescapeHtml(html || ''))
+    }
+  }
   for (let i = 0; i < entries.length; i++) {
     const [key, questions] = entries[i]
     try {
-      questions.sort((a, b) => a.number - b.number)
-
-      for (const q of questions) {
-        try {
-          q.text = fixMojibake(await extractAndStoreImages(q.text))
-        } catch (e) {
-          q.text = fixMojibake(q.text)
-          console.warn(`Import: image extraction failed for ${key} Q${q.number}:`, e)
-        }
-        q.options = q.options.map((o) => fixMojibake(o))
-      }
-
-      const newQs = questions.map((q) => {
-        const split = extractPrompt(q.text)
-        return {
+      const newQs = []
+      for (const pq of questions) {
+        const type = pq.type
+        const q = {
           id: newQuestionId(),
-          text: split.body,
-          prompt: split.prompt,
-          options: q.options,
-          correctIndex: q.correctIndex,
-          explanation: q.explanation,
-          videoUrl: q.videoUrl || '',
+          type,
+          text: await storeHtml(pq.text, key, pq.number),
+          prompt: '',
+          explanation: '',
+          videoUrl: pq.videoUrl || '',
           // Source question number (Q12 -> 1200, Q12(b) -> 1202) so a set whose
           // questions arrive across several import files stays in order.
-          number: q.number,
+          number: pq.number,
         }
-      })
+        if (type === 'multiple-choice' || type === 'multi-description') {
+          const split = extractPrompt(q.text)
+          q.text = split.body
+          q.prompt = split.prompt
+          q.options = (pq.options || []).map((o) => fixMojibake(unescapeHtml(o)))
+          q.correctIndex = pq.correctIndex
+        }
+        if (pq.descriptions) {
+          q.descriptions = []
+          for (const d of pq.descriptions) q.descriptions.push({ title: d.title, content: await storeHtml(d.content, key, pq.number) })
+        }
+        if (type === 'multi-matching') q.matchQuestions = pq.matchQuestions
+        if (type === 'drag-sentence' || type === 'drag-summary') {
+          q.dragType = pq.dragType
+          q.correctOrder = pq.correctOrder
+          q.gapNumbers = pq.gapNumbers
+          q.summaryOptions = pq.summaryOptions
+          // CleverSpace keeps the option sentences only as an image; read them.
+          let read = null
+          if (pq.optionsImage) {
+            try { read = await (await import('../utils/readOptionImage.js')).readOptionImage(pq.optionsImage) } catch (e) { read = { ok: false, error: e.message } }
+          }
+          if (read?.ok) {
+            const n = Math.max(read.options.length, pq.summaryOptions.length)
+            q.summaryOptions = Array.from({ length: n }, (_, k) => read.options[k] || '')
+            if (read.options.some((o) => !o)) pq.flags.push('Some option sentences could not be read from the image - check them.')
+          } else if (pq.optionsImage) {
+            // Keep the image in the passage so students still see the options.
+            q.text = await storeHtml(`${pq.text}<p><img src="${pq.optionsImage}" alt="Options A-G"></p>`, key, pq.number)
+            pq.flags.push(`Option sentences not read automatically (${read?.error || 'unknown error'}) - the options image is shown in the passage; type the sentences in Quiz Builder.`)
+          }
+        }
+        if (pq.flags?.length) { q.needsReview = true; q.reviewReason = pq.flags.join(' '); flagged.push({ quiz: key, number: pq.number, type, flags: pq.flags }) }
+        newQs.push(q)
+      }
 
       const existingIdx = localSets.findIndex((s) => s.rawTitle === key)
       if (existingIdx !== -1) {
         const existing = localSets[existingIdx]
-        const existingTexts = new Set(existing.questions.map((q) => (q.text || '').replace(/<[^>]*>/g, '').trim().slice(0, 100)))
-        const fresh = newQs.filter((q) => {
-          const plain = (q.text || '').replace(/<[^>]*>/g, '').trim().slice(0, 100)
-          return !existingTexts.has(plain)
-        })
+        // Sets made by the old importer turned extracts, matching and drag items
+        // into plain multiple choice (no `type` recorded). Re-importing replaces
+        // those questions instead of adding the correct versions beside them.
+        // The set itself - id, name, course assignment - is kept.
+        if (existing.questions.length && existing.questions.every((q) => !q.type)) {
+          duplicates.push({ title: existing.friendlyTitle || existing.rawTitle, existingCount: existing.questions.length, newInFile: newQs.length, appended: newQs.length, replaced: true })
+          existing.questions = newQs
+          existing.questions.sort((a, b) => (a.number ?? 0) - (b.number ?? 0))
+          added.push(existing)
+          if (onProgress) onProgress(i + 1, entries.length)
+          continue
+        }
+        const existingKeys = new Set(existing.questions.map(identity))
+        const fresh = newQs.filter((q) => !existingKeys.has(identity(q)))
         // Questions already in the set still pick up a solution video they
         // were imported without.
-        const byText = new Map(newQs.map((q) => [(q.text || '').replace(/<[^>]*>/g, '').trim().slice(0, 100), q]))
+        const byKey = new Map(newQs.map((q) => [identity(q), q]))
         for (const eq of existing.questions) {
           if (eq.videoUrl) continue
-          const match = byText.get((eq.text || '').replace(/<[^>]*>/g, '').trim().slice(0, 100))
+          const match = byKey.get(identity(eq))
           if (match?.videoUrl) eq.videoUrl = match.videoUrl
         }
         duplicates.push({ title: existing.friendlyTitle || existing.rawTitle, existingCount: existing.questions.length, newInFile: newQs.length, appended: fresh.length })
@@ -1675,7 +1703,7 @@ export async function importQuizzesFromJSON(jsonArray, onProgress) {
 
   data.importedQuizSets = localSets
   saveData(data)
-  return { added, unassignedCount: unmatched.length, unmatchedTitles: unmatched.map((u) => u.originalTitle), duplicates }
+  return { added, unassignedCount: unmatched.length, unmatchedTitles: unmatched.map((u) => u.originalTitle), duplicates, typeCounts, flagged, sourceCount: plan.totals.sourceQuestions, platformCount: plan.totals.platformQuestions }
 }
 
 export function importQuizSetsFromPDF(sections, meta) {

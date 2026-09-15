@@ -73,6 +73,9 @@ export function classify(q) {
   if (extracts.length >= 1 && !allLetters(q)) return 'multi-description'
 
   if (allLetters(q) && answerTexts(q).length >= 5 && DRAG_INSTRUCTION.test(text) && DRAG_GAP.test(text)) {
+    // "Six sentences have been removed" is a sentence drag even when the per-gap
+    // line was written "Which best summarises for 23…?".
+    if (/sentences?\s+(?:have|has)\s+been\s+removed/i.test(text)) return 'drag-sentence'
     return DRAG_SUMMARY.test(text) ? 'drag-summary' : 'drag-sentence'
   }
   return 'multiple-choice'
@@ -130,6 +133,15 @@ function splitShared(htmls) {
 }
 
 const cleanItem = (html) => htmlToText(html).replace(/^[\s.…:?]+|[\s.…]+$/g, '').trim()
+
+// A matching item's own question is its last line (usually ending "?"). The
+// shared prefix can stop mid-heading, leaving "Energy.\nFor questions 29-38..."
+// in front of it, so keep only that final question line.
+function itemQuestion(html) {
+  const lines = htmlToText(html).split('\n').map((l) => l.trim()).filter(Boolean)
+  const q = [...lines].reverse().find((l) => /\?\s*$/.test(l)) || lines[lines.length - 1] || ''
+  return q.replace(/^[\s.…:]+|[\s.…]+$/g, '').trim()
+}
 
 // The per-gap question line that each drag part carries ("Which sentence best
 // replaces 32.........?"). It belongs to the individual CleverSpace item, not
@@ -211,9 +223,10 @@ function buildMatching(parts) {
   const extracts = (ordered[0].q.multiDescriptions || []).filter((d) => htmlToText(d.description))
   const flags = []
   const matchQuestions = ordered.map((p, i) => {
-    const question = cleanItem(items[i]) || htmlToText(p.q.description)
+    const question = itemQuestion(items[i]) || itemQuestion(p.q.description)
     return { question, correctExtract: correctIndex(p.q) }
   })
+  if (ordered.length < 3) flags.push(`Only ${ordered.length} matching item(s) found - the export may be missing the rest of this section.`)
   if (matchQuestions.some((m) => m.correctExtract < 0)) flags.push('An item has no correct extract marked in CleverSpace.')
   if (matchQuestions.some((m) => !m.question)) flags.push('Could not separate an item question from the shared instructions.')
   return {
@@ -275,7 +288,10 @@ function sharedMaterial(kind, q) {
  */
 function belongsToGroup(first, range, next) {
   if (next.kind !== first.kind) return false
-  if (range) return next.meta.itemNo >= range[0] && next.meta.itemNo <= range[1]
+  // A range that doesn't include the first item's own number was copied from
+  // another test ("gap (15 – 20)" on items 23-28) - don't trust it.
+  const rangeFits = range && first.meta.itemNo >= range[0] && first.meta.itemNo <= range[1]
+  if (rangeFits) return next.meta.itemNo >= range[0] && next.meta.itemNo <= range[1]
   return similarity(sharedMaterial(first.kind, first.q), sharedMaterial(next.kind, next.q)) >= 0.6
 }
 

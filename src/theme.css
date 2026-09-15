@@ -16182,3 +16182,5 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .modal.import-report-modal { display: flex; flex-direction: column; overflow: hidden; }
 .import-report-modal .import-report-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px; overscroll-behavior: contain; }
 .import-report-modal .modal-actions { flex: none; }
+
+.import-type-chip { display: inline-block; margin: 0 6px 4px 0; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.08); font-size: .55rem; }

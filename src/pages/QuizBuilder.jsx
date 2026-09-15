@@ -317,7 +317,13 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
           })))
         }
         if (type === 'dropdown-cloze') base.blanks = q.blanks || []
-        if (type === 'drag-sentence' || type === 'drag-summary') { base.summaryOptions = q.summaryOptions || []; base.correctOrder = q.correctOrder || [] }
+        if (type === 'drag-sentence' || type === 'drag-summary') {
+          base.summaryOptions = q.summaryOptions || []
+          base.correctOrder = q.correctOrder || []
+          // Imported CleverSpace gap numbers (e.g. 23-28) label the gaps; keep them.
+          if (q.gapNumbers) base.gapNumbers = q.gapNumbers
+          if (q.dragType) base.dragType = q.dragType
+        }
         if (type === 'multi-matching') base.matchQuestions = q.matchQuestions || []
         return base
       }))
@@ -446,6 +452,8 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
           errors: [...prev.errors, ...saveErrors],
           unmatchedTitles: [...(prev.unmatchedTitles || []), ...result.unmatchedTitles],
           duplicates: [...(prev.duplicates || []), ...result.duplicates],
+          typeCounts: Object.entries(result.typeCounts || {}).reduce((acc, [k, v]) => ({ ...acc, [k]: (acc[k] || 0) + v }), { ...(prev.typeCounts || {}) }),
+          flagged: [...(prev.flagged || []), ...(result.flagged || [])],
           chunkSizes,
         }
       })
@@ -1903,11 +1911,27 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                   )}
                 </tbody>
               </table>
+              {importReport.typeCounts && Object.keys(importReport.typeCounts).length > 0 && (
+                <div className="import-type-counts" style={{ marginTop: 8 }}>
+                  <div style={{ fontSize: '0.55rem', color: 'var(--text-dim)', marginBottom: 4 }}>Question types created</div>
+                  {Object.entries(importReport.typeCounts).map(([type, n]) => (
+                    <span key={type} className="import-type-chip">{({ 'multiple-choice': 'Multiple choice', 'multi-description': 'Multiple extracts', 'multi-matching': 'Matching', 'drag-sentence': 'Drag sentences', 'drag-summary': 'Drag summaries', 'free-writing': 'Free write', 'dropdown-cloze': 'Cloze' })[type] || type}: <b>{n}</b></span>
+                  ))}
+                </div>
+              )}
+              {importReport.flagged && importReport.flagged.length > 0 && (
+                <details style={{ marginTop: 8 }} open>
+                  <summary style={{ fontSize: '0.55rem', color: '#ffab00', cursor: 'pointer' }}>Needs review ({importReport.flagged.length}) — marked in Quiz Builder</summary>
+                  <div style={{ maxHeight: 150, overflowY: 'auto', marginTop: 4, padding: '4px 6px', background: 'rgba(0,0,0,0.2)', borderRadius: 4 }}>
+                    {importReport.flagged.map((f, i) => <div key={i} style={{ fontSize: '0.5rem', color: 'var(--text-dim)', padding: '2px 0' }}><b>{f.quiz} Q{Math.floor(f.number / 100)}</b> ({f.type}): {f.flags.join(' ')}</div>)}
+                  </div>
+                </details>
+              )}
               {importReport.duplicates && importReport.duplicates.length > 0 && (
                 <details style={{ marginTop: 8 }}>
                   <summary style={{ fontSize: '0.55rem', color: '#42a5f5', cursor: 'pointer' }}>Show existing quizzes ({importReport.duplicates.length})</summary>
                   <div style={{ maxHeight: 120, overflowY: 'auto', marginTop: 4, padding: '4px 6px', background: 'rgba(0,0,0,0.2)', borderRadius: 4 }}>
-                    {importReport.duplicates.map((d, i) => <div key={i} style={{ fontSize: '0.5rem', color: 'var(--text-dim)', padding: '1px 0' }}>{d.title} — {d.existingCount} existing, {d.newInFile} in file{d.appended > 0 ? `, +${d.appended} new added` : ', no new questions'}</div>)}
+                    {importReport.duplicates.map((d, i) => <div key={i} style={{ fontSize: '0.5rem', color: 'var(--text-dim)', padding: '1px 0' }}>{d.title} — {d.replaced ? `rebuilt: ${d.existingCount} old questions replaced with ${d.newInFile}` : `${d.existingCount} existing, ${d.newInFile} in file${d.appended > 0 ? `, +${d.appended} new added` : ', no new questions'}`}</div>)}
                   </div>
                 </details>
               )}
