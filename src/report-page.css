@@ -1,0 +1,87 @@
+/* ===== Per-course student report (pages/ReportPage.jsx) ===== */
+.rp-page { position: fixed; inset: 0; z-index: 900; overflow-y: auto; background: #f4f6fb; color: #1a1a2e; font-family: 'Outfit', system-ui, sans-serif; }
+.rp-wrap { max-width: 1080px; margin: 0 auto; padding: 24px 20px 60px; }
+.rp-header { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+.rp-header h1 { margin: 0; font-size: 1.8rem; font-weight: 800; color: #1a1a2e; font-family: inherit; }
+.rp-header p { margin: 2px 0 0; }
+.rp-back { border: 1px solid #d5d9e3; background: #fff; color: #33394a; border-radius: 10px; padding: 8px 14px; font: 600 0.9rem 'Outfit', system-ui, sans-serif; cursor: pointer; }
+.rp-back:hover { background: #eef1f7; }
+.rp-dim { color: #6b7280; font-size: 0.88rem; }
+
+.rp-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 18px; }
+.rp-tabs button { position: relative; flex: none; border: 1px solid #d5d9e3; background: #fff; color: #33394a; padding: 9px 16px; border-radius: 999px; font: 600 0.9rem 'Outfit', system-ui, sans-serif; cursor: pointer; }
+.rp-tabs button.is-active { background: #1a1a2e; border-color: #1a1a2e; color: #fff; }
+.rp-tab-dot { position: absolute; top: 4px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: #ef4444; }
+
+.rp-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.rp-stat { background: #fff; border: 1px solid #e3e6ee; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rp-stat-label { font-size: 0.74rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
+.rp-stat-value { font-size: 1.7rem; font-weight: 800; line-height: 1.1; }
+.rp-stat-sub { font-size: 0.8rem; color: #6b7280; }
+.rp-tone-ok .rp-stat-value, .rp-tone-great .rp-stat-value, .rp-tone-good .rp-stat-value { color: #15803d; }
+.rp-tone-warn .rp-stat-value, .rp-tone-fair .rp-stat-value { color: #b45309; }
+.rp-tone-bad .rp-stat-value, .rp-tone-low .rp-stat-value { color: #b91c1c; }
+
+.rp-spark { display: inline-flex; align-items: center; gap: 8px; color: #2563eb; }
+.rp-up { color: #15803d; font-size: 0.85rem; }
+.rp-down { color: #b91c1c; font-size: 0.85rem; }
+
+.rp-actions { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 14px; padding: 14px 18px; margin-bottom: 14px; }
+.rp-actions h3 { margin: 0 0 6px; font-size: 1rem; color: #92400e; font-family: inherit; }
+.rp-actions ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 0.95rem; }
+.rp-actions-clear { background: #ecfdf3; border-color: #86efac; color: #15803d; font-weight: 600; }
+.rp-action-missing, .rp-action-lockout { color: #991b1b; }
+
+.rp-card { background: #fff; border: 1px solid #e3e6ee; border-radius: 14px; padding: 16px 18px; margin-bottom: 14px; }
+.rp-card h3 { margin: 0 0 10px; font-size: 1.1rem; font-family: inherit; color: #1a1a2e; }
+
+.rp-skills { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
+.rp-skills h4 { margin: 0 0 8px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; font-family: inherit; }
+.rp-skill { display: grid; grid-template-columns: minmax(0, 1fr) 110px 42px; align-items: center; gap: 10px; padding: 4px 0; font-size: 0.92rem; }
+.rp-skill-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-skill-bar { height: 8px; border-radius: 99px; background: #eceff4; overflow: hidden; }
+.rp-skill-bar span { display: block; height: 100%; border-radius: 99px; }
+.rp-skill-pct { text-align: right; font-weight: 700; }
+
+.rp-table-wrap { overflow-x: auto; }
+.rp-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.rp-table th { text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; padding: 6px 8px; border-bottom: 1px solid #e3e6ee; white-space: nowrap; }
+.rp-table td { padding: 8px; border-bottom: 1px solid #f0f2f6; vertical-align: middle; }
+.rp-module-row td { background: #f7f8fb; font-weight: 700; font-size: 0.85rem; color: #33394a; }
+.rp-row-muted td { color: #9aa1b2; }
+.rp-status { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 0.76rem; font-weight: 700; white-space: nowrap; }
+.rp-status-ok { background: #dcfce7; color: #15803d; }
+.rp-status-warn { background: #fef3c7; color: #b45309; }
+.rp-status-bad { background: #fee2e2; color: #b91c1c; }
+.rp-status-due { background: #dbeafe; color: #1d4ed8; }
+.rp-status-muted { background: #f3f4f6; color: #6b7280; }
+.rp-score { font-weight: 700; white-space: nowrap; }
+.rp-flag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 6px; background: #f3f4f6; color: #4b5563; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
+.rp-flag-bad { background: #fee2e2; color: #b91c1c; }
+.rp-pctl { font-weight: 800; }
+
+.rp-band-great { color: #15803d; }
+.rp-band-good { color: #16a34a; }
+.rp-band-fair { color: #b45309; }
+.rp-band-low { color: #b91c1c; }
+.rp-band-bg-great { background: #16a34a; }
+.rp-band-bg-good { background: #4ade80; }
+.rp-band-bg-fair { background: #f59e0b; }
+.rp-band-bg-low { background: #ef4444; }
+
+.rp-course-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.rp-course-card { text-align: left; background: #fff; border: 1px solid #e3e6ee; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; font-family: inherit; color: #1a1a2e; transition: box-shadow 0.15s, transform 0.15s; }
+.rp-course-card:hover { box-shadow: 0 8px 24px rgba(20, 30, 60, 0.1); transform: translateY(-1px); }
+.rp-course-class { font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; }
+.rp-course-name { font-size: 1.1rem; font-weight: 800; }
+.rp-course-row { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.86rem; color: #4b5563; }
+.rp-course-row b { font-size: 1.05rem; color: #1a1a2e; }
+.rp-course-alerts { display: flex; gap: 6px; }
+.rp-course-alerts .rp-flag { margin-left: 0; }
+
+@media (max-width: 560px) {
+  .rp-wrap { padding: 16px 16px 48px; }
+  .rp-header h1 { font-size: 1.4rem; }
+  .rp-stat-value { font-size: 1.4rem; }
+  .rp-skill { grid-template-columns: minmax(0, 1fr) 70px 40px; }
+}

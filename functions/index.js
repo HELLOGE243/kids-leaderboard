@@ -259,6 +259,9 @@ exports.onStudentDataWrite = functions
     if (!student) return null
 
     const attempts = Array.isArray(after.homeworkAttempts) ? after.homeworkAttempts : []
+    // Checkpoint (progress test) attempts get the same per-quiz stats, keyed by
+    // quiz id, so reports can show a percentile for them too.
+    const checkpointAttempts = (Array.isArray(after.quizAttempts) ? after.quizAttempts : []).map((a) => ({ ...a, quizSetId: a.quizId }))
     const writes = []
 
     // --- leaderboard entries, one per class the student belongs to ---
@@ -284,9 +287,12 @@ exports.onStudentDataWrite = functions
 
     // --- quiz stats, only for attempts that actually changed ---
     const before = change.before.exists ? change.before.data() : null
-    const beforeAttempts = before && Array.isArray(before.homeworkAttempts) ? before.homeworkAttempts : []
+    const beforeAttempts = before
+      ? [...(Array.isArray(before.homeworkAttempts) ? before.homeworkAttempts : []), ...(Array.isArray(before.quizAttempts) ? before.quizAttempts : []).map((a) => ({ ...a, quizSetId: a.quizId }))]
+      : []
     const beforeById = new Map(beforeAttempts.map((a) => [a.id, JSON.stringify(a)]))
-    for (const a of attempts) {
+    for (const a of [...attempts, ...checkpointAttempts]) {
+      if (!a || !a.quizSetId) continue
       if (beforeById.get(a.id) === JSON.stringify(a)) continue
       const total = Number(a.total) || 0
       const score = Number(a.score) || 0
@@ -859,6 +865,35 @@ exports.authAdmin = functions
           await coreRef.update(new admin.firestore.FieldPath('teachers', String(teacherId), 'password'), admin.firestore.FieldValue.delete())
             .catch(() => { /* no legacy field */ })
           return sendJson(res, 200, { ok: true })
+        }
+
+        if (action === 'backfillQuizStats') {
+          // Writes quizStats for every existing homework and checkpoint attempt,
+          // for attempts made before checkpoint stats were recorded.
+          const snap = await db.collection('studentData').get()
+          let written = 0
+          let batch = db.batch()
+          let inBatch = 0
+          for (const d of snap.docs) {
+            const data = d.data() || {}
+            const all = [
+              ...(Array.isArray(data.homeworkAttempts) ? data.homeworkAttempts : []),
+              ...(Array.isArray(data.quizAttempts) ? data.quizAttempts : []).map((a) => ({ ...a, quizSetId: a.quizId })),
+            ]
+            for (const a of all) {
+              if (!a || !a.quizSetId) continue
+              const total = Number(a.total) || 0
+              const score = Number(a.score) || 0
+              batch.set(db.collection('quizStats').doc(a.quizSetId).collection('attempts').doc(d.id), {
+                studentId: d.id, score, total, pct: total > 0 ? (score / total) * 100 : 0,
+                date: a.date || null, term: a.term || null, orgId: a.orgId || null,
+              })
+              written++
+              if (++inBatch === 400) { await batch.commit(); batch = db.batch(); inBatch = 0 }
+            }
+          }
+          if (inBatch) await batch.commit()
+          return sendJson(res, 200, { ok: true, written })
         }
 
         if (action === 'migrateContacts') {

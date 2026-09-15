@@ -4317,3 +4317,182 @@ export function setQuestionTags(quizSetId, tagsByQuestionId) {
   }
   saveData(data)
 }
+
+// ============================================================
+// STUDENT REPORT (per course)
+//
+// One call gathers everything the per-course report and parent messages need:
+// homework quizzes by module with on-time / late / missing status, checkpoint
+// tests for the course's class, percentiles from the server-maintained
+// quizStats (so no other student's document is read), skill accuracy from
+// question tags, integrity flags, and a short list of next actions.
+// ============================================================
+const MIN_COHORT = 5 // fewer attempts than this gives no percentile
+const WEEK = 7 * 24 * 60 * 60 * 1000
+
+const pctOf = (score, total) => (total > 0 ? Math.round((score / total) * 100) : null)
+
+/** Percentile of `studentId` among stats rows ({studentId, score, total}), summed per student. */
+function percentileFrom(rows, studentId) {
+  const byStudent = new Map()
+  for (const r of rows) {
+    const cur = byStudent.get(r.studentId) || { score: 0, total: 0 }
+    cur.score += Number(r.score) || 0
+    cur.total += Number(r.total) || 0
+    byStudent.set(r.studentId, cur)
+  }
+  const pcts = [...byStudent.entries()].filter(([, v]) => v.total > 0).map(([sid, v]) => ({ sid, pct: v.score / v.total }))
+  const me = pcts.find((p) => p.sid === studentId)
+  if (!me || pcts.length < MIN_COHORT) return null
+  const below = pcts.filter((p) => p.pct < me.pct).length
+  const equal = pcts.filter((p) => p.pct === me.pct).length - 1
+  return Math.round(((below + equal / 2) / (pcts.length - 1)) * 100)
+}
+
+function statsFor(quizId) {
+  subscribeQuizStats(quizId)
+  return getQuizStatsCache(quizId) || []
+}
+
+const minutesOf = (a) => {
+  const t = (a?.questionTimes || []).reduce((s, x) => s + (Number(x) || 0), 0)
+  if (!t) return null
+  // Question times are seconds; guard against a record in milliseconds.
+  return Math.max(1, Math.round((t > 20000 ? t / 1000 : t) / 60))
+}
+
+function addSkill(skills, tagMap, question, earned, marks) {
+  for (const id of question?.tags || []) {
+    const tag = tagMap[id]
+    if (!tag || !marks) continue
+    const cur = skills.get(tag.id) || { tagId: tag.id, name: tag.name, subject: tag.subject, correct: 0, total: 0 }
+    cur.correct += earned
+    cur.total += marks
+    skills.set(tag.id, cur)
+  }
+}
+
+export function getStudentReport(studentId) {
+  const data = loadData()
+  const student = data.students?.[studentId]
+  if (!student) return null
+  const tagMap = getTagMap()
+  const setsById = new Map((data.importedQuizSets || []).map((s) => [s.id, s]))
+  const hwAttempts = getStudentArray(studentId, 'homeworkAttempts')
+  const hwRedos = getStudentArray(studentId, 'homeworkRedos')
+  const cpAttempts = getStudentArray(studentId, 'quizAttempts')
+  const now = Date.now()
+  let dueRevision = 0
+  try { dueRevision = getDueDojoCards(studentId).length } catch { dueRevision = 0 }
+
+  const courses = []
+  for (const [classId, cls] of Object.entries(data.classes || {})) {
+    if (!(cls.studentIds || []).includes(studentId)) continue
+
+    // Checkpoint tests: the class's progress-test topics and their quizzes.
+    const checkpoints = []
+    const topics = (data.topics || []).filter((t) => t.classId === classId).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    for (const topic of topics) {
+      const quizzes = (data.quizzes || []).filter((q) => q.topicId === topic.id).sort((a, b) => a.number - b.number)
+      for (const quiz of quizzes) {
+        const a = cpAttempts.find((x) => x.quizId === quiz.id)
+        const skills = new Map()
+        if (a) quiz.questions.forEach((q, i) => addSkill(skills, tagMap, q, a.answers?.[i] === q.correctIndex ? 1 : 0, 1))
+        checkpoints.push({
+          id: quiz.id, topic: topic.name, title: `${topic.name} · Quiz ${quiz.number}`,
+          done: !!a, score: a?.score ?? null, total: a?.total ?? quiz.questions.length, pct: a ? pctOf(a.score, a.total) : null,
+          date: a?.date || null, lockedOut: !!a?.lockedOut, screenLeaves: a?.screenLeaves || 0, minutes: minutesOf(a),
+          percentile: a ? percentileFrom(statsFor(quiz.id), studentId) : null, skills: [...skills.values()],
+        })
+      }
+    }
+
+    const classCourses = (data.courses || []).filter((c) => c.classId === classId)
+    if (!classCourses.length) {
+      if (checkpoints.length) {
+        courses.push({ courseId: `class-${classId}`, courseName: cls.name, className: cls.name, term: '', started: true, modules: [], checkpoints, coursePercentile: null, ...summarise([], checkpoints, checkpoints.flatMap((c) => c.skills), dueRevision) })
+      }
+      continue
+    }
+
+    for (const course of classCourses) {
+      const start = getHomeworkStart(studentId, course.id)
+      const startMs = start ? new Date(start.startedDate).getTime() : null
+      const skills = new Map()
+      const statRows = []
+      const modules = (course.modules || []).map((mod, mi) => {
+        const deadline = startMs != null ? startMs + (mi + 1) * WEEK : null
+        const unlocked = startMs != null && now >= startMs + mi * WEEK
+        const quizzes = (mod.quizSetIds || []).map((qsId) => {
+          const set = setsById.get(qsId)
+          const attempt = hwAttempts.find((a) => a.quizSetId === qsId)
+          const redo = hwRedos.filter((a) => a.quizSetId === qsId).pop()
+          const stats = statsFor(qsId)
+          statRows.push(...stats)
+          if (attempt && set) set.questions.forEach((q, i) => addSkill(skills, tagMap, q, scoreOneQuestion(q, attempt.answers?.[i]), totalMarksForQuestion(q)))
+          let status = 'upcoming'
+          if (attempt) status = deadline && new Date(attempt.date).getTime() > deadline ? 'late' : 'done'
+          else if (startMs == null) status = 'not-started'
+          else if (now > deadline) status = 'missing'
+          else if (unlocked) status = 'due'
+          return {
+            id: qsId, title: set?.friendlyTitle || set?.rawTitle || 'Quiz', status,
+            score: attempt?.score ?? null, total: attempt?.total ?? null, pct: attempt ? pctOf(attempt.score, attempt.total) : null,
+            redoPct: redo ? pctOf(redo.score, redo.total) : null,
+            date: attempt?.date || null, lockedOut: !!attempt?.lockedOut, screenLeaves: attempt?.screenLeaves || 0, minutes: minutesOf(attempt),
+            percentile: attempt ? percentileFrom(stats, studentId) : null,
+            classAvg: stats.length >= MIN_COHORT ? Math.round(stats.reduce((s, r) => s + (Number(r.pct) || 0), 0) / stats.length) : null,
+          }
+        })
+        return { name: mod.name || `Week ${mi + 1}`, index: mi, deadline: deadline ? new Date(deadline).toISOString() : null, quizzes }
+      })
+      const quizRows = modules.flatMap((m) => m.quizzes)
+      const allSkills = [...skills.values()]
+      for (const s of checkpoints.flatMap((c) => c.skills)) {
+        const cur = allSkills.find((x) => x.tagId === s.tagId)
+        if (cur) { cur.correct += s.correct; cur.total += s.total } else allSkills.push({ ...s })
+      }
+      courses.push({
+        courseId: course.id, courseName: course.name, className: cls.name, term: course.term || '', started: !!start,
+        modules, checkpoints,
+        coursePercentile: percentileFrom(statRows, studentId),
+        ...summarise(quizRows, checkpoints, allSkills, dueRevision),
+      })
+    }
+  }
+  return { student: { id: studentId, name: fullName(student), yearGroup: student.yearGroup || '', school: student.schoolName || student.school || '' }, courses }
+}
+
+function summarise(quizRows, checkpoints, skillList, dueRevision) {
+  const done = quizRows.filter((q) => q.status === 'done' || q.status === 'late')
+  const assigned = quizRows.filter((q) => q.status !== 'upcoming' && q.status !== 'not-started')
+  const missing = quizRows.filter((q) => q.status === 'missing')
+  const due = quizRows.filter((q) => q.status === 'due')
+  const score = done.reduce((s, q) => s + (q.score || 0), 0)
+  const total = done.reduce((s, q) => s + (q.total || 0), 0)
+  const cpDone = checkpoints.filter((c) => c.done)
+  const trend = [...done, ...cpDone].filter((q) => q.date && q.pct != null).sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-8).map((q) => q.pct)
+  const skills = skillList.map((s) => ({ ...s, pct: pctOf(s.correct, s.total) })).filter((s) => s.total >= 3).sort((a, b) => a.pct - b.pct)
+  const lockouts = [...done, ...cpDone].filter((q) => q.lockedOut)
+  // Under ~15 seconds a question on a quiz of 10+ marks.
+  const rushed = done.filter((q) => q.minutes != null && q.total >= 10 && (q.minutes * 60) / q.total < 15)
+  const actions = []
+  if (missing.length) actions.push({ kind: 'missing', text: `Finish ${missing.length} missed ${missing.length === 1 ? 'quiz' : 'quizzes'}: ${missing.slice(0, 3).map((q) => q.title).join(', ')}${missing.length > 3 ? '…' : ''}` })
+  if (due.length) actions.push({ kind: 'due', text: `${due.length} ${due.length === 1 ? 'quiz is' : 'quizzes are'} due this week` })
+  if (lockouts.length) actions.push({ kind: 'lockout', text: `${lockouts.length} ${lockouts.length === 1 ? 'quiz was' : 'quizzes were'} auto-submitted for leaving the quiz screen - talk about staying on task` })
+  if (rushed.length) actions.push({ kind: 'rushed', text: `${rushed.length} ${rushed.length === 1 ? 'quiz was' : 'quizzes were'} finished very quickly - encourage checking answers` })
+  const weakest = skills.find((s) => s.pct < 60)
+  if (weakest) actions.push({ kind: 'skill', text: `Practise ${weakest.name} (${weakest.pct}% correct so far)` })
+  if (dueRevision) actions.push({ kind: 'revision', text: `Revise ${dueRevision} ${dueRevision === 1 ? 'question' : 'questions'} waiting in the Revision Hall` })
+  return {
+    completion: { done: done.length, assigned: assigned.length, total: quizRows.length, missing: missing.length, late: quizRows.filter((q) => q.status === 'late').length, due: due.length },
+    avgPct: pctOf(score, total),
+    checkpointAvg: cpDone.length ? Math.round(cpDone.reduce((s, c) => s + c.pct, 0) / cpDone.length) : null,
+    checkpointProgress: checkpoints.length ? Math.round((cpDone.length / checkpoints.length) * 100) : null,
+    trend,
+    strengths: [...skills].reverse().filter((s) => s.pct >= 75).slice(0, 3),
+    weaknesses: skills.filter((s) => s.pct < 65).slice(0, 3),
+    lockouts: lockouts.length,
+    actions,
+  }
+}

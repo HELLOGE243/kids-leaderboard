@@ -176,7 +176,9 @@ function Portal({ user, onLogout }) {
   const [scoreError, setScoreError] = useState('')
   const [refresh, setRefresh] = useState(0)
   const [showShop, setShowShop] = useState(false)
-  const [showReport, setShowReport] = useState(false)
+  // Parent message links open ?report=<courseId> (after the normal login).
+  const [reportLink] = useState(() => { try { return new URLSearchParams(window.location.search).get('report') } catch { return null } })
+  const [showReport, setShowReport] = useState(() => !!reportLink)
   const [showQuiz, setShowQuiz] = useState(false)
   const [quizNav, setQuizNav] = useState(null)
   const [showHomework, setShowHomework] = useState(false)
@@ -327,7 +329,7 @@ function Portal({ user, onLogout }) {
   if (showDojo) return <div className={themeWrap}>{muteBtn}<RevisionDojo user={user} onBack={() => setShowDojo(false)} onNavigateToQuiz={(nav) => { setShowDojo(false); setHomeworkNav(nav); setShowHomework(true) }} /></div>
   if (showHomework) return <div className={themeWrap}>{muteBtn}<HomeworkDashboard user={user} onBack={() => { setShowHomework(false); setHomeworkNav(null) }} initialNav={homeworkNav} /></div>
   if (showQuiz) return <div className={themeWrap}>{muteBtn}<QuizDashboard user={user} onBack={() => { setShowQuiz(false); setQuizNav(null) }} initialNav={quizNav} /></div>
-  if (showReport) return <div className={themeWrap}>{muteBtn}<ReportPage studentId={user.id} onBack={() => setShowReport(false)} /></div>
+  if (showReport) return <div className={themeWrap}>{muteBtn}<ReportPage studentId={user.id} initialCourseId={reportLink && reportLink !== 'all' ? reportLink : null} onBack={() => { setShowReport(false); if (reportLink) window.history.replaceState(null, '', window.location.pathname) }} /></div>
   if (showShop) return <div className={themeWrap}>{muteBtn}<Shop user={user} onBack={() => setShowShop(false)} /></div>
   if (showVocab) return <div className={themeWrap}>{muteBtn}<VocabularyBank user={user} onBack={() => setShowVocab(false)} /></div>
 
