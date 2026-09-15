@@ -16176,3 +16176,9 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 }
 .btn-vocab:hover { transform: translateY(-2px); }
 @media (prefers-reduced-motion: reduce) { .btn-vocab:hover { animation: none; } .btn-dojo { animation: none; } }
+/* Popups never grow past the window: long content scrolls inside them. */
+.modal { max-height: calc(100dvh - 40px); overflow-y: auto; box-sizing: border-box; }
+/* Import report: title and buttons stay put, only the report body scrolls. */
+.modal.import-report-modal { display: flex; flex-direction: column; overflow: hidden; }
+.import-report-modal .import-report-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px; overscroll-behavior: contain; }
+.import-report-modal .modal-actions { flex: none; }

@@ -1885,9 +1885,10 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
       {/* Import Report Dialog */}
       {importReport && !importProgress && (
         <div className="modal-overlay">
-          <div className="modal" style={{ minWidth: 320, maxWidth: 420 }}>
+          <div className="modal import-report-modal" style={{ minWidth: 320, maxWidth: 420 }}>
             <p className="pixel-heading" style={{ fontSize: '0.6rem', margin: '0 0 10px' }}>Import Report</p>
-            <div style={{ fontSize: '0.65rem', lineHeight: 1.6 }}>
+            {/* Scrolls inside the window; title and buttons stay visible. */}
+            <div className="import-report-body" style={{ fontSize: '0.65rem', lineHeight: 1.6 }}>
               <div style={{ marginBottom: 8 }}>
                 {importReport.files.map((f, i) => <div key={i} style={{ color: 'var(--text-dim)' }}>{i + 1}. {f}</div>)}
               </div>
