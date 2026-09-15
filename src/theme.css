@@ -16019,3 +16019,16 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 }
 
 @media (max-width: 640px) { .sr-correct-text { font-size: 1.6rem; } }
+
+/* Revision Dojo: hold the page until the background has loaded, then fade in together */
+.dojo-page.dojo-bg-loading > .dojo-inner { opacity: 0; }
+.dojo-page.dojo-bg-ready > .dojo-inner { animation: dojo-page-in .45s ease-out both; }
+.dojo-page.dojo-bg-ready { animation: dojo-bg-in .45s ease-out both; }
+.dojo-bg-loader {
+  position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  background: rgba(20, 14, 40, 0.55); backdrop-filter: blur(6px);
+}
+.dojo-bg-loader-text { font-family: var(--font-pixel); font-size: 0.8rem; color: #e8dcff; letter-spacing: 1px; text-shadow: 0 2px 8px rgba(0,0,0,.6); margin: 0; }
+@keyframes dojo-page-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes dojo-bg-in { from { filter: blur(8px) brightness(.8); } to { filter: none; } }
+@media (prefers-reduced-motion: reduce) { .dojo-page.dojo-bg-ready, .dojo-page.dojo-bg-ready > .dojo-inner { animation: none; } }

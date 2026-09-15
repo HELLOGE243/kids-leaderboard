@@ -5,7 +5,7 @@ import Shop from './Shop.jsx'
 import ReportPage from './ReportPage.jsx'
 import QuizDashboard from './QuizDashboard.jsx'
 import HomeworkDashboard from './HomeworkDashboard.jsx'
-import RevisionDojo from './RevisionDojo.jsx'
+import RevisionDojo, { preloadDojoWallpapers } from './RevisionDojo.jsx'
 import Battlegrounds from './Battlegrounds.jsx'
 import VocabularyBank from './VocabularyBank.jsx'
 import { getClassesForStudent, getOrganisation, getStudentById, getLeaderboard, getHomeworkLeaderboard, getActiveTerm, addScore, getTestEventsForClass, getScoresForStudentInClass, getRankingForStudentInClass, getHomeworkWeeklyStats, getTopicsForClass, getQuizzesForTopic, isQuizUnlocked, getAttemptForQuiz, getPendingHomeworkCount, getNewCourseCount, getDueDojoCards, getStudentFeedData, getSchoolNewsfeed, getPurchasedTracks, getPastLeaderboards, onDataChange, onBroadcast } from '../data/store.js'
@@ -168,6 +168,8 @@ function LeaderboardDisplay({ entries, userId }) {
 }
 
 function Portal({ user, onLogout }) {
+  // Start downloading the dojo background now so the dojo opens instantly.
+  useEffect(() => { preloadDojoWallpapers() }, [])
   const [activeTab, setActiveTab] = useState(null)
   const [scoreValue, setScoreValue] = useState('')
   const [selectedEvent, setSelectedEvent] = useState('')

@@ -23,9 +23,30 @@ import { generateShadowClones } from '../utils/aiChat.js'
 import { authedFetch } from '../data/auth.js'
 
 
+// src: full image. placeholder: a 24px blurred copy inlined so something shows instantly.
 const WALLPAPERS = [
-  { name: 'forest-temple', bg: 'url("/wallpapers/dojo-2.jpg") center / cover no-repeat' },
+  {
+    name: 'grand-hall',
+    src: '/wallpapers/dojo-hall.webp',
+    placeholder: 'data:image/webp;base64,UklGRqAAAABXRUJQVlA4IJQAAACQBACdASoYAA0APu1iqU2ppaQiMAgBMB2JYgCdMoR8eB+C2RTUByrZ7R4DcwAA/odW151zjrzU0snC94xG5CnO0C5jfWrKFWwHWeoZrhl31S2zlgAPinD4VtCeP5jqDN+3FZu3O138I45xPq693DcQwBLQeKYMNS+m6ED1J7ZgHgL5K5W4lXsecbc0OD5fVkO8GoAA',
+  },
 ]
+
+// Download and decode the background once, shared by every visit. Portal calls
+// this on load so the image is usually ready before the student opens the dojo.
+const wallpaperLoads = new Map()
+export function preloadDojoWallpapers() {
+  for (const w of WALLPAPERS) loadWallpaper(w.src)
+}
+function loadWallpaper(src) {
+  if (!wallpaperLoads.has(src)) {
+    const img = new Image()
+    img.decoding = 'async'
+    img.src = src
+    wallpaperLoads.set(src, (img.decode ? img.decode() : new Promise((res, rej) => { img.onload = res; img.onerror = rej })).then(() => true, () => false))
+  }
+  return wallpaperLoads.get(src)
+}
 
 /* WALLPAPERS_OLD_SVG_START — kept for reference, remove when more images are added
   { name: 'moonlit-mountains', bg: svgBg(`
@@ -251,6 +272,16 @@ function shuffleArray(arr) {
 function RevisionDojo({ user, onBack, onNavigateToQuiz }) {
   const [sceneIdx] = useState(() => Math.floor(Math.random() * WALLPAPERS.length))
   const wallpaper = WALLPAPERS[sceneIdx]
+  // Hold the page behind a loading screen until the background is decoded, so
+  // it appears all at once. Give up waiting after 4s (slow connection).
+  const [bgReady, setBgReady] = useState(false)
+  useEffect(() => {
+    let alive = true
+    const done = () => { if (alive) setBgReady(true) }
+    loadWallpaper(wallpaper.src).then(done)
+    const t = setTimeout(done, 4000)
+    return () => { alive = false; clearTimeout(t) }
+  }, [wallpaper.src])
   const [tab, setTab] = useState('training')
   const [dueCards, setDueCards] = useState([])
   const [currentIdx, setCurrentIdx] = useState(0)
@@ -687,7 +718,14 @@ Return ONLY valid JSON:
   }
 
   return (
-    <div className="dojo-page" style={{ background: wallpaper.bg }}>
+    <div className={`dojo-page${bgReady ? ' dojo-bg-ready' : ' dojo-bg-loading'}`}
+      style={{ background: `url("${bgReady ? wallpaper.src : wallpaper.placeholder}") center / cover no-repeat` }}>
+      {!bgReady && (
+        <div className="dojo-bg-loader">
+          <div className="dojo-loading-spinner" />
+          <p className="dojo-bg-loader-text">Entering the Dojo…</p>
+        </div>
+      )}
 
       <div className="dojo-inner">
         <div className="dojo-header-bar">
