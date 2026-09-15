@@ -8630,8 +8630,8 @@ button.hw-res-qth.active {
 .dojo-title {
   font-family: 'Bungee Shade', var(--font-pixel), cursive;
   font-size: 2.6rem;
-  color: #76ff03;
-  text-shadow: 0 0 20px rgba(118, 255, 3, 0.3), 0 2px 4px rgba(0,0,0,0.5);
+  color: #ffd36b;
+  text-shadow: 0 0 20px rgba(255, 200, 90, 0.3), 0 2px 4px rgba(0,0,0,0.5);
   letter-spacing: 3px;
   text-transform: uppercase;
   position: absolute;
@@ -8665,8 +8665,8 @@ button.hw-res-qth.active {
 }
 
 .dojo-total-box {
-  background: rgba(118, 255, 3, 0.08);
-  border: 1px solid rgba(118, 255, 3, 0.25);
+  background: rgba(255, 200, 90, 0.08);
+  border: 1px solid rgba(255, 200, 90, 0.25);
   border-radius: var(--radius);
   padding: 10px 16px;
   margin-bottom: 16px;
@@ -8688,7 +8688,7 @@ button.hw-res-qth.active {
   font-size: 0.55rem;
   color: rgba(200, 220, 200, 0.6);
   background: #1c2030;
-  border: 1px solid rgba(118, 255, 3, 0.12);
+  border: 1px solid rgba(255, 200, 90, 0.12);
   border-radius: var(--radius);
   cursor: pointer;
   transition: all 0.2s;
@@ -8696,13 +8696,13 @@ button.hw-res-qth.active {
   text-transform: uppercase;
   letter-spacing: 1px;
 }
-.dojo-tab:hover { background: #252a3a; color: rgba(200, 230, 200, 0.9); }
+.dojo-tab:hover { background: #252a3a; color: rgba(230, 214, 255, 0.9); }
 .dojo-tab-active {
-  color: #76ff03;
+  color: #ffd36b;
   background: #1a2e1e;
-  border-color: rgba(118, 255, 3, 0.45);
-  box-shadow: 0 0 15px rgba(118, 255, 3, 0.15);
-  text-shadow: 0 0 8px rgba(118, 255, 3, 0.4);
+  border-color: rgba(255, 200, 90, 0.45);
+  box-shadow: 0 0 15px rgba(255, 200, 90, 0.15);
+  text-shadow: 0 0 8px rgba(255, 200, 90, 0.4);
 }
 
 .dojo-deck-count {
@@ -8734,7 +8734,7 @@ button.hw-res-qth.active {
   margin-bottom: 16px;
   padding: 10px 16px;
   background: rgba(0,0,0,0.3);
-  border: 1px solid rgba(118, 255, 3, 0.1);
+  border: 1px solid rgba(255, 200, 90, 0.1);
   border-radius: var(--radius);
 }
 .dojo-progress-info {
@@ -8745,7 +8745,7 @@ button.hw-res-qth.active {
 .dojo-progress-label {
   font-family: var(--font-pixel);
   font-size: 0.55rem;
-  color: rgba(200, 230, 200, 0.7);
+  color: rgba(230, 214, 255, 0.7);
 }
 .dojo-source-label {
   font-family: var(--font-pixel);
@@ -8770,14 +8770,14 @@ button.hw-res-qth.active {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 2px solid rgba(118, 255, 3, 0.2);
+  border: 2px solid rgba(255, 200, 90, 0.2);
   background: transparent;
   transition: all 0.3s;
 }
 .dojo-streak-dot-filled {
-  background: #76ff03;
-  border-color: #76ff03;
-  box-shadow: 0 0 8px rgba(118, 255, 3, 0.6);
+  background: #ffd36b;
+  border-color: #ffd36b;
+  box-shadow: 0 0 8px rgba(255, 200, 90, 0.6);
 }
 
 /* --- Dojo House (quiz container) --- */
@@ -9078,14 +9078,14 @@ button.hw-res-qth.active {
   font-family: var(--font-pixel);
   font-size: 0.6rem;
   padding: 10px 32px;
-  background: rgba(118, 255, 3, 0.15);
-  border: 1px solid rgba(118, 255, 3, 0.4);
+  background: rgba(255, 200, 90, 0.15);
+  border: 1px solid rgba(255, 200, 90, 0.4);
   border-radius: var(--radius);
-  color: #76ff03;
+  color: #ffd36b;
   cursor: pointer;
   transition: all 0.15s;
 }
-.dojo-next-btn:hover { background: rgba(118, 255, 3, 0.25); box-shadow: 0 0 12px rgba(118, 255, 3, 0.2); }
+.dojo-next-btn:hover { background: rgba(255, 200, 90, 0.25); box-shadow: 0 0 12px rgba(255, 200, 90, 0.2); }
 
 /* Clone/chaos mode still uses old dojo-option classes */
 .dojo-card {
@@ -9244,20 +9244,20 @@ button.hw-res-qth.active {
 .dojo-empty-title {
   font-family: var(--font-pixel);
   font-size: 0.85rem;
-  color: #76ff03;
-  text-shadow: 0 0 12px rgba(118, 255, 3, 0.3);
+  color: #ffd36b;
+  text-shadow: 0 0 12px rgba(255, 200, 90, 0.3);
   margin-bottom: 10px;
 }
 .dojo-empty-sub {
   font-family: var(--font-pixel);
   font-size: 0.55rem;
-  color: rgba(200, 230, 200, 0.5);
+  color: rgba(230, 214, 255, 0.5);
   line-height: 2;
 }
 .dojo-card-count {
   font-family: var(--font-pixel);
   font-size: 0.45rem;
-  color: rgba(200, 230, 200, 0.35);
+  color: rgba(230, 214, 255, 0.35);
   margin-top: 20px;
 }
 
@@ -9269,14 +9269,14 @@ button.hw-res-qth.active {
 .dojo-list-card {
   padding: 18px 20px;
   background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(118, 255, 3, 0.08);
+  border: 1px solid rgba(255, 200, 90, 0.08);
   border-radius: var(--radius);
   transition: border-color 0.15s;
 }
-.dojo-list-card:hover { border-color: rgba(118, 255, 3, 0.2); }
+.dojo-list-card:hover { border-color: rgba(255, 200, 90, 0.2); }
 .dojo-list-card-archived {
-  border-color: rgba(118, 255, 3, 0.15);
-  background: rgba(118, 255, 3, 0.03);
+  border-color: rgba(255, 200, 90, 0.15);
+  background: rgba(255, 200, 90, 0.03);
 }
 .dojo-list-q {
   font-size: 0.85rem;
@@ -9290,7 +9290,7 @@ button.hw-res-qth.active {
   justify-content: space-between;
   font-family: var(--font-pixel);
   font-size: 0.45rem;
-  color: rgba(200, 230, 200, 0.4);
+  color: rgba(230, 214, 255, 0.4);
 }
 
 /* --- Tab Badges --- */
@@ -9508,13 +9508,13 @@ button.hw-res-qth.active {
   white-space: nowrap;
 }
 .dojo-topbar-shuffle {
-  background: rgba(118, 255, 3, 0.1);
-  border: 1px solid rgba(118, 255, 3, 0.3);
-  color: #76ff03;
+  background: rgba(255, 200, 90, 0.1);
+  border: 1px solid rgba(255, 200, 90, 0.3);
+  color: #ffd36b;
 }
 .dojo-topbar-shuffle:hover {
-  background: rgba(118, 255, 3, 0.2);
-  box-shadow: 0 0 12px rgba(118, 255, 3, 0.2);
+  background: rgba(255, 200, 90, 0.2);
+  box-shadow: 0 0 12px rgba(255, 200, 90, 0.2);
 }
 .dojo-topbar-shuffle:disabled { opacity: 0.4; cursor: not-allowed; }
 .dojo-topbar-upload {
@@ -9558,7 +9558,7 @@ button.hw-res-qth.active {
   margin-bottom: 16px;
   padding: 10px 16px;
   background: rgba(0,0,0,0.3);
-  border: 1px solid rgba(118, 255, 3, 0.1);
+  border: 1px solid rgba(255, 200, 90, 0.1);
   border-radius: var(--radius);
 }
 
@@ -9578,16 +9578,16 @@ button.hw-res-qth.active {
   font-size: 0.5rem;
   padding: 8px 16px;
   background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(118, 255, 3, 0.15);
+  border: 1px solid rgba(255, 200, 90, 0.15);
   border-radius: var(--radius);
-  color: rgba(200, 230, 200, 0.6);
+  color: rgba(230, 214, 255, 0.6);
   cursor: pointer;
   margin-bottom: 16px;
   transition: all 0.15s;
 }
 .dojo-back-to-list:hover {
-  background: rgba(118, 255, 3, 0.08);
-  color: #76ff03;
+  background: rgba(255, 200, 90, 0.08);
+  color: #ffd36b;
 }
 
 /* --- Loading Spinner --- */
@@ -9777,7 +9777,7 @@ button.hw-res-qth.active {
   width: 100%;
   padding: 24px;
   background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(118, 255, 3, 0.15);
+  border: 1px solid rgba(255, 200, 90, 0.15);
   border-radius: var(--radius);
 }
 .dojo-session-header {
@@ -9792,7 +9792,7 @@ button.hw-res-qth.active {
 .dojo-session-title {
   font-family: var(--font-pixel);
   font-size: 0.85rem;
-  color: #76ff03;
+  color: #ffd36b;
   text-transform: uppercase;
   letter-spacing: 2px;
   margin-bottom: 4px;
@@ -9814,7 +9814,7 @@ button.hw-res-qth.active {
 }
 .dojo-session-body {
   background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(118,255,3,0.08);
+  border: 1px solid rgba(255, 200, 90, 0.08);
   border-radius: var(--radius);
   padding: 24px;
 }
@@ -9844,21 +9844,21 @@ button.hw-res-qth.active {
   font-weight: 600;
   padding: 8px 18px;
   border-radius: 20px;
-  border: 1px solid rgba(118, 255, 3, 0.2);
-  background: rgba(118, 255, 3, 0.06);
+  border: 1px solid rgba(255, 200, 90, 0.2);
+  background: rgba(255, 200, 90, 0.06);
   color: rgba(255,255,255,0.7);
   cursor: pointer;
   transition: all 0.2s;
 }
 .dojo-session-pill:hover {
-  background: rgba(118, 255, 3, 0.12);
-  border-color: rgba(118, 255, 3, 0.35);
+  background: rgba(255, 200, 90, 0.12);
+  border-color: rgba(255, 200, 90, 0.35);
 }
 .dojo-session-pill-active {
-  background: rgba(118, 255, 3, 0.18);
-  border-color: #76ff03;
-  color: #76ff03;
-  box-shadow: 0 0 10px rgba(118, 255, 3, 0.15);
+  background: rgba(255, 200, 90, 0.18);
+  border-color: #ffd36b;
+  color: #ffd36b;
+  box-shadow: 0 0 10px rgba(255, 200, 90, 0.15);
 }
 .dojo-session-counts {
   display: flex;
@@ -9897,17 +9897,17 @@ button.hw-res-qth.active {
   font-size: 0.65rem;
   padding: 14px 44px;
   border-radius: var(--radius);
-  border: 2px solid #76ff03;
-  background: rgba(118, 255, 3, 0.15);
-  color: #76ff03;
+  border: 2px solid #ffd36b;
+  background: rgba(255, 200, 90, 0.15);
+  color: #ffd36b;
   cursor: pointer;
   text-transform: uppercase;
   letter-spacing: 2px;
   transition: all 0.2s;
 }
 .dojo-session-go:hover {
-  background: rgba(118, 255, 3, 0.25);
-  box-shadow: 0 0 20px rgba(118, 255, 3, 0.25);
+  background: rgba(255, 200, 90, 0.25);
+  box-shadow: 0 0 20px rgba(255, 200, 90, 0.25);
   transform: translateY(-1px);
 }
 .dojo-session-go:disabled {
@@ -10033,14 +10033,14 @@ button.hw-res-qth.active {
   display: flex;
   flex-direction: column;
   background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(118, 255, 3, 0.12);
+  border: 1px solid rgba(255, 200, 90, 0.12);
   border-radius: var(--radius);
   padding: 20px;
 }
 .dojo-archive-search {
   padding: 8px 14px;
   border-radius: var(--radius);
-  border: 1px solid rgba(118,255,3,0.2);
+  border: 1px solid rgba(255, 200, 90, 0.2);
   background: rgba(0,0,0,0.3);
   color: #fff;
   font-family: var(--font-body);
@@ -10050,7 +10050,7 @@ button.hw-res-qth.active {
   transition: border-color 0.2s;
 }
 .dojo-archive-search:focus {
-  border-color: rgba(118,255,3,0.45);
+  border-color: rgba(255, 200, 90, 0.45);
 }
 .dojo-archive-search::placeholder {
   color: rgba(255,255,255,0.3);
@@ -10125,15 +10125,15 @@ button.hw-res-qth.active {
   font-weight: 600;
   padding: 5px 12px;
   border-radius: var(--radius);
-  border: 1px solid rgba(118,255,3,0.25);
-  background: rgba(118,255,3,0.08);
-  color: #76ff03;
+  border: 1px solid rgba(255, 200, 90, 0.25);
+  background: rgba(255, 200, 90, 0.08);
+  color: #ffd36b;
   cursor: pointer;
   transition: all 0.2s;
 }
 .dojo-archive-restore-btn:hover {
-  background: rgba(118,255,3,0.18);
-  border-color: rgba(118,255,3,0.4);
+  background: rgba(255, 200, 90, 0.18);
+  border-color: rgba(255, 200, 90, 0.4);
 }
 
 /* Light theme archive */
@@ -16087,3 +16087,36 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .theme-light .rim-issue, .theme-light .rim-option, .theme-light .rim-text { color: #1e293b; background: rgba(0,0,0,.03); border-color: rgba(0,0,0,.1); }
 .theme-light .rim-chip, .theme-light .rim-btn-ghost { color: #475569; border-color: rgba(0,0,0,.15); }
 @media (max-width: 480px) { .rim-issues { grid-template-columns: 1fr; } .rim { padding: 22px 16px 16px; } }
+
+/* ===== Revision Dojo: gold & purple glow theme (matches the grand hall) ===== */
+.dojo-title {
+  color: #ffe08a;
+  background: linear-gradient(180deg, #fff3c4 0%, #ffd36b 45%, #e0a23a 100%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 10px rgba(255, 196, 84, .55)) drop-shadow(0 0 26px rgba(168, 85, 247, .65)) drop-shadow(0 3px 3px rgba(20, 8, 40, .8));
+  animation: dojo-title-glow 3.2s ease-in-out infinite;
+}
+@keyframes dojo-title-glow {
+  50% { filter: drop-shadow(0 0 16px rgba(255, 210, 110, .8)) drop-shadow(0 0 40px rgba(192, 132, 252, .85)) drop-shadow(0 3px 3px rgba(20, 8, 40, .8)); }
+}
+.dojo-tab {
+  background: rgba(40, 22, 70, .62); color: rgba(230, 214, 255, .75);
+  border-color: rgba(192, 132, 252, .28); backdrop-filter: blur(4px);
+}
+.dojo-tab:hover { background: rgba(72, 38, 120, .72); color: #f3e8ff; }
+.dojo-tab-active {
+  background: linear-gradient(180deg, rgba(110, 58, 170, .85), rgba(66, 30, 110, .85));
+  color: #ffd36b; border-color: rgba(255, 200, 90, .7);
+  box-shadow: 0 0 14px rgba(255, 196, 84, .35), 0 0 26px rgba(168, 85, 247, .35), inset 0 0 12px rgba(255, 210, 120, .15);
+  text-shadow: 0 0 8px rgba(255, 200, 90, .8), 0 0 18px rgba(192, 132, 252, .6);
+}
+.dojo-total-box { background: rgba(40, 22, 70, .6); border-color: rgba(255, 200, 90, .35); color: #f3e8ff; box-shadow: 0 0 18px rgba(168, 85, 247, .25); }
+.dojo-empty-title { color: #ffd36b; text-shadow: 0 0 12px rgba(255, 200, 90, .75), 0 0 30px rgba(168, 85, 247, .7); }
+.dojo-empty-sub { color: rgba(236, 222, 255, .82); text-shadow: 0 1px 6px rgba(20, 8, 40, .9); }
+.dojo-empty-icon { filter: drop-shadow(0 0 12px rgba(255, 200, 90, .7)); }
+.dojo-streak-dot-filled { background: #ffd36b; border-color: #ffd36b; box-shadow: 0 0 8px rgba(255, 200, 90, .8), 0 0 16px rgba(168, 85, 247, .5); }
+.dojo-session-title { text-shadow: 0 0 10px rgba(255, 200, 90, .6), 0 0 22px rgba(168, 85, 247, .5); }
+.dojo-session-go:hover, .dojo-next-btn:hover, .dojo-topbar-shuffle:hover { box-shadow: 0 0 16px rgba(255, 196, 84, .45), 0 0 30px rgba(168, 85, 247, .4); }
+.dojo-upload-banner { border-color: rgba(255, 200, 90, .55); background: rgba(40, 22, 70, .72); box-shadow: 0 0 22px rgba(168, 85, 247, .3); }
+.dojo-bg-loader-text { color: #ffd36b; text-shadow: 0 0 10px rgba(255, 200, 90, .7), 0 0 22px rgba(168, 85, 247, .7); }
+@media (prefers-reduced-motion: reduce) { .dojo-title { animation: none; } }

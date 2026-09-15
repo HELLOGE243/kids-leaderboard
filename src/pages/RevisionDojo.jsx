@@ -774,8 +774,8 @@ Return ONLY valid JSON:
         {tab === 'training' && (<>
           {dueCards.length === 0 ? (
             <div className="dojo-empty">
-              <span className="dojo-empty-icon">🌿</span>
-              <p className="dojo-empty-title">The forest is quiet...</p>
+              <span className="dojo-empty-icon">🕯️</span>
+              <p className="dojo-empty-title">The hall is quiet...</p>
               <p className="dojo-empty-sub">{allCards.length > 0 ? (() => {
                 const nextDate = allCards.filter(c => c.nextReviewDate).map(c => new Date(c.nextReviewDate)).sort((a, b) => a - b)[0]
                 if (nextDate) {
