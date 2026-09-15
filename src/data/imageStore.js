@@ -147,6 +147,24 @@ async function uploadDataUri(dataUri) {
   }
 }
 
+/**
+ * Uploads one picture (a File/Blob from an <input type="file">, or a data URI)
+ * to cloud storage and returns its https URL. Use this for course, class and
+ * logo images: storing a data URI in shared data makes a ~150-400 KB record
+ * field, and those records have a 1 MiB cap.
+ */
+export async function uploadImage(fileOrDataUri) {
+  const dataUri = typeof fileOrDataUri === 'string'
+    ? fileOrDataUri
+    : await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = () => reject(reader.error)
+      reader.readAsDataURL(fileOrDataUri)
+    })
+  return uploadDataUri(dataUri)
+}
+
 /** Adds lazy loading / async decoding to img tags that do not set it. */
 function lazyLoadImages(html) {
   return html.replace(/<img\b(?![^>]*\bloading=)/gi, '<img loading="lazy" decoding="async"')

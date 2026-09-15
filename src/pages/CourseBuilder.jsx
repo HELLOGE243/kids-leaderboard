@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { uploadImage } from '../data/imageStore.js'
 import {
   getClassesForOrg,
   getCoursesForOrg,
@@ -45,12 +46,10 @@ function CourseBuilder({ orgId, onBack, onEditQuiz }) {
   function handleImageUpload(courseId, e) {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      updateCourse(courseId, { image: reader.result })
-      forceRefresh()
-    }
-    reader.readAsDataURL(file)
+    // Stored as a link, not embedded: embedded pictures filled the shared record.
+    uploadImage(file)
+      .then((url) => { updateCourse(courseId, { image: url }); forceRefresh() })
+      .catch((err) => alert(`Image upload failed: ${err.message}`))
   }
 
   function handleCreateCourse(e) {

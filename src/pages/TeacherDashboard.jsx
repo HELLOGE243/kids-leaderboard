@@ -9,6 +9,7 @@ import NewsfeedManager from './NewsfeedManager.jsx'
 import ClassDashboard from './ClassDashboard.jsx'
 import AdminTeacherPanel from '../components/AdminTeacherPanel.jsx'
 import '../teacher-dashboard.css'
+import { uploadImage } from '../data/imageStore.js'
 import '../teacher-fonts.css'
 import {
   createOrganisation,
@@ -50,6 +51,7 @@ import {
   onDataChange,
   fullName,
   backfillQuestionIds,
+  moveEmbeddedImagesToStorage,
   preloadAllStudents,
   getAllStudentReports,
   resolveQuestionReport,
@@ -82,7 +84,11 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
   }, [])
 
   // One-off: give permanent ids to questions saved before ids existed.
-  useEffect(() => { backfillQuestionIds() }, [])
+  useEffect(() => {
+    backfillQuestionIds()
+    // One-off: embedded course/class/logo pictures were filling the shared records.
+    moveEmbeddedImagesToStorage().then((n) => { if (n) forceRefresh() })
+  }, [])
 
   // Student reports live in each student's document; load them all once.
   const [reportsLoaded, setReportsLoaded] = useState(false)
@@ -285,9 +291,8 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
     input.onchange = (ev) => {
       const file = ev.target.files[0]
       if (!file) return
-      const reader = new FileReader()
-      reader.onload = (re) => onData(re.target.result)
-      reader.readAsDataURL(file)
+      // Stored as a link, not embedded: embedded pictures filled the shared record.
+      uploadImage(file).then(onData).catch((e) => alert(`Image upload failed: ${e.message}`))
     }
     input.click()
   }

@@ -1812,6 +1812,44 @@ function withQuestionIds(questions) {
   return (questions || []).map((q) => (q.id ? q : { ...q, id: newQuestionId() }))
 }
 
+/**
+ * Teacher-side, one-off: moves course covers, class images and organisation
+ * logos that were saved as embedded data URIs into cloud storage, keeping only
+ * the link. Embedded pictures were 150-400 KB each and pushed the shared
+ * content and core records towards Firestore's 1 MiB per-record limit.
+ * @returns {Promise<number>} images moved
+ */
+let _imageMigration = null
+export function moveEmbeddedImagesToStorage() {
+  // Once per page load: a second concurrent run would re-upload values the
+  // first had already replaced with links.
+  if (!_imageMigration) _imageMigration = runImageMigration()
+  return _imageMigration
+}
+
+async function runImageMigration() {
+  const { uploadImage } = await import('./imageStore.js')
+  const data = loadData()
+  const targets = [
+    ...(data.courses || []).map((c) => [c, 'image']),
+    ...Object.values(data.classes || {}).map((c) => [c, 'image']),
+    ...Object.values(data.organisations || {}).map((o) => [o, 'logo']),
+  ].filter(([obj, field]) => typeof obj?.[field] === 'string' && obj[field].startsWith('data:image'))
+  let moved = 0
+  for (const [obj, field] of targets) {
+    const dataUri = obj[field]
+    if (!String(dataUri).startsWith('data:image')) continue
+    try {
+      obj[field] = await uploadImage(dataUri)
+      moved++
+    } catch (e) {
+      console.warn('Could not move an embedded image to storage; leaving it in place:', e)
+    }
+  }
+  if (moved) saveData(data)
+  return moved
+}
+
 /** Teacher-side backfill: give ids to questions in sets saved before ids existed. */
 export function backfillQuestionIds() {
   const data = loadData()
