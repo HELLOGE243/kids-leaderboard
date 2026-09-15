@@ -298,6 +298,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
           // Permanent id: dojo cards, reports and reviews find the question by it.
           id: q.id || newQuestionId(),
           ...(typeof q.number === 'number' ? { number: q.number } : {}),
+          ...(q.sourceItems?.length ? { sourceItems: q.sourceItems } : {}),
           type,
           text: await extractAndStoreImages((q.text || '').trim()),
           prompt: (q.prompt || '').trim(),
@@ -1931,7 +1932,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                 <details style={{ marginTop: 8 }}>
                   <summary style={{ fontSize: '0.55rem', color: '#42a5f5', cursor: 'pointer' }}>Show existing quizzes ({importReport.duplicates.length})</summary>
                   <div style={{ maxHeight: 120, overflowY: 'auto', marginTop: 4, padding: '4px 6px', background: 'rgba(0,0,0,0.2)', borderRadius: 4 }}>
-                    {importReport.duplicates.map((d, i) => <div key={i} style={{ fontSize: '0.5rem', color: 'var(--text-dim)', padding: '1px 0' }}>{d.title} — {d.replaced ? `rebuilt: ${d.existingCount} old questions replaced with ${d.newInFile}` : `${d.existingCount} existing, ${d.newInFile} in file${d.appended > 0 ? `, +${d.appended} new added` : ', no new questions'}`}</div>)}
+                    {importReport.duplicates.map((d, i) => <div key={i} style={{ fontSize: '0.5rem', color: 'var(--text-dim)', padding: '1px 0' }}>{d.title} — {`${d.newInFile} in file: ${d.rebuilt ? `${d.rebuilt} rebuilt in place` : 'none rebuilt'}${d.appended > 0 ? `, +${d.appended} new added` : ''} (${d.existingCount} questions now)`}</div>)}
                   </div>
                 </details>
               )}

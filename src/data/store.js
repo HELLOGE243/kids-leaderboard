@@ -23,7 +23,7 @@
 
 import { extractAndStoreImages, findImageRefs, deleteImages } from './imageStore.js'
 import { pickSolutionVideo } from '../utils/video.js'
-import { planImport } from '../utils/cleverspaceImport.js'
+import { planImport, applyAiSplit, mergeCloze } from '../utils/cleverspaceImport.js'
 import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
 
 export { onDataChange, onBroadcast, sendBroadcast, loadContacts }
@@ -1586,7 +1586,16 @@ export async function importQuizzesFromJSON(jsonArray, onProgress) {
     const [key, questions] = entries[i]
     try {
       const newQs = []
-      for (const pq of questions) {
+      for (let pq of questions) {
+        // A passage pasted into the question with no clear separator: Claude
+        // says where the question ends and the passage starts.
+        if (pq.needsAiSplit) {
+          let ai
+          try { ai = await (await import('../utils/readPassageSplit.js')).readPassageSplit(pq.text) } catch (e) { ai = { ok: false, error: e.message } }
+          const rebuilt = ai.ok ? applyAiSplit(pq, ai) : null
+          if (rebuilt) pq = rebuilt
+          else pq.flags.push(`This item looks like it contains a passage but it could not be separated (${ai.error || 'passage not located'}) - imported as plain multiple choice.`)
+        }
         const type = pq.type
         const q = {
           id: newQuestionId(),
@@ -1598,13 +1607,23 @@ export async function importQuizzesFromJSON(jsonArray, onProgress) {
           // Source question number (Q12 -> 1200, Q12(b) -> 1202) so a set whose
           // questions arrive across several import files stays in order.
           number: pq.number,
+          // CleverSpace item numbers this question was built from; re-importing
+          // them replaces this question rather than adding a copy.
+          sourceItems: pq.source?.items || [],
         }
         if (type === 'multiple-choice' || type === 'multi-description') {
-          const split = extractPrompt(q.text)
-          q.text = split.body
-          q.prompt = split.prompt
+          if (pq.prompt) {
+            q.prompt = await storeHtml(pq.prompt, key, pq.number)
+          } else {
+            const split = extractPrompt(q.text)
+            q.text = split.body
+            q.prompt = split.prompt
+          }
           q.options = (pq.options || []).map((o) => fixMojibake(unescapeHtml(o)))
           q.correctIndex = pq.correctIndex
+        }
+        if (type === 'dropdown-cloze') {
+          q.blanks = pq.blanks.map((b) => ({ ...b, options: b.options.map((o) => fixMojibake(unescapeHtml(o))) }))
         }
         if (pq.descriptions) {
           q.descriptions = []
@@ -1638,20 +1657,42 @@ export async function importQuizzesFromJSON(jsonArray, onProgress) {
       const existingIdx = localSets.findIndex((s) => s.rawTitle === key)
       if (existingIdx !== -1) {
         const existing = localSets[existingIdx]
-        // Sets made by the old importer turned extracts, matching and drag items
-        // into plain multiple choice (no `type` recorded). Re-importing replaces
-        // those questions instead of adding the correct versions beside them.
-        // The set itself - id, name, course assignment - is kept.
-        if (existing.questions.length && existing.questions.every((q) => !q.type)) {
-          duplicates.push({ title: existing.friendlyTitle || existing.rawTitle, existingCount: existing.questions.length, newInFile: newQs.length, appended: newQs.length, replaced: true })
-          existing.questions = newQs
-          existing.questions.sort((a, b) => (a.number ?? 0) - (b.number ?? 0))
-          added.push(existing)
-          if (onProgress) onProgress(i + 1, entries.length)
-          continue
+        // Rebuild: an existing question made from the same CleverSpace items
+        // (recorded in sourceItems, or its item number for sets from the old
+        // importer, which made every item plain multiple choice) is replaced by
+        // the newly built one. It keeps its id, so students' dojo cards, reports
+        // and past attempts stay linked. The set itself is kept.
+        const itemsOf = (eq) => (eq.sourceItems?.length ? eq.sourceItems : typeof eq.number === 'number' ? [Math.floor(eq.number / 100)] : [])
+        let rebuilt = 0
+        const toAdd = []
+        for (const nq of newQs) {
+          const items = new Set(nq.sourceItems)
+          const covered = existing.questions.filter((eq) => itemsOf(eq).some((n) => items.has(n)))
+          // A cloze passage split across export files: fill in the gaps of the
+          // one already here instead of replacing it with a partial copy.
+          // (mergeCloze on a copy is just the "same passage?" test.)
+          const clozeHere = nq.type === 'dropdown-cloze' && existing.questions.find((eq) => eq.type === 'dropdown-cloze' && mergeCloze({ ...eq }, nq))
+          if (clozeHere && mergeCloze(clozeHere, nq)) {
+            clozeHere.sourceItems = [...new Set([...itemsOf(clozeHere), ...nq.sourceItems])].sort((a, b) => a - b)
+            existing.questions = existing.questions.filter((eq) => eq === clozeHere || !covered.includes(eq))
+            rebuilt++
+            continue
+          }
+          if (covered.length) {
+            const keep = covered.find((eq) => itemsOf(eq)[0] === nq.sourceItems[0]) || covered[0]
+            nq.id = keep.id || nq.id
+            if (keep.explanation && !nq.explanation) nq.explanation = keep.explanation
+            if (keep.videoUrl && !nq.videoUrl) nq.videoUrl = keep.videoUrl
+            existing.questions = existing.questions.filter((eq) => !covered.includes(eq))
+            existing.questions.push(nq)
+            rebuilt++
+            continue
+          }
+          toAdd.push(nq)
         }
+        if (rebuilt) existing.questions.sort((a, b) => (a.number ?? 0) - (b.number ?? 0))
         const existingKeys = new Set(existing.questions.map(identity))
-        const fresh = newQs.filter((q) => !existingKeys.has(identity(q)))
+        const fresh = toAdd.filter((q) => !existingKeys.has(identity(q)))
         // Questions already in the set still pick up a solution video they
         // were imported without.
         const byKey = new Map(newQs.map((q) => [identity(q), q]))
@@ -1660,7 +1701,7 @@ export async function importQuizzesFromJSON(jsonArray, onProgress) {
           const match = byKey.get(identity(eq))
           if (match?.videoUrl) eq.videoUrl = match.videoUrl
         }
-        duplicates.push({ title: existing.friendlyTitle || existing.rawTitle, existingCount: existing.questions.length, newInFile: newQs.length, appended: fresh.length })
+        duplicates.push({ title: existing.friendlyTitle || existing.rawTitle, existingCount: existing.questions.length, newInFile: newQs.length, appended: fresh.length, rebuilt, replaced: rebuilt > 0 })
         if (fresh.length > 0) {
           existing.questions.push(...fresh)
           if (existing.questions.every((eq) => typeof eq.number === 'number')) {
