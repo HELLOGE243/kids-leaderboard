@@ -2946,7 +2946,10 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 .qt-desc-tabs { display: flex; gap: 6px; margin-bottom: 0; flex-wrap: wrap; border-bottom: 2px solid #ccc; }
 .qt-desc-tab { padding: 10px 24px; border: 1px solid #ccc; border-bottom: none; border-radius: 0; background: #f0f0f0; color: #777; font-size: 1.05rem; font-weight: 500; cursor: pointer; margin-bottom: -2px; }
 .qt-desc-tab-active { background: #fff; color: #1a1a2e; font-weight: 700; border-color: #aaa; border-bottom: 2px solid #fff; }
-.qt-desc-content { padding: 18px 12px; border: none; border-radius: 0; background: transparent; margin-bottom: 16px; min-height: 60px; max-height: 400px; overflow-y: auto; font-size: 0.95rem; line-height: 1.7; }
+/* The left panel scrolls, so the extract shows in full; imported passages carry
+   no colour of their own, so set dark text on the white panel explicitly. */
+.qt-desc-content { padding: 18px 12px; border: none; border-radius: 0; background: #fff; margin-bottom: 16px; min-height: 60px; font-size: 1.05rem; line-height: 1.8; color: #222; }
+.qt-desc-content * { color: inherit; }
 .qt-desc-content img { max-width: 100%; height: auto; }
 
 /* Cloze blanks (quiz-taking) */
@@ -3046,12 +3049,21 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 .qt-drag-gap-filled { font-size: 1rem; color: #1a1a2e; cursor: pointer; display: flex; align-items: center; gap: 8px; }
 .qt-drag-gap-remove { color: #e53935; font-weight: 700; font-size: 0.85rem; }
 .qt-drag-gap-empty { font-size: 0.95rem; color: #999; font-style: italic; }
+.qt-drag-sentence { cursor: grab; text-align: left; display: flex; gap: 12px; align-items: baseline; touch-action: manipulation; }
+.qt-drag-sentence:active { cursor: grabbing; }
+.qt-drag-letter { font-weight: 700; color: #3a6ea5; min-width: 22px; }
+.qt-drag-sentence-used { opacity: 0.45; }
+.qt-drag-gap-ready .qt-drag-gap-content { background: #f4f8fd; }
+.qt-drag-gap-over .qt-drag-gap-content { background: #d6e4f0; box-shadow: inset 0 0 0 2px #3a6ea5; }
 
 /* Multi-matching (quiz-taking) */
-.qt-matching-questions { display: flex; flex-direction: column; gap: 0; padding: 0; border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden; }
-.qt-matching-row { display: flex; flex-direction: row; align-items: center; gap: 12px; padding: 8px 12px; border: none; border-bottom: 1px solid #e8e8e8; border-radius: 0; background: transparent; }
-.qt-matching-row:last-child { border-bottom: none; }
-.qt-matching-question { font-size: 0.82rem; color: #1a1a2e; font-weight: 500; flex: 1; }
+/* A plain numbered list: question text on the left, answer dropdown on the right. */
+.qt-matching-questions { display: flex; flex-direction: column; gap: 14px; padding: 0; margin: 0; }
+.qt-matching-row { display: flex; flex-direction: row; align-items: center; gap: 16px; padding: 0; border: none; background: transparent; }
+.qt-matching-num { font-weight: 700; color: #1a1a2e; min-width: 28px; font-size: 0.95rem; }
+.qt-matching-question { font-size: 0.95rem; color: #1a1a2e; font-weight: 400; flex: 1; line-height: 1.5; }
+.qt-matching-question p, .qt-matching-question h4 { margin: 0; font-size: inherit; font-weight: inherit; }
+.qt-matching-row .qt-cloze-select { flex: none; width: 90px; }
 .qt-matching-instructions { font-size: 0.82rem; color: #555; font-style: italic; padding: 0 0 12px 0; line-height: 1.5; }
 
 /* Free-writing (quiz-taking) */

@@ -1669,42 +1669,78 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                   return <>
                     {q.prompt && <div className="qt-prompt-display" dangerouslySetInnerHTML={{ __html: q.prompt }} />}
                     <p style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: 4 }}>Choose from the {dragLabel === 'sentence' ? 'sentences' : 'summaries'} ({gapLabels.join(', ')}) the one which fits each gap.</p>
-                    <p style={{ fontSize: '0.8rem', color: '#555', marginBottom: 12 }}>Select the correct {dragLabel} for each blank box using the dropdown.</p>
-                    <div className="qt-drag-sentences">
-                      {shuffled.filter(i => opts[i]).map((oi, vi) => (
-                        <div key={oi} className="qt-drag-sentence" style={{ cursor: 'default' }}>
-                          <span style={{ fontWeight: 700, marginRight: 8, color: 'var(--accent)', minWidth: 36 }}>{gapLabels[vi]}</span>
-                          {opts[oi]}
+                    <p style={{ fontSize: '0.8rem', color: '#555', marginBottom: 12 }}>Drag each {dragLabel} into a gap below, or tap a {dragLabel} and then tap the gap. Tap a filled gap to clear it.</p>
+                    {(() => {
+                      const visible = shuffled.filter(i => opts[i])
+                      const labelOf = (oi) => gapLabels[visible.indexOf(oi)]
+                      // Placing a sentence moves it out of any other gap it was in.
+                      const place = (si, oi) => setQuizAnswers(prev => {
+                        const next = [...prev]
+                        const arr = Array.isArray(next[currentQ]) ? [...next[currentQ]] : new Array(numGaps).fill(-1)
+                        for (let k = 0; k < arr.length; k++) if (arr[k] === oi) arr[k] = -1
+                        arr[si] = oi
+                        next[currentQ] = arr
+                        return next
+                      })
+                      const clear = (si) => setQuizAnswers(prev => {
+                        const next = [...prev]
+                        const arr = Array.isArray(next[currentQ]) ? [...next[currentQ]] : new Array(numGaps).fill(-1)
+                        arr[si] = -1
+                        next[currentQ] = arr
+                        return next
+                      })
+                      return <>
+                        <div className="qt-drag-sentences">
+                          {visible.map((oi) => {
+                            const isPlaced = answers.includes(oi)
+                            return (
+                              <div
+                                key={oi}
+                                draggable
+                                className={`qt-drag-sentence${dragSource === oi ? ' qt-drag-sentence-selected' : ''}${isPlaced ? ' qt-drag-sentence-used' : ''}`}
+                                onDragStart={e => { e.dataTransfer.setData('text/plain', String(oi)); e.dataTransfer.effectAllowed = 'move'; setDragSource(oi) }}
+                                onDragEnd={() => setDragSource(null)}
+                                onClick={() => setDragSource(dragSource === oi ? null : oi)}
+                              >
+                                <span className="qt-drag-letter">{labelOf(oi)}</span>
+                                <span>{opts[oi]}</span>
+                              </div>
+                            )
+                          })}
                         </div>
-                      ))}
-                    </div>
-                    <div className="qt-drag-gaps-table">
-                      {Array.from({ length: numGaps }, (_, si) => {
-                        const placed = answers[si]
-                        const placedShuffleIdx = placed !== -1 ? shuffled.filter(i => opts[i]).indexOf(placed) : -1
-                        return (
-                          <div key={si} className="qt-drag-gap-row">
-                            <span className="qt-drag-gap-label">Gap {gapName(si)}</span>
-                            <span className="qt-drag-gap-content">
-                              <select
-                                className="qt-cloze-select"
-                                style={{ width: '100%', fontSize: '0.82rem' }}
-                                value={placed}
-                                onChange={e => {
-                                  const val = parseInt(e.target.value)
-                                  setQuizAnswers(prev => { const next = [...prev]; const arr = Array.isArray(next[currentQ]) ? [...next[currentQ]] : new Array(numGaps).fill(-1); arr[si] = val; next[currentQ] = arr; return next })
+                        <div className="qt-drag-gaps-table">
+                          {Array.from({ length: numGaps }, (_, si) => {
+                            const placed = answers[si]
+                            return (
+                              <div
+                                key={si}
+                                className={`qt-drag-gap-row${dragSource != null ? ' qt-drag-gap-ready' : ''}`}
+                                onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('qt-drag-gap-over') }}
+                                onDragLeave={e => e.currentTarget.classList.remove('qt-drag-gap-over')}
+                                onDrop={e => {
+                                  e.preventDefault()
+                                  e.currentTarget.classList.remove('qt-drag-gap-over')
+                                  const oi = parseInt(e.dataTransfer.getData('text/plain'))
+                                  if (!Number.isNaN(oi)) place(si, oi)
+                                  setDragSource(null)
+                                }}
+                                onClick={() => {
+                                  if (dragSource != null) { place(si, dragSource); setDragSource(null) }
+                                  else if (placed != null && placed !== -1) clear(si)
                                 }}
                               >
-                                <option value={-1}>Select {dragLabel}...</option>
-                                {shuffled.filter(i => opts[i]).map((oi, vi) => (
-                                  <option key={oi} value={oi}>{gapLabels[vi]}</option>
-                                ))}
-                              </select>
-                            </span>
-                          </div>
-                        )
-                      })}
-                    </div>
+                                <span className="qt-drag-gap-label">Gap {gapName(si)}</span>
+                                <span className="qt-drag-gap-content">
+                                  {placed != null && placed !== -1 && opts[placed]
+                                    ? <span className="qt-drag-gap-filled"><b>{labelOf(placed)}</b> {opts[placed]} <span className="qt-drag-gap-remove">✕</span></span>
+                                    : <span className="qt-drag-gap-empty">Drop a {dragLabel} here</span>}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </>
+                    })()}
                   </>
                 }
 
@@ -1719,6 +1755,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                     <div className="qt-matching-questions">
                       {(q.matchQuestions || []).map((mq, mi) => (
                         <div key={mi} className="qt-matching-row">
+                          <span className="qt-matching-num">{mi + 1}.</span>
                           <span className="qt-matching-question" dangerouslySetInnerHTML={{ __html: mq.question }} />
                           <select className="qt-cloze-select" value={Array.isArray(selectedAnswer) ? selectedAnswer[mi] : -1} onChange={e => {
                             const val = parseInt(e.target.value)
