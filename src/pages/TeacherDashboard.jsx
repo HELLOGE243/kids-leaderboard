@@ -50,7 +50,27 @@ import {
   onDataChange,
   fullName,
   backfillQuestionIds,
+  preloadAllStudents,
+  getAllStudentReports,
+  resolveQuestionReport,
+  resolveExplanationReport,
+  getImportedQuizSet,
 } from '../data/store.js'
+
+const REPORT_LABELS = {
+  wrong_answer: '❌ Answer is wrong', typo: '✏️ Spelling or typo', image: '🖼️ Picture problem', options: '🔢 Options broken',
+  unclear: "🤔 Doesn't make sense", incorrect: '❌ Explanation wrong', confusing: '🤔 Explanation confusing',
+  video: '🎬 Video problem', offensive: '🚫 Inappropriate', other: '💬 Other',
+}
+const REPORT_SOURCES = { quiz: 'during quiz', review: 'in review', dojo: 'Revision Dojo', revision: 'daily revision' }
+
+function reportQuestion(r) {
+  const set = getImportedQuizSet(r.quizSetId)
+  if (!set) return { set: null, index: r.questionIndex, question: null }
+  let index = r.questionId ? set.questions.findIndex((q) => q.id === r.questionId) : -1
+  if (index === -1) index = r.questionIndex
+  return { set, index, question: set.questions[index] || null }
+}
 
 function TeacherDashboard({ teacher, isAdmin, onLogout }) {
   const [refresh, setRefresh] = useState(0)
@@ -63,6 +83,15 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
 
   // One-off: give permanent ids to questions saved before ids existed.
   useEffect(() => { backfillQuestionIds() }, [])
+
+  // Student reports live in each student's document; load them all once.
+  const [reportsLoaded, setReportsLoaded] = useState(false)
+  const [showResolvedReports, setShowResolvedReports] = useState(false)
+  useEffect(() => {
+    let alive = true
+    preloadAllStudents().finally(() => { if (alive) { setReportsLoaded(true); setRefresh((r) => r + 1) } })
+    return () => { alive = false }
+  }, [])
 
   const org = teacher.orgId ? getOrganisation(teacher.orgId) : (isAdmin ? getFirstOrg() : null)
   const classes = org ? getClassesForOrg(org.id) : []
@@ -245,6 +274,9 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
     return dir * a.name.localeCompare(b.name)
   })
   const attentionCount = pendingApprovalStudents.length + pendingOrders.length + onHoldOrders.length
+  const allReports = org ? getAllStudentReports(org.id) : []
+  const openReports = allReports.filter((r) => !r.resolved)
+  const shownReports = showResolvedReports ? allReports : openReports
 
   function pickImage(onData) {
     const input = document.createElement('input')
@@ -326,6 +358,7 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                 ['Students', activeStudents.length, 'td2-students'],
                 ['Pending sign-ups', pendingApprovalStudents.length, 'td2-attention'],
                 ['Shop orders', pendingOrders.length, 'td2-attention'],
+                ['Question reports', openReports.length, 'td2-reports'],
               ].map(([label, val, target]) => (
                 <button key={label} className={`td2-stat ${label !== 'Classes' && label !== 'Students' && val > 0 ? 'is-alert' : ''}`} onClick={() => scrollTo(target)}>
                   <span className="td2-stat-val">{val}</span>
@@ -451,6 +484,67 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                 )}
               </section>
             </div>
+
+            {/* Student error reports */}
+            <section className="td2-card" id="td2-reports">
+              <div className="td2-card-head td2-wrap">
+                <div className="td2-row td2-row-tight">
+                  <h2 className="td2-h2">Question reports</h2>
+                  {openReports.length > 0 && <span className="td2-badge">{openReports.length} unresolved</span>}
+                </div>
+                {allReports.length > openReports.length && (
+                  <button className="td2-btn-ghost td2-btn-sm" onClick={() => setShowResolvedReports((v) => !v)}>
+                    {showResolvedReports ? 'Hide resolved' : `Show resolved (${allReports.length - openReports.length})`}
+                  </button>
+                )}
+              </div>
+              {!reportsLoaded ? (
+                <p className="td2-empty">Loading reports…</p>
+              ) : shownReports.length === 0 ? (
+                <p className="td2-empty">No problems reported — questions look good. ✅</p>
+              ) : (
+                <div className="td2-reports">
+                  {shownReports.map((r) => {
+                    const { set, index, question } = reportQuestion(r)
+                    const student = students.find((s) => s.id === r.studentId)
+                    const snippet = (question?.prompt || question?.text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+                    const optionText = r.option != null && question?.options?.[r.option] != null
+                      ? `${String.fromCharCode(65 + r.option)}: ${String(question.options[r.option]).replace(/<[^>]*>/g, '').trim() || '(blank)'}`
+                      : null
+                    return (
+                      <div key={r.id} className={`td2-report${r.resolved ? ' is-resolved' : ''}`}>
+                        <div className="td2-report-main">
+                          <div className="td2-report-top">
+                            <span className="td2-report-type">{REPORT_LABELS[r.errorType] || r.errorType}</span>
+                            {r.kind === 'explanation' && <span className="td2-chip">Explanation</span>}
+                            <span className="td2-muted td2-small">
+                              {set ? (set.friendlyTitle || set.rawTitle) : 'Unknown quiz'} · Q{(index ?? 0) + 1}
+                              {r.source ? ` · ${REPORT_SOURCES[r.source] || r.source}` : ''}
+                            </span>
+                          </div>
+                          {snippet && <div className="td2-report-q">“{snippet.length > 160 ? snippet.slice(0, 160) + '…' : snippet}”</div>}
+                          {optionText && <div className="td2-small"><span className="td2-muted">Option flagged:</span> {optionText}</div>}
+                          {r.details && <div className="td2-report-note">{r.details}</div>}
+                          <div className="td2-muted td2-small">{student ? fullName(student) : 'A student'} · {new Date(r.date).toLocaleString()}</div>
+                        </div>
+                        <div className="td2-report-actions">
+                          {set && <button className="td2-btn-ghost td2-btn-sm" onClick={() => { setEditQuizId(set.id); setShowQuizBuilder(true) }}>Open quiz</button>}
+                          {r.resolved ? (
+                            <span className="td2-muted td2-small">Resolved</span>
+                          ) : (
+                            <button className="td2-btn td2-btn-sm" onClick={() => {
+                              if (r.kind === 'question') resolveQuestionReport(r.id, r.studentId)
+                              else resolveExplanationReport(r.id, r.studentId)
+                              forceRefresh()
+                            }}>Mark resolved</button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </section>
 
             {/* Expanded class management */}
             {activeClassData && (

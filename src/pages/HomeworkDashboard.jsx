@@ -42,6 +42,7 @@ import { playCoinSound } from '../utils/soundManager.js'
 import { resolveImages } from '../data/imageStore.js'
 import { parseVideoUrl } from '../utils/video.js'
 import { useScreenGuard } from '../utils/screenGuard.js'
+import ReportIssueModal from '../components/ReportIssueModal.jsx'
 import { checkExplanation, parseExplanation, generateWordDefinition } from '../utils/aiChat.js'
 
 const TRIAL_INSTRUCTIONS = {
@@ -1899,42 +1900,17 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
         )}
         {/* Old vocab onboarding removed — replaced by bottom-slide hint */}
         {showReportModal && (
-          <div className="neon-overlay" style={{ zIndex: 100 }} onClick={() => setShowReportModal(null)}>
-            <div className="qt-report-modal" onClick={e => e.stopPropagation()}>
-              {reportSent ? (
-                <>
-                  <div className="qt-report-modal-icon">✅</div>
-                  <p className="qt-report-modal-title">Report Submitted</p>
-                  <p className="qt-report-modal-sub">Thank you — your teacher will review this.</p>
-                  <button className="btn" style={{ marginTop: 12 }} onClick={() => setShowReportModal(null)}>Close</button>
-                </>
-              ) : (
-                <>
-                  <p className="qt-report-modal-title">{showReportModal === 'question' ? 'Report Question Error' : 'Report Explanation Issue'}</p>
-                  <div className="qt-report-modal-types">
-                    {(showReportModal === 'question'
-                      ? [['wrong_answer', 'Wrong answer marked correct'], ['typo', 'Typo in question'], ['unclear', 'Question unclear'], ['other', 'Other']]
-                      : [['incorrect', 'Incorrect explanation'], ['confusing', 'Confusing'], ['offensive', 'Inappropriate content'], ['other', 'Other']]
-                    ).map(([key, label]) => (
-                      <button key={key} className={`qt-report-type-btn ${reportType === key ? 'qt-report-type-active' : ''}`} onClick={() => setReportType(key)}>{label}</button>
-                    ))}
-                  </div>
-                  <textarea className="qt-report-details" value={reportDetails} onChange={e => setReportDetails(e.target.value)} placeholder="Describe the issue (optional)..." rows={3} />
-                  <div className="qt-report-modal-actions">
-                    <button className="btn btn-outline" onClick={() => setShowReportModal(null)}>Cancel</button>
-                    <button className="btn" disabled={!reportType} onClick={() => {
-                      if (showReportModal === 'question') {
-                        reportQuestionError(takingQuiz.id, currentQ, user.id, reportType, reportDetails)
-                      } else {
-                        reportExplanation(takingQuiz.id, currentQ, user.id, reportType, reportDetails)
-                      }
-                      setReportSent(true)
-                    }}>Submit Report</button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
+          <ReportIssueModal
+            kind={showReportModal}
+            question={resolvedQuestions?.[currentQ]}
+            questionLabel={`Question ${currentQ + 1}`}
+            onClose={() => setShowReportModal(null)}
+            onSubmit={({ type, details, option }) => {
+              const extra = { source: reviewMode || submittedResult ? 'review' : 'quiz', option, questionId: resolvedQuestions?.[currentQ]?.id }
+              if (showReportModal === 'question') reportQuestionError(takingQuiz.id, currentQ, user.id, type, details, extra)
+              else reportExplanation(takingQuiz.id, currentQ, user.id, type, details, extra)
+            }}
+          />
         )}
       </div>
     )

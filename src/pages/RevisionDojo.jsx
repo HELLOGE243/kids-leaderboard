@@ -21,6 +21,7 @@ import {
 } from '../data/store.js'
 import { generateShadowClones } from '../utils/aiChat.js'
 import { authedFetch } from '../data/auth.js'
+import ReportIssueModal from '../components/ReportIssueModal.jsx'
 
 
 // src: full image. placeholder: a 24px blurred copy inlined so something shows instantly.
@@ -704,7 +705,7 @@ Return ONLY valid JSON:
                         rightContent: !cloneAnswered
                           ? <button className="qt-submit-btn" disabled={cloneSelected === -1} onClick={handleCloneSubmit}>Submit</button>
                           : <button className="qt-nav-btn qt-nav-next" onClick={nextClone}>{cloneIdx < 1 ? 'Next' : 'Finish'} &#9654;</button>,
-                        onReportError: () => setReportOpen({ sourceId: currentCard?.sourceId, qIndex: currentCard?.questionIndex || 0 })
+                        onReportError: () => setReportOpen({ sourceId: currentCard?.sourceId, qIndex: currentCard?.questionIndex || 0, question: currentCard?.question, questionId: currentCard?.questionId })
                       }
                     )}
                   </div>
@@ -813,7 +814,7 @@ Return ONLY valid JSON:
                             ? <button className="qt-submit-btn" disabled={selectedAnswer === -1} onClick={handleSubmitAnswer}>Submit</button>
                             : result === 'correct' ? <button className="qt-nav-btn qt-nav-next" onClick={nextCard}>Next &#9654;</button>
                             : !chaosMode ? <span className="dojo-feedback-sub">Entering Shadow Practice...</span> : null,
-                          onReportError: () => setReportOpen({ sourceId: currentCard.sourceId, qIndex: currentCard.questionIndex || 0 })
+                          onReportError: () => setReportOpen({ sourceId: currentCard?.sourceId, qIndex: currentCard?.questionIndex || 0, question: currentCard?.question, questionId: currentCard?.questionId })
                         }
                       )}
                     </div>
@@ -853,7 +854,7 @@ Return ONLY valid JSON:
                     ? <button className="qt-submit-btn" disabled={askSel === -1} onClick={handleAskSubmit}>Submit</button>
                     : <button className="qt-nav-btn qt-nav-next" onClick={() => setAskViewCard(null)}>Back to list &#9654;</button>,
                   onBack: () => setAskViewCard(null),
-                  onReportError: () => setReportOpen({ sourceId: askViewCard.sourceId, qIndex: askViewCard.questionIndex || 0 })
+                  onReportError: () => setReportOpen({ sourceId: askViewCard?.sourceId, qIndex: askViewCard?.questionIndex || 0, question: askViewCard?.question, questionId: askViewCard?.questionId })
                 }
               )}
             </div>
@@ -996,7 +997,7 @@ Return ONLY valid JSON:
                                 <button className="dojo-endless-archive-btn" onClick={handleEndlessArchive} title="Send to archive">📦 Send to Archive</button>
                                 <button className="qt-nav-btn qt-nav-next" onClick={nextEndlessCard}>Next &#9654;</button>
                               </div>,
-                          onReportError: () => setReportOpen({ sourceId: endlessDeck[endlessIdx]?.sourceId, qIndex: endlessDeck[endlessIdx]?.questionIndex || 0 })
+                          onReportError: () => setReportOpen({ sourceId: endlessDeck[endlessIdx]?.sourceId, qIndex: endlessDeck[endlessIdx]?.questionIndex || 0, question: endlessDeck[endlessIdx]?.question, questionId: endlessDeck[endlessIdx]?.questionId })
                         }
                       )}
                     </div>
@@ -1203,30 +1204,14 @@ Return ONLY valid JSON:
       )}
 
       {reportOpen && (
-        <div className="neon-overlay" onClick={() => setReportOpen(null)}>
-          <div className="dojo-upload-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
-            <button className="bg-profile-close" onClick={() => setReportOpen(null)}>✕</button>
-            <div className="dojo-upload-title">Report an Error</div>
-            <p className="dojo-upload-sub">Flag an issue with this question so a teacher can review it.</p>
-            <select value={reportType} onChange={e => setReportType(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.2)', background: '#2a2a3e', color: '#fff', fontSize: '0.85rem', marginBottom: 12 }}>
-              <option value="" style={{ background: '#2a2a3e', color: '#fff' }}>Select error type...</option>
-              <option value="wrong_answer" style={{ background: '#2a2a3e', color: '#fff' }}>Wrong answer marked correct</option>
-              <option value="typo" style={{ background: '#2a2a3e', color: '#fff' }}>Typo in question</option>
-              <option value="unclear" style={{ background: '#2a2a3e', color: '#fff' }}>Question is unclear</option>
-              <option value="other" style={{ background: '#2a2a3e', color: '#fff' }}>Other</option>
-            </select>
-            <textarea placeholder="Details (optional)" value={reportDetails} onChange={e => setReportDetails(e.target.value)} rows={3} style={{ width: '100%', padding: '10px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: '0.85rem', resize: 'vertical' }} />
-            <div style={{ display: 'flex', gap: 12, marginTop: 16, justifyContent: 'center' }}>
-              <button className="btn btn-outline" onClick={() => setReportOpen(null)}>Cancel</button>
-              <button className="btn" disabled={!reportType} onClick={() => {
-                reportQuestionError(reportOpen.sourceId || '', reportOpen.qIndex || 0, user.id, reportType, reportDetails)
-                setReportOpen(null)
-                setReportType('')
-                setReportDetails('')
-              }}>Submit Report</button>
-            </div>
-          </div>
-        </div>
+        <ReportIssueModal
+          kind="question"
+          question={reportOpen.question}
+          onClose={() => setReportOpen(null)}
+          onSubmit={({ type, details, option }) => {
+            reportQuestionError(reportOpen.sourceId || '', reportOpen.qIndex || 0, user.id, type, details, { source: 'dojo', option, questionId: reportOpen.questionId })
+          }}
+        />
       )}
     </div>
   )

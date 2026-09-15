@@ -3785,48 +3785,80 @@ export function getQuizSetsWithWriting(orgId) {
 
 // ========== QUESTION & EXPLANATION REPORTS ==========
 
-export function reportQuestionError(quizSetId, questionIndex, studentId, errorType, details) {
+// --- Student error reports ---
+// Written to the reporting student's own document. Teachers read them across
+// the students they have preloaded (preloadAllStudents) and resolve them there.
+// extra: { questionId, source: 'quiz'|'review'|'dojo'|'revision', option }
+
+function questionIdAt(quizSetId, questionIndex) {
+  const set = (loadData().importedQuizSets || []).find((s) => s.id === quizSetId)
+  return set?.questions?.[questionIndex]?.id || null
+}
+
+export function reportQuestionError(quizSetId, questionIndex, studentId, errorType, details, extra = {}) {
   const id = 'qr-' + generateId(6)
-  const report = { id, quizSetId, questionIndex, studentId, errorType, details, date: new Date().toISOString(), resolved: false }
+  const report = {
+    id, quizSetId, questionIndex, studentId, errorType, details: details || '',
+    questionId: extra.questionId || questionIdAt(quizSetId, questionIndex),
+    source: extra.source || null, option: extra.option ?? null,
+    date: new Date().toISOString(), resolved: false,
+  }
   mutateStudentArray(studentId, 'questionReports', (arr) => arr.push(report))
   return id
 }
 
+function reportsFor(key, orgId) {
+  const data = loadData()
+  return collectStudentArray(key)
+    .filter((r) => r && (!orgId || !data.students[r.studentId]?.orgId || data.students[r.studentId].orgId === orgId))
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+}
+
+function resolveReport(key, reportId, studentId) {
+  const apply = (arr) => {
+    const r = arr.find((x) => x.id === reportId)
+    if (r) { r.resolved = true; r.resolvedAt = new Date().toISOString() }
+  }
+  if (studentId) { mutateStudentArray(studentId, key, apply); return }
+  const data = loadData()
+  apply(data[key] || [])
+  saveData(data)
+}
+
 export function getQuestionReports(orgId) {
-  const data = loadData()
-  return data.questionReports.filter(r => {
-    if (!orgId) return true
-    const set = data.importedQuizSets.find(s => s.id === r.quizSetId)
-    return set?.orgId === orgId
-  }).sort((a, b) => new Date(b.date) - new Date(a.date))
+  return reportsFor('questionReports', orgId)
 }
 
-export function resolveQuestionReport(reportId) {
-  const data = loadData()
-  const r = data.questionReports.find(r => r.id === reportId)
-  if (r) { r.resolved = true; saveData(data) }
+export function resolveQuestionReport(reportId, studentId) {
+  resolveReport('questionReports', reportId, studentId)
 }
 
-export function reportExplanation(quizSetId, questionIndex, studentId, reason, details) {
+export function reportExplanation(quizSetId, questionIndex, studentId, reason, details, extra = {}) {
   const id = 'er-' + generateId(6)
-  const report = { id, quizSetId, questionIndex, studentId, reason, details, date: new Date().toISOString(), resolved: false }
+  const report = {
+    id, quizSetId, questionIndex, studentId, reason, details: details || '',
+    questionId: extra.questionId || questionIdAt(quizSetId, questionIndex),
+    source: extra.source || null, option: extra.option ?? null,
+    date: new Date().toISOString(), resolved: false,
+  }
   mutateStudentArray(studentId, 'explanationReports', (arr) => arr.push(report))
   return id
 }
 
 export function getExplanationReports(orgId) {
-  const data = loadData()
-  return data.explanationReports.filter(r => {
-    if (!orgId) return true
-    const set = data.importedQuizSets.find(s => s.id === r.quizSetId)
-    return set?.orgId === orgId
-  }).sort((a, b) => new Date(b.date) - new Date(a.date))
+  return reportsFor('explanationReports', orgId)
 }
 
-export function resolveExplanationReport(reportId) {
-  const data = loadData()
-  const r = data.explanationReports.find(r => r.id === reportId)
-  if (r) { r.resolved = true; saveData(data) }
+export function resolveExplanationReport(reportId, studentId) {
+  resolveReport('explanationReports', reportId, studentId)
+}
+
+/** Question and explanation reports in one list, newest first, for teacher views. */
+export function getAllStudentReports(orgId) {
+  return [
+    ...getQuestionReports(orgId).map((r) => ({ ...r, kind: 'question' })),
+    ...getExplanationReports(orgId).map((r) => ({ ...r, kind: 'explanation', errorType: r.reason })),
+  ].sort((a, b) => new Date(b.date) - new Date(a.date))
 }
 
 // ===== Vocabulary Bank =====

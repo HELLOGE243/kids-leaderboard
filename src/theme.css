@@ -16032,3 +16032,58 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 @keyframes dojo-page-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes dojo-bg-in { from { filter: blur(8px) brightness(.8); } to { filter: none; } }
 @media (prefers-reduced-motion: reduce) { .dojo-page.dojo-bg-ready, .dojo-page.dojo-bg-ready > .dojo-inner { animation: none; } }
+
+/* ===== Student report-a-problem popup (components/ReportIssueModal.jsx) ===== */
+.rim-overlay { z-index: 100001; }
+.rim {
+  position: relative; width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow-y: auto; box-sizing: border-box;
+  padding: 26px 24px 20px; border-radius: 20px; color: #fff; font-family: 'Google Sans Flex', 'Segoe UI', sans-serif;
+  background: #1c1b33; border: 1px solid rgba(255,255,255,.12); box-shadow: 0 24px 60px rgba(0,0,0,.5);
+  animation: rim-in .22s ease-out;
+}
+.rim-close { position: absolute; top: 10px; right: 12px; width: 34px; height: 34px; border-radius: 50%; border: 0; background: rgba(255,255,255,.06); color: #cbd5e1; font-size: 1rem; cursor: pointer; }
+.rim-close:hover { background: rgba(255,255,255,.14); color: #fff; }
+.rim-title { margin: 0 36px 4px 0; font-size: 1.25rem; font-weight: 800; }
+.rim-sub { margin: 0 0 4px; color: #a0aec0; font-size: .9rem; }
+.rim-issues { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+.rim-issue {
+  display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; align-items: center; text-align: left;
+  padding: 12px; border-radius: 14px; cursor: pointer; color: #fff; font-family: inherit;
+  background: rgba(255,255,255,.05); border: 2px solid rgba(255,255,255,.1); transition: border-color .15s, background .15s, transform .15s;
+}
+.rim-issue:hover { border-color: rgba(255,255,255,.3); transform: translateY(-1px); }
+.rim-issue.is-active { border-color: #ffab00; background: rgba(255,171,0,.12); box-shadow: 0 0 0 3px rgba(255,171,0,.18); }
+.rim-issue-icon { grid-row: 1 / 3; font-size: 1.6rem; line-height: 1; }
+.rim-issue-label { font-weight: 700; font-size: .95rem; }
+.rim-issue-hint { font-size: .76rem; color: #a0aec0; }
+.rim-step { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.1); animation: rim-in .2s ease-out; }
+.rim-step-label { margin: 0 0 8px; font-weight: 700; font-size: .92rem; }
+.rim-options { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.rim-option {
+  display: flex; align-items: center; gap: 10px; text-align: left; padding: 8px 10px; border-radius: 10px; cursor: pointer; color: #e2e8f0; font-family: inherit; font-size: .88rem;
+  background: rgba(255,255,255,.04); border: 2px solid rgba(255,255,255,.08);
+}
+.rim-option b { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.1); font-size: .8rem; }
+.rim-option span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rim-option.is-active { border-color: #ffab00; background: rgba(255,171,0,.1); }
+.rim-option.is-active b { background: #ffab00; color: #1a1a2e; }
+.rim-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.rim-chip { padding: 5px 11px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18); background: transparent; color: #cbd5e1; font-family: inherit; font-size: .8rem; cursor: pointer; }
+.rim-chip:hover { background: rgba(255,255,255,.08); color: #fff; }
+.rim-text {
+  width: 100%; box-sizing: border-box; resize: vertical; padding: 10px 12px; border-radius: 10px; font-family: inherit; font-size: .92rem; color: #fff;
+  background: rgba(255,255,255,.05); border: 2px solid rgba(255,255,255,.12); outline: none;
+}
+.rim-text:focus { border-color: #ffab00; }
+.rim-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.rim-btn { padding: 10px 20px; border-radius: 10px; border: 0; cursor: pointer; font-family: inherit; font-weight: 700; font-size: .92rem; background: #ffab00; color: #1a1a2e; }
+.rim-btn:disabled { background: rgba(255,255,255,.1); color: #94a3b8; cursor: not-allowed; }
+.rim-btn-ghost { background: transparent; color: #cbd5e1; border: 1px solid rgba(255,255,255,.18); }
+.rim-sent { text-align: center; padding: 20px 0 10px; }
+.rim-sent-icon { font-size: 3rem; animation: rim-pop .4s cubic-bezier(.2,1.6,.4,1); }
+@keyframes rim-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes rim-pop { from { transform: scale(.3); } to { transform: scale(1); } }
+.theme-light .rim { background: #fff; color: #1e293b; border-color: rgba(0,0,0,.1); }
+.theme-light .rim-issue, .theme-light .rim-option, .theme-light .rim-text { color: #1e293b; background: rgba(0,0,0,.03); border-color: rgba(0,0,0,.1); }
+.theme-light .rim-chip, .theme-light .rim-btn-ghost { color: #475569; border-color: rgba(0,0,0,.15); }
+@media (max-width: 480px) { .rim-issues { grid-template-columns: 1fr; } .rim { padding: 22px 16px 16px; } }

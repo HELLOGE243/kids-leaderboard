@@ -1319,8 +1319,8 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                         <td>
                           {r.resolved ? <span style={{ color: '#66bb6a' }}>Resolved</span> : (
                             <button className="btn btn-small" style={{ fontSize: '0.5rem', padding: '2px 8px' }} onClick={() => {
-                              if (r.kind === 'question') resolveQuestionReport(r.id)
-                              else resolveExplanationReport(r.id)
+                              if (r.kind === 'question') resolveQuestionReport(r.id, r.studentId)
+                              else resolveExplanationReport(r.id, r.studentId)
                               forceRefresh()
                             }}>Resolve</button>
                           )}

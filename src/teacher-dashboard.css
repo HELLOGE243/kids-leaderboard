@@ -58,7 +58,7 @@
 .td2-segment-btn.is-active { background: var(--accent); color: #fff; cursor: default; }
 
 /* Stats */
-.td2-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.td2-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
 .td2-stat {
   display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; cursor: pointer;
   padding: 16px 18px; border-radius: 14px; background: var(--bg-card); border: 1px solid var(--td2-line); color: var(--text);
@@ -79,7 +79,7 @@
 .td2-h2 { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; margin: 0; }
 .td2-badge { background: var(--warning); color: #1a1a2e; border-radius: 999px; padding: 2px 9px; font-size: 0.78rem; font-weight: 700; }
 
-#td2-classes, #td2-attention, #td2-students, .td2-anchor { scroll-margin-top: 72px; }
+#td2-classes, #td2-attention, #td2-students, #td2-reports, .td2-anchor { scroll-margin-top: 72px; }
 
 /* Layout helpers */
 .td2-row { display: flex; align-items: center; gap: 8px; }
@@ -248,3 +248,15 @@
   .td2-row { flex-wrap: wrap; }
   .td2-roll th:nth-child(2), .td2-roll td:nth-child(2) { display: none; }
 }
+
+/* Question reports */
+.td2-reports { display: flex; flex-direction: column; gap: 8px; max-height: 520px; overflow-y: auto; }
+.td2-report { display: flex; gap: 14px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: var(--td2-soft); border-left: 3px solid var(--warning); }
+.td2-report.is-resolved { opacity: .55; border-left-color: var(--success); }
+.td2-report-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.td2-report-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.td2-report-type { font-weight: 700; }
+.td2-report-q { font-size: .86rem; color: var(--text-dim); font-style: italic; overflow-wrap: anywhere; }
+.td2-report-note { font-size: .9rem; padding: 6px 10px; border-radius: 8px; background: var(--td2-hover); overflow-wrap: anywhere; }
+.td2-report-actions { display: flex; flex-direction: column; gap: 6px; align-items: stretch; flex: none; }
+@media (max-width: 640px) { .td2-report { flex-direction: column; } .td2-report-actions { flex-direction: row; } }

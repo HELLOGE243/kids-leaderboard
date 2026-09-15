@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { getDojoCardsForStudent, recordCompulsoryRevisionAnswer, markDojoAskTeacher, reportQuestionError } from '../data/store.js'
+import ReportIssueModal from '../components/ReportIssueModal.jsx'
 import { RichText } from '../components/RichTextEditor.jsx'
 import { resolveImages } from '../data/imageStore.js'
 
@@ -243,30 +244,14 @@ function SessionRevision({ user, onComplete }) {
         </div>
       )}
       {reportOpen && (
-        <div className="neon-overlay" onClick={() => setReportOpen(false)}>
-          <div style={{ background: '#1a1a2e', borderRadius: 16, padding: 28, maxWidth: 420, width: '90%', position: 'relative' }} onClick={e => e.stopPropagation()}>
-            <button style={{ position: 'absolute', top: 8, right: 12, background: 'none', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }} onClick={() => setReportOpen(false)}>✕</button>
-            <div style={{ fontFamily: 'var(--font-pixel)', fontSize: '0.6rem', color: '#fff', textAlign: 'center', marginBottom: 6 }}>Report an Error</div>
-            <p style={{ fontSize: '0.82rem', color: 'var(--text-dim)', textAlign: 'center', marginBottom: 16 }}>Flag an issue with this question so a teacher can review it.</p>
-            <select value={reportType} onChange={e => setReportType(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.2)', background: '#2a2a3e', color: '#fff', fontSize: '0.85rem', marginBottom: 12 }}>
-              <option value="" style={{ background: '#2a2a3e', color: '#fff' }}>Select error type...</option>
-              <option value="wrong_answer" style={{ background: '#2a2a3e', color: '#fff' }}>Wrong answer marked correct</option>
-              <option value="typo" style={{ background: '#2a2a3e', color: '#fff' }}>Typo in question</option>
-              <option value="unclear" style={{ background: '#2a2a3e', color: '#fff' }}>Question is unclear</option>
-              <option value="other" style={{ background: '#2a2a3e', color: '#fff' }}>Other</option>
-            </select>
-            <textarea placeholder="Details (optional)" value={reportDetails} onChange={e => setReportDetails(e.target.value)} rows={3} style={{ width: '100%', padding: '10px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: '0.85rem', resize: 'vertical' }} />
-            <div style={{ display: 'flex', gap: 12, marginTop: 16, justifyContent: 'center' }}>
-              <button className="btn btn-outline" onClick={() => setReportOpen(false)}>Cancel</button>
-              <button className="btn" disabled={!reportType} onClick={() => {
-                reportQuestionError(card.sourceId || '', card.questionIndex || 0, user.id, reportType, reportDetails)
-                setReportOpen(false)
-                setReportType('')
-                setReportDetails('')
-              }}>Submit Report</button>
-            </div>
-          </div>
-        </div>
+        <ReportIssueModal
+          kind="question"
+          question={card?.question}
+          onClose={() => setReportOpen(false)}
+          onSubmit={({ type, details, option }) => {
+            reportQuestionError(card.sourceId || '', card.questionIndex || 0, user.id, type, details, { source: 'revision', option, questionId: card.questionId })
+          }}
+        />
       )}
     </div>
   )
