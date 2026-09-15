@@ -4496,3 +4496,45 @@ function summarise(quizRows, checkpoints, skillList, dueRevision) {
     actions,
   }
 }
+
+/**
+ * Quizzes auto-submitted for leaving the screen in the last `days`, newest
+ * first. Teacher dashboards preload every student document first.
+ */
+export function getRecentLockouts(orgId, days = 7) {
+  const data = loadData()
+  const since = Date.now() - days * 24 * 60 * 60 * 1000
+  const setTitle = (id) => {
+    const set = (data.importedQuizSets || []).find((x) => x.id === id)
+    if (set) return set.friendlyTitle || set.rawTitle || 'Quiz'
+    const quiz = (data.quizzes || []).find((q) => q.id === id)
+    if (!quiz) return 'Quiz'
+    const topic = (data.topics || []).find((t) => t.id === quiz.topicId)
+    return `${topic?.name || 'Checkpoint'} · Quiz ${quiz.number}`
+  }
+  const rows = []
+  for (const key of ['homeworkAttempts', 'quizAttempts', 'homeworkRedos']) {
+    for (const a of collectStudentArray(key)) {
+      if (!a?.lockedOut || !a.date || new Date(a.date).getTime() < since) continue
+      const student = data.students?.[a.studentId]
+      if (!student || (orgId && student.orgId !== orgId) || student.archived) continue
+      rows.push({
+        id: a.id, studentId: a.studentId, studentName: fullName(student),
+        title: setTitle(a.quizSetId || a.quizId), date: a.date,
+        score: a.score, total: a.total, screenLeaves: a.screenLeaves || 0,
+      })
+    }
+  }
+  return rows.sort((a, b) => new Date(b.date) - new Date(a.date))
+}
+
+/** Active students whose family has no email for reports and alerts. */
+export function getStudentsMissingParentEmail(orgId) {
+  const data = loadData()
+  // Student records are keyed by id in the map and don't repeat it inside.
+  return Object.entries(data.students || {})
+    .filter(([, s]) => s && !s.archived && s.approved !== false && (!orgId || s.orgId === orgId))
+    .filter(([id]) => !getContact(id).parentEmail)
+    .map(([id, s]) => ({ id, name: fullName(s), parentPhone: getContact(id).parentPhone || '' }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}

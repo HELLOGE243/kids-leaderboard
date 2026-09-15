@@ -53,6 +53,9 @@ import {
   backfillQuestionIds,
   moveEmbeddedImagesToStorage,
   preloadAllStudents,
+  getRecentLockouts,
+  getStudentsMissingParentEmail,
+  loadContacts,
   getAllStudentReports,
   resolveQuestionReport,
   resolveExplanationReport,
@@ -95,7 +98,9 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
   const [showResolvedReports, setShowResolvedReports] = useState(false)
   useEffect(() => {
     let alive = true
-    preloadAllStudents().finally(() => { if (alive) { setReportsLoaded(true); setRefresh((r) => r + 1) } })
+    // Parent contacts are teacher-only and load separately; both must be in
+    // before the attention panel counts lockouts and missing contacts.
+    Promise.all([loadContacts(), preloadAllStudents()]).finally(() => { if (alive) { setReportsLoaded(true); setRefresh((r) => r + 1) } })
     return () => { alive = false }
   }, [])
 
@@ -279,7 +284,10 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
     if (classSort.key === 'students') return dir * (a.studentIds.length - b.studentIds.length)
     return dir * a.name.localeCompare(b.name)
   })
-  const attentionCount = pendingApprovalStudents.length + pendingOrders.length + onHoldOrders.length
+  // Integrity and contact gaps (both need every student document preloaded).
+  const lockouts = reportsLoaded ? getRecentLockouts(org?.id, 7) : []
+  const missingParentEmail = reportsLoaded ? getStudentsMissingParentEmail(org?.id) : []
+  const attentionCount = pendingApprovalStudents.length + pendingOrders.length + onHoldOrders.length + lockouts.length + (missingParentEmail.length ? 1 : 0)
   const allReports = org ? getAllStudentReports(org.id) : []
   const openReports = allReports.filter((r) => !r.resolved)
   const shownReports = showResolvedReports ? allReports : openReports
@@ -434,6 +442,35 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                         <button className="td2-btn-danger td2-btn-sm" onClick={() => requestConfirm(`Reject "${fullName(s)}"? This will delete their account.`, () => { deleteStudent(s.id); forceRefresh() }, 'Reject')}>Reject</button>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {lockouts.length > 0 && (
+                  <div className="td2-group">
+                    <div className="td2-group-title">Auto-submitted this week</div>
+                    {lockouts.slice(0, 8).map((l) => (
+                      <div key={l.id} className="td2-item">
+                        <div className="td2-grow">
+                          <div><span className="td2-strong">{l.studentName}</span> · {l.title}</div>
+                          <div className="td2-muted td2-small">Left the quiz screen {l.screenLeaves} times · scored {l.score}/{l.total} · {new Date(l.date).toLocaleDateString()}</div>
+                        </div>
+                        <button className="td2-btn td2-btn-sm" onClick={() => setReportViewStudent(l.studentId)}>View report</button>
+                      </div>
+                    ))}
+                    {lockouts.length > 8 && <div className="td2-muted td2-small">+{lockouts.length - 8} more</div>}
+                  </div>
+                )}
+
+                {missingParentEmail.length > 0 && (
+                  <div className="td2-group">
+                    <div className="td2-group-title">Parents we can't reach</div>
+                    <div className="td2-item">
+                      <span className="td2-grow">
+                        <span className="td2-strong">{missingParentEmail.length} student{missingParentEmail.length === 1 ? ' has' : 's have'} no parent email</span>
+                        <span className="td2-muted td2-small"> — reports and alerts can't be sent: {missingParentEmail.slice(0, 5).map((s) => s.name).join(', ')}{missingParentEmail.length > 5 ? '…' : ''}</span>
+                      </span>
+                      <button className="td2-btn td2-btn-sm" onClick={() => setShowNotifications(true)}>Add contacts</button>
+                    </div>
                   </div>
                 )}
 
