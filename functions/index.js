@@ -597,13 +597,14 @@ function randomDigits(n) {
 const digitsOnly = (s) => String(s || '').replace(/[^\d]/g, '')
 
 // ============================================================
-// PARENT PHONE VERIFICATION
+// PARENT CONTACT VERIFICATION
 //
-// Sign-up texts a 6-digit code to the parent's mobile. Only hashes are stored,
-// in phoneVerifications/{sha256(phone)} (no client access under the rules).
-// A correct code returns a short-lived token that authSignup requires, so an
-// account can't be created with a number nobody can receive texts on.
-// While Twilio isn't configured, verification is switched off (status says so)
+// Sign-up emails a 6-digit code to the parent's email address (sent from the
+// academy Gmail account over SMTP). A correct code returns a short-lived token
+// that authSignup requires; the parent's mobile is then bound to the account
+// alongside the verified email. Only hashes are stored, in
+// contactVerifications/{sha256(email)} (no client access under the rules).
+// While SMTP isn't configured, verification is switched off (status says so)
 // rather than blocking every sign-up.
 // ============================================================
 const CODE_TTL_MS = 10 * 60 * 1000
@@ -612,7 +613,31 @@ const MAX_SENDS_PER_HOUR = 3
 const MIN_RESEND_MS = 30 * 1000
 const MAX_CODE_ATTEMPTS = 5
 const sha256 = (s) => crypto.createHash('sha256').update(String(s)).digest('hex')
-const verificationRef = (phone) => db.collection('phoneVerifications').doc(sha256(phone))
+const normaliseEmail = (e) => {
+  const v = String(e || '').trim().toLowerCase()
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? v : null
+}
+const verificationRef = (email) => db.collection('contactVerifications').doc(sha256(email))
+
+function emailConfigured() {
+  return !!(process.env.SMTP_USER && process.env.SMTP_PASS)
+}
+
+let _mailer = null
+/** Sends one email from the academy account (Gmail SMTP by default). */
+async function sendEmail(to, subject, text, html) {
+  if (!_mailer) {
+    const nodemailer = require('nodemailer')
+    const port = Number(process.env.SMTP_PORT || 465)
+    _mailer = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port,
+      secure: port === 465,
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    })
+  }
+  return _mailer.sendMail({ from: `"${process.env.SMTP_FROM_NAME || 'Avant CleverSpace'}" <${process.env.SMTP_USER}>`, to, subject, text, html })
+}
 
 exports.phoneVerify = functions
   .region('australia-southeast1')
@@ -620,13 +645,13 @@ exports.phoneVerify = functions
     cors(req, res, async () => {
       if (req.method !== 'POST') return sendJson(res, 405, { error: 'Method not allowed' })
       try {
-        const { action, phone: rawPhone, code } = req.body || {}
-        if (action === 'status') return sendJson(res, 200, { required: smsConfigured() })
-        if (!smsConfigured()) return sendJson(res, 503, { error: 'Text messages are not set up yet.' })
+        const { action, email: rawEmail, code } = req.body || {}
+        if (action === 'status') return sendJson(res, 200, { required: emailConfigured(), channel: 'email' })
+        if (!emailConfigured()) return sendJson(res, 503, { error: 'Email codes are not set up yet.' })
 
-        const phone = normaliseAuMobile(rawPhone)
-        if (!phone) return sendJson(res, 400, { error: 'Enter an Australian mobile number starting with 04.' })
-        const ref = verificationRef(phone)
+        const email = normaliseEmail(rawEmail)
+        if (!email) return sendJson(res, 400, { error: "Enter the parent's email address." })
+        const ref = verificationRef(email)
         const now = Date.now()
 
         if (action === 'send') {
@@ -634,13 +659,23 @@ exports.phoneVerify = functions
             const cur = (await tx.get(ref)).data() || {}
             const sends = (cur.sends || []).filter((t) => now - t < 60 * 60 * 1000)
             if (sends.length && now - sends[sends.length - 1] < MIN_RESEND_MS) return { error: 'Please wait 30 seconds before asking for another code.', status: 429 }
-            if (sends.length >= MAX_SENDS_PER_HOUR) return { error: 'Too many codes sent to this number. Try again in an hour.', status: 429 }
+            if (sends.length >= MAX_SENDS_PER_HOUR) return { error: 'Too many codes sent to this email. Try again in an hour.', status: 429 }
             const newCode = randomDigits(6)
-            tx.set(ref, { codeHash: sha256(phone + newCode), expiresAt: now + CODE_TTL_MS, attempts: 0, sends: [...sends, now], tokenHash: null, tokenExpires: 0 })
+            tx.set(ref, { codeHash: sha256(email + newCode), expiresAt: now + CODE_TTL_MS, attempts: 0, sends: [...sends, now], tokenHash: null, tokenExpires: 0 })
             return { code: newCode }
           })
           if (result.error) return sendJson(res, result.status, { error: result.error })
-          await sendTwilio(phone, `Your CleverSpace verification code is ${result.code}. It expires in 10 minutes.`)
+          await sendEmail(
+            email,
+            `Your CleverSpace code: ${result.code}`,
+            `Your CleverSpace verification code is ${result.code}. It expires in 10 minutes.\n\nIf you didn't sign up a student at Avant, you can ignore this email.`,
+            `<div style="font-family:Arial,sans-serif;max-width:420px;margin:auto;padding:24px;color:#1a1a2e">
+              <h2 style="margin:0 0 12px">Verify your email</h2>
+              <p>Use this code to finish signing up your child on Avant CleverSpace:</p>
+              <p style="font-size:32px;font-weight:700;letter-spacing:8px;background:#f3f4f6;border-radius:10px;padding:14px;text-align:center">${result.code}</p>
+              <p style="color:#6b7280;font-size:13px">It expires in 10 minutes. Homework and test updates will be sent to this email. If you didn't sign up a student at Avant, you can ignore this email.</p>
+            </div>`,
+          )
           return sendJson(res, 200, { ok: true })
         }
 
@@ -649,9 +684,9 @@ exports.phoneVerify = functions
             const cur = (await tx.get(ref)).data()
             if (!cur || !cur.codeHash || now > cur.expiresAt) return { error: 'That code has expired. Send a new one.', status: 400 }
             if ((cur.attempts || 0) >= MAX_CODE_ATTEMPTS) return { error: 'Too many wrong attempts. Send a new code.', status: 429 }
-            if (sha256(phone + String(code || '').trim()) !== cur.codeHash) {
+            if (sha256(email + String(code || '').trim()) !== cur.codeHash) {
               tx.update(ref, { attempts: (cur.attempts || 0) + 1 })
-              return { error: 'That code is not right. Check the text and try again.', status: 400 }
+              return { error: 'That code is not right. Check the email and try again.', status: 400 }
             }
             const token = crypto.randomBytes(24).toString('hex')
             tx.update(ref, { codeHash: null, tokenHash: sha256(token), tokenExpires: now + TOKEN_TTL_MS })
@@ -664,18 +699,17 @@ exports.phoneVerify = functions
         return sendJson(res, 400, { error: 'Unknown action' })
       } catch (e) {
         console.error('phoneVerify failed:', e)
-        return sendJson(res, 500, { error: 'Could not send the code. Check the number and try again.' })
+        return sendJson(res, 500, { error: 'Could not send the code. Check the email address and try again.' })
       }
     })
   })
 
-/** True if `token` proves `rawPhone` was verified recently; consumes it. */
-async function consumePhoneToken(rawPhone, token) {
-  const phone = normaliseAuMobile(rawPhone)
-  if (!phone || !token) return false
-  const ref = verificationRef(phone)
-  const snap = await ref.get()
-  const cur = snap.data()
+/** True if `token` proves `rawEmail` was verified recently; consumes it. */
+async function consumeEmailToken(rawEmail, token) {
+  const email = normaliseEmail(rawEmail)
+  if (!email || !token) return false
+  const ref = verificationRef(email)
+  const cur = (await ref.get()).data()
   if (!cur || !cur.tokenHash || Date.now() > cur.tokenExpires || cur.tokenHash !== sha256(token)) return false
   await ref.delete()
   return true
@@ -693,13 +727,13 @@ exports.authSignup = functions
         if (cleanName.length < 1 || cleanName.length > 40) return sendJson(res, 400, { error: 'Please enter a nickname.' })
         if (!password || String(password).length < 1) return sendJson(res, 400, { error: 'Enter a password.' })
 
-        let phoneVerified = false
+        let emailVerified = false
         if (role === 'student') {
           const p = profile || {}
           if (!normaliseAuMobile(p.parentPhone)) return sendJson(res, 400, { error: "Enter the parent's mobile number (04XX XXX XXX)." })
-          if (smsConfigured()) {
-            phoneVerified = await consumePhoneToken(p.parentPhone, p.phoneToken)
-            if (!phoneVerified) return sendJson(res, 400, { error: "Please verify the parent's phone number again." })
+          if (emailConfigured()) {
+            emailVerified = await consumeEmailToken(p.parentEmail, p.verifyToken)
+            if (!emailVerified) return sendJson(res, 400, { error: "Please verify the parent's email again." })
           }
         }
 
@@ -768,8 +802,11 @@ exports.authSignup = functions
           await contactRef(created.id).set({
             parentPhone: String(p.parentPhone || '').trim(),
             parentEmail: String(p.parentEmail || '').trim(),
-            phoneVerified,
-            ...(phoneVerified ? { phoneVerifiedAt: Date.now() } : {}),
+            // The mobile is bound to the account alongside the verified email; it
+            // is not itself proven reachable until a text is delivered to it.
+            emailVerified,
+            ...(emailVerified ? { emailVerifiedAt: Date.now() } : {}),
+            phoneVerified: false,
             updatedAt: Date.now(),
           })
         }

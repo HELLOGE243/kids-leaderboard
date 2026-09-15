@@ -71,14 +71,14 @@ export async function signupUser(role, name, password, profile) {
 }
 
 /**
- * Parent phone verification at sign-up.
+ * Parent contact verification at sign-up (code sent to the parent's email).
  *   phoneVerification('status')              -> { ok, required }
- *   phoneVerification('send', phone)         -> { ok } (texts a 6-digit code)
- *   phoneVerification('check', phone, code)  -> { ok, token } (pass token to sign-up)
+ *   phoneVerification('send', email)         -> { ok } (emails a 6-digit code)
+ *   phoneVerification('check', email, code)  -> { ok, token } (pass token to sign-up)
  */
-export async function phoneVerification(action, phone, code) {
+export async function phoneVerification(action, email, code) {
   try {
-    const { ok, data } = await postJson('phoneVerify', { action, phone, code })
+    const { ok, data } = await postJson('phoneVerify', { action, email, code })
     if (!ok) return { ok: false, error: data?.error || 'Something went wrong. Try again.' }
     return { ok: true, ...data }
   } catch (e) {
