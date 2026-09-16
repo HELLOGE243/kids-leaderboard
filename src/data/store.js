@@ -3029,10 +3029,19 @@ export function getDojoArchivedCards(studentId) {
   return liveDojoCards(studentId, c => c.archived)
 }
 
+/**
+ * Whose card this is. Cards live in each student's own document now, so the
+ * loaded student caches are searched first; the legacy shared array is only a
+ * fallback for cards made before the migration. Reading the shared array alone
+ * silently dropped every answer on a card created since.
+ */
 function findDojoCardOwner(cardId) {
+  const caches = getAllStudentCaches()
+  for (const [studentId, sData] of Object.entries(caches)) {
+    if ((sData?.dojoCards || []).some((c) => c.id === cardId)) return studentId
+  }
   const data = loadData()
-  const card = (data.dojoCards || []).find(c => c.id === cardId)
-  return card?.studentId || null
+  return (data.dojoCards || []).find((c) => c.id === cardId)?.studentId || null
 }
 
 function incrementDojoKills(studentId) {
@@ -3219,6 +3228,13 @@ export function setQuizSetTopic(quizSetId, topic) {
     if (card.sourceId === quizSetId) card.topic = topic
   }
   saveData(data)
+  // Cards in each student's own document need the new topic too.
+  for (const [studentId, sData] of Object.entries(getAllStudentCaches())) {
+    if (!(sData?.dojoCards || []).some((c) => c.sourceId === quizSetId)) continue
+    mutateStudentArray(studentId, 'dojoCards', (arr) => {
+      for (const card of arr) if (card.sourceId === quizSetId) card.topic = topic
+    })
+  }
 }
 
 export function archiveDojoCard(cardId) {
@@ -3293,6 +3309,15 @@ export function rejectCustomDojoCard(reviewId) {
     data.dojoCards = data.dojoCards.filter(c => c.id !== reviewId)
   }
   saveData(data)
+  // The card itself lives in the student's own document.
+  const ownerId = review?.studentId || findDojoCardOwner(reviewId)
+  if (ownerId) {
+    mutateStudentArray(ownerId, 'dojoCards', (arr) => {
+      const kept = arr.filter((c) => c.id !== reviewId)
+      arr.length = 0
+      arr.push(...kept)
+    })
+  }
 }
 
 // --- Shop Pools (Books / Tech & Novelty) ---
