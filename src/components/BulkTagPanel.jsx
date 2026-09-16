@@ -12,7 +12,7 @@ import { surveyTaxonomy, reviewTagUsage, tagQuestions, describeBrief, CHECKPOINT
 
 const BATCH_SETS = 1 // save after each set, so a stopped run keeps its work
 
-export default function BulkTagPanel({ onClose }) {
+export default function BulkTagPanel({ onClose, setIds = null }) {
   const [subject, setSubject] = useState('reading')
   const [autoRefine, setAutoRefine] = useState(true)
   const [includeTagged, setIncludeTagged] = useState(false)
@@ -21,7 +21,10 @@ export default function BulkTagPanel({ onClose }) {
   const stopRef = useRef(false)
   const resolveRef = useRef(null)
 
-  const sets = getImportedQuizSets().filter((s) => subjectForQuizSet(s) === subject)
+  // Either the sets just imported (every subject among them), or one subject.
+  const all = getImportedQuizSets()
+  const sets = setIds ? all.filter((s) => setIds.includes(s.id) && subjectForQuizSet(s)) : all.filter((s) => subjectForQuizSet(s) === subject)
+  const skipped = setIds ? all.filter((s) => setIds.includes(s.id) && !subjectForQuizSet(s)) : []
   const countUntagged = sets.reduce((n, s) => n + s.questions.filter((q) => includeTagged || !q.tags?.length).length, 0)
 
   const log = (line) => setState((st) => ({ ...st, lines: [line, ...(st.lines || [])].slice(0, 200) }))
@@ -45,12 +48,25 @@ export default function BulkTagPanel({ onClose }) {
 
   async function run() {
     stopRef.current = false
-    const subjectName = TAG_SUBJECTS.find((s) => s.id === subject)?.name || subject
     setState({ phase: 'survey', done: 0, total: countUntagged, lines: [] })
+    // Imported sets can span subjects; each is surveyed and tagged on its own.
+    const subjects = setIds ? [...new Set(sets.map((s) => subjectForQuizSet(s)))] : [subject]
+    let grandTotal = 0
+    for (const subjectId of subjects) {
+      if (stopRef.current) break
+      const mine = sets.filter((s) => subjectForQuizSet(s) === subjectId)
+      grandTotal += await runSubject(subjectId, mine)
+    }
+    setState((st) => ({ ...st, phase: stopRef.current ? 'stopped' : 'done', done: grandTotal }))
+  }
+
+  async function runSubject(subject, sets) {
+    const subjectName = TAG_SUBJECTS.find((s) => s.id === subject)?.name || subject
 
     // Every question in scope, with its set, in a stable order.
     const work = sets.flatMap((s) => s.questions.filter((q) => q.id && (includeTagged || !q.tags?.length)).map((q) => ({ setId: s.id, q })))
-    if (!work.length) { setState({ phase: 'done', lines: ['Nothing to tag: every question in these sets already has tags.'] }); return }
+    if (!work.length) { log(`${subjectName}: every question already has tags.`); return 0 }
+    log(`— ${subjectName}: ${work.length} questions —`)
 
     let tags = getTagLibrary().filter((t) => t.subject === subject)
 
@@ -111,8 +127,7 @@ export default function BulkTagPanel({ onClose }) {
     // A short library never reaches a mid-run checkpoint, so always review once
     // at the end - that is where a catch-all tag is most visible.
     if (!stopRef.current && sinceCheckpoint >= 60) await checkpoint()
-
-    setState((st) => ({ ...st, phase: stopRef.current ? 'stopped' : 'done', done: assigned.size }))
+    return assigned.size
 
     async function checkpoint() {
       {
@@ -171,16 +186,17 @@ export default function BulkTagPanel({ onClose }) {
         <p className="qtag-sub">Works through the quiz library, and refines the tag list as it sees more questions — when a tag turns out to cover two different skills, it splits it and re-tags the earlier questions to match.</p>
 
         <div className="bt-controls">
-          <label>Subject
+          {setIds && <p className="qtag-sub">Just imported: <b>{sets.length}</b> quiz set{sets.length === 1 ? '' : 's'}{skipped.length ? ` (${skipped.length} skipped — subject not recognised from the title)` : ''}.</p>}
+          {!setIds && <label>Subject
             <select className="qtag-search" value={subject} onChange={(e) => setSubject(e.target.value)} disabled={busy}>
               {TAG_SUBJECTS.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
-          </label>
+          </label>}
           <label className="bt-check"><input type="checkbox" checked={autoRefine} onChange={(e) => setAutoRefine(e.target.checked)} disabled={busy} /> Apply tag changes automatically (otherwise it asks)</label>
           <label className="bt-check"><input type="checkbox" checked={includeTagged} onChange={(e) => setIncludeTagged(e.target.checked)} disabled={busy} /> Re-tag questions that already have tags</label>
         </div>
 
-        <p className="qtag-sub"><b>{sets.length}</b> quiz sets · <b>{countUntagged}</b> questions to tag</p>
+        <p className="qtag-sub"><b>{sets.length}</b> quiz set{sets.length === 1 ? '' : 's'} · <b>{countUntagged}</b> question{countUntagged === 1 ? '' : 's'} to tag{countUntagged === 0 ? ' — everything here is already tagged' : ''}</p>
 
         {busy && (
           <div className="bt-progress">

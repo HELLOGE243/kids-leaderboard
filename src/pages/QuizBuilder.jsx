@@ -93,6 +93,8 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
   const [lockDropOpen, setLockDropOpen] = useState(false)
   const [currentEditQ, setCurrentEditQ] = useState(0)
   const [showBulkTag, setShowBulkTag] = useState(false)
+  // Set ids offered for tagging straight after an import.
+  const [tagAfterImport, setTagAfterImport] = useState(null)
   const [showEditSettings, setShowEditSettings] = useState(false)
   const [activeDescTab, setActiveDescTab] = useState(0)
   const [confirmAction, setConfirmAction] = useState(null)
@@ -457,6 +459,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
           errors: [...prev.errors, ...saveErrors],
           unmatchedTitles: [...(prev.unmatchedTitles || []), ...result.unmatchedTitles],
           duplicates: [...(prev.duplicates || []), ...result.duplicates],
+          setIds: [...new Set([...(prev.setIds || []), ...result.added.map((x) => x.id)])],
           typeCounts: Object.entries(result.typeCounts || {}).reduce((acc, [k, v]) => ({ ...acc, [k]: (acc[k] || 0) + v }), { ...(prev.typeCounts || {}) }),
           flagged: [...(prev.flagged || []), ...(result.flagged || [])],
           chunkSizes,
@@ -1292,6 +1295,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
   return (
     <div className="page" style={{ maxWidth: 1400, margin: '0 auto', display: 'flex', flexDirection: 'column', minHeight: 'calc(100dvh - 40px)' }}>
       {showBulkTag && <BulkTagPanel onClose={() => { setShowBulkTag(false); forceRefresh() }} />}
+      {tagAfterImport && <BulkTagPanel setIds={tagAfterImport} onClose={() => { setTagAfterImport(null); forceRefresh() }} />}
       <div className="header">
         <h1 className="pixel-title">Quiz Builder</h1>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -1970,6 +1974,9 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
               )}
             </div>
             <div className="modal-actions" style={{ marginTop: 12 }}>
+              {importReport.setIds?.length > 0 && (
+                <button className="btn" onClick={() => setTagAfterImport(importReport.setIds)}>{'✨'} Tag new questions with AI</button>
+              )}
               <button className="btn" onClick={() => fileInputRef.current?.click()}>Import Another</button>
               <button className="btn btn-outline" onClick={() => setImportReport(null)}>Done</button>
             </div>
