@@ -16306,3 +16306,34 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .bt-proposal-row span { display: flex; flex-direction: column; }
 .bt-proposal-row small { color: #5b6275; }
 .bt-log { max-height: 190px; overflow-y: auto; background: #f7f8fb; border: 1px solid #e3e6ee; border-radius: 10px; padding: 8px 10px; font-size: 0.82rem; line-height: 1.6; margin: 10px 0; }
+
+/* Re-marking preview rows (Quiz Builder) */
+.rm-row { display: grid; grid-template-columns: minmax(0, 1fr) 70px 18px 70px 44px; gap: 8px; align-items: center; padding: 5px 8px; border-radius: 6px; font-size: 0.88rem; }
+.rm-row:nth-child(odd) { background: #f7f8fb; }
+.rm-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rm-old { color: #6b7280; }
+.rm-arrow { color: #9aa1b2; text-align: center; }
+.rm-new, .rm-delta { font-weight: 700; }
+.rm-up { color: #15803d; }
+.rm-down { color: #b91c1c; }
+
+/* Progress tests: confetti when a subject bar reaches 100% */
+.pq-confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; border-radius: inherit; }
+.pq-confetto {
+  position: absolute; top: -14px; left: var(--x); width: 9px; height: 14px; border-radius: 2px;
+  background: hsl(var(--hue) 90% 58%); opacity: 0;
+  animation: pq-fall 2.4s cubic-bezier(.25,.6,.35,1) var(--delay) 2 both;
+}
+@keyframes pq-fall {
+  0% { opacity: 0; transform: translate(0, -10px) rotate(0deg); }
+  10% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--drift), 260%) rotate(var(--spin)); }
+}
+.pq-complete-badge {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  padding: 6px 16px; border-radius: 999px; white-space: nowrap;
+  background: rgba(20, 12, 40, 0.82); color: #ffe08a; font-weight: 800; font-size: 0.95rem;
+  box-shadow: 0 0 22px rgba(255, 200, 90, 0.45); animation: pq-badge-in .5s cubic-bezier(.2,1.6,.4,1) both;
+}
+@keyframes pq-badge-in { from { opacity: 0; transform: translate(-50%, -50%) scale(.6); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .pq-confetti { display: none; } }

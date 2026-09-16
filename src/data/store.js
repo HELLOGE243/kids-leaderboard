@@ -24,7 +24,7 @@
 import { extractAndStoreImages, findImageRefs, deleteImages } from './imageStore.js'
 import { pickSolutionVideo } from '../utils/video.js'
 import { planImport, applyAiSplit, mergeCloze } from '../utils/cleverspaceImport.js'
-import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
+import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, deleteStudentFirestore, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
 
 export { onDataChange, onBroadcast, sendBroadcast, loadContacts }
 
@@ -395,11 +395,15 @@ function mutateStudentArray(studentId, key, mutateFn) {
     saveStudentData(studentId, sData)
     return
   }
-  console.warn(`store: student ${studentId} is not migrated; falling back to the shared array for "${key}"`)
-  const data = loadData()
-  if (!data[key]) data[key] = []
-  mutateFn(data[key], data)
-  saveData(data)
+  // No document yet (a student created outside the sign-in flow). Start one
+  // rather than writing to the shared array: answers for cloze, drag and
+  // matching questions are arrays, and Firestore rejects arrays nested inside
+  // an array, so those writes failed silently and the work was lost.
+  console.warn(`store: starting a data document for student ${studentId} ("${key}")`)
+  const fresh = { ...(sData || {}), _migrated: true, studentId }
+  if (!fresh[key]) fresh[key] = []
+  mutateFn(fresh[key], fresh)
+  saveStudentData(studentId, fresh)
 }
 
 function getStudentProfile(studentId) {
@@ -633,6 +637,8 @@ export function deleteStudent(studentId) {
     cls.studentIds = cls.studentIds.filter(id => id !== studentId)
   }
   saveData(data)
+  // Their own document holds the attempts, dojo cards and game saves.
+  deleteStudentFirestore(studentId)
   return true
 }
 
@@ -4563,4 +4569,264 @@ export function getStudentsMissingParentEmail(orgId) {
     .filter(([id]) => !getContact(id).parentEmail)
     .map(([id, s]) => ({ id, name: fullName(s), parentPhone: getContact(id).parentPhone || '' }))
     .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+// ============================================================
+// RE-MARKING AFTER AN ANSWER-KEY FIX
+//
+// Every attempt stores the student's answers, so a corrected key can be applied
+// to work already submitted: each attempt is scored again against the current
+// questions. Scores may go up or down; coins are topped up when a score rises
+// and never taken back. Teachers preview the effect before anything is written.
+// ============================================================
+
+/** Marking-relevant fields only: wording and explanation edits change nothing. */
+function markingKey(q) {
+  return JSON.stringify({
+    type: q.type || 'multiple-choice',
+    correctIndex: q.correctIndex ?? null,
+    blanks: (q.blanks || []).map((b) => b.correctIndex),
+    correctOrder: q.correctOrder || null,
+    match: (q.matchQuestions || []).map((m) => m.correctExtract),
+  })
+}
+
+/** Question ids whose correct answer differs between two versions of a set. */
+export function changedAnswerKeys(before, after) {
+  const old = new Map((before || []).map((q) => [q.id, markingKey(q)]))
+  return (after || []).filter((q) => old.has(q.id) && old.get(q.id) !== markingKey(q)).map((q) => q.id)
+}
+
+function rescoreAttempt(set, attempt) {
+  let score = 0
+  let total = 0
+  set.questions.forEach((q, i) => {
+    score += scoreOneQuestion(q, attempt.answers?.[i])
+    total += totalMarksForQuestion(q)
+  })
+  return { score, total }
+}
+
+/**
+ * What re-marking this quiz set would change. Teachers must have the students
+ * loaded (class dashboards and the teacher dashboard preload them).
+ * @returns {{quizTitle, rows: Array<{studentId,name,kind,oldScore,newScore,total,delta}>}|null}
+ */
+export function previewRemark(quizSetId) {
+  const data = loadData()
+  const set = (data.importedQuizSets || []).find((s) => s.id === quizSetId)
+  if (!set) return null
+  const rows = []
+  for (const kind of ['homeworkAttempts', 'homeworkRedos']) {
+    for (const a of collectStudentArray(kind)) {
+      if (a.quizSetId !== quizSetId) continue
+      const student = data.students?.[a.studentId]
+      const { score, total } = rescoreAttempt(set, a)
+      rows.push({
+        id: a.id, studentId: a.studentId, name: student ? fullName(student) : a.studentId,
+        kind: kind === 'homeworkRedos' ? 'redo' : 'attempt',
+        oldScore: a.score, newScore: score, total, delta: score - a.score,
+      })
+    }
+  }
+  rows.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta) || a.name.localeCompare(b.name))
+  return { quizTitle: set.friendlyTitle || set.rawTitle || 'Quiz', rows }
+}
+
+/**
+ * Applies the re-marking: attempt scores are rewritten from the stored answers,
+ * coins topped up where a score rose, and Revision Hall cards archived where the
+ * student's answer is now correct.
+ */
+export function applyRemark(quizSetId) {
+  const preview = previewRemark(quizSetId)
+  if (!preview) return null
+  const data = loadData()
+  const set = (data.importedQuizSets || []).find((s) => s.id === quizSetId)
+  const byStudent = new Map()
+  for (const row of preview.rows) {
+    if (!byStudent.has(row.studentId)) byStudent.set(row.studentId, [])
+    byStudent.get(row.studentId).push(row)
+  }
+
+  let changed = 0
+  let coinsAwarded = 0
+  let cardsArchived = 0
+  for (const [studentId, rows] of byStudent) {
+    for (const kind of ['homeworkAttempts', 'homeworkRedos']) {
+      const mine = rows.filter((r) => (kind === 'homeworkRedos' ? r.kind === 'redo' : r.kind === 'attempt'))
+      if (!mine.length) continue
+      mutateStudentArray(studentId, kind, (arr) => {
+        for (const row of mine) {
+          const a = arr.find((x) => x.id === row.id)
+          if (!a || a.score === row.newScore) continue
+          a.score = row.newScore
+          a.total = row.total
+          a.remarkedAt = new Date().toISOString()
+          changed++
+        }
+      })
+    }
+    // Coins were awarded at 10 per mark; top up a rise, never claw back.
+    const gain = rows.filter((r) => r.kind === 'attempt').reduce((n, r) => n + Math.max(0, r.delta), 0)
+    if (gain > 0) { addCoins(studentId, gain * 10); coinsAwarded += gain * 10 }
+
+    // A card exists because the answer was wrong; archive any that are now right.
+    const attempt = getStudentArray(studentId, 'homeworkAttempts').find((a) => a.quizSetId === quizSetId)
+    if (!attempt) continue
+    const nowCorrect = new Set()
+    set.questions.forEach((q, i) => {
+      if (q.id && scoreOneQuestion(q, attempt.answers?.[i]) === totalMarksForQuestion(q)) nowCorrect.add(q.id)
+    })
+    if (!nowCorrect.size) continue
+    mutateStudentArray(studentId, 'dojoCards', (arr) => {
+      for (const card of arr) {
+        if (card.archived || card.sourceId !== quizSetId || !nowCorrect.has(card.questionId)) continue
+        card.archived = true
+        card.archivedDate = new Date().toISOString()
+        card.archivedReason = 'answer key corrected'
+        cardsArchived++
+      }
+    })
+  }
+  return { changed, coinsAwarded, cardsArchived, students: byStudent.size }
+}
+
+// ============================================================
+// CLASS GROUPS
+//
+// A group is a named subset of a class (a teaching group, an intervention
+// group). Groups filter the skill analytics below so a teacher can look at the
+// six students they are about to sit with.
+// ============================================================
+export function getClassGroups(classId) {
+  return (loadData().classGroups || []).filter((g) => !classId || g.classId === classId)
+}
+
+export function createClassGroup(classId, name, studentIds = []) {
+  const data = loadData()
+  if (!data.classGroups) data.classGroups = []
+  const group = { id: 'grp-' + generateId(6), classId, name: String(name).trim() || 'Group', studentIds: [...studentIds], createdAt: new Date().toISOString() }
+  data.classGroups.push(group)
+  saveData(data)
+  return group
+}
+
+export function updateClassGroup(groupId, fields) {
+  const data = loadData()
+  const group = (data.classGroups || []).find((g) => g.id === groupId)
+  if (!group) return null
+  if (fields.name !== undefined) group.name = String(fields.name).trim() || group.name
+  if (fields.studentIds !== undefined) group.studentIds = [...fields.studentIds]
+  saveData(data)
+  return group
+}
+
+export function deleteClassGroup(groupId) {
+  const data = loadData()
+  data.classGroups = (data.classGroups || []).filter((g) => g.id !== groupId)
+  saveData(data)
+}
+
+// ============================================================
+// SKILL ANALYTICS
+//
+// Accuracy per skill tag, for one student or for a whole class or group, built
+// from the answers already stored on each attempt. Only tagged questions count,
+// so a subject shows up once its quizzes have been tagged.
+// ============================================================
+
+/** quizSetIds a class is actually assigned, optionally limited to one course. */
+function classQuizSetIds(classId, courseId) {
+  const data = loadData()
+  const ids = []
+  for (const course of data.courses || []) {
+    if (course.classId !== classId) continue
+    if (courseId && course.id !== courseId) continue
+    for (const mod of course.modules || []) ids.push(...(mod.quizSetIds || []))
+  }
+  return ids
+}
+
+/**
+ * One student's accuracy per skill, from homework attempts (best of attempt and
+ * redo) and checkpoint quizzes.
+ * @returns {Array<{tagId,name,subject,correct,total,pct}>} weakest first
+ */
+export function getStudentSkillProfile(studentId, { classId = null, courseId = null } = {}) {
+  const data = loadData()
+  const tagMap = getTagMap()
+  const skills = new Map()
+  const add = (question, earned, marks) => {
+    for (const id of question?.tags || []) {
+      const tag = tagMap[id]
+      if (!tag || !marks) continue
+      const cur = skills.get(id) || { tagId: id, name: tag.name, subject: tag.subject, correct: 0, total: 0 }
+      cur.correct += earned
+      cur.total += marks
+      skills.set(id, cur)
+    }
+  }
+
+  const wanted = classId ? new Set(classQuizSetIds(classId, courseId)) : null
+  const attempts = getStudentArray(studentId, 'homeworkAttempts')
+  const redos = getStudentArray(studentId, 'homeworkRedos')
+  for (const set of data.importedQuizSets || []) {
+    if (wanted && !wanted.has(set.id)) continue
+    const attempt = attempts.find((a) => a.quizSetId === set.id)
+    const redo = redos.filter((r) => r.quizSetId === set.id).pop()
+    const best = redo && attempt ? (redo.score >= attempt.score ? redo : attempt) : (attempt || redo)
+    if (!best) continue
+    set.questions.forEach((q, i) => add(q, scoreOneQuestion(q, best.answers?.[i]), totalMarksForQuestion(q)))
+  }
+
+  if (!courseId) {
+    const cpAttempts = getStudentArray(studentId, 'quizAttempts')
+    for (const quiz of data.quizzes || []) {
+      if (classId && quiz.classId !== classId) continue
+      const a = cpAttempts.find((x) => x.quizId === quiz.id)
+      if (!a) continue
+      quiz.questions.forEach((q, i) => add(q, a.answers?.[i] === q.correctIndex ? 1 : 0, 1))
+    }
+  }
+
+  return [...skills.values()]
+    .map((s) => ({ ...s, pct: s.total > 0 ? Math.round((s.correct / s.total) * 100) : null }))
+    .sort((a, b) => a.pct - b.pct)
+}
+
+/**
+ * Skill accuracy across a class, or one group within it.
+ * @returns {{students: Array, skills: Array<{tagId,name,subject,pct,total,answered,struggling:Array}>}}
+ */
+export function getClassSkillSummary(classId, { courseId = null, groupId = null, minQuestions = 5 } = {}) {
+  const data = loadData()
+  const cls = data.classes?.[classId]
+  if (!cls) return { students: [], skills: [] }
+  const group = groupId ? (data.classGroups || []).find((g) => g.id === groupId) : null
+  const studentIds = (cls.studentIds || []).filter((id) => !group || group.studentIds.includes(id))
+
+  const students = studentIds.map((id) => ({
+    id,
+    name: data.students?.[id] ? fullName(data.students[id]) : id,
+    skills: getStudentSkillProfile(id, { classId, courseId }),
+  }))
+
+  const totals = new Map()
+  for (const student of students) {
+    for (const s of student.skills) {
+      const cur = totals.get(s.tagId) || { tagId: s.tagId, name: s.name, subject: s.subject, correct: 0, total: 0, answered: 0, struggling: [] }
+      cur.correct += s.correct
+      cur.total += s.total
+      cur.answered++
+      if (s.total >= 3 && s.pct < 60) cur.struggling.push({ id: student.id, name: student.name, pct: s.pct, total: s.total })
+      totals.set(s.tagId, cur)
+    }
+  }
+
+  const skills = [...totals.values()]
+    .filter((s) => s.total >= minQuestions)
+    .map((s) => ({ ...s, pct: Math.round((s.correct / s.total) * 100), struggling: s.struggling.sort((a, b) => a.pct - b.pct) }))
+    .sort((a, b) => a.pct - b.pct)
+  return { students, skills }
 }

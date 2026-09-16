@@ -8,6 +8,7 @@ import {
   onDataChange,
   preloadClassStudents,
 } from '../data/store.js'
+import ClassSkills from '../components/ClassSkills.jsx'
 import '../class-dashboard.css'
 
 function ClassDashboard({ classId, orgId, onBack }) {
@@ -106,6 +107,11 @@ function ClassDashboard({ classId, orgId, onBack }) {
       </div>
 
       <DonutChart students={students} />
+
+      <div className="cd-section">
+        <h3 className="cd-section-title">Skills &amp; groups</h3>
+        <ClassSkills classId={classId} orgId={orgId} onOpenStudent={(id) => { setSelectedStudentId(id); setView('student') }} />
+      </div>
 
       <div className="cd-section">
         <h3 className="cd-section-title">Students</h3>

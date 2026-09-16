@@ -42,6 +42,10 @@ import {
   resolveExplanationReport,
   onDataChange,
   fullName,
+  changedAnswerKeys,
+  previewRemark,
+  applyRemark,
+  preloadAllStudents,
 } from '../data/store.js'
 import { extractTextFromPDF, processWithAI, parseBookletMeta, getPDFPageCount } from '../utils/pdfImport.js'
 import { RichTextEditor, RichText } from '../components/RichTextEditor.jsx'
@@ -93,6 +97,9 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
   const [lockDropOpen, setLockDropOpen] = useState(false)
   const [currentEditQ, setCurrentEditQ] = useState(0)
   const [showBulkTag, setShowBulkTag] = useState(false)
+  // Re-marking offer after an answer key changed.
+  const [remark, setRemark] = useState(null)
+  const [remarkDone, setRemarkDone] = useState(null)
   // Set ids offered for tagging straight after an import.
   const [tagAfterImport, setTagAfterImport] = useState(null)
   const [showEditSettings, setShowEditSettings] = useState(false)
@@ -349,10 +356,21 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
       })
 
       if (editingImported) {
+        // Work already submitted was marked against the old answers; offer to
+        // mark it again when a correct answer actually changed.
+        const before = getImportedQuizSet(editingImported)?.questions || []
+        const keyChanges = changedAnswerKeys(before, valid)
         updateImportedQuizSet(editingImported, { questions: valid })
+        const setId = editingImported
         setEditingImported(null)
         setPdfReviewFlags(null)
         forceRefresh()
+        if (keyChanges.length) {
+          await preloadAllStudents()
+          const preview = previewRemark(setId)
+          const affected = preview?.rows.filter((r) => r.delta !== 0) || []
+          if (affected.length) setRemark({ setId, keyChanges: keyChanges.length, ...preview, affected })
+        }
         if (onSave) onSave()
         return
       }
@@ -1296,6 +1314,48 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
     <div className="page" style={{ maxWidth: 1400, margin: '0 auto', display: 'flex', flexDirection: 'column', minHeight: 'calc(100dvh - 40px)' }}>
       {showBulkTag && <BulkTagPanel onClose={() => { setShowBulkTag(false); forceRefresh() }} />}
       {tagAfterImport && <BulkTagPanel setIds={tagAfterImport} onClose={() => { setTagAfterImport(null); forceRefresh() }} />}
+      {remark && (
+        <div className="modal-overlay qtag-overlay" onClick={() => setRemark(null)}>
+          <div className="qtag-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Mark this work again?</h3>
+            <p className="qtag-sub">
+              You changed the correct answer on {remark.keyChanges} question{remark.keyChanges === 1 ? '' : 's'} in <b>{remark.quizTitle}</b>.
+              {' '}{remark.affected.length} submitted {remark.affected.length === 1 ? 'attempt was' : 'attempts were'} marked against the old answers.
+            </p>
+            <div className="qtag-review-list">
+              {remark.affected.map((r) => (
+                <div key={r.id} className="rm-row">
+                  <span className="rm-name">{r.name}{r.kind === 'redo' ? ' (redo)' : ''}</span>
+                  <span className="rm-old">{r.oldScore}/{r.total}</span>
+                  <span className="rm-arrow">→</span>
+                  <span className={`rm-new ${r.delta > 0 ? 'rm-up' : 'rm-down'}`}>{r.newScore}/{r.total}</span>
+                  <span className={`rm-delta ${r.delta > 0 ? 'rm-up' : 'rm-down'}`}>{r.delta > 0 ? '+' : ''}{r.delta}</span>
+                </div>
+              ))}
+            </div>
+            <p className="qtag-sub">Scores that go up earn the extra coins; scores that go down keep the coins already awarded. Revision Hall cards for questions now answered correctly are archived.</p>
+            <div className="qtag-modal-actions">
+              <button className="qtag-btn" onClick={() => setRemark(null)}>Leave scores as they are</button>
+              <button className="qtag-btn qtag-btn-primary" onClick={() => { const res = applyRemark(remark.setId); setRemark(null); setRemarkDone(res); forceRefresh() }}>Mark again</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {remarkDone && (
+        <div className="modal-overlay qtag-overlay" onClick={() => setRemarkDone(null)}>
+          <div className="qtag-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Marked again</h3>
+            <p className="qtag-sub">
+              {remarkDone.changed} attempt{remarkDone.changed === 1 ? '' : 's'} updated across {remarkDone.students} student{remarkDone.students === 1 ? '' : 's'}.
+              {remarkDone.coinsAwarded > 0 && ` ${remarkDone.coinsAwarded} coins awarded for higher scores.`}
+              {remarkDone.cardsArchived > 0 && ` ${remarkDone.cardsArchived} Revision Hall card${remarkDone.cardsArchived === 1 ? '' : 's'} archived.`}
+            </p>
+            <div className="qtag-modal-actions">
+              <button className="qtag-btn qtag-btn-primary" onClick={() => setRemarkDone(null)}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="header">
         <h1 className="pixel-title">Quiz Builder</h1>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

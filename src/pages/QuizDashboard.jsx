@@ -55,6 +55,8 @@ export function SubjectBar({ storageKey, done, total, title, subtitle, thumb, ba
   const [count, setCount] = useState(startPct)
   const [gain, setGain] = useState(null)
   const [unlocked, setUnlocked] = useState(null)
+  // Confetti fires only on the run that completes the subject, never on revisit.
+  const [complete, setComplete] = useState(false)
 
   useEffect(() => {
     try { localStorage.setItem(storageKey, String(pct)) } catch { /* private mode */ }
@@ -76,6 +78,10 @@ export function SubjectBar({ storageKey, done, total, title, subtitle, thumb, ba
     if (tierFor(pct).key !== tierFor(from).key && pct >= 25) {
       timers.push(setTimeout(() => setUnlocked(tierFor(pct)), 1500))
       timers.push(setTimeout(() => setUnlocked(null), 4300))
+    }
+    if (pct === 100 && from < 100 && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      timers.push(setTimeout(() => setComplete(true), 1600))
+      timers.push(setTimeout(() => setComplete(false), 7000))
     }
     timers.push(setTimeout(() => setGain(null), 3000))
     return () => { timers.forEach(clearTimeout); cancelAnimationFrame(raf) }
@@ -111,6 +117,20 @@ export function SubjectBar({ storageKey, done, total, title, subtitle, thumb, ba
         </span>
       )}
       {unlocked && <span className="pq-bar-unlock">{unlocked.icon} {unlocked.label} unlocked!</span>}
+      {complete && (
+        <span className="pq-confetti" aria-hidden="true">
+          {[...Array(28)].map((_, i) => (
+            <i key={i} className="pq-confetto" style={{
+              '--x': `${(i * 37) % 100}%`,
+              '--delay': `${(i % 7) * 90}ms`,
+              '--spin': `${(i % 2 ? 1 : -1) * (360 + (i % 5) * 120)}deg`,
+              '--drift': `${((i % 5) - 2) * 26}px`,
+              '--hue': `${(i * 47) % 360}`,
+            }} />
+          ))}
+          <span className="pq-complete-badge">🎉 Subject complete!</span>
+        </span>
+      )}
     </button>
   )
 }

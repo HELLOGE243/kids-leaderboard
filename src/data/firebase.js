@@ -25,7 +25,7 @@ const UNASSIGNED_DOC = 'unassigned'
 
 const CHUNK_KEYS = {
   core: ['organisations', 'teachers', 'students', 'classes', '_savedAt', 'notificationPrefs', 'smsLog', 'leaderboardSnapshots'],
-  content: ['topics', 'tagLibrary', 'quizzes', 'quizAttempts', 'courses', 'quizFolders', 'writingMarks', 'questionReports', 'explanationReports', 'newsfeedPosts'],
+  content: ['topics', 'tagLibrary', 'classGroups', 'quizzes', 'quizAttempts', 'courses', 'quizFolders', 'writingMarks', 'questionReports', 'explanationReports', 'newsfeedPosts'],
   activity: ['scores', 'testEvents', 'eventTemplates', 'homeworkAttempts', 'homeworkStarts', 'homeworkRedos', 'homeworkProgress', 'dailyTrivia', 'dailyPuzzles'],
   shop: ['shopItems', 'shopCategories', 'purchases', 'avatarPool', 'shopPools', 'lootChestPool', 'voucherConfig'],
   extras: ['battlegroundsData', 'dojoCards', 'dojoClones', 'dojoKills', 'dojoCustomReview', 'vocabBank', 'wordleSolvers', 'arenaGhosts'],
@@ -923,4 +923,15 @@ export async function loadParentNotifications(max = 100) {
   const { query, orderBy, limit } = await import('firebase/firestore')
   const snap = await getDocs(query(collection(db, 'parentNotifications'), orderBy('createdAt', 'desc'), limit(max)))
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+/** Removes a student's own document (called when the account is deleted). */
+export async function deleteStudentFirestore(studentId) {
+  delete _studentCache[studentId]
+  delete _studentLastWritten[studentId]
+  try {
+    await deleteDoc(doc(db, 'studentData', String(studentId)))
+  } catch (e) {
+    console.warn(`Firestore: could not delete student "${studentId}":`, e)
+  }
 }
