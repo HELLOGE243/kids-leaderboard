@@ -8511,6 +8511,32 @@ button.hw-res-qth.active {
   display: flex; align-items: center; justify-content: center;
   animation: sr-flash 1.4s ease-out forwards;
 }
+/* A green band sweeps the full width of the screen and shimmers. */
+.sr-correct-strip {
+  position: relative; width: 100%; height: clamp(110px, 18vh, 170px); overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(90deg, rgba(0,200,83,0) 0%, rgba(0,200,83,.55) 18%, rgba(118,255,3,.75) 50%, rgba(0,200,83,.55) 82%, rgba(0,200,83,0) 100%);
+  border-top: 2px solid rgba(178,255,89,.85); border-bottom: 2px solid rgba(178,255,89,.85);
+  box-shadow: 0 0 60px rgba(0,230,118,.55), inset 0 0 40px rgba(255,255,255,.25);
+  animation: sr-strip-in 1.8s cubic-bezier(.22,1,.36,1) forwards;
+}
+@keyframes sr-strip-in {
+  0% { opacity: 0; transform: scaleY(0.2); }
+  18% { opacity: 1; transform: scaleY(1.06); }
+  30% { transform: scaleY(1); }
+  78% { opacity: 1; }
+  100% { opacity: 0; transform: scaleY(0.9); }
+}
+/* The travelling highlight that gives the band its shimmer. */
+.sr-strip-shimmer {
+  position: absolute; top: 0; bottom: 0; width: 45%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.75), transparent);
+  filter: blur(2px); animation: sr-strip-shine 1.25s ease-in-out .12s 1 both;
+}
+@keyframes sr-strip-shine { from { left: -50%; } to { left: 105%; } }
+@media (prefers-reduced-motion: reduce) {
+  .sr-correct-strip, .sr-strip-shimmer { animation-duration: .01ms; animation-iteration-count: 1; }
+}
 @keyframes sr-flash {
   0% { background: rgba(76, 175, 80, 0.25); }
   40% { background: rgba(76, 175, 80, 0.05); }
@@ -16337,3 +16363,14 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 }
 @keyframes pq-badge-in { from { opacity: 0; transform: translate(-50%, -50%) scale(.6); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
 @media (prefers-reduced-motion: reduce) { .pq-confetti { display: none; } }
+
+/* Add-student form (teacher dashboard) */
+.as-modal { width: min(620px, calc(100vw - 32px)); }
+.as-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.as-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; font-weight: 600; color: #5b6275; position: relative; }
+.as-field input, .as-field select { width: 100%; box-sizing: border-box; font-weight: 400; }
+.as-wide { grid-column: 1 / -1; }
+.as-school-list { position: absolute; top: 100%; left: 0; right: 0; z-index: 30; background: #fff; border: 1px solid #d5d9e3; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); max-height: 200px; overflow-y: auto; }
+.as-school-list button { display: block; width: 100%; text-align: left; border: 0; background: transparent; padding: 7px 10px; font: 400 0.85rem 'Outfit', system-ui, sans-serif; color: #1a1a2e; cursor: pointer; }
+.as-school-list button:hover { background: #eef3ff; }
+@media (max-width: 560px) { .as-form { grid-template-columns: 1fr; } }

@@ -5,6 +5,10 @@ import QuizBuilder from './QuizBuilder.jsx'
 import CourseBuilder from './CourseBuilder.jsx'
 import WritingReview from './WritingReview.jsx'
 import NotificationsPanel from './NotificationsPanel.jsx'
+import AddStudentForm from '../components/AddStudentForm.jsx'
+import { authedFetch } from '../data/auth.js'
+
+const FUNCTIONS_BASE = 'https://australia-southeast1-cleverspacev2.cloudfunctions.net'
 import NewsfeedManager from './NewsfeedManager.jsx'
 import ClassDashboard from './ClassDashboard.jsx'
 import AdminTeacherPanel from '../components/AdminTeacherPanel.jsx'
@@ -134,6 +138,8 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
   const [showCourseBuilder, setShowCourseBuilder] = useState(false)
   const [showWritingReview, setShowWritingReview] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [addingStudent, setAddingStudent] = useState(false)
+  const [deleteBusy, setDeleteBusy] = useState(false)
   const [showNewsfeed, setShowNewsfeed] = useState(false)
   const [showClassDashboard, setShowClassDashboard] = useState(null)
   const [editQuizId, setEditQuizId] = useState(null)
@@ -214,6 +220,31 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
     createStudent(name, org.id)
     setNewStudentName('')
     setCreateStudentError('')
+    forceRefresh()
+  }
+
+  /**
+   * Deletion reaches the parts the browser cannot: the password record, the
+   * sign-in account and the per-quiz stats that feed other students'
+   * percentiles. Archiving is the reversible option and keeps all of it.
+   */
+  async function removeStudentEverywhere(studentId) {
+    setDeleteBusy(true)
+    try {
+      const res = await authedFetch(`${FUNCTIONS_BASE}/teacherStudents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', studentId }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok || !body.ok) {
+        // Fall back to the local delete so the teacher is never stuck.
+        deleteStudent(studentId)
+      }
+    } catch {
+      deleteStudent(studentId)
+    }
+    setDeleteBusy(false)
     forceRefresh()
   }
 
@@ -424,7 +455,15 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                 )}
               </section>
 
-              {/* Needs attention */}
+              {addingStudent && org && (
+        <AddStudentForm
+          orgId={org.id}
+          onClose={() => setAddingStudent(false)}
+          onCreated={() => { setAddingStudent(false); forceRefresh() }}
+        />
+      )}
+
+      {/* Needs attention */}
               <section className="td2-card" id="td2-attention">
                 <div className="td2-card-head">
                   <h2 className="td2-h2">Needs attention</h2>
@@ -741,10 +780,7 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
               </div>
               <div className="td2-row td2-wrap">
                 <input value={rollSearch} onChange={(e) => setRollSearch(e.target.value)} placeholder="Search students…" className="td2-input td2-grow" />
-                <form onSubmit={handleCreateStudent} className="td2-row td2-row-tight td2-grow">
-                  <input value={newStudentName} onChange={(e) => { setNewStudentName(e.target.value); setCreateStudentError('') }} placeholder="New student nickname" className="td2-input td2-grow" />
-                  <button type="submit" className="td2-btn">Add student</button>
-                </form>
+                <button type="button" className="td2-btn" onClick={() => setAddingStudent(true)}>+ Add student</button>
               </div>
               {createStudentError && (
                 <div className="td2-warning">
@@ -804,7 +840,7 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                                       ) : (
                                         <button className="td2-menu-item" onClick={() => { setMenuFor(null); requestConfirm(`Archive "${fullName(s)}"? They can still log in but won't appear in classes.`, () => { archiveStudent(s.id); setEditingStudent(null); forceRefresh() }, 'Archive') }}>Archive</button>
                                       )}
-                                      <button className="td2-menu-item td2-menu-danger" onClick={() => { setMenuFor(null); requestConfirm(`Permanently delete "${fullName(s)}"? All scores, homework, and data will be wiped.`, () => { deleteStudent(s.id); setEditingStudent(null); forceRefresh() }) }}>Delete</button>
+                                      <button className="td2-menu-item td2-menu-danger" onClick={() => { setMenuFor(null); requestConfirm(`Permanently delete "${fullName(s)}"? Their account, results, homework and revision cards are wiped, and their results stop counting towards class percentiles. Archive instead to keep the results.`, () => { removeStudentEverywhere(s.id); setEditingStudent(null) }) }}>Delete</button>
                                     </div>
                                   </>
                                 )}

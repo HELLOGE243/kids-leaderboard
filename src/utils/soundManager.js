@@ -224,3 +224,43 @@ export function toggleMute() {
   if (masterGain) masterGain.gain.value = muted ? 0 : 1
   return muted
 }
+
+/**
+ * Rising major arpeggio with a soft bell on top: the "you got it" sound for a
+ * correct revision card. Synthesised like the other effects, so there is no
+ * audio file to download.
+ */
+export function playCorrectChime() {
+  if (muted) return
+  const c = getCtx()
+  const start = c.currentTime
+  // C5 - E5 - G5 - C6, each softly overlapping the last.
+  const notes = [523.25, 659.25, 783.99, 1046.5]
+  notes.forEach((f, i) => {
+    const osc = c.createOscillator()
+    const g = c.createGain()
+    osc.connect(g)
+    g.connect(masterGain)
+    osc.type = i === notes.length - 1 ? 'sine' : 'triangle'
+    const t = start + i * 0.075
+    osc.frequency.setValueAtTime(f, t)
+    g.gain.setValueAtTime(0.0001, t)
+    g.gain.exponentialRampToValueAtTime(i === notes.length - 1 ? 0.14 : 0.1, t + 0.02)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + (i === notes.length - 1 ? 0.7 : 0.3))
+    osc.start(t)
+    osc.stop(t + 0.8)
+  })
+  // A little shimmer over the top of the final note.
+  const shimmer = c.createOscillator()
+  const sg = c.createGain()
+  shimmer.connect(sg)
+  sg.connect(masterGain)
+  shimmer.type = 'sine'
+  shimmer.frequency.setValueAtTime(2093, start + 0.24)
+  shimmer.frequency.exponentialRampToValueAtTime(3136, start + 0.5)
+  sg.gain.setValueAtTime(0.0001, start + 0.24)
+  sg.gain.exponentialRampToValueAtTime(0.05, start + 0.3)
+  sg.gain.exponentialRampToValueAtTime(0.0001, start + 0.75)
+  shimmer.start(start + 0.24)
+  shimmer.stop(start + 0.8)
+}

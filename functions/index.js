@@ -517,6 +517,12 @@ exports.authLogin = functions
 
         const { stored } = await readCredential(role, user)
 
+        // An archived student keeps every result (class percentiles still count
+        // them) but the account no longer opens.
+        if (role === 'student' && user.archived) {
+          return sendJson(res, 403, { error: 'This account has been archived. Please speak to your teacher.' })
+        }
+
         // A teacher token grants read access to every student's work, so
         // self-registered teachers wait for an admin. Existing teachers have no
         // `approved` field and are unaffected.
@@ -1436,4 +1442,121 @@ async function resetPlatform(keepTeacherId) {
   _core = null
   _appDataCache = null
   return report
+}
+
+// ============================================================
+// TEACHER-MANAGED STUDENT ACCOUNTS
+//
+// A teacher adding a student from the dashboard creates exactly what sign-up
+// creates - profile, parent contact and a password - so the account works
+// immediately and reports and parent messages have what they need. The parent
+// email is not verified (nobody clicked a code), which is recorded.
+//
+// Deleting needs the server too: password records and sign-in accounts are
+// closed to every client, and a student's stats live in their own documents.
+// Archiving is different and stays in the app: the account stops working but
+// every result is kept, so class percentiles still include them.
+// ============================================================
+exports.teacherStudents = functions
+  .region('australia-southeast1')
+  .https.onRequest((req, res) => {
+    cors(req, res, async () => {
+      if (req.method !== 'POST') return sendJson(res, 405, { error: 'Method not allowed' })
+      const caller = await verifyCaller(req)
+      if (!caller || caller.role !== 'teacher') return sendJson(res, 403, { error: 'Teacher sign-in required' })
+      const { action } = req.body || {}
+      try {
+        if (action === 'create') return await createStudentAccount(req, res)
+        if (action === 'delete') return await deleteStudentAccount(req, res)
+        return sendJson(res, 400, { error: 'Unknown action' })
+      } catch (e) {
+        console.error('teacherStudents failed:', e)
+        return sendJson(res, 500, { error: 'Something went wrong. Try again.' })
+      }
+    })
+  })
+
+async function createStudentAccount(req, res) {
+  const p = req.body?.profile || {}
+  const name = String(p.name || '').trim()
+  const firstName = String(p.firstName || '').trim()
+  const lastName = String(p.lastName || '').trim()
+  const yearGroup = String(p.yearGroup || '').trim()
+  const schoolName = String(p.schoolName || '').trim()
+  const parentEmail = normaliseEmail(p.parentEmail)
+  const parentPhone = normaliseAuMobile(p.parentPhone)
+  const password = String(p.password || '')
+
+  if (!name || name.length > 40) return sendJson(res, 400, { error: 'Enter a nickname the student will sign in with.' })
+  if (!firstName || !lastName) return sendJson(res, 400, { error: 'Enter the first and last name.' })
+  if (!yearGroup) return sendJson(res, 400, { error: 'Choose a year group.' })
+  if (!schoolName) return sendJson(res, 400, { error: 'Enter the school.' })
+  if (!parentPhone) return sendJson(res, 400, { error: "Enter the parent's mobile number (04XX XXX XXX)." })
+  if (!parentEmail) return sendJson(res, 400, { error: "Enter the parent's email address." })
+  if (password.length < 4) return sendJson(res, 400, { error: 'Set a password of at least 4 characters.' })
+
+  const contacts = (await db.collection('studentContacts').get()).docs.map((d) => ({ id: d.id, ...d.data() }))
+  const coreRef = db.collection('appData').doc('core')
+  const created = await db.runTransaction(async (tx) => {
+    const core = (await tx.get(coreRef)).data() || {}
+    const students = core.students || {}
+    if (Object.values(students).some((s) => String(s.name || '').toLowerCase() === name.toLowerCase())) {
+      return { error: 'That nickname is already taken.', status: 409 }
+    }
+    for (const c of contacts) {
+      if (digitsOnly(c.parentPhone) === digitsOnly(parentPhone)) return { error: 'That phone number is already registered to another student.', status: 409 }
+      if (normaliseEmail(c.parentEmail) === parentEmail) return { error: 'That email is already registered to another student.', status: 409 }
+    }
+    let id
+    do { id = randomDigits(8) } while (students[id])
+    const orgs = core.organisations || {}
+    const orgId = req.body.orgId && orgs[req.body.orgId] ? req.body.orgId : Object.keys(orgs)[0] || null
+    tx.update(coreRef, new admin.firestore.FieldPath('students', id), {
+      name, orgId, coinsSpent: 0, tokens: 0,
+      // Added by a teacher, so no approval step.
+      approved: true, firstName, lastName, yearGroup, schoolName,
+    })
+    return { id, orgId }
+  })
+  if (created.error) return sendJson(res, created.status, { error: created.error })
+  _core = null
+
+  await credentialRef('student', created.id).set({ password: hashPassword(password), updatedAt: Date.now() })
+  await contactRef(created.id).set({
+    parentPhone, parentEmail,
+    // Added by a teacher: nobody entered a code, so this is unverified.
+    emailVerified: false, phoneVerified: false, addedByTeacher: true, updatedAt: Date.now(),
+  })
+  return sendJson(res, 200, { ok: true, id: created.id, name })
+}
+
+async function deleteStudentAccount(req, res) {
+  const studentId = String(req.body?.studentId || '')
+  if (!studentId) return sendJson(res, 400, { error: 'Missing studentId' })
+  const coreRef = db.collection('appData').doc('core')
+  const core = (await coreRef.get()).data() || {}
+  const student = (core.students || {})[studentId]
+  const removed = { name: student?.name || studentId }
+
+  const classes = { ...(core.classes || {}) }
+  for (const cls of Object.values(classes)) {
+    if (Array.isArray(cls.studentIds)) cls.studentIds = cls.studentIds.filter((id) => id !== studentId)
+  }
+  const students = { ...(core.students || {}) }
+  delete students[studentId]
+  await coreRef.set({ ...core, students, classes, _savedAt: Date.now() })
+  _core = null
+
+  await db.collection('studentData').doc(studentId).delete().catch(() => {})
+  await contactRef(studentId).delete().catch(() => {})
+  await credentialRef('student', studentId).delete().catch(() => {})
+  await admin.auth().deleteUser(studentId).catch(() => {})
+
+  // Their results are part of other students' percentiles, so those go too.
+  for (const group of ['entries', 'attempts']) {
+    const snap = await db.collectionGroup(group).where('studentId', '==', studentId).get().catch(() => ({ docs: [] }))
+    await Promise.all(snap.docs.map((d) => d.ref.delete()))
+    removed[group] = snap.docs.length
+  }
+  return sendJson(res, 200, { ok: true, removed })
 }

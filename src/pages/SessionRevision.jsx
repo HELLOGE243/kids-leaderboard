@@ -3,6 +3,7 @@ import { getDojoCardsForStudent, recordCompulsoryRevisionAnswer, markDojoAskTeac
 import ReportIssueModal from '../components/ReportIssueModal.jsx'
 import { RichText } from '../components/RichTextEditor.jsx'
 import { resolveImages } from '../data/imageStore.js'
+import { playCorrectChime } from '../utils/soundManager.js'
 
 const TARGET = 5
 
@@ -79,7 +80,8 @@ function SessionRevision({ user, onComplete }) {
       setFeedbackMsg('Returned successfully')
       setShowBurst(true)
       spawnParticles()
-      setTimeout(() => setShowBurst(false), 1500)
+      playCorrectChime()
+      setTimeout(() => setShowBurst(false), 1800)
     } else {
       setFeedbackMsg('Kept in your revision deck')
     }
@@ -228,19 +230,17 @@ function SessionRevision({ user, onComplete }) {
       </div>
       {showBurst && (
         <div className="sr-correct-burst">
-          {particles.map(p => (
-            <span
-              key={p.id}
-              className="sr-particle"
-              style={{
-                width: p.size, height: p.size,
-                background: p.color,
-                left: `calc(50% + ${p.x}px)`,
-                top: `calc(50% + ${p.y}px)`,
-              }}
-            />
-          ))}
-          <span className="sr-correct-text">Correct!</span>
+          <div className="sr-correct-strip">
+            <span className="sr-strip-shimmer" aria-hidden="true" />
+            {particles.slice(0, 14).map((p, i) => (
+              <span
+                key={p.id}
+                className="sr-particle"
+                style={{ width: p.size, height: p.size, background: p.color, left: `${(i * 7 + 4) % 100}%`, top: '50%' }}
+              />
+            ))}
+            <span className="sr-correct-text">Correct!</span>
+          </div>
         </div>
       )}
       {reportOpen && (
