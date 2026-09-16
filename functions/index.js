@@ -520,7 +520,12 @@ exports.authLogin = functions
         // An archived student keeps every result (class percentiles still count
         // them) but the account no longer opens.
         if (role === 'student' && user.archived) {
-          return sendJson(res, 403, { error: 'This account has been archived. Please speak to your teacher.' })
+          // Re-read before refusing: a teacher may have just restored them, and
+          // the cached copy would lock them out for another half minute.
+          const fresh = findIn(await getCore(true), role, name)
+          if (fresh?.archived) {
+            return sendJson(res, 403, { error: 'This account has been archived. Please speak to your teacher.' })
+          }
         }
 
         // A teacher token grants read access to every student's work, so

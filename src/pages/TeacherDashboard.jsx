@@ -836,9 +836,9 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                                       <button className="td2-menu-item" onClick={() => { setMenuFor(null); openStudentProfile(s.id) }}>Edit details</button>
                                       <button className="td2-menu-item" onClick={() => { setMenuFor(null); setReportViewStudent(s.id) }}>View report</button>
                                       {studentRollTab === 'archived' ? (
-                                        <button className="td2-menu-item" onClick={() => { setMenuFor(null); unarchiveStudent(s.id); forceRefresh() }}>Restore</button>
+                                        <button className="td2-menu-item" onClick={() => { setMenuFor(null); unarchiveStudent(s.id); forceRefresh() }}>Restore account</button>
                                       ) : (
-                                        <button className="td2-menu-item" onClick={() => { setMenuFor(null); requestConfirm(`Archive "${fullName(s)}"? They can still log in but won't appear in classes.`, () => { archiveStudent(s.id); setEditingStudent(null); forceRefresh() }, 'Archive') }}>Archive</button>
+                                        <button className="td2-menu-item" onClick={() => { setMenuFor(null); requestConfirm(`Archive "${fullName(s)}"? They can no longer sign in, but every result is kept and still counts towards class percentiles. You can restore them any time from the Archived tab.`, () => { archiveStudent(s.id); setEditingStudent(null); forceRefresh() }, 'Archive') }}>Archive</button>
                                       )}
                                       <button className="td2-menu-item td2-menu-danger" onClick={() => { setMenuFor(null); requestConfirm(`Permanently delete "${fullName(s)}"? Their account, results, homework and revision cards are wiped, and their results stop counting towards class percentiles. Archive instead to keep the results.`, () => { removeStudentEverywhere(s.id); setEditingStudent(null) }) }}>Delete</button>
                                     </div>

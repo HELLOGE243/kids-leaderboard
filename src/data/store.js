@@ -655,6 +655,11 @@ export function unarchiveStudent(studentId) {
   if (!data.students[studentId]) return false
   data.students[studentId].archived = false
   saveData(data)
+  // Archiving removes their leaderboard entries; re-saving their own document
+  // makes the server rebuild them, so a restored student reappears at once
+  // rather than after their next submission.
+  const sData = loadStudentData(studentId)
+  if (sData && sData._migrated) saveStudentData(studentId, { ...sData, _restoredAt: Date.now() })
   return true
 }
 
