@@ -880,6 +880,12 @@ exports.authAdmin = functions
           return sendJson(res, 200, { ok: true })
         }
 
+        if (action === 'resetPlatform') {
+          if (req.body?.confirm !== RESET_PHRASE) return sendJson(res, 400, { error: `Send confirm: "${RESET_PHRASE}"` })
+          const report = await resetPlatform(caller.uid)
+          return sendJson(res, 200, { ok: true, report })
+        }
+
         if (action === 'backfillQuizStats') {
           // Writes quizStats for every existing homework and checkpoint attempt,
           // for attempts made before checkpoint stats were recorded.
@@ -1304,3 +1310,130 @@ exports.parentNotifyRun = functions
       }
     })
   })
+
+// ============================================================
+// PLATFORM RESET
+//
+// Wipes the school back to a usable empty platform: every student and other
+// teacher, their credentials and sign-in accounts, all classes, courses,
+// quizzes, quiz sets and student work. Deliberately kept: the organisation,
+// the calling admin's own account, the skill tag library, the shop catalogue
+// and the newsfeed. Admin only, and the caller must send the exact phrase.
+// ============================================================
+const RESET_PHRASE = 'RESET PLATFORM'
+
+const KEEP_CONTENT = ['tagLibrary', 'newsfeedPosts']
+const WIPE_CONTENT = ['topics', 'quizzes', 'quizAttempts', 'courses', 'quizFolders', 'writingMarks', 'questionReports', 'explanationReports']
+const WIPE_ACTIVITY = ['scores', 'testEvents', 'eventTemplates', 'homeworkAttempts', 'homeworkStarts', 'homeworkRedos', 'homeworkProgress', 'dailyTrivia', 'dailyPuzzles']
+const WIPE_EXTRAS = ['battlegroundsData', 'dojoCards', 'dojoClones', 'dojoKills', 'dojoCustomReview', 'vocabBank', 'wordleSolvers', 'arenaGhosts']
+
+/** Deletes every document in a collection (and the named subcollections). */
+async function deleteCollection(path, subcollections = []) {
+  const snap = await db.collection(path).get()
+  let n = 0
+  for (const doc of snap.docs) {
+    for (const sub of subcollections) {
+      const subSnap = await doc.ref.collection(sub).get()
+      await Promise.all(subSnap.docs.map((d) => d.ref.delete()))
+      n += subSnap.size
+    }
+    await doc.ref.delete()
+    n++
+  }
+  return n
+}
+
+async function resetPlatform(keepTeacherId) {
+  const report = {}
+
+  // --- shared documents ---
+  const coreRef = db.collection('appData').doc('core')
+  const core = (await coreRef.get()).data() || {}
+  const teachers = core.teachers || {}
+  const keptTeacher = teachers[keepTeacherId]
+  report.studentsRemoved = Object.keys(core.students || {}).length
+  report.teachersRemoved = Object.keys(teachers).length - (keptTeacher ? 1 : 0)
+  report.classesRemoved = Object.keys(core.classes || {}).length
+  await coreRef.set({
+    ...core,
+    students: {},
+    classes: {},
+    teachers: keptTeacher ? { [keepTeacherId]: { ...keptTeacher, approved: true } } : {},
+    smsLog: [],
+    leaderboardSnapshots: [],
+    _savedAt: Date.now(),
+  })
+
+  const contentRef = db.collection('appData').doc('content')
+  const content = (await contentRef.get()).data() || {}
+  report.coursesRemoved = (content.courses || []).length
+  report.checkpointQuizzesRemoved = (content.quizzes || []).length
+  const nextContent = { ...content }
+  for (const key of WIPE_CONTENT) nextContent[key] = []
+  for (const key of KEEP_CONTENT) nextContent[key] = content[key] || []
+  await contentRef.set(nextContent)
+
+  const activityRef = db.collection('appData').doc('activity')
+  const activity = (await activityRef.get()).data() || {}
+  const nextActivity = { ...activity }
+  for (const key of WIPE_ACTIVITY) nextActivity[key] = Array.isArray(activity[key]) ? [] : {}
+  await activityRef.set(nextActivity)
+
+  const shopRef = db.collection('appData').doc('shop')
+  const shop = (await shopRef.get()).data() || {}
+  report.purchasesRemoved = (shop.purchases || []).length
+  await shopRef.set({ ...shop, purchases: [] })
+
+  const extrasRef = db.collection('appData').doc('extras')
+  const extras = (await extrasRef.get()).data() || {}
+  const nextExtras = { ...extras }
+  for (const key of WIPE_EXTRAS) nextExtras[key] = Array.isArray(extras[key]) ? [] : {}
+  await extrasRef.set(nextExtras)
+
+  await db.collection('appData').doc('unassigned').set({ unassignedQuestions: [] })
+  await db.collection('appData').doc('broadcasts').delete().catch(() => {})
+
+  // --- collections ---
+  report.quizSetsRemoved = await deleteCollection('quizSets')
+  report.studentDocsRemoved = await deleteCollection('studentData')
+  report.contactsRemoved = await deleteCollection('studentContacts')
+  report.notificationsRemoved = await deleteCollection('parentNotifications')
+  report.verificationsRemoved = await deleteCollection('contactVerifications')
+  report.leaderboardEntriesRemoved = await deleteCollection('leaderboards', ['entries'])
+  report.quizStatsRemoved = await deleteCollection('quizStats', ['attempts'])
+  // Those parents are usually implicit (no document of their own), so their
+  // entries survive a parent-first delete: sweep them by collection group.
+  for (const group of ['entries', 'attempts']) {
+    const snap = await db.collectionGroup(group).get()
+    await Promise.all(snap.docs.map((d) => d.ref.delete()))
+    report[`${group}Swept`] = snap.size
+  }
+
+  // --- credentials (the caller's own is kept) ---
+  const creds = await db.collection('credentials').get()
+  let credsRemoved = 0
+  for (const doc of creds.docs) {
+    if (doc.id === `teacher_${keepTeacherId}`) continue
+    await doc.ref.delete()
+    credsRemoved++
+  }
+  report.credentialsRemoved = credsRemoved
+
+  // --- sign-in accounts ---
+  let authRemoved = 0
+  let pageToken
+  do {
+    const page = await admin.auth().listUsers(1000, pageToken)
+    const ids = page.users.map((u) => u.uid).filter((uid) => uid !== keepTeacherId)
+    if (ids.length) {
+      const res = await admin.auth().deleteUsers(ids)
+      authRemoved += res.successCount
+    }
+    pageToken = page.pageToken
+  } while (pageToken)
+  report.signInAccountsRemoved = authRemoved
+
+  _core = null
+  _appDataCache = null
+  return report
+}
