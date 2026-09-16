@@ -4287,7 +4287,8 @@ export function subjectForQuizSet(set) {
   const hint = `${set?.trialTestSubject || ''} ${set?.rawTitle || ''} ${set?.friendlyTitle || ''}`.toLowerCase()
   if (/writ/.test(hint)) return 'writing'
   if (/read|comprehension|cloze/.test(hint)) return 'reading'
-  if (/think|_ts\b|\bts\b|critical/.test(hint)) return 'thinking'
+  // "Y3TS_T4W9" has no separator before TS, so allow a digit in front.
+  if (/think|critical|(?:^|[^a-z])ts(?![a-z])/.test(hint)) return 'thinking'
   if (/math|maths/.test(hint)) return 'math'
   return null
 }
