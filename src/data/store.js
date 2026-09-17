@@ -4835,3 +4835,66 @@ export function getClassSkillSummary(classId, { courseId = null, groupId = null,
     .sort((a, b) => a.pct - b.pct)
   return { students, skills }
 }
+
+// ============================================================
+// POLICY NOTICE (refunds and credits)
+//
+// The school writes the policy; students and parents see it when they sign in
+// and must tick to say they have read it. Each edit can raise the version,
+// which asks everyone again - so a change of terms is genuinely acknowledged
+// rather than quietly applied. Nothing is shown until the school publishes it.
+// ============================================================
+const DEFAULT_POLICY = { title: 'Refunds and credits', body: '', version: 0, published: false, updatedAt: null }
+
+export function getPolicy() {
+  return { ...DEFAULT_POLICY, ...(loadData().policies?.refund || {}) }
+}
+
+/**
+ * Saves the policy. `bumpVersion` asks every student to accept it again, which
+ * is what you want when the terms themselves change (not for a typo fix).
+ */
+export function savePolicy({ title, body, published, bumpVersion }) {
+  const data = loadData()
+  if (!data.policies) data.policies = {}
+  const current = { ...DEFAULT_POLICY, ...(data.policies.refund || {}) }
+  data.policies.refund = {
+    ...current,
+    ...(title !== undefined ? { title } : {}),
+    ...(body !== undefined ? { body } : {}),
+    ...(published !== undefined ? { published } : {}),
+    version: bumpVersion ? (current.version || 0) + 1 : (current.version || 1),
+    updatedAt: new Date().toISOString(),
+  }
+  saveData(data)
+  return data.policies.refund
+}
+
+/** Whether this student still needs to accept the current published policy. */
+export function policyNeedsAcceptance(studentId) {
+  const policy = getPolicy()
+  if (!policy.published || !policy.body.trim()) return null
+  const accepted = getStudentArray(studentId, 'policyAcceptances').find((a) => a.policy === 'refund')
+  return accepted && accepted.version >= policy.version ? null : policy
+}
+
+export function acceptPolicy(studentId, version) {
+  mutateStudentArray(studentId, 'policyAcceptances', (arr) => {
+    const existing = arr.find((a) => a.policy === 'refund')
+    const record = { policy: 'refund', version, acceptedAt: new Date().toISOString() }
+    if (existing) Object.assign(existing, record)
+    else arr.push(record)
+  })
+}
+
+/** Who has accepted, for the teacher's records. */
+export function getPolicyAcceptances() {
+  const data = loadData()
+  const rows = []
+  for (const [id, s] of Object.entries(data.students || {})) {
+    if (!s || s.archived) continue
+    const accepted = getStudentArray(id, 'policyAcceptances').find((a) => a.policy === 'refund')
+    rows.push({ id, name: fullName(s), version: accepted?.version ?? null, acceptedAt: accepted?.acceptedAt || null })
+  }
+  return rows.sort((a, b) => (a.acceptedAt ? 1 : 0) - (b.acceptedAt ? 1 : 0) || a.name.localeCompare(b.name))
+}

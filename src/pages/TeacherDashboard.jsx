@@ -7,6 +7,7 @@ import CourseBuilder from './CourseBuilder.jsx'
 import WritingReview from './WritingReview.jsx'
 import NotificationsPanel from './NotificationsPanel.jsx'
 import AddStudentForm from '../components/AddStudentForm.jsx'
+import PolicyEditor from '../components/PolicyEditor.jsx'
 import { authedFetch } from '../data/auth.js'
 import { refreshSharedData } from '../data/firebase.js'
 
@@ -897,6 +898,12 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                 </div>
               )}
             </section>
+
+            {/* Refund and credit policy */}
+            <details className="td2-card td2-admin">
+              <summary className="td2-h2">Refund &amp; credit policy</summary>
+              <PolicyEditor />
+            </details>
 
             {/* Admin */}
             {isAdmin && (
