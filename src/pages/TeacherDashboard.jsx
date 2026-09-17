@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import ShopAdmin from './ShopAdmin.jsx'
 import ReportPage from './ReportPage.jsx'
 import QuizBuilder from './QuizBuilder.jsx'
@@ -82,6 +83,33 @@ function reportQuestion(r) {
   return { set, index, question: set.questions[index] || null }
 }
 
+/** A row's ⋯ menu, drawn over the page so no scrolling section can clip it. */
+function RowMenu({ at, onClose, children }) {
+  const [flip, setFlip] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (el && at.top + el.offsetHeight > window.innerHeight - 8) setFlip(true)
+    const close = () => onClose()
+    window.addEventListener('resize', close)
+    window.addEventListener('scroll', close, true)
+    return () => { window.removeEventListener('resize', close); window.removeEventListener('scroll', close, true) }
+  }, [at.top, onClose])
+  return createPortal(
+    <>
+      <div className="td2-menu-backdrop" onClick={onClose} />
+      <div
+        ref={ref}
+        className="td2-menu td2-menu-float"
+        style={flip ? { bottom: window.innerHeight - at.bottom, right: at.right } : { top: at.top, right: at.right }}
+      >
+        {children}
+      </div>
+    </>,
+    document.body,
+  )
+}
+
 function TeacherDashboard({ teacher, isAdmin, onLogout }) {
   const [refresh, setRefresh] = useState(0)
   const forceRefresh = () => setRefresh((r) => r + 1)
@@ -161,6 +189,19 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
   const [studentRollTab, setStudentRollTab] = useState('active')
   const [termSwitchStep, setTermSwitchStep] = useState(null)
   const [menuFor, setMenuFor] = useState(null)
+  const [menuAt, setMenuAt] = useState({ top: 0, right: 0 })
+
+  /**
+   * The row menu is drawn over the page from the button's position: inside the
+   * table it was clipped by the section's own scrolling, so half of it was
+   * invisible.
+   */
+  function openRowMenu(e, studentId) {
+    if (menuFor === studentId) { setMenuFor(null); return }
+    const r = e.currentTarget.getBoundingClientRect()
+    setMenuAt({ top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right), bottom: r.top - 4 })
+    setMenuFor(studentId)
+  }
   const [rollSearch, setRollSearch] = useState('')
 
 
@@ -833,11 +874,9 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                               </div>
                             ) : (
                               <div className="td2-menu-wrap">
-                                <button className="td2-icon-btn" aria-label="More actions" onClick={() => setMenuFor(menuFor === s.id ? null : s.id)}>⋯</button>
+                                <button className="td2-icon-btn" aria-label="More actions" onClick={(e) => openRowMenu(e, s.id)}>⋯</button>
                                 {menuFor === s.id && (
-                                  <>
-                                    <div className="td2-menu-backdrop" onClick={() => setMenuFor(null)} />
-                                    <div className="td2-menu td2-menu-right">
+                                  <RowMenu at={menuAt} onClose={() => setMenuFor(null)}>
                                       <button className="td2-menu-item" onClick={() => { setMenuFor(null); openStudentProfile(s.id) }}>Edit details</button>
                                       <button className="td2-menu-item" onClick={() => { setMenuFor(null); setReportViewStudent(s.id) }}>View report</button>
                                       {studentRollTab === 'archived' ? (
@@ -846,8 +885,7 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                                         <button className="td2-menu-item" onClick={() => { setMenuFor(null); requestConfirm(`Archive "${fullName(s)}"? They can no longer sign in, but every result is kept and still counts towards class percentiles. You can restore them any time from the Archived tab.`, () => { archiveStudent(s.id); setEditingStudent(null); forceRefresh() }, 'Archive') }}>Archive</button>
                                       )}
                                       <button className="td2-menu-item td2-menu-danger" onClick={() => { setMenuFor(null); requestConfirm(`Permanently delete "${fullName(s)}"? Their account, results, homework and revision cards are wiped, and their results stop counting towards class percentiles. Archive instead to keep the results.`, () => { removeStudentEverywhere(s.id); setEditingStudent(null) }) }}>Delete</button>
-                                    </div>
-                                  </>
+                                  </RowMenu>
                                 )}
                               </div>
                             )}

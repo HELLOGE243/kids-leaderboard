@@ -207,13 +207,16 @@
 
 /* Menus */
 .td2-menu-wrap { position: relative; display: inline-block; }
-.td2-menu-backdrop { position: fixed; inset: 0; z-index: 49; }
+.td2-menu-backdrop { position: fixed; inset: 0; z-index: 998; }
+
 .td2-menu {
   position: absolute; top: calc(100% + 4px); z-index: 50; min-width: 170px; padding: 4px;
   background: var(--bg-card); border: 1px solid var(--td2-line); border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,.35);
   display: flex; flex-direction: column; text-align: left;
 }
 .td2-menu-right { right: 0; }
+/* Drawn on the page itself (a portal), so a scrolling table cannot clip it. */
+.td2-menu.td2-menu-float { position: fixed; z-index: 999; left: auto; }
 .td2-menu-label { padding: 8px 10px; font-size: 0.78rem; color: var(--text-dim); border-bottom: 1px solid var(--td2-line); margin-bottom: 4px; }
 .td2-menu-item { background: none; border: 0; color: var(--text); text-align: left; padding: 8px 10px; border-radius: 7px; cursor: pointer; font-size: 0.86rem; }
 .td2-menu-item:hover { background: var(--td2-hover); }
