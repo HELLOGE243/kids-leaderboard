@@ -7,6 +7,7 @@ import WritingReview from './WritingReview.jsx'
 import NotificationsPanel from './NotificationsPanel.jsx'
 import AddStudentForm from '../components/AddStudentForm.jsx'
 import { authedFetch } from '../data/auth.js'
+import { refreshSharedData } from '../data/firebase.js'
 
 const FUNCTIONS_BASE = 'https://australia-southeast1-cleverspacev2.cloudfunctions.net'
 import NewsfeedManager from './NewsfeedManager.jsx'
@@ -87,7 +88,11 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
 
   useEffect(() => {
     const unsub = onDataChange(() => setRefresh(r => r + 1))
-    return unsub
+    // Safety net behind the live listeners: new sign-ups, orders and reports
+    // show up on their own even if a listener drops (sleeping laptop, flaky
+    // network) - this dashboard is often left open all day.
+    const poll = setInterval(() => { refreshSharedData() }, 45000)
+    return () => { unsub(); clearInterval(poll) }
   }, [])
 
   // One-off: give permanent ids to questions saved before ids existed.

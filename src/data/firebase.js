@@ -299,11 +299,17 @@ export async function initFirestore() {
  */
 export function setSyncScope(role) {
   _syncScope = role
-  if (role === 'teacher' && _ready) {
+  if (role !== 'teacher') return
+  // Called either side of initFirestore(): start now if the data is already
+  // loaded, otherwise as soon as it is. Waiting on _ready alone meant a teacher
+  // who signed in mid-load got no live updates at all until they reloaded.
+  const start = () => {
     try { startListeners() } catch (e) {
       console.warn('Firestore: failed to start shared listeners:', e)
     }
   }
+  if (_ready) start()
+  else if (_readyPromise) _readyPromise.then(start).catch(() => {})
 }
 
 /**

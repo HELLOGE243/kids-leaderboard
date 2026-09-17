@@ -54,6 +54,9 @@ function App() {
     return initFirestore()
       .then(() => {
         setDbReady(true)
+        // Signing in always starts from the current state, whatever this
+        // browser had cached.
+        refreshSharedData()
         if (s.role === 'student' && s.user?.id) {
           // Link cards once the student's document and quiz sets are loaded.
           initStudentData(s.user.id)
@@ -125,14 +128,22 @@ function App() {
     }
   }, [])
 
+  // Everyone re-reads the shared data when their tab comes back to the front.
+  // Teachers have live listeners as well, but a listener that never attached -
+  // or dropped while the laptop slept - used to leave the dashboard showing
+  // yesterday's picture until the page was reloaded.
   useEffect(() => {
-    if (session?.role !== 'student') return
+    if (!session) return
     function onVisible() {
       if (document.visibilityState === 'visible') refreshSharedData()
     }
     document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [session?.role])
+    window.addEventListener('focus', onVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
+  }, [session?.role, session?.user?.id])
 
   function handleLogin(s) {
     const json = JSON.stringify(s)
