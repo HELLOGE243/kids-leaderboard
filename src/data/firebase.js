@@ -412,6 +412,16 @@ export function saveToFirestore(data) {
 }
 
 /**
+ * Writes anything still waiting and resolves once it has landed. Call before
+ * reloading or re-reading: saves are coalesced for 250ms, so a reload straight
+ * after a change could otherwise discard it.
+ */
+export async function flushPendingWrites() {
+  flushWrites()
+  try { await _writeQueue } catch { /* the write logs its own failure */ }
+}
+
+/**
  * Persists imported quiz sets as one document per set.
  *
  * Each set averages ~34 KB and the largest is ~148 KB, so every document sits

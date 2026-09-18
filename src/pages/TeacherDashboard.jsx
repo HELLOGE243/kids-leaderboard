@@ -9,7 +9,7 @@ import NotificationsPanel from './NotificationsPanel.jsx'
 import AddStudentForm from '../components/AddStudentForm.jsx'
 import PolicyEditor from '../components/PolicyEditor.jsx'
 import { authedFetch } from '../data/auth.js'
-import { refreshSharedData } from '../data/firebase.js'
+import { refreshSharedData, flushPendingWrites } from '../data/firebase.js'
 
 const FUNCTIONS_BASE = 'https://australia-southeast1-cleverspacev2.cloudfunctions.net'
 import NewsfeedManager from './NewsfeedManager.jsx'
@@ -292,7 +292,19 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
       deleteStudent(studentId)
     }
     setDeleteBusy(false)
-    forceRefresh()
+    await flushPendingWrites()
+    // Reload rather than patch the screen: the record was removed on the server,
+    // and this browser's copy of the student list must not linger (a later save
+    // from a stale copy would put them back).
+    window.location.reload()
+  }
+
+  /** Approving is a small change, but the roll and counts should be beyond doubt. */
+  async function approveAndReload(studentId) {
+    approveStudent(studentId)
+    // The change is queued, not written: reloading first would lose it.
+    await flushPendingWrites()
+    window.location.reload()
   }
 
   function handleForceCreateStudent() { const name = newStudentName.trim(); if (!name || !org) return; createStudent(name, org.id); setNewStudentName(''); setCreateStudentError(''); forceRefresh() }
@@ -524,8 +536,8 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                     {pendingApprovalStudents.map((s) => (
                       <div key={s.id} className="td2-item">
                         <span className="td2-grow td2-strong">{fullName(s)}</span>
-                        <button className="td2-btn td2-btn-sm" onClick={() => { approveStudent(s.id); forceRefresh() }}>Approve</button>
-                        <button className="td2-btn-danger td2-btn-sm" onClick={() => requestConfirm(`Reject "${fullName(s)}"? This will delete their account.`, () => { deleteStudent(s.id); forceRefresh() }, 'Reject')}>Reject</button>
+                        <button className="td2-btn td2-btn-sm" onClick={() => approveAndReload(s.id)}>Approve</button>
+                        <button className="td2-btn-danger td2-btn-sm" onClick={() => requestConfirm(`Reject "${fullName(s)}"? This deletes their account and every detail they entered.`, () => removeStudentEverywhere(s.id), 'Reject')}>Reject</button>
                       </div>
                     ))}
                   </div>
@@ -870,8 +882,8 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                           <td className="td2-right">
                             {studentRollTab === 'pending' ? (
                               <div className="td2-row td2-row-tight td2-justify-end">
-                                <button className="td2-btn td2-btn-sm" onClick={() => { approveStudent(s.id); forceRefresh() }}>Approve</button>
-                                <button className="td2-btn-danger td2-btn-sm" onClick={() => requestConfirm(`Reject "${fullName(s)}"? This will delete their account.`, () => { deleteStudent(s.id); forceRefresh() }, 'Reject')}>Reject</button>
+                                <button className="td2-btn td2-btn-sm" onClick={() => approveAndReload(s.id)}>Approve</button>
+                                <button className="td2-btn-danger td2-btn-sm" onClick={() => requestConfirm(`Reject "${fullName(s)}"? This deletes their account and every detail they entered.`, () => removeStudentEverywhere(s.id), 'Reject')}>Reject</button>
                               </div>
                             ) : (
                               <div className="td2-menu-wrap">
