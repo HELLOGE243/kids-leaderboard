@@ -512,18 +512,18 @@ exports.authLogin = functions
         const { role, name, password } = req.body || {}
         if (!role || !name) return sendJson(res, 400, { error: 'role and name are required' })
 
-        const user = await findUser(role, name)
+        let user = await findUser(role, name)
         if (!user) return sendJson(res, 401, { error: 'Incorrect details' })
 
         const { stored } = await readCredential(role, user)
 
-        // An archived student keeps every result (class percentiles still count
-        // them) but the account no longer opens.
-        if (role === 'student' && user.archived) {
-          // Re-read before refusing: a teacher may have just restored them, and
-          // the cached copy would lock them out for another half minute.
+        // The cached copy of the student list is up to half a minute old, so a
+        // student who was just archived - or just approved - would be judged on
+        // stale data. Re-read before acting on either.
+        if (role === 'student' && (user.archived || user.approved === false)) {
           const fresh = findIn(await getCore(true), role, name)
-          if (fresh?.archived) {
+          if (fresh) user = fresh
+          if (user.archived) {
             return sendJson(res, 403, { error: 'This account has been archived. Please speak to your teacher.' })
           }
         }

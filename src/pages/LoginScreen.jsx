@@ -119,6 +119,10 @@ function LoginScreen({ onLogin }) {
   }
 
   const [pendingApproval, setPendingApproval] = useState(false)
+  // Kept so the waiting screen can let them in the moment they're approved,
+  // without asking for the password again.
+  const [pendingSession, setPendingSession] = useState(null)
+  const [checking, setChecking] = useState(false)
 
   function formatAusPhone(raw) {
     let digits = raw.replace(/[^\d]/g, '')
@@ -221,6 +225,7 @@ function LoginScreen({ onLogin }) {
     setPassword('')
     setConfirmPassword('')
     if (!isTeacher && loggedIn.approved === false) {
+      setPendingSession({ role, user: loggedIn, isAdmin: !!res.isAdmin })
       setPendingApproval(true)
       return
     }
@@ -248,11 +253,34 @@ function LoginScreen({ onLogin }) {
     setError('')
     setPassword('')
     if (!isTeacher && loggedIn.approved === false) {
+      setPendingSession({ role, user: loggedIn, isAdmin: !!res.isAdmin })
       setPendingApproval(true)
       return
     }
     onLogin({ role, user: loggedIn, isAdmin: !!res.isAdmin })
   }
+
+  /**
+   * Asks the server whether the account has been approved yet. The student is
+   * already signed in at this point, so approval lets them straight in.
+   */
+  async function checkApproval(showSpinner) {
+    if (!pendingSession) return
+    if (showSpinner) setChecking(true)
+    const res = await lookupUser(pendingSession.role, pendingSession.user.name)
+    if (showSpinner) setChecking(false)
+    if (res?.user && res.user.approved !== false) {
+      onLogin({ ...pendingSession, user: { ...pendingSession.user, ...res.user } })
+    }
+  }
+
+  // While they wait, look again every 15 seconds so approval opens the portal
+  // on its own.
+  useEffect(() => {
+    if (!pendingApproval || !pendingSession) return
+    const t = setInterval(() => checkApproval(false), 15000)
+    return () => clearInterval(t)
+  }, [pendingApproval, pendingSession])
 
   function resetToNickname() {
     setStep('nickname')
@@ -276,9 +304,14 @@ function LoginScreen({ onLogin }) {
         <img src="/avant-logo.png" alt="AVANT OC & Selective" className="landing-logo" />
         <h1 className="landing-heading">Account Pending</h1>
         <p className="landing-text" style={{ marginBottom: 16, maxWidth: 340, textAlign: 'center', lineHeight: 1.5 }}>
-          {isTeacher ? 'Your teacher account is waiting for admin approval. Please check back later.' : 'Your account has been created and is waiting for teacher approval. Please check back later.'}
+          {isTeacher ? 'Your teacher account is waiting for admin approval. Please check back later.' : 'Your account has been created and is waiting for your teacher to approve it. This page opens on its own as soon as they do.'}
         </p>
-        <button className="btn landing-btn" onClick={() => { setPendingApproval(false); setPendingUser(null); setStep('nickname'); setPassword(''); setConfirmPassword(''); setError(''); setRole(null) }}>Back</button>
+        {pendingSession && (
+          <button className="btn landing-btn" disabled={checking} onClick={() => checkApproval(true)}>
+            {checking ? 'Checking…' : 'Check again'}
+          </button>
+        )}
+        <button className="btn btn-outline landing-btn" onClick={() => { setPendingApproval(false); setPendingSession(null); setPendingUser(null); setStep('nickname'); setPassword(''); setConfirmPassword(''); setError(''); setRole(null) }}>Back</button>
       </div>
     )
   }

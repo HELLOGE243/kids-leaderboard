@@ -830,15 +830,15 @@ function Portal({ user, onLogout }) {
         🥷🏻 {t('revisionDojo')}
         {dojoDueCount > 0 && <span className="hw-badge-warn">{dojoDueCount}</span>}
       </button>
+      <button className="btn-vocab w-full mt-16" data-help="vocab" onClick={() => setShowVocab(true)}>
+        🔤 {t('vocabBank')}
+      </button>
       <button className="btn-battlegrounds w-full mt-16" data-help="battlegrounds" onClick={() => {
         if (student?.battlegroundsApproved) {
           setShowBattlegrounds(true)
         }
       }} style={!student?.battlegroundsApproved ? { opacity: 0.45, cursor: 'not-allowed' } : {}}>
         ⚔️ {t('battlegrounds')} {!student?.battlegroundsApproved && <span style={{ fontSize: '0.5rem', opacity: 0.7, marginLeft: 8 }}>🔒 {t('locked')}</span>}
-      </button>
-      <button className="btn-vocab w-full mt-16" data-help="vocab" onClick={() => setShowVocab(true)}>
-        🔤 {t('vocabBank')}
       </button>
       <button className="btn-progress-tracker w-full mt-16" onClick={() => setShowReport(true)}>
         {t('myReports')}
