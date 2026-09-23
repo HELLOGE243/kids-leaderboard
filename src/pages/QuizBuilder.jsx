@@ -1,5 +1,6 @@
 import QuestionTagBar from '../components/QuestionTagBar.jsx'
 import BulkTagPanel from '../components/BulkTagPanel.jsx'
+import { extractTabLabel } from '../utils/extractLabel.js'
 import { useState, useRef, useEffect } from 'react'
 import {
   getClassesForOrg,
@@ -863,7 +864,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                         style={{ fontSize: '0.6rem', padding: '4px 10px' }}
                         onClick={() => setActiveDescTab(di)}
                       >
-                        {d.title || `Tab ${di + 1}`}
+                        {extractTabLabel(d.title, di)}
                       </button>
                     ))}
                     <button

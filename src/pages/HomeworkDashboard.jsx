@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { loadOwnContact } from '../data/firebase.js'
+import { extractTabLabel } from '../utils/extractLabel.js'
 import {
   getCoursesForStudent,
   getCourseById,
@@ -1259,7 +1260,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                   <div className="qt-desc-tabs">
                     {q.descriptions.map((d, di) => (
                       <button key={di} className={`qt-desc-tab${studentDescTab === di ? ' qt-desc-tab-active' : ''}`} onClick={() => setStudentDescTab(di)}>
-                        {qType === 'multi-matching' ? `Extract ${String.fromCharCode(65 + di)}` : (d.title || `Extract ${String.fromCharCode(65 + di)}`)}
+                        {extractTabLabel(d.title, di)}
                       </button>
                     ))}
                   </div>
