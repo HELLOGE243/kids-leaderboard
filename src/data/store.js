@@ -24,7 +24,7 @@
 import { extractAndStoreImages, findImageRefs, deleteImages } from './imageStore.js'
 import { pickSolutionVideo } from '../utils/video.js'
 import { planImport, applyAiSplit, mergeCloze, describeCoverage } from '../utils/cleverspaceImport.js'
-import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, deleteStudentFirestore, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
+import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, deleteStudentFirestore, ensureQuizSetsLoaded, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
 
 export { onDataChange, onBroadcast, sendBroadcast, loadContacts }
 
@@ -251,6 +251,29 @@ function saveStudentData(studentId, sData) {
   sData._savedAt = Date.now()
   _studentLocalCache[studentId] = sData
   if (isDataReady()) saveStudentFirestore(studentId, sData)
+}
+
+/**
+ * Pulls in any quiz set this student needs but has not loaded: their assigned
+ * quizzes are fetched at sign-in, and this adds the ones behind past attempts
+ * and revision cards, plus anything assigned since they signed in.
+ */
+export async function syncStudentQuizSets(studentId) {
+  if (!studentId) return 0
+  const data = loadData()
+  const ids = new Set()
+  const classIds = Object.entries(data.classes || {})
+    .filter(([, cls]) => (cls.studentIds || []).includes(studentId))
+    .map(([id]) => id)
+  for (const course of data.courses || []) {
+    if (!classIds.includes(course.classId)) continue
+    for (const mod of course.modules || []) for (const id of mod.quizSetIds || []) ids.add(id)
+  }
+  for (const key of ['homeworkAttempts', 'homeworkRedos', 'homeworkProgress']) {
+    for (const a of getStudentArray(studentId, key)) if (a?.quizSetId) ids.add(a.quizSetId)
+  }
+  for (const card of getStudentArray(studentId, 'dojoCards')) if (card?.sourceId) ids.add(card.sourceId)
+  return ensureQuizSetsLoaded([...ids])
 }
 
 export async function initStudentData(studentId) {

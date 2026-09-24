@@ -7,7 +7,7 @@ import GpuNotice from './components/GpuNotice.jsx'
 import ScreenLeaveNotice from './components/ScreenLeaveNotice.jsx'
 import PolicyNotice from './components/PolicyNotice.jsx'
 import { initFirestore, setSyncScope, refreshSharedData, unsubscribeAggregates } from './data/firebase.js'
-import { initStudentData, linkDojoCardQuestionIds } from './data/store.js'
+import { initStudentData, syncStudentQuizSets, linkDojoCardQuestionIds } from './data/store.js'
 import { auth, signOutUser } from './data/auth.js'
 
 const SESSION_KEY = 'leaderboard_session'
@@ -96,7 +96,7 @@ function App() {
   // Data loads only once a Firebase Auth session exists: security rules refuse
   // unauthenticated reads, and the sign-in screen needs no data at all.
   function startData(s) {
-    setSyncScope(s.role)
+    setSyncScope(s.role, s.user?.id)
     return initFirestore()
       .then(() => {
         setDbReady(true)
@@ -107,6 +107,9 @@ function App() {
           // Link cards once the student's document and quiz sets are loaded.
           initStudentData(s.user.id)
             .then(() => refreshSharedData())
+            // Their own history may reference quizzes outside this term's
+            // assignments; fetch those too, now that their document is loaded.
+            .then(() => syncStudentQuizSets(s.user.id))
             .then(() => linkDojoCardQuestionIds(s.user.id))
             .catch((e) => console.warn('Linking dojo cards to question ids failed:', e))
         }

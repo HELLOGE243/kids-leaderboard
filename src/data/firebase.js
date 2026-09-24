@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction } from 'firebase/firestore'
+import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction, updateDoc, arrayUnion } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
 
 const firebaseConfig = {
@@ -44,6 +44,7 @@ let _lastWrittenUnassigned = null
 let _setWritesInFlight = new Set()
 let _sharedListenersStarted = false
 let _syncScope = null
+let _syncUserId = null
 
 export function isDataReady() {
   return _ready
@@ -163,6 +164,47 @@ export async function saveContact(studentId, fields) {
 }
 
 
+/** Quiz sets used by the courses of every class this student belongs to. */
+function assignedQuizSetIds(data, studentId) {
+  if (!studentId) return []
+  const classIds = Object.entries(data.classes || {})
+    .filter(([, cls]) => Array.isArray(cls?.studentIds) && cls.studentIds.includes(studentId))
+    .map(([id]) => id)
+  const ids = new Set()
+  for (const course of data.courses || []) {
+    if (!classIds.includes(course.classId)) continue
+    for (const mod of course.modules || []) for (const id of mod.quizSetIds || []) ids.add(id)
+  }
+  return [...ids]
+}
+
+/** Reads the named quiz sets, in parallel, skipping any that no longer exist. */
+async function fetchQuizSets(ids) {
+  const wanted = [...new Set(ids)].filter(Boolean)
+  if (!wanted.length) return []
+  const snaps = await Promise.all(wanted.map((id) => getDoc(doc(db, QUIZ_SETS_COLLECTION, id)).catch(() => null)))
+  return snaps.filter((snap) => snap && snap.exists()).map((snap) => snap.data())
+}
+
+/**
+ * Makes sure these quiz sets are in the cache, fetching any that are missing.
+ * Students load their assigned sets at sign-in; this covers the rest - a quiz
+ * assigned mid-session, or a set behind an old attempt or a revision card.
+ * @returns {Promise<number>} how many were added
+ */
+export async function ensureQuizSetsLoaded(ids) {
+  if (!_cache) return 0
+  const have = new Set((_cache.importedQuizSets || []).map((s) => s.id))
+  const missing = [...new Set(ids)].filter((id) => id && !have.has(id))
+  if (!missing.length) return 0
+  const fetched = await fetchQuizSets(missing)
+  if (!fetched.length) return 0
+  _cache.importedQuizSets = [...(_cache.importedQuizSets || []), ...fetched]
+  for (const set of fetched) _lastWrittenSets[set.id] = JSON.stringify(set)
+  notifyChange()
+  return fetched.length
+}
+
 /**
  * Subscribes to the shared appData chunks.
  *
@@ -215,10 +257,17 @@ export async function initFirestore() {
       const cloudData = {}
       let hasCloudData = false
 
+      // A teacher browses the whole library, so they read all of it. A student
+      // needs only the quizzes their own classes use: the library is tens of
+      // megabytes, and downloading it to twenty devices at the start of a
+      // lesson is what makes a classroom crawl.
+      const studentOnly = _syncScope === 'student'
       const allReads = [
         ...CHUNKS.map((chunk) => getDoc(doc(db, 'appData', chunk)).then((snap) => ({ type: 'chunk', chunk, snap })).catch((e) => { console.warn(`Firestore: failed to load chunk "${chunk}":`, e); return null })),
-        getDocs(collection(db, QUIZ_SETS_COLLECTION)).then((qs) => ({ type: 'quizSets', qs })).catch((e) => { console.warn('Firestore: failed to load quizSets collection:', e); return null }),
-        getDoc(doc(db, 'appData', UNASSIGNED_DOC)).then((snap) => ({ type: 'unassigned', snap })).catch(() => null),
+        ...(studentOnly ? [] : [
+          getDocs(collection(db, QUIZ_SETS_COLLECTION)).then((qs) => ({ type: 'quizSets', qs })).catch((e) => { console.warn('Firestore: failed to load quizSets collection:', e); return null }),
+          getDoc(doc(db, 'appData', UNASSIGNED_DOC)).then((snap) => ({ type: 'unassigned', snap })).catch(() => null),
+        ]),
       ]
       const results = await Promise.all(allReads)
 
@@ -239,6 +288,11 @@ export async function initFirestore() {
         } else if (r.type === 'unassigned') {
           perSetUnassigned = r.snap.data().unassignedQuestions || []
         }
+      }
+
+      if (studentOnly) {
+        perSetSets = await fetchQuizSets(assignedQuizSetIds(cloudData, _syncUserId))
+        if (perSetSets.length) hasCloudData = true
       }
 
       // An empty collection means there are no quiz sets - never a reason to
@@ -297,8 +351,9 @@ export async function initFirestore() {
  * 'teacher' subscribes to the shared chunks; 'student' subscribes to nothing
  * global (their own studentData listener is started separately).
  */
-export function setSyncScope(role) {
+export function setSyncScope(role, userId = null) {
   _syncScope = role
+  _syncUserId = userId ? String(userId) : null
   if (role !== 'teacher') return
   // Called either side of initFirestore(): start now if the data is already
   // loaded, otherwise as soon as it is. Waiting on _ready alone meant a teacher
@@ -820,19 +875,35 @@ export function onBroadcast(fn) {
   return () => { _broadcastListeners = _broadcastListeners.filter(f => f !== fn) }
 }
 
+/**
+ * "Ana finished Reading Quiz 3" toasts, in one shared document.
+ *
+ * Appends rather than read-modify-write: a class submitting together used to
+ * overwrite each other's messages, and every submission read the document
+ * first. Old messages are pruned occasionally instead of on every send.
+ */
 export async function sendBroadcast(message) {
+  const id = Date.now() + '-' + Math.random().toString(36).slice(2, 8)
+  const ref = doc(db, 'appData', 'broadcasts')
+  _seenBroadcasts.add(id)
+  const entry = { id, message, ts: Date.now() }
   try {
-    const id = Date.now() + '-' + Math.random().toString(36).slice(2, 8)
-    const ref = doc(db, 'appData', 'broadcasts')
-    const snap = await getDoc(ref)
-    const existing = snap.exists() ? (snap.data().messages || []) : []
-    const cutoff = Date.now() - 60000
-    const recent = existing.filter(m => m.ts > cutoff)
-    recent.push({ id, message, ts: Date.now() })
-    _seenBroadcasts.add(id)
-    await setDoc(ref, { messages: recent })
-  } catch (e) {
-    console.warn('Broadcast send failed:', e)
+    await updateDoc(ref, { messages: arrayUnion(entry) })
+  } catch {
+    // The document may not exist yet.
+    try { await setDoc(ref, { messages: [entry] }, { merge: true }) } catch (e) { console.warn('Broadcast send failed:', e) }
+  }
+  // Roughly one in ten sends tidies up; messages older than a minute are dead.
+  if (Math.random() < 0.1) {
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref)
+        const messages = snap.exists() ? (snap.data().messages || []) : []
+        const cutoff = Date.now() - 60000
+        const recent = messages.filter((m) => m && m.ts > cutoff)
+        if (recent.length !== messages.length) tx.set(ref, { messages: recent })
+      })
+    } catch { /* tidying is best-effort */ }
   }
 }
 
