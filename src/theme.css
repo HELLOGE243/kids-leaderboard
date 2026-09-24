@@ -4463,21 +4463,28 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   display: flex;
   flex-direction: column;
 }
+/* The question editor sizes itself to its content rather than taking a fixed
+   share of the panel. A long passage scrolls inside its own box instead of
+   spilling over - it used to overflow visibly and paint across the explanation
+   and video fields below it. Everything after it (cloze preview, explanation,
+   solution video) then flows underneath, for every question type. */
 .qe-question-area {
-  flex: 1;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.qe-question-area .rte-wrap {
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
-.qe-question-area .rte-wrap {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
 .qe-question-area .rte-body {
-  flex: 1;
-  min-height: 120px;
-  max-height: none;
+  flex: 0 1 auto;
+  min-height: 160px;
+  /* Tall enough to write in, short enough that what follows stays reachable. */
+  max-height: 46vh;
   overflow-y: auto;
 }
 .qe-explain-area {
@@ -4487,6 +4494,7 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   margin-top: 12px;
   min-height: 140px;
 }
+.qe-explain-area .rte-body { max-height: 30vh; overflow-y: auto; }
 a.qt-video-btn {
   text-decoration: none;
 }
