@@ -141,8 +141,13 @@ function App() {
     return () => { cancelled = true }
   }, [])
 
-  /* ---- Tab-focus / copy prevention ---- */
+  /* ---- Tab-focus / copy prevention (students only) ----
+     These guard exam conditions: a student must stay on the quiz tab and must
+     not copy the questions out. A teacher has every right to switch windows and
+     to copy text while building quizzes, so none of it applies to them. */
+  const isStudent = session?.role === 'student'
   useEffect(() => {
+    if (!isStudent) { setTabBlurred(false); return undefined }
     const show = () => setTabBlurred(true)
     const hide = () => setTabBlurred(false)
 
@@ -172,7 +177,7 @@ function App() {
       document.removeEventListener('contextmenu', blockCtx)
       document.removeEventListener('keydown', blockKeys)
     }
-  }, [])
+  }, [isStudent])
 
   // Everyone re-reads the shared data when their tab comes back to the front.
   // Teachers have live listeners as well, but a listener that never attached -
@@ -211,13 +216,13 @@ function App() {
     setSession(null)
   }
 
-  /* ---- Overlay (always rendered) ---- */
-  const overlay = (
+  /* ---- "Stay on this tab" overlay: students only ---- */
+  const overlay = isStudent ? (
     <div className={`tab-blur-overlay${tabBlurred ? ' active' : ''}`}>
       <div className="tab-blur-overlay-title">Come back! 👀</div>
       <div className="tab-blur-overlay-subtitle">This tab must stay active</div>
     </div>
-  )
+  ) : null
 
   if (!session) {
     return <>{overlay}<LoginScreen onLogin={handleLogin} /></>
