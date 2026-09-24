@@ -23,7 +23,7 @@
 
 import { extractAndStoreImages, findImageRefs, deleteImages } from './imageStore.js'
 import { pickSolutionVideo } from '../utils/video.js'
-import { planImport, applyAiSplit, mergeCloze } from '../utils/cleverspaceImport.js'
+import { planImport, applyAiSplit, mergeCloze, describeCoverage } from '../utils/cleverspaceImport.js'
 import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, deleteStudentFirestore, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
 
 export { onDataChange, onBroadcast, sendBroadcast, loadContacts }
@@ -1758,7 +1758,14 @@ export async function importQuizzesFromJSON(jsonArray, onProgress) {
 
   data.importedQuizSets = localSets
   saveData(data)
-  return { added, unassignedCount: unmatched.length, unmatchedTitles: unmatched.map((u) => u.originalTitle), duplicates, typeCounts, flagged, sourceCount: plan.totals.sourceQuestions, platformCount: plan.totals.platformQuestions }
+  // Which numbered items each paper actually contained. A paper that starts at
+  // Q9, or skips numbers, was only partly exported - that is a scrape problem,
+  // not an import one, and the teacher needs to see the difference.
+  const coverage = plan.sets
+    .filter((set) => !set.coverage.complete)
+    .map((set) => ({ quiz: friendlyQuizName(set.quizKey), detail: describeCoverage(set.coverage), missing: set.coverage.missing.length }))
+    .sort((a, b) => b.missing - a.missing)
+  return { added, unassignedCount: unmatched.length, unmatchedTitles: unmatched.map((u) => u.originalTitle), duplicates, typeCounts, flagged, coverage, sourceCount: plan.totals.sourceQuestions, platformCount: plan.totals.platformQuestions }
 }
 
 export function importQuizSetsFromPDF(sections, meta) {

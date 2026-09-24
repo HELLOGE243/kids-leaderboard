@@ -31,6 +31,9 @@
       /* Races ahead, then slows near the end: it never claims "done" before the app is ready. */
       @keyframes boot-progress { 0% { width: 0; } 20% { width: 45%; } 50% { width: 72%; } 100% { width: 94%; } }
       @keyframes boot-shine { to { transform: translateX(100%); } }
+      /* Loaded: the screen fades out once the bar has reached 100%. */
+      .boot-loader.is-leaving { opacity: 0; transition: opacity .5s ease; pointer-events: none; }
+      .boot-loader .boot-text { transition: opacity .3s ease; }
       @media (prefers-reduced-motion: reduce) { .boot-bar-fill { animation: none; width: 70%; } .boot-bar-fill::after { animation: none; } }
     </style>
   </head>

@@ -479,6 +479,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
           unmatchedTitles: [...(prev.unmatchedTitles || []), ...result.unmatchedTitles],
           duplicates: [...(prev.duplicates || []), ...result.duplicates],
           setIds: [...new Set([...(prev.setIds || []), ...result.added.map((x) => x.id)])],
+          coverage: [...(prev.coverage || []), ...(result.coverage || [])],
           typeCounts: Object.entries(result.typeCounts || {}).reduce((acc, [k, v]) => ({ ...acc, [k]: (acc[k] || 0) + v }), { ...(prev.typeCounts || {}) }),
           flagged: [...(prev.flagged || []), ...(result.flagged || [])],
           chunkSizes,
@@ -1997,6 +1998,21 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                     <span key={type} className="import-type-chip">{({ 'multiple-choice': 'Multiple choice', 'multi-description': 'Multiple extracts', 'multi-matching': 'Matching', 'drag-sentence': 'Drag sentences', 'drag-summary': 'Drag summaries', 'free-writing': 'Free write', 'dropdown-cloze': 'Cloze' })[type] || type}: <b>{n}</b></span>
                   ))}
                 </div>
+              )}
+              {importReport.coverage && importReport.coverage.length > 0 && (
+                <details style={{ marginTop: 8 }} open>
+                  <summary style={{ fontSize: '0.55rem', color: '#ff7043', cursor: 'pointer' }}>
+                    Incomplete papers ({importReport.coverage.length}) — these files did not contain every question
+                  </summary>
+                  <div style={{ fontSize: '0.5rem', color: 'var(--text-dim)', margin: '4px 0' }}>
+                    A paper is numbered from Q1. These sets are missing numbers, so those questions were never in the export — re-scrape those papers and import again to fill them in.
+                  </div>
+                  <div style={{ maxHeight: 170, overflowY: 'auto', padding: '4px 6px', background: 'rgba(0,0,0,0.2)', borderRadius: 4 }}>
+                    {importReport.coverage.map((c, i) => (
+                      <div key={i} style={{ fontSize: '0.5rem', color: 'var(--text-dim)', padding: '2px 0' }}><b>{c.quiz}</b> — {c.detail}</div>
+                    ))}
+                  </div>
+                </details>
               )}
               {importReport.flagged && importReport.flagged.length > 0 && (
                 <details style={{ marginTop: 8 }} open>

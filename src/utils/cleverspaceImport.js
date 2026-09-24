@@ -748,7 +748,47 @@ export function planImport(questions) {
     }
     totals.platformQuestions += platform.length
     totals.sets++
-    sets.push({ quizKey, questions: platform, counts })
+    sets.push({ quizKey, questions: platform, counts, coverage: itemCoverage(unique) })
   }
   return { sets, unmatched, totals }
+}
+
+/**
+ * Which numbered items of a paper this file actually contains.
+ *
+ * A CleverSpace paper is numbered from Q1, so a set that starts at Q9 - or skips
+ * numbers in the middle - was only partly exported, however well the import
+ * itself went. Surfacing this is what tells a teacher "the scrape is short",
+ * rather than leaving them to infer it from a one-question quiz.
+ *
+ * @returns {{items: number[], first: number, last: number, missing: number[], complete: boolean}}
+ */
+export function itemCoverage(questions) {
+  const items = [...new Set(questions.map((q) => parseTitle(q.title)?.itemNo).filter((n) => Number.isFinite(n)))].sort((a, b) => a - b)
+  if (!items.length) return { items: [], first: 0, last: 0, missing: [], complete: true }
+  const first = items[0]
+  const last = items[items.length - 1]
+  const present = new Set(items)
+  const missing = []
+  for (let n = 1; n <= last; n++) if (!present.has(n)) missing.push(n)
+  return { items, first, last, missing, complete: missing.length === 0 }
+}
+
+/** "9-16 (missing 1-8)" - a short description of what a file holds for one paper. */
+export function describeCoverage(coverage) {
+  if (!coverage || !coverage.items.length) return 'no numbered items'
+  const ranges = (nums) => {
+    const out = []
+    let start = nums[0]
+    let prev = nums[0]
+    for (const n of nums.slice(1)) {
+      if (n === prev + 1) { prev = n; continue }
+      out.push(start === prev ? `${start}` : `${start}-${prev}`)
+      start = prev = n
+    }
+    out.push(start === prev ? `${start}` : `${start}-${prev}`)
+    return out.join(', ')
+  }
+  const have = `Q${ranges(coverage.items)}`
+  return coverage.missing.length ? `${have} (missing Q${ranges(coverage.missing)})` : have
 }

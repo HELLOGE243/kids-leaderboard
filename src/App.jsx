@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import LoginScreen from './pages/LoginScreen.jsx'
 import Portal from './pages/Portal.jsx'
 import TeacherDashboard from './pages/TeacherDashboard.jsx'
@@ -42,9 +42,54 @@ function loadSession() {
   return null
 }
 
+/**
+ * Start-up loader. The bar creeps while the app loads; once it is ready the bar
+ * runs from wherever it had reached to 100%, holds there for a beat, then the
+ * whole screen fades away - rather than vanishing mid-progress.
+ *
+ * Matches the markup in index.html, and the negative delay resumes that bar
+ * where it had got to instead of restarting from empty.
+ */
+function BootLoader({ done, onHidden }) {
+  const fillRef = useRef(null)
+  const [leaving, setLeaving] = useState(false)
+
+  useEffect(() => {
+    if (!done) return
+    const el = fillRef.current
+    const timers = []
+    if (el) {
+      // Freeze at the width the animation had reached, then glide to 100%.
+      const pct = (el.getBoundingClientRect().width / (el.parentElement?.getBoundingClientRect().width || 1)) * 100
+      el.style.animation = 'none'
+      el.style.width = `${Math.max(0, Math.min(100, pct))}%`
+      void el.offsetWidth
+      el.style.transition = 'width .45s cubic-bezier(.2, .8, .2, 1)'
+      el.style.width = '100%'
+    }
+    // Full bar for a beat, then fade the screen out.
+    timers.push(setTimeout(() => setLeaving(true), 900))
+    timers.push(setTimeout(() => onHidden(), 1450))
+    return () => timers.forEach(clearTimeout)
+  }, [done, onHidden])
+
+  return (
+    <div className={`boot-loader${leaving ? ' is-leaving' : ''}`} role="status" aria-label="Loading">
+      <div className="boot-logo"><img src="/avant-logo.png" alt="AVANT OC & Selective" /></div>
+      <h1 className="boot-title">CleverSpace EduPortal</h1>
+      <div className="boot-bar">
+        <div className="boot-bar-fill" ref={fillRef} style={{ animationDelay: `-${Math.round(performance.now())}ms` }} />
+      </div>
+      <div className="boot-text">{done ? 'Ready' : 'Loading'}</div>
+    </div>
+  )
+}
+
 function App() {
   const [session, setSession] = useState(loadSession)
   const [dbReady, setDbReady] = useState(false)
+  // The loader stays up a moment after loading finishes, to fill and fade out.
+  const [bootHidden, setBootHidden] = useState(false)
   const [dbError, setDbError] = useState(null)
   const [tabBlurred, setTabBlurred] = useState(false)
 
@@ -178,20 +223,11 @@ function App() {
     return <>{overlay}<LoginScreen onLogin={handleLogin} /></>
   }
 
-  if (!dbReady) {
+  if (!bootHidden) {
     return (
       <>
         {overlay}
-        {/* Same loader as index.html. The negative delay resumes the bar where the
-            page-start one had reached rather than restarting it from empty. */}
-        <div className="boot-loader" role="status" aria-label="Loading">
-          <div className="boot-logo"><img src="/avant-logo.png" alt="AVANT OC & Selective" /></div>
-          <h1 className="boot-title">CleverSpace EduPortal</h1>
-          <div className="boot-bar">
-            <div className="boot-bar-fill" style={{ animationDelay: `-${Math.round(performance.now())}ms` }} />
-          </div>
-          <div className="boot-text">Loading</div>
-        </div>
+        <BootLoader done={dbReady} onHidden={() => setBootHidden(true)} />
       </>
     )
   }
