@@ -299,12 +299,17 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
     window.location.reload()
   }
 
-  /** Approving is a small change, but the roll and counts should be beyond doubt. */
+  /**
+   * Approving updates the roll in place: the page is not reloaded, which would
+   * throw away whatever else the teacher had open. The write is still flushed
+   * so the student is approved on the server, not just on screen.
+   */
   async function approveAndReload(studentId) {
     approveStudent(studentId)
-    // The change is queued, not written: reloading first would lose it.
+    forceRefresh()
     await flushPendingWrites()
-    window.location.reload()
+    try { await refreshSharedData() } catch { /* the listener will catch up */ }
+    forceRefresh()
   }
 
   function handleForceCreateStudent() { const name = newStudentName.trim(); if (!name || !org) return; createStudent(name, org.id); setNewStudentName(''); setCreateStudentError(''); forceRefresh() }
