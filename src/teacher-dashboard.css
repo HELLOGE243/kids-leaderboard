@@ -263,3 +263,6 @@
 .td2-report-note { font-size: .9rem; padding: 6px 10px; border-radius: 8px; background: var(--td2-hover); overflow-wrap: anywhere; }
 .td2-report-actions { display: flex; flex-direction: column; gap: 6px; align-items: stretch; flex: none; }
 @media (max-width: 640px) { .td2-report { flex-direction: column; } .td2-report-actions { flex-direction: row; } }
+/* Full-page section opened from the top nav (e.g. Question reports) */
+.td2-page-head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+.td2-h1 { margin: 0; font-size: 1.5rem; font-weight: 800; color: var(--text); font-family: var(--font-body); }

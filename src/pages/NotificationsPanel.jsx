@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { getOverdueStudents, updateStudentContact, getSmsLog, getNotificationPrefs, setNotificationPrefs, getOrganisation, onDataChange, loadContacts } from '../data/store.js'
 import { sendBulkOverdueSMS } from '../utils/smsService.js'
 import ParentAlertsPanel from '../components/ParentAlertsPanel.jsx'
+import PolicyEditor from '../components/PolicyEditor.jsx'
 
 function NotificationsPanel({ orgId, onBack }) {
   const [refresh, setRefresh] = useState(0)
@@ -56,12 +57,14 @@ function NotificationsPanel({ orgId, onBack }) {
 
       <div className="notif-tabs">
         <button className={`notif-tab ${tab === 'parent' ? 'notif-tab-active' : ''}`} onClick={() => setTab('parent')}>Parent alerts</button>
+        <button className={`notif-tab ${tab === 'policy' ? 'notif-tab-active' : ''}`} onClick={() => setTab('policy')}>Refund &amp; credit policy</button>
         <button className={`notif-tab ${tab === 'overdue' ? 'notif-tab-active' : ''}`} onClick={() => setTab('overdue')}>Overdue ({overdue.length})</button>
         <button className={`notif-tab ${tab === 'log' ? 'notif-tab-active' : ''}`} onClick={() => setTab('log')}>SMS Log ({smsLog.length})</button>
         <button className={`notif-tab ${tab === 'settings' ? 'notif-tab-active' : ''}`} onClick={() => setTab('settings')}>Settings</button>
       </div>
 
       {tab === 'parent' && <ParentAlertsPanel orgId={orgId} />}
+      {tab === 'policy' && <div className="notif-section"><PolicyEditor /></div>}
 
       {tab === 'overdue' && (
         <div className="notif-section">

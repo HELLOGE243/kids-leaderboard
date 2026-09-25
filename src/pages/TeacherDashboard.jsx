@@ -7,7 +7,6 @@ import CourseBuilder from './CourseBuilder.jsx'
 import WritingReview from './WritingReview.jsx'
 import NotificationsPanel from './NotificationsPanel.jsx'
 import AddStudentForm from '../components/AddStudentForm.jsx'
-import PolicyEditor from '../components/PolicyEditor.jsx'
 import { authedFetch } from '../data/auth.js'
 import { refreshSharedData, flushPendingWrites } from '../data/firebase.js'
 
@@ -172,6 +171,7 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
   const [showCourseBuilder, setShowCourseBuilder] = useState(false)
   const [showWritingReview, setShowWritingReview] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [showReports, setShowReports] = useState(false)
   const [addingStudent, setAddingStudent] = useState(false)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [showNewsfeed, setShowNewsfeed] = useState(false)
@@ -356,14 +356,6 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
   if (showShopAdmin && org) return <ShopAdmin orgId={org.id} onBack={() => setShowShopAdmin(false)} />
   if (showClassDashboard && org) return <ClassDashboard classId={showClassDashboard} orgId={org.id} onBack={() => setShowClassDashboard(null)} />
 
-  const navItems = [
-    ['Courses', () => setShowCourseBuilder(true)],
-    ['Quizzes', () => setShowQuizBuilder(true)],
-    ['Writing Review', () => setShowWritingReview(true)],
-    ['Notifications', () => setShowNotifications(true)],
-    ['Newsfeed', () => setShowNewsfeed(true)],
-    ['Shop', () => setShowShopAdmin(true)],
-  ]
   const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   const studentClasses = (sid) => classes.filter((c) => c.studentIds.includes(sid))
   const rollList = (studentRollTab === 'archived' ? archivedStudents : studentRollTab === 'pending' ? pendingApprovalStudents : activeStudents)
@@ -380,6 +372,18 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
   const attentionCount = pendingApprovalStudents.length + pendingOrders.length + onHoldOrders.length + lockouts.length + (missingParentEmail.length ? 1 : 0)
   const allReports = org ? getAllStudentReports(org.id) : []
   const openReports = allReports.filter((r) => !r.resolved)
+
+  const navItems = [
+    ['Courses', () => setShowCourseBuilder(true)],
+    ['Quizzes', () => setShowQuizBuilder(true)],
+    ['Writing Review', () => setShowWritingReview(true)],
+    [openReports.length ? `Question reports (${openReports.length})` : 'Question reports', () => setShowReports(true)],
+    ['Notifications', () => setShowNotifications(true)],
+    ['Newsfeed', () => setShowNewsfeed(true)],
+    ['Shop', () => setShowShopAdmin(true)],
+  ]
+
+
   const shownReports = showResolvedReports ? allReports : openReports
 
   function pickImage(onData) {
@@ -393,6 +397,79 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
       uploadImage(file).then(onData).catch((e) => alert(`Image upload failed: ${e.message}`))
     }
     input.click()
+  }
+
+  if (showReports) {
+    return (
+      <div className="td2-app">
+        <main className="td2-main">
+          <div className="td2-page-head">
+            <button className="td2-btn-ghost" onClick={() => setShowReports(false)}>{'\u2190'} Back to dashboard</button>
+            <h1 className="td2-h1">Question reports</h1>
+          </div>
+              {/* Student error reports */}
+              <section className="td2-card" id="td2-reports">
+                <div className="td2-card-head td2-wrap">
+                  <div className="td2-row td2-row-tight">
+                    <h2 className="td2-h2">Question reports</h2>
+                    {openReports.length > 0 && <span className="td2-badge">{openReports.length} unresolved</span>}
+                  </div>
+                  {allReports.length > openReports.length && (
+                    <button className="td2-btn-ghost td2-btn-sm" onClick={() => setShowResolvedReports((v) => !v)}>
+                      {showResolvedReports ? 'Hide resolved' : `Show resolved (${allReports.length - openReports.length})`}
+                    </button>
+                  )}
+                </div>
+                {!reportsLoaded ? (
+                  <p className="td2-empty">Loading reports…</p>
+                ) : shownReports.length === 0 ? (
+                  <p className="td2-empty">No problems reported — questions look good. ✅</p>
+                ) : (
+                  <div className="td2-reports">
+                    {shownReports.map((r) => {
+                      const { set, index, question } = reportQuestion(r)
+                      const student = students.find((s) => s.id === r.studentId)
+                      const snippet = (question?.prompt || question?.text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+                      const optionText = r.option != null && question?.options?.[r.option] != null
+                        ? `${String.fromCharCode(65 + r.option)}: ${String(question.options[r.option]).replace(/<[^>]*>/g, '').trim() || '(blank)'}`
+                        : null
+                      return (
+                        <div key={r.id} className={`td2-report${r.resolved ? ' is-resolved' : ''}`}>
+                          <div className="td2-report-main">
+                            <div className="td2-report-top">
+                              <span className="td2-report-type">{REPORT_LABELS[r.errorType] || r.errorType}</span>
+                              {r.kind === 'explanation' && <span className="td2-chip">Explanation</span>}
+                              <span className="td2-muted td2-small">
+                                {set ? (set.friendlyTitle || set.rawTitle) : 'Unknown quiz'} · Q{(index ?? 0) + 1}
+                                {r.source ? ` · ${REPORT_SOURCES[r.source] || r.source}` : ''}
+                              </span>
+                            </div>
+                            {snippet && <div className="td2-report-q">“{snippet.length > 160 ? snippet.slice(0, 160) + '…' : snippet}”</div>}
+                            {optionText && <div className="td2-small"><span className="td2-muted">Option flagged:</span> {optionText}</div>}
+                            {r.details && <div className="td2-report-note">{r.details}</div>}
+                            <div className="td2-muted td2-small">{student ? fullName(student) : 'A student'} · {new Date(r.date).toLocaleString()}</div>
+                          </div>
+                          <div className="td2-report-actions">
+                            {set && <button className="td2-btn-ghost td2-btn-sm" onClick={() => { setEditQuizId(set.id); setShowQuizBuilder(true) }}>Open quiz</button>}
+                            {r.resolved ? (
+                              <span className="td2-muted td2-small">Resolved</span>
+                            ) : (
+                              <button className="td2-btn td2-btn-sm" onClick={() => {
+                                if (r.kind === 'question') resolveQuestionReport(r.id, r.studentId)
+                                else resolveExplanationReport(r.id, r.studentId)
+                                forceRefresh()
+                              }}>Mark resolved</button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </section>
+        </main>
+      </div>
+    )
   }
 
   return (
@@ -461,9 +538,9 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                 ['Students', activeStudents.length, 'td2-students'],
                 ['Pending sign-ups', pendingApprovalStudents.length, 'td2-attention'],
                 ['Shop orders', pendingOrders.length, 'td2-attention'],
-                ['Question reports', openReports.length, 'td2-reports'],
+                ['Question reports', openReports.length, 'reports'],
               ].map(([label, val, target]) => (
-                <button key={label} className={`td2-stat ${label !== 'Classes' && label !== 'Students' && val > 0 ? 'is-alert' : ''}`} onClick={() => scrollTo(target)}>
+                <button key={label} className={`td2-stat ${label !== 'Classes' && label !== 'Students' && val > 0 ? 'is-alert' : ''}`} onClick={() => (target === 'reports' ? setShowReports(true) : scrollTo(target))}>
                   <span className="td2-stat-val">{val}</span>
                   <span className="td2-stat-lbl">{label}</span>
                 </button>
@@ -625,66 +702,6 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
               </section>
             </div>
 
-            {/* Student error reports */}
-            <section className="td2-card" id="td2-reports">
-              <div className="td2-card-head td2-wrap">
-                <div className="td2-row td2-row-tight">
-                  <h2 className="td2-h2">Question reports</h2>
-                  {openReports.length > 0 && <span className="td2-badge">{openReports.length} unresolved</span>}
-                </div>
-                {allReports.length > openReports.length && (
-                  <button className="td2-btn-ghost td2-btn-sm" onClick={() => setShowResolvedReports((v) => !v)}>
-                    {showResolvedReports ? 'Hide resolved' : `Show resolved (${allReports.length - openReports.length})`}
-                  </button>
-                )}
-              </div>
-              {!reportsLoaded ? (
-                <p className="td2-empty">Loading reports…</p>
-              ) : shownReports.length === 0 ? (
-                <p className="td2-empty">No problems reported — questions look good. ✅</p>
-              ) : (
-                <div className="td2-reports">
-                  {shownReports.map((r) => {
-                    const { set, index, question } = reportQuestion(r)
-                    const student = students.find((s) => s.id === r.studentId)
-                    const snippet = (question?.prompt || question?.text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-                    const optionText = r.option != null && question?.options?.[r.option] != null
-                      ? `${String.fromCharCode(65 + r.option)}: ${String(question.options[r.option]).replace(/<[^>]*>/g, '').trim() || '(blank)'}`
-                      : null
-                    return (
-                      <div key={r.id} className={`td2-report${r.resolved ? ' is-resolved' : ''}`}>
-                        <div className="td2-report-main">
-                          <div className="td2-report-top">
-                            <span className="td2-report-type">{REPORT_LABELS[r.errorType] || r.errorType}</span>
-                            {r.kind === 'explanation' && <span className="td2-chip">Explanation</span>}
-                            <span className="td2-muted td2-small">
-                              {set ? (set.friendlyTitle || set.rawTitle) : 'Unknown quiz'} · Q{(index ?? 0) + 1}
-                              {r.source ? ` · ${REPORT_SOURCES[r.source] || r.source}` : ''}
-                            </span>
-                          </div>
-                          {snippet && <div className="td2-report-q">“{snippet.length > 160 ? snippet.slice(0, 160) + '…' : snippet}”</div>}
-                          {optionText && <div className="td2-small"><span className="td2-muted">Option flagged:</span> {optionText}</div>}
-                          {r.details && <div className="td2-report-note">{r.details}</div>}
-                          <div className="td2-muted td2-small">{student ? fullName(student) : 'A student'} · {new Date(r.date).toLocaleString()}</div>
-                        </div>
-                        <div className="td2-report-actions">
-                          {set && <button className="td2-btn-ghost td2-btn-sm" onClick={() => { setEditQuizId(set.id); setShowQuizBuilder(true) }}>Open quiz</button>}
-                          {r.resolved ? (
-                            <span className="td2-muted td2-small">Resolved</span>
-                          ) : (
-                            <button className="td2-btn td2-btn-sm" onClick={() => {
-                              if (r.kind === 'question') resolveQuestionReport(r.id, r.studentId)
-                              else resolveExplanationReport(r.id, r.studentId)
-                              forceRefresh()
-                            }}>Mark resolved</button>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </section>
 
             {/* Expanded class management */}
             {activeClassData && (
@@ -910,12 +927,6 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                 </div>
               )}
             </section>
-
-            {/* Refund and credit policy */}
-            <details className="td2-card td2-admin">
-              <summary className="td2-h2">Refund &amp; credit policy</summary>
-              <PolicyEditor />
-            </details>
 
             {/* Admin */}
             {isAdmin && (
