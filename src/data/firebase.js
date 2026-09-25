@@ -1022,3 +1022,32 @@ export async function deleteStudentFirestore(studentId) {
     console.warn(`Firestore: could not delete student "${studentId}":`, e)
   }
 }
+
+/**
+ * Watches this account's session. One device per account: signing in somewhere
+ * else replaces the recorded session id, and whichever device still holds the
+ * old one signs itself out.
+ *
+ * @param {string} userId
+ * @param {string} sessionId the id this device was given at sign-in
+ * @param {() => void} onReplaced called once, when a newer sign-in takes over
+ * @returns {() => void} stop watching
+ */
+export function watchSession(userId, sessionId, onReplaced) {
+  if (!userId || !sessionId) return () => {}
+  let done = false
+  const unsub = onSnapshot(
+    doc(db, 'sessions', String(userId)),
+    (snap) => {
+      if (done || !snap.exists()) return
+      const current = snap.data().sessionId
+      if (current && current !== sessionId) {
+        done = true
+        unsub()
+        onReplaced()
+      }
+    },
+    (e) => console.warn('Session watch failed:', e?.code || e),
+  )
+  return () => { done = true; unsub() }
+}

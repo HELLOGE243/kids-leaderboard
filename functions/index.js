@@ -445,6 +445,26 @@ function sendJson(res, status, body) {
   return res.status(status).json(body)
 }
 
+
+// ============================================================
+// ONE DEVICE PER ACCOUNT
+//
+// Each successful sign-in records a fresh session id in sessions/{userId}.
+// Every signed-in client watches that document: when a newer sign-in replaces
+// the id, the older device signs itself out. This is what stops one student's
+// login being shared around a class.
+// ============================================================
+async function startSession(userId, role) {
+  const sessionId = crypto.randomBytes(16).toString('hex')
+  try {
+    await db.collection('sessions').doc(String(userId)).set({ sessionId, role, issuedAt: Date.now() })
+  } catch (e) {
+    // A failure here must not block sign-in; it only weakens the device check.
+    console.warn('Could not record session:', e)
+  }
+  return sessionId
+}
+
 exports.authLookup = functions
   .region('australia-southeast1')
   // Kept warm: every sign-in calls this, and a cold start added ~5s.
@@ -489,11 +509,12 @@ exports.authResetPassword = functions
           return sendJson(res, 401, { error: 'Email does not match our records.' })
         }
         await credentialRef(role, user.id).set({ password: hashPassword(newPassword), updatedAt: Date.now() })
+        const sessionId = await startSession(user.id, role)
         const token = await admin.auth().createCustomToken(String(user.id), {
           role,
           orgId: user.orgId || null,
         })
-        return sendJson(res, 200, { ok: true, token, user: publicUser(user) })
+        return sendJson(res, 200, { ok: true, token, sessionId, user: publicUser(user) })
       } catch (e) {
         console.error('authResetPassword failed:', e)
         return sendJson(res, 500, { error: 'Reset failed' })
@@ -550,12 +571,13 @@ exports.authLogin = functions
         }
 
         const isAdmin = role === 'teacher' && isAdminTeacher(user)
+        const sessionId = await startSession(user.id, role)
         const token = await admin.auth().createCustomToken(String(user.id), {
           role,
           orgId: user.orgId || null,
           admin: isAdmin,
         })
-        return sendJson(res, 200, { ok: true, token, isAdmin, user: publicUser(user) })
+        return sendJson(res, 200, { ok: true, token, isAdmin, sessionId, user: publicUser(user) })
       } catch (e) {
         console.error('authLogin failed:', e)
         return sendJson(res, 500, { error: 'Login failed' })
@@ -844,8 +866,9 @@ exports.authSignup = functions
         if (role === 'teacher') {
           return sendJson(res, 200, { ok: true, pendingApproval: true })
         }
+        const sessionId = await startSession(created.id, 'student')
         const token = await admin.auth().createCustomToken(String(created.id), { role: 'student', orgId: null, admin: false })
-        return sendJson(res, 200, { ok: true, token, isAdmin: false, user: { id: created.id, name: cleanName, approved: false } })
+        return sendJson(res, 200, { ok: true, token, sessionId, isAdmin: false, user: { id: created.id, name: cleanName, approved: false } })
       } catch (e) {
         console.error('authSignup failed:', e)
         return sendJson(res, 500, { error: 'Sign-up failed' })

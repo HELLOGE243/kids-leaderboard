@@ -225,11 +225,11 @@ function LoginScreen({ onLogin }) {
     setPassword('')
     setConfirmPassword('')
     if (!isTeacher && loggedIn.approved === false) {
-      setPendingSession({ role, user: loggedIn, isAdmin: !!res.isAdmin })
+      setPendingSession({ role, user: loggedIn, isAdmin: !!res.isAdmin, sessionId: res.sessionId || null })
       setPendingApproval(true)
       return
     }
-    onLogin({ role, user: loggedIn, isAdmin: !!res.isAdmin })
+    onLogin({ role, user: loggedIn, isAdmin: !!res.isAdmin, sessionId: res.sessionId || null })
   }
 
   async function handleEnterPassword(e) {
@@ -253,11 +253,11 @@ function LoginScreen({ onLogin }) {
     setError('')
     setPassword('')
     if (!isTeacher && loggedIn.approved === false) {
-      setPendingSession({ role, user: loggedIn, isAdmin: !!res.isAdmin })
+      setPendingSession({ role, user: loggedIn, isAdmin: !!res.isAdmin, sessionId: res.sessionId || null })
       setPendingApproval(true)
       return
     }
-    onLogin({ role, user: loggedIn, isAdmin: !!res.isAdmin })
+    onLogin({ role, user: loggedIn, isAdmin: !!res.isAdmin, sessionId: res.sessionId || null })
   }
 
   /**

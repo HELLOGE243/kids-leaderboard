@@ -6,7 +6,7 @@ import SessionRevision from './pages/SessionRevision.jsx'
 import GpuNotice from './components/GpuNotice.jsx'
 import ScreenLeaveNotice from './components/ScreenLeaveNotice.jsx'
 import PolicyNotice from './components/PolicyNotice.jsx'
-import { initFirestore, setSyncScope, refreshSharedData, unsubscribeAggregates } from './data/firebase.js'
+import { initFirestore, setSyncScope, refreshSharedData, unsubscribeAggregates, watchSession } from './data/firebase.js'
 import { initStudentData, syncStudentQuizSets, linkDojoCardQuestionIds } from './data/store.js'
 import { auth, signOutUser } from './data/auth.js'
 
@@ -92,6 +92,8 @@ function App() {
   const [bootHidden, setBootHidden] = useState(false)
   const [dbError, setDbError] = useState(null)
   const [tabBlurred, setTabBlurred] = useState(false)
+  // Set when this account is signed in somewhere newer (one device per account).
+  const [replacedElsewhere, setReplacedElsewhere] = useState(false)
 
   // Data loads only once a Firebase Auth session exists: security rules refuse
   // unauthenticated reads, and the sign-in screen needs no data at all.
@@ -143,6 +145,19 @@ function App() {
     })()
     return () => { cancelled = true }
   }, [])
+
+  // One device per account: when a newer sign-in replaces this one, sign this
+  // device out rather than letting two devices share a login.
+  useEffect(() => {
+    if (!session?.user?.id || !session?.sessionId) return undefined
+    return watchSession(session.user.id, session.sessionId, () => {
+      setReplacedElsewhere(true)
+      sessionStorage.removeItem(SESSION_KEY)
+      clearCookie()
+      signOutUser()
+      unsubscribeAggregates()
+    })
+  }, [session?.user?.id, session?.sessionId])
 
   /* ---- Tab-focus / copy prevention (students only) ----
      These guard exam conditions: a student must stay on the quiz tab and must
@@ -200,6 +215,8 @@ function App() {
   }, [session?.role, session?.user?.id])
 
   function handleLogin(s) {
+    // A fresh sign-in clears the "signed out elsewhere" screen.
+    setReplacedElsewhere(false)
     const json = JSON.stringify(s)
     sessionStorage.setItem(SESSION_KEY, json)
     setCookie(json)
@@ -226,6 +243,21 @@ function App() {
       <div className="tab-blur-overlay-subtitle">This tab must stay active</div>
     </div>
   ) : null
+
+  // Signed out because the same account signed in somewhere newer.
+  if (replacedElsewhere) {
+    return (
+      <div className="page-center landing-page">
+        <img src="/avant-logo.png" alt="AVANT OC & Selective" className="landing-logo" />
+        <h1 className="landing-heading">Signed out</h1>
+        <p className="landing-text" style={{ marginBottom: 16, maxWidth: 360, textAlign: 'center', lineHeight: 1.5 }}>
+          This account was signed in on another device, so it was signed out here.
+          An account can only be used on one device at a time.
+        </p>
+        <button className="btn landing-btn" onClick={() => { setReplacedElsewhere(false); setSession(null) }}>Sign in again</button>
+      </div>
+    )
+  }
 
   if (!session) {
     return <>{overlay}<LoginScreen onLogin={handleLogin} /></>

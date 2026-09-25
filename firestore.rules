@@ -100,6 +100,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // --- Sign-in sessions (one device per account) ---------------------------
+    // Written only by the auth functions; a user may read their own so their
+    // device knows when a newer sign-in has replaced it.
+    match /sessions/{userId} {
+      allow get: if isSelf(userId) || isTeacher();
+      allow write: if false;
+    }
+
     // --- Parent notification queue (written only by Cloud Functions) ---------
     match /parentNotifications/{id} {
       allow read: if isTeacher();

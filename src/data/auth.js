@@ -47,7 +47,7 @@ export async function loginUser(role, name, password) {
       return { ok: false, error: data?.error || 'Login failed' }
     }
     await establishSession(data.token)
-    return { ok: true, user: data.user, isAdmin: !!data.isAdmin }
+    return { ok: true, user: data.user, isAdmin: !!data.isAdmin, sessionId: data.sessionId || null }
   } catch (e) {
     console.error('loginUser failed:', e)
     return { ok: false, error: 'network' }
@@ -63,7 +63,7 @@ export async function signupUser(role, name, password, profile) {
   try {
     const { ok, data } = await postJson('authSignup', { role, name, password, profile })
     if (!ok || !data?.ok) return { ok: false, error: data?.error || 'Sign-up failed' }
-    return { ok: true, pendingApproval: true }
+    return { ok: true, pendingApproval: true, sessionId: data.sessionId || null }
   } catch (e) {
     console.error('signupUser failed:', e)
     return { ok: false, error: 'network' }
@@ -96,7 +96,7 @@ export async function resetPassword(role, name, parentEmail, newPassword) {
     const { ok, data } = await postJson('authResetPassword', { role, name, parentEmail, newPassword })
     if (!ok || !data?.token) return { ok: false, error: data?.error || 'Reset failed' }
     await establishSession(data.token)
-    return { ok: true, user: data.user, isAdmin: !!data.isAdmin }
+    return { ok: true, user: data.user, isAdmin: !!data.isAdmin, sessionId: data.sessionId || null }
   } catch (e) {
     console.error('resetPassword failed:', e)
     return { ok: false, error: 'network' }
