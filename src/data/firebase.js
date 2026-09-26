@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction, updateDoc, arrayUnion } from 'firebase/firestore'
+import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction, updateDoc, arrayUnion, deleteField } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
 
 const firebaseConfig = {
@@ -390,6 +390,29 @@ export async function saveAiExplanation(setId, questionKey, payload) {
     return true
   } catch (e) {
     console.warn('Firestore: failed to save AI explanation:', e)
+    return false
+  }
+}
+
+/**
+ * Deletes the shared explanations for named questions in a set.
+ *
+ * An explanation argues for a particular answer, so the moment an answer key
+ * changes every word written about that question is wrong. Both the cached AI
+ * copy here and the teacher's own text on the question are wiped.
+ */
+export async function deleteAiExplanations(setId, questionKeys) {
+  if (!setId || !questionKeys?.length) return false
+  const local = _aiExpCache.get(setId)
+  if (local) for (const k of questionKeys) delete local[k]
+  try {
+    const updates = {}
+    for (const k of questionKeys) updates[k] = deleteField()
+    await setDoc(doc(db, AI_EXPLANATIONS_COLLECTION, String(setId)), {}, { merge: true })
+    await updateDoc(doc(db, AI_EXPLANATIONS_COLLECTION, String(setId)), updates)
+    return true
+  } catch (e) {
+    console.warn('Firestore: failed to delete AI explanations:', e)
     return false
   }
 }

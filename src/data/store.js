@@ -24,7 +24,7 @@
 import { extractAndStoreImages, findImageRefs, deleteImages } from './imageStore.js'
 import { pickSolutionVideo } from '../utils/video.js'
 import { planImport, applyAiSplit, mergeCloze, describeCoverage } from '../utils/cleverspaceImport.js'
-import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, deleteStudentFirestore, ensureQuizSetsLoaded, refreshQuizSet, loadAiExplanations, saveAiExplanation, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
+import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, deleteStudentFirestore, ensureQuizSetsLoaded, refreshQuizSet, loadAiExplanations, saveAiExplanation, deleteAiExplanations, clearAiExplanationCache, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
 
 export { onDataChange, onBroadcast, sendBroadcast, loadContacts }
 
@@ -259,9 +259,13 @@ function saveStudentData(studentId, sData) {
 }
 
 /**
- * Pulls in any quiz set this student needs but has not loaded: their assigned
- * quizzes are fetched at sign-in, and this adds the ones behind past attempts
- * and revision cards, plus anything assigned since they signed in.
+ * Re-reads every quiz this student touches, and re-marks their work against it.
+ *
+ * Quizzes used to be downloaded once and kept, so a teacher's correction - a
+ * fixed answer key most of all - never reached a student who already had the
+ * paper, and their attempt stayed marked against the old key. Every set the
+ * student can reach is re-read at sign-in instead. Their answers are never
+ * touched; only the marks are worked out again from them.
  */
 export async function syncStudentQuizSets(studentId) {
   if (!studentId) return 0
@@ -279,7 +283,63 @@ export async function syncStudentQuizSets(studentId) {
     for (const a of getStudentArray(studentId, key)) if (a?.quizSetId) ids.add(a.quizSetId)
   }
   for (const card of getStudentArray(studentId, 'dojoCards')) if (card?.sourceId) ids.add(card.sourceId)
-  return ensureQuizSetsLoaded([...ids])
+  const wanted = [...ids]
+  // Fetch the ones missing entirely, then refresh the rest: a set already in
+  // hand may have been edited since it was downloaded.
+  const added = await ensureQuizSetsLoaded(wanted)
+  await Promise.all(wanted.map((id) => refreshQuizSet(id)))
+  remarkStudentWork(studentId)
+  return added
+}
+
+/**
+ * Re-marks this student's submitted work against the quizzes as they now
+ * stand, keeping every answer they gave.
+ *
+ * A teacher who fixes a wrong answer key expects the marks to follow, without
+ * anyone re-sitting anything. Scores that have not moved are left alone, so
+ * this writes nothing in the ordinary case.
+ * @returns {number} how many attempts changed
+ */
+export function remarkStudentWork(studentId) {
+  if (!studentId) return 0
+  const data = loadData()
+  const sets = new Map((data.importedQuizSets || []).map((s) => [s.id, s]))
+  let changed = 0
+
+  for (const key of ['homeworkAttempts', 'homeworkRedos']) {
+    const updates = []
+    for (const attempt of getStudentArray(studentId, key)) {
+      const set = sets.get(attempt.quizSetId)
+      if (!set || !Array.isArray(attempt.answers)) continue
+      const { score, total } = rescoreAttempt(set, attempt)
+      if (score === attempt.score && total === attempt.total) continue
+      updates.push({ id: attempt.id, score, total })
+    }
+    if (!updates.length) continue
+    changed += updates.length
+    mutateStudentArray(studentId, key, (arr) => {
+      for (const u of updates) {
+        const a = arr.find((x) => x.id === u.id)
+        if (!a) continue
+        a.score = u.score
+        a.total = u.total
+        a.remarkedAt = new Date().toISOString()
+        // The help they read argued for the old answer. Their own explanations
+        // and the tokens they earned stay; the borrowed reasoning goes.
+        if (a.reviewState?.chats) {
+          const chats = {}
+          for (const [k, chat] of Object.entries(a.reviewState.chats)) {
+            const { help, panel, loading, ...keep } = chat || {}
+            chats[k] = keep
+          }
+          a.reviewState = { ...a.reviewState, chats }
+        }
+      }
+    })
+  }
+  if (changed) console.info(`store: re-marked ${changed} attempt(s) for student ${studentId} against the current answer keys`)
+  return changed
 }
 
 export async function initStudentData(studentId) {
@@ -1970,8 +2030,33 @@ export function updateImportedQuizSet(id, updates) {
   const set = (data.importedQuizSets || []).find((s) => s.id === id)
   if (!set) return null
   if (updates.questions) updates = { ...updates, questions: withQuestionIds(updates.questions) }
+
+  // An explanation argues for a particular answer. Change the answer and every
+  // word written about that question - the teacher's own explanation, the
+  // per-option notes, and the AI copy shared with other students - is now
+  // arguing for the wrong one, so the whole solution side is wiped and will be
+  // written again from the corrected question.
+  let wipedKeys = []
+  if (updates.questions) {
+    const changed = new Set(changedAnswerKeys(set.questions, updates.questions))
+    if (changed.size) {
+      updates.questions = updates.questions.map((q) => {
+        if (!changed.has(q.id)) return q
+        const { explanation, ...rest } = q
+        return rest
+      })
+      wipedKeys = updates.questions
+        .map((q, i) => (changed.has(q.id) ? (q.id ? `q_${q.id}` : `i_${i}`) : null))
+        .filter(Boolean)
+    }
+  }
+
   Object.assign(set, updates)
   saveData(data)
+  if (wipedKeys.length) {
+    clearAiExplanationCache(id)
+    deleteAiExplanations(id, wipedKeys)
+  }
   return set
 }
 
@@ -4234,8 +4319,8 @@ export function getWritingSubmissions(quizSetId, orgId) {
   if (!set) return []
   const writingIndices = set.questions.map((q, i) => q.type === 'free-writing' ? i : -1).filter(i => i >= 0)
   if (writingIndices.length === 0) return []
-  const attempts = data.homeworkAttempts.filter(a => a.quizSetId === quizSetId && (!orgId || !a.orgId || a.orgId === orgId))
-  const redos = (data.homeworkRedos || []).filter(a => a.quizSetId === quizSetId && (!orgId || !a.orgId || a.orgId === orgId))
+  const attempts = collectStudentArray('homeworkAttempts').filter(a => a.quizSetId === quizSetId && (!orgId || !a.orgId || a.orgId === orgId))
+  const redos = collectStudentArray('homeworkRedos').filter(a => a.quizSetId === quizSetId && (!orgId || !a.orgId || a.orgId === orgId))
   const allAttempts = [...attempts, ...redos]
   const submissions = []
   for (const att of allAttempts) {
@@ -4307,10 +4392,23 @@ export function getQuizSetsWithWriting(orgId) {
     return s.questions.some(q => q.type === 'free-writing')
   }).map(s => {
     const writingCount = s.questions.filter(q => q.type === 'free-writing').length
-    const attempts = data.homeworkAttempts.filter(a => a.quizSetId === s.id && (!orgId || !a.orgId || a.orgId === orgId))
     const submissions = getWritingSubmissions(s.id, orgId)
     const marked = submissions.filter(sub => sub.mark).length
-    return { id: s.id, title: s.title || 'Untitled', writingCount, submissionCount: submissions.length, markedCount: marked, courseId: s.courseId }
+    const loc = findQuizSetLocation(s.id)
+    const course = loc ? (data.courses || []).find((c) => c.id === loc.courseId) : null
+    const cls = course ? (data.classes || {})[course.classId] : null
+    const mod = course && loc ? (course.modules || []).find((m) => m.id === loc.moduleId) : null
+    return {
+      id: s.id,
+      title: s.friendlyTitle || s.rawTitle || s.name || 'Untitled quiz',
+      courseName: course?.name || '',
+      className: cls?.name || '',
+      moduleName: mod?.name || '',
+      writingCount,
+      submissionCount: submissions.length,
+      markedCount: marked,
+      courseId: course?.id || null,
+    }
   })
 }
 

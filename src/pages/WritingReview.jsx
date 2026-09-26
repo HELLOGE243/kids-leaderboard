@@ -433,7 +433,11 @@ function WritingReview({ orgId, teacherId, onBack }) {
               <div key={s.id} className="wr-set-card" onClick={() => setSelectedSet(s.id)}>
                 <div className="wr-set-info">
                   <span className="wr-set-name">{s.title}</span>
-                  <span className="wr-set-meta">{s.writingCount} writing question{s.writingCount !== 1 ? 's' : ''}</span>
+                  <span className="wr-set-meta">
+                    {[s.courseName, s.moduleName].filter(Boolean).join(' · ')}
+                    {(s.courseName || s.moduleName) ? ' — ' : ''}
+                    {s.writingCount} writing question{s.writingCount !== 1 ? 's' : ''}
+                  </span>
                 </div>
                 <div className="wr-set-stats">
                   <div className="wr-set-stat">
@@ -463,7 +467,10 @@ function WritingReview({ orgId, teacherId, onBack }) {
       <div className="wr-page">
         <div className="wr-header">
           <button className="btn btn-outline" onClick={() => setSelectedSet(null)}>← Back</button>
-          <h2 className="wr-title">{setInfo?.title || 'Writing Submissions'}</h2>
+          <h2 className="wr-title">
+            {setInfo?.title || 'Writing Submissions'}
+            {setInfo?.courseName && <span className="wr-title-course">{setInfo.courseName}</span>}
+          </h2>
           <span className="wr-queue-count">{markedCount}/{submissions.length} marked</span>
         </div>
         {submissions.length === 0 ? (
