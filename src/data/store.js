@@ -2308,6 +2308,212 @@ export function setCourseStudentIds(courseId, studentIds) {
   return course
 }
 
+// ------------------------------------------------------------
+// Trial test courses
+//
+// A trial test runs like the real thing: the papers are sat one after another
+// rather than a module a week, nobody sees a mark until the teacher releases
+// them, and what comes back is a ranked report across the whole sitting rather
+// than a score per quiz.
+// ------------------------------------------------------------
+
+/** Marks a course as a trial test (or back to an ordinary course). */
+export function setCourseTrialTest(courseId, isTrial) {
+  const data = loadData()
+  const course = (data.courses || []).find((c) => c.id === courseId)
+  if (!course) return null
+  if (isTrial) course.trialTest = true
+  else { delete course.trialTest; delete course.resultsReleased; delete course.resultsReleasedAt }
+  saveData(data)
+  return course
+}
+
+/** Publishes every mark in a trial test course to its students. */
+export function setTrialResultsReleased(courseId, released) {
+  const data = loadData()
+  const course = (data.courses || []).find((c) => c.id === courseId)
+  if (!course) return null
+  if (released) {
+    course.resultsReleased = true
+    course.resultsReleasedAt = new Date().toISOString()
+  } else {
+    delete course.resultsReleased
+    delete course.resultsReleasedAt
+  }
+  saveData(data)
+  return course
+}
+
+/** The course a quiz set belongs to for this student, or null. */
+export function courseForQuizSet(quizSetId, studentId) {
+  const data = loadData()
+  for (const course of data.courses || []) {
+    if (studentId && !courseIncludesStudent(course, studentId)) continue
+    if ((course.modules || []).some((m) => (m.quizSetIds || []).includes(quizSetId))) return course
+  }
+  return null
+}
+
+/**
+ * Whether a student may see marks for this quiz yet. Always true outside a
+ * trial test course; inside one, only once the teacher has released them.
+ */
+export function quizResultsVisible(quizSetId, studentId) {
+  const course = courseForQuizSet(quizSetId, studentId)
+  if (!course || !course.trialTest) return true
+  return !!course.resultsReleased
+}
+
+/**
+ * How many modules this student has opened.
+ *
+ * An ordinary course opens a module a week. A trial test opens the next paper
+ * as soon as every quiz in the current one has been attempted - a student sits
+ * the papers in order, at their own pace, not a week apart.
+ */
+export function getUnlockedModuleCountForCourse(course, studentId) {
+  if (!course) return 0
+  const start = getHomeworkStart(studentId, course.id)
+  if (!start) return 0
+  if (course.trialTest) {
+    const attempts = getStudentArray(studentId, 'homeworkAttempts')
+    const done = (ids) => (ids || []).length > 0 && (ids || []).every((id) => attempts.some((a) => a.quizSetId === id))
+    let unlocked = 1
+    for (const mod of course.modules || []) {
+      if (done(mod.quizSetIds)) unlocked++
+      else break
+    }
+    return Math.min(unlocked, (course.modules || []).length)
+  }
+  const days = Math.floor((Date.now() - new Date(start.startedDate).getTime()) / (1000 * 60 * 60 * 24))
+  return Math.floor(days / 7) + 1
+}
+
+function median(nums) {
+  if (!nums.length) return null
+  const s = [...nums].sort((a, b) => a - b)
+  const mid = Math.floor(s.length / 2)
+  return s.length % 2 ? s[mid] : Math.round((s[mid - 1] + s[mid]) / 2)
+}
+
+/**
+ * The report for one trial test course.
+ *
+ * Every paper carries the same weight and the sitting is marked out of 100, so
+ * a four paper trial is 25 marks each. Cohort figures come from the
+ * server-maintained quizStats documents, which every signed-in user may read -
+ * a student never reads another student's document to find their rank.
+ *
+ * @returns {null|{released:boolean, papers:Array, overall:object, weaknesses:Array}}
+ */
+export function getTrialCourseReport(courseId, studentId) {
+  const data = loadData()
+  const course = (data.courses || []).find((c) => c.id === courseId)
+  if (!course || !course.trialTest) return null
+
+  const quizSetIds = []
+  for (const mod of course.modules || []) for (const id of mod.quizSetIds || []) quizSetIds.push(id)
+  if (!quizSetIds.length) return null
+
+  const weight = 100 / quizSetIds.length
+  const myAttempts = getStudentArray(studentId, 'homeworkAttempts')
+
+  // pct per student per paper, from the shared aggregate.
+  const perPaper = quizSetIds.map((qsId) => {
+    subscribeQuizStats(qsId)
+    const stats = getQuizStatsCache(qsId) || []
+    const set = (data.importedQuizSets || []).find((s) => s.id === qsId)
+    const rows = stats
+      .filter((s) => s && s.total > 0)
+      .map((s) => ({ studentId: String(s.studentId), pct: Math.round((s.score / s.total) * 100), score: s.score, total: s.total }))
+    const mine = rows.find((r) => r.studentId === String(studentId))
+      || (() => {
+        const a = myAttempts.find((x) => x.quizSetId === qsId)
+        return a && a.total > 0 ? { studentId: String(studentId), pct: Math.round((a.score / a.total) * 100), score: a.score, total: a.total } : null
+      })()
+    const pcts = rows.map((r) => r.pct)
+    const sorted = [...pcts].sort((a, b) => b - a)
+    return {
+      quizSetId: qsId,
+      name: set ? (set.friendlyTitle || set.rawTitle || 'Paper') : 'Paper',
+      subject: subjectForQuizSet(set) || 'other',
+      weight: Math.round(weight),
+      mine,
+      cohort: rows,
+      sat: rows.length,
+      average: pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null,
+      median: median(pcts),
+      top: sorted.length ? sorted[0] : null,
+      percentile: mine && pcts.length > 1
+        ? Math.round((pcts.filter((p) => p < mine.pct).length / pcts.length) * 100)
+        : null,
+    }
+  })
+
+  // Weighted totals out of 100, per student, across the papers they sat.
+  const totals = new Map()
+  for (const paper of perPaper) {
+    for (const row of paper.cohort) {
+      const cur = totals.get(row.studentId) || 0
+      totals.set(row.studentId, cur + (row.pct / 100) * weight)
+    }
+  }
+  const myTotal = perPaper.reduce((sum, p) => sum + (p.mine ? (p.mine.pct / 100) * weight : 0), 0)
+  totals.set(String(studentId), myTotal)
+
+  const allTotals = [...totals.values()].map((t) => Math.round(t))
+  const sortedTotals = [...allTotals].sort((a, b) => b - a)
+  const myRounded = Math.round(myTotal)
+  const overall = {
+    mark: myRounded,
+    outOf: 100,
+    papersSat: perPaper.filter((p) => p.mine).length,
+    papers: perPaper.length,
+    cohortSize: allTotals.length,
+    average: allTotals.length ? Math.round(allTotals.reduce((a, b) => a + b, 0) / allTotals.length) : null,
+    median: median(allTotals),
+    top: sortedTotals.length ? sortedTotals[0] : null,
+    rank: sortedTotals.indexOf(myRounded) + 1,
+    percentile: allTotals.length > 1
+      ? Math.round((allTotals.filter((t) => t < myRounded).length / allTotals.length) * 100)
+      : null,
+  }
+
+  // Where this student lost marks, by tag: their own answers, their own paper.
+  const tagMap = getTagMap()
+  const tally = {}
+  for (const qsId of quizSetIds) {
+    const set = (data.importedQuizSets || []).find((s) => s.id === qsId)
+    const attempt = myAttempts.find((a) => a.quizSetId === qsId)
+    if (!set || !attempt) continue
+    set.questions.forEach((q, qi) => {
+      const right = scoreOneQuestion(q, attempt.answers?.[qi]) >= totalMarksForQuestion(q)
+      const tags = (q.tags && q.tags.length) ? q.tags : typeTagsFor(q)
+      for (const t of tags || []) {
+        if (!tally[t]) tally[t] = { id: t, name: tagMap[t]?.name || t, subject: tagMap[t]?.subject || subjectForQuizSet(set), asked: 0, right: 0 }
+        tally[t].asked++
+        if (right) tally[t].right++
+      }
+    })
+  }
+  const weaknesses = Object.values(tally)
+    .filter((t) => t.asked >= 2)
+    .map((t) => ({ ...t, pct: Math.round((t.right / t.asked) * 100) }))
+    .filter((t) => t.pct < 70)
+    .sort((a, b) => a.pct - b.pct)
+    .slice(0, 6)
+
+  return {
+    courseId,
+    courseName: course.name,
+    released: !!course.resultsReleased,
+    releasedAt: course.resultsReleasedAt || null,
+    papers: perPaper,
+    overall,
+    weaknesses,
+  }
+}
+
 export function getNewCourseCount(studentId) {
   const courses = getCoursesForStudent(studentId)
   const data = loadData()
@@ -2874,10 +3080,8 @@ export function getHomeworkStart(studentId, courseId) {
 }
 
 export function getUnlockedModuleCount(studentId, courseId) {
-  const start = getHomeworkStart(studentId, courseId)
-  if (!start) return 0
-  const days = Math.floor((Date.now() - new Date(start.startedDate).getTime()) / (1000 * 60 * 60 * 24))
-  return Math.floor(days / 7) + 1
+  const course = (loadData().courses || []).find((c) => c.id === courseId)
+  return getUnlockedModuleCountForCourse(course, studentId)
 }
 
 export function getModuleDeadline(studentId, courseId, moduleIndex) {

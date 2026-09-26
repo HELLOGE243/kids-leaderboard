@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import TrialReport from '../components/TrialReport.jsx'
 import { uploadImage } from '../data/imageStore.js'
 import {
   getClassesForOrg,
@@ -20,6 +21,9 @@ import {
   setCourseStudentIds,
   courseTakesWholeClass,
   getStudentById,
+  setCourseTrialTest,
+  setTrialResultsReleased,
+  getCourseById as getCourse,
 } from '../data/store.js'
 
 function CourseBuilder({ orgId, onBack, onEditQuiz }) {
@@ -36,6 +40,7 @@ function CourseBuilder({ orgId, onBack, onEditQuiz }) {
   const [newCourseTerm, setNewCourseTerm] = useState('')
   const [editingCourse, setEditingCourse] = useState(null)
   const [showEnrolment, setShowEnrolment] = useState(false)
+  const [reportStudent, setReportStudent] = useState(null)
   const [newModuleName, setNewModuleName] = useState('')
   const [activeModule, setActiveModule] = useState(null)
   const [confirmAction, setConfirmAction] = useState(null)
@@ -125,6 +130,18 @@ function CourseBuilder({ orgId, onBack, onEditQuiz }) {
       })
     const cls = classes.find((c) => c.id === course.classId)
 
+    if (reportStudent) {
+      const s = getStudentById(reportStudent)
+      return (
+        <TrialReport
+          courseId={course.id}
+          studentId={reportStudent}
+          studentName={s ? `${s.firstName || ''} ${s.lastName || ''}`.trim() || s.name : ''}
+          onBack={() => setReportStudent(null)}
+        />
+      )
+    }
+
     return (
       <div className="page" style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', flexDirection: 'column', minHeight: 'calc(100dvh - 40px)' }}>
         <div className="header">
@@ -140,6 +157,45 @@ function CourseBuilder({ orgId, onBack, onEditQuiz }) {
             {course.image && (
               <img src={course.image} alt="" style={{ height: 36, borderRadius: 4, objectFit: 'cover' }} />
             )}
+            {(() => {
+              const isTrial = !!course.trialTest
+              const released = !!course.resultsReleased
+              return (
+                <>
+                  <button
+                    className={`btn btn-small ${isTrial ? '' : 'btn-outline'}`}
+                    style={{ fontSize: '0.5rem', padding: '6px 12px' }}
+                    title="A trial test opens the next paper as soon as the last one is done, and keeps every mark sealed until you release them"
+                    onClick={() => {
+                      if (isTrial && !window.confirm('Turn off trial test mode? Marks become visible to students straight away and modules go back to opening one a week.')) return
+                      setCourseTrialTest(course.id, !isTrial)
+                      forceRefresh()
+                    }}
+                  >{isTrial ? '★ Trial test' : 'Make trial test'}</button>
+                  {isTrial && (
+                    <button
+                      className="btn btn-outline btn-small"
+                      style={{ fontSize: '0.5rem', padding: '6px 12px' }}
+                      onClick={() => setShowEnrolment('reports')}
+                      title="Open any student's trial report"
+                    >Student reports</button>
+                  )}
+                  {isTrial && (
+                    <button
+                      className={`btn btn-small ${released ? 'btn-outline' : ''}`}
+                      style={{ fontSize: '0.5rem', padding: '6px 12px', background: released ? undefined : 'var(--success)', color: released ? undefined : '#04220f' }}
+                      title={released ? 'Results are visible to students' : 'Publish every mark in this course and open each student\u2019s report'}
+                      onClick={() => {
+                        if (!released && !window.confirm('Release results for this trial test? Every student sees their marks and their full report.')) return
+                        if (released && !window.confirm('Pull results back? Students lose access to their marks and report again.')) return
+                        setTrialResultsReleased(course.id, !released)
+                        forceRefresh()
+                      }}
+                    >{released ? 'Results released ✓' : 'Release results'}</button>
+                  )}
+                </>
+              )
+            })()}
             {(() => {
               const roll = (cls?.studentIds) || []
               const taking = getCourseStudentIds(course.id)
@@ -170,10 +226,33 @@ function CourseBuilder({ orgId, onBack, onEditQuiz }) {
             <div className="modal-overlay" onClick={() => setShowEnrolment(false)}>
               <div className="card" style={{ maxWidth: 520, width: '92%', maxHeight: '86vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
-                  <h2 className="pixel-heading" style={{ margin: 0, fontSize: '0.8rem' }}>Who takes {course.name}?</h2>
+                  <h2 className="pixel-heading" style={{ margin: 0, fontSize: '0.8rem' }}>{showEnrolment === 'reports' ? `Trial reports · ${course.name}` : `Who takes ${course.name}?`}</h2>
                   <button className="btn btn-outline btn-small" style={{ fontSize: '0.5rem', padding: '4px 10px' }} onClick={() => setShowEnrolment(false)}>Close</button>
                 </div>
                 <div style={{ padding: '4px 4px 12px' }}>
+                  {showEnrolment === 'reports' ? (
+                    roll.length === 0 ? (
+                      <p className="text-dim" style={{ fontSize: '0.75rem' }}>No students on this class roll yet.</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 360, overflowY: 'auto' }}>
+                        {getCourseStudentIds(course.id).map((sid) => {
+                          const s = getStudentById(sid)
+                          return (
+                            <button
+                              key={sid}
+                              className="btn btn-outline btn-small"
+                              style={{ justifyContent: 'space-between', display: 'flex', fontSize: '0.55rem', padding: '8px 12px' }}
+                              onClick={() => { setShowEnrolment(false); setReportStudent(sid) }}
+                            >
+                              <span>{s ? `${s.firstName || ''} ${s.lastName || ''}`.trim() || s.name : sid}</span>
+                              <span>View report ▸</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )
+                  ) : (
+                  <>
                   <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                     <button
                       className={`btn btn-small ${everyone ? '' : 'btn-outline'}`}
@@ -218,6 +297,8 @@ function CourseBuilder({ orgId, onBack, onEditQuiz }) {
                         )
                       })}
                     </div>
+                  )}
+                  </>
                   )}
                 </div>
               </div>
@@ -485,6 +566,7 @@ function CourseBuilder({ orgId, onBack, onEditQuiz }) {
                   <th style={{ textAlign: 'center', width: 60, fontSize: '0.7rem' }}>Term</th>
                   <th style={{ textAlign: 'center', width: 80, fontSize: '0.7rem' }}>Modules</th>
                   <th style={{ textAlign: 'center', width: 90, fontSize: '0.7rem' }}>Students</th>
+                  <th style={{ textAlign: 'center', width: 130, fontSize: '0.7rem' }}>Trial test</th>
                   <th style={{ textAlign: 'center', width: 120, fontSize: '0.7rem' }}>Action</th>
                 </tr>
               </thead>
@@ -504,6 +586,11 @@ function CourseBuilder({ orgId, onBack, onEditQuiz }) {
                       </select>
                     </td>
                     <td style={{ textAlign: 'center', fontSize: '0.8rem' }}>{c.modules.length}</td>
+                    <td style={{ textAlign: 'center', fontSize: '0.75rem' }}>
+                      {c.trialTest
+                        ? <span style={{ color: c.resultsReleased ? 'var(--success)' : 'var(--warning)' }}>{c.resultsReleased ? 'Released' : 'Sealed'}</span>
+                        : <span className="text-dim">—</span>}
+                    </td>
                     <td style={{ textAlign: 'center', fontSize: '0.8rem', color: courseTakesWholeClass(c.id) ? 'var(--text-dim)' : 'var(--accent)' }}>
                       {courseTakesWholeClass(c.id) ? 'All' : `${getCourseStudentIds(c.id).length} of ${(classes.find((x) => x.id === c.classId)?.studentIds || []).length}`}
                     </td>

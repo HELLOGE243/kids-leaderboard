@@ -24,6 +24,8 @@ import {
   getHomeworkStart,
   startHomeworkCourse,
   getUnlockedModuleCount,
+  quizResultsVisible,
+  getTrialCourseReport,
   getModuleDeadline,
   addDojoCard,
   getSharedExplanation,
@@ -48,6 +50,7 @@ import { parseVideoUrl } from '../utils/video.js'
 import { useScreenGuard } from '../utils/screenGuard.js'
 import ReportIssueModal from '../components/ReportIssueModal.jsx'
 import ClozeGapReview from '../components/ClozeGapReview.jsx'
+import TrialReport from '../components/TrialReport.jsx'
 import ReviewHelp from '../components/ReviewHelp.jsx'
 import { checkExplanation, parseExplanation, generateWordDefinition, generateExplanation } from '../utils/aiChat.js'
 
@@ -304,6 +307,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   const [reviewIndices, setReviewIndices] = useState([])
   const [showStatsPopup, setShowStatsPopup] = useState(true)
   const [showVocabHint, setShowVocabHint] = useState(false)
+  const [showTrialReport, setShowTrialReport] = useState(false)
   // The banners above a question are a prompt, not a fixture: they show when the
   // student arrives at a question and step aside after a few seconds, returning
   // if they come back to it.
@@ -1060,6 +1064,24 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
         setShowStatsPopup(true)
         setShowVocabHint(true)
         setReviewMode(true)
+      }
+
+      if (!quizResultsVisible(takingQuiz.id, user.id)) {
+        return (
+          <div className="page-center" style={{ minHeight: '100dvh' }}>
+            <div className="card" style={{ maxWidth: 520, textAlign: 'center', padding: '36px 32px' }}>
+              <p className="pixel-heading" style={{ fontSize: '0.9rem', marginBottom: 14 }}>Paper submitted</p>
+              <p style={{ fontSize: '1.05rem', lineHeight: 1.7, marginBottom: 10 }}>
+                <strong>{takingQuiz.friendlyTitle}</strong> has been handed in.
+              </p>
+              <p className="text-dim" style={{ fontSize: '0.85rem', lineHeight: 1.7, marginBottom: 24 }}>
+                This is a trial test, so marks stay sealed until your teacher releases them.
+                You will get your full report — your ranking, every paper, and where to work next — as soon as they do.
+              </p>
+              <button className="btn" onClick={exitQuiz}>Back to the Course</button>
+            </div>
+          </div>
+        )
       }
 
       return <HwResults
@@ -2339,16 +2361,34 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       ? activeModule.quizSetIds.map((id) => getImportedQuizSet(id)).filter(Boolean)
       : []
 
+    if (showTrialReport) {
+      return <TrialReport courseId={course.id} studentId={user.id} studentName={user.name} onBack={() => setShowTrialReport(false)} />
+    }
+
     return (
       <div className="hw-page">
         <div className="header">
           <div>
             <h1 className="pixel-title">{course.name}</h1>
             {cls && <p style={{ fontSize: '0.8rem', color: 'var(--accent)', marginTop: 2 }}>Class: <strong>{cls.name}</strong></p>}
+            {course.trialTest && (
+              <p style={{ fontSize: '0.75rem', color: course.resultsReleased ? 'var(--success)' : 'var(--token)', marginTop: 4 }}>
+                {course.resultsReleased
+                  ? 'Trial test · results released'
+                  : 'Trial test · marks stay sealed until your teacher releases them'}
+              </p>
+            )}
           </div>
-          <button className="btn-logout" onClick={() => { setActiveCourse(null); setActiveModuleId(null) }}>
-            Back to Courses
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {course.trialTest && course.resultsReleased && (
+              <button className="btn btn-small" style={{ padding: '8px 14px' }} onClick={() => setShowTrialReport(true)}>
+                View trial report
+              </button>
+            )}
+            <button className="btn-logout" onClick={() => { setActiveCourse(null); setActiveModuleId(null) }}>
+              Back to Courses
+            </button>
+          </div>
         </div>
 
         {(() => {
@@ -2423,6 +2463,9 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                         {quizSets.map((s) => {
                           const attempt = getHomeworkAttempt(s.id, user.id)
                           const hasAttempt = !!attempt
+                          // In a trial test course a mark stays sealed until the
+                          // teacher releases the sitting.
+                          const resultsOut = quizResultsVisible(s.id, user.id)
                           const hwProgress = !hasAttempt && s.homeworkMode ? getHomeworkProgress(s.id, user.id) : null
                           const pct = hasAttempt ? Math.round((attempt.score / attempt.total) * 100) : 0
                           let cardGrade = '', cardGradeClass = ''
@@ -2455,7 +2498,9 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                                 <span className="hw-quiz-icon">{hwProgress ? '📝' : '📝'}</span>
                               </div>
                               <div className="hw-quiz-meta">{s.questions.length} questions</div>
-                              {hasAttempt ? (
+                              {hasAttempt && !resultsOut ? (
+                                <div className="hw-quiz-status hw-quiz-status-sealed">Submitted — awaiting results</div>
+                              ) : hasAttempt ? (
                                 <div className={`hw-quiz-status ${cardGradeClass}`}>
                                   {attempt.score}/{attempt.total} ({pct}%) — {cardGrade}
                                 </div>

@@ -5423,6 +5423,29 @@ a.qt-video-btn {
   .qt-match-review-answers, .qt-help-compact { margin-left: 0; }
 }
 
+.hw-quiz-status-sealed { background: rgba(124,58,237,0.16); color: #b39ddb; border: 1px solid rgba(124,58,237,0.5); }
+
+.trial-report .tr-overall { display: flex; flex-wrap: wrap; align-items: center; gap: 28px; justify-content: space-between; }
+.tr-overall-mark { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.tr-big { font-family: var(--font-display); font-size: 3.4rem; font-weight: 800; line-height: 1; }
+.tr-out-of { font-size: 1.1rem; color: var(--text-dim); }
+.tr-band { font-size: 0.95rem; font-weight: 700; margin-left: 6px; }
+.tr-overall-stats { display: flex; flex-wrap: wrap; gap: 26px; }
+.tr-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.tr-stat-val { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; color: var(--text); }
+.tr-stat-lbl { font-size: 0.65rem; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim); }
+.tr-table th { font-size: 0.65rem; text-align: center; }
+.tr-table td { font-size: 0.85rem; text-align: center; }
+.tr-subject { display: block; font-weight: 700; font-size: 0.9rem; }
+.tr-paper-name { display: block; font-size: 0.7rem; color: var(--text-dim); }
+.tr-weak-list { display: flex; flex-direction: column; gap: 12px; }
+.tr-weak-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 5px; }
+.tr-weak-name { font-size: 0.9rem; font-weight: 700; }
+.tr-weak-sub { font-size: 0.65rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-dim); }
+.tr-weak-pct { margin-left: auto; font-size: 0.8rem; font-weight: 700; }
+.tr-weak-bar { height: 8px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.tr-weak-bar span { display: block; height: 100%; border-radius: 999px; }
+
 .qb-timelimit { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px 2px 10px; border: 1px solid var(--accent); border-radius: 6px; white-space: nowrap; }
 .qb-timelimit-label { font-size: 0.55rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); }
 .qb-timelimit-input { width: 52px; font-size: 0.65rem; padding: 4px; text-align: center; }
