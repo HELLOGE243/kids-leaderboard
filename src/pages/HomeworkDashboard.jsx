@@ -1541,20 +1541,41 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                     <div className="qt-review-scroll">
                     {q.prompt && <div className="qt-prompt-display" dangerouslySetInnerHTML={{ __html: q.prompt }} />}
                     <div className="qt-review-sub-score">{correctCount}/{order.length} positions correct</div>
-                    <div className="qt-sub-review-list">
-                      {order.map((correctIdx, si) => {
-                        const studentPick = Array.isArray(picked) ? picked[si] : -1
-                        const isRight = studentPick === correctIdx
-                        return (
-                          <div key={si} className={`qt-sub-review-row ${isRight ? 'qt-sub-correct' : 'qt-sub-wrong'}`}>
-                            <span className="qt-sub-review-label">Gap {q.gapNumbers && q.gapNumbers[si] != null ? q.gapNumbers[si] : si + 1}.</span>
-                            <span className="qt-sub-review-icon">{isRight ? '✓' : '✗'}</span>
-                            {!isRight && <span className="qt-sub-review-picked">Your answer: {studentPick >= 0 ? (opts[studentPick] || '—') : 'Skipped'}</span>}
-                            <span className="qt-sub-review-correct">Correct: {opts[correctIdx] || '—'}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
+                    {(() => {
+                      // The sentences the student chose from, in the order they saw
+                      // them: without the bank in front of them, the gap-by-gap list
+                      // below is a list of sentences with nothing to compare against.
+                      const shuffled = dragShuffles[currentQ] || opts.map((_, i) => i)
+                      const visible = shuffled.filter((i) => opts[i])
+                      const letterOf = (oi) => String.fromCharCode(65 + visible.indexOf(oi))
+                      const usedCorrectly = new Set(order.filter((cIdx, si) => Array.isArray(picked) && picked[si] === cIdx))
+                      const unused = visible.filter((oi) => !order.includes(oi))
+                      return <>
+                        <div className="qt-drag-sentences qt-drag-sentences-review">
+                          {visible.map((oi) => (
+                            <div key={oi} className={`qt-drag-sentence qt-drag-sentence-review${usedCorrectly.has(oi) ? ' is-right' : ''}${unused.includes(oi) ? ' is-extra' : ''}`}>
+                              <span className="qt-drag-letter">{letterOf(oi)}</span>
+                              <span>{opts[oi]}</span>
+                              {unused.includes(oi) && <span className="qt-drag-extra-tag">not needed</span>}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="qt-sub-review-list">
+                          {order.map((correctIdx, si) => {
+                            const studentPick = Array.isArray(picked) ? picked[si] : -1
+                            const isRight = studentPick === correctIdx
+                            return (
+                              <div key={si} className={`qt-sub-review-row ${isRight ? 'qt-sub-correct' : 'qt-sub-wrong'}`}>
+                                <span className="qt-sub-review-label">Gap {q.gapNumbers && q.gapNumbers[si] != null ? q.gapNumbers[si] : si + 1}.</span>
+                                <span className="qt-sub-review-icon">{isRight ? '✓' : '✗'}</span>
+                                {!isRight && <span className="qt-sub-review-picked">Your answer: {studentPick >= 0 ? `${letterOf(studentPick)} — ${opts[studentPick] || '—'}` : 'Skipped'}</span>}
+                                <span className="qt-sub-review-correct">Correct: {opts[correctIdx] ? `${letterOf(correctIdx)} — ${opts[correctIdx]}` : '—'}</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </>
+                    })()}
                     </div>
                     {reviewStats}
                   </>
