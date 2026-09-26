@@ -1371,6 +1371,10 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                       const open = chat.panel || null
                       const isDone = chat.step === 'done'
                       const help = chat.help || {}
+                      // The token is for understanding, not for typing: a student reads why their
+                      // answer was wrong and what the right one is before they explain it back.
+                      const stepsRead = !!help.wrong && !!help.concept
+                      const mineLocked = !stepsRead && !isDone
                       // Teacher-written explanations come first; the AI only fills the gaps.
                       async function openHelp(kind) {
                         if (open === kind) { updateChat({ ...chat, panel: null }); return }
@@ -1418,11 +1422,12 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                       return (
                         <div className="qt-help" onClick={e => e.stopPropagation()}>
                           <div className="qt-help-row">
-                            <button className={`qt-help-btn qt-click-flash${open === 'wrong' ? ' is-open' : ''}`} onClick={() => openHelp('wrong')}>Why did I get this wrong?</button>
-                            <button className={`qt-help-btn qt-click-flash${open === 'concept' ? ' is-open' : ''}`} onClick={() => openHelp('concept')}>Explain this question</button>
-                            <button className={`qt-help-btn qt-help-btn-mine qt-click-flash${open === 'mine' ? ' is-open' : ''}${isDone ? ' is-done' : ''}`} onClick={() => updateChat({ ...chat, panel: open === 'mine' ? null : 'mine', step: isDone ? 'done' : 'explain' })}>
-                              {isDone ? 'Your explanation ✓' : 'I’ll explain it myself'}
-                              {!isDone && <span className="qt-help-bounty">+1 token</span>}
+                            <button className={`qt-help-btn qt-click-flash${open === 'wrong' ? ' is-open' : ''}`} onClick={() => openHelp('wrong')}><span className="qt-help-step" aria-hidden="true">1</span>Why did I get this wrong?</button>
+                            <button className={`qt-help-btn qt-click-flash${open === 'concept' ? ' is-open' : ''}`} onClick={() => openHelp('concept')}><span className="qt-help-step" aria-hidden="true">2</span>Explain this question</button>
+                            <button className={`qt-help-btn qt-help-btn-mine qt-click-flash${open === 'mine' ? ' is-open' : ''}${isDone ? ' is-done' : ''}${mineLocked ? ' is-locked' : ''}`} disabled={mineLocked} title={mineLocked ? 'Read 1 and 2 first' : ''} onClick={() => updateChat({ ...chat, panel: open === 'mine' ? null : 'mine', step: isDone ? 'done' : 'explain' })}>
+        <span className="qt-help-step" aria-hidden="true">3</span>
+                      {isDone ? 'Your explanation ✓' : 'I’ll explain it myself'}
+                              {!isDone && <span className="qt-help-bounty">{mineLocked ? 'Read 1 & 2 first' : '+1 token'}</span>}
                             </button>
                           </div>
                           {open && open !== 'mine' && (

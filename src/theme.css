@@ -5320,6 +5320,8 @@ a.qt-video-btn {
 .qt-help { margin: 0 0 18px; }
 .qt-help-row { display: flex; flex-wrap: wrap; gap: 10px; }
 .qt-help-btn {
+  position: relative;
+  overflow: hidden;
   flex: 1 1 200px;
   font-family: Arial, Helvetica, sans-serif;
   font-size: 1.05rem;
@@ -5334,11 +5336,33 @@ a.qt-video-btn {
   transition: background .15s, color .15s;
 }
 .qt-help-btn:hover { background: #e8eef5; }
+.qt-help-btn { padding-left: 46px; padding-right: 20px; }
 .qt-help-btn.is-open { background: #002147; color: #fff; }
 .qt-help-btn-mine { border-color: #ef6c00; color: #ef6c00; display: flex; align-items: center; justify-content: center; gap: 10px; }
+/* A big step number sitting behind the label, so the order to work through
+   them reads at a glance: ask why, then get the explanation, then write one. */
+.qt-help-step {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 3.2rem;
+  font-weight: 700;
+  line-height: 1;
+  color: currentColor;
+  opacity: 0.16;
+  pointer-events: none;
+  user-select: none;
+}
+.qt-help-btn.is-open .qt-help-step { opacity: 0.28; }
 .qt-help-btn-mine:hover { background: #fff3e0; }
 .qt-help-btn-mine.is-open { background: #ef6c00; border-color: #ef6c00; color: #fff; }
 .qt-help-btn-mine.is-done { border-color: #2e7d32; color: #2e7d32; }
+/* Locked until the two explanations above have been opened: the token is for
+   understanding the question, not for being the first to type something. */
+.qt-help-btn-mine.is-locked { border-color: #c3cfdb; color: #90a0b0; cursor: not-allowed; background: #f7f9fb; }
+.qt-help-btn-mine.is-locked:hover { background: #f7f9fb; }
+.qt-help-btn-mine.is-locked .qt-help-bounty { background: #e8eef5; color: #90a0b0; }
 .qt-help-btn-mine.is-done.is-open { background: #2e7d32; border-color: #2e7d32; color: #fff; }
 .qt-help-bounty { font-size: .78rem; font-weight: 700; padding: 3px 8px; background: #ffe0b2; color: #e65100; white-space: nowrap; }
 .qt-help-btn-mine.is-open .qt-help-bounty { background: rgba(255,255,255,.25); color: #fff; }
@@ -5379,7 +5403,8 @@ a.qt-video-btn {
 .qt-help-feedback-retry { color: #e65100; font-weight: 400; }
 
 @media (max-width: 640px) {
-  .qt-help-btn { flex: 1 1 100%; font-size: .95rem; padding: 13px 14px; }
+  .qt-help-btn { flex: 1 1 100%; font-size: .95rem; padding: 13px 14px 13px 40px; }
+  .qt-help-step { font-size: 2.4rem; left: 6px; }
   .qt-help-panel { padding: 14px; }
 }
 
