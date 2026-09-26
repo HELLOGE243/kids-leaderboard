@@ -1171,8 +1171,8 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
           </div>
 
           {/* Banners: the review prompt, then the vocabulary tip beneath it. */}
-          {bannersVisible && (
-            <div className="qt-banner-stack">
+          {(
+            <div className={`qt-banner-stack${bannersVisible ? '' : ' is-hidden'}`} aria-hidden={!bannersVisible}>
               {isReview && reviewNudge && (
                 <div className="qt-review-nudge" key={currentQ}>Take a look at the help below — explain this one in your own words for a token!</div>
               )}

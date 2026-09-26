@@ -2091,7 +2091,25 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 
 .qt-review-time-row + .qt-review-time-row { margin-top: 8px; }
 
-.qt-banner-stack { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 10px 0 0; }
+/* Banners float over the top of the question rather than sitting in the flow:
+   appearing and fading must not move the question under the reader's eyes. */
+.qt-banner-stack {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity .45s ease;
+}
+.qt-banner-stack > * { pointer-events: auto; }
+.qt-banner-stack.is-hidden { opacity: 0; pointer-events: none; }
+.qt-banner-stack.is-hidden > * { pointer-events: none; }
 .qt-review-nudge {
   margin: 0 auto;
   padding: 14px 32px;
@@ -2606,6 +2624,7 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   padding: 0;
 }
 .qt-panel {
+  position: relative;
   width: 100%;
   max-width: 1820px;
   margin-inline: auto;
