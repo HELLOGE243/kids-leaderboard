@@ -600,7 +600,11 @@ function Portal({ user, onLogout }) {
                     <div className="portal-feed-text">
                       <span className="portal-feed-name">{a.name}{a.isRedo ? ' (Redo)' : ''}</span>
                       {a.courseName && <span className="portal-feed-meta">{a.courseName}</span>}
-                      <span className="portal-feed-meta">{a.score}/{a.total} ({a.total > 0 ? Math.round((a.score / a.total) * 100) : 0}%)</span>
+                      <span className="portal-feed-meta">
+                        {a.sealed
+                          ? 'Submitted — results sealed'
+                          : `${a.score}/${a.total} (${a.total > 0 ? Math.round((a.score / a.total) * 100) : 0}%)`}
+                      </span>
                     </div>
                     <span className="portal-feed-arrow">›</span>
                   </div>

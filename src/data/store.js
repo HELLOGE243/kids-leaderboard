@@ -3335,7 +3335,9 @@ export function getStudentFeedData(studentId) {
         if (courseId) break
       }
       const course = courseId ? (data.courses || []).find(c => c.id === courseId) : null
-      return { id: a.id, name: set ? (set.friendlyTitle || set.rawTitle || 'Quiz') : 'Quiz', courseName: course ? course.name : '', score: a.score, total: a.total, date: a.date, isRedo: !!a.redoOf, source: 'homework', courseId, moduleId, quizSetId: a.quizSetId }
+      // A sealed trial paper shows that it was handed in and nothing else.
+      const sealed = !quizResultsVisible(a.quizSetId, studentId)
+      return { id: a.id, name: set ? (set.friendlyTitle || set.rawTitle || 'Quiz') : 'Quiz', courseName: course ? course.name : '', score: a.score, total: a.total, sealed, date: a.date, isRedo: !!a.redoOf, source: 'homework', courseId, moduleId, quizSetId: a.quizSetId }
     })
 
   const progressCompleted = progressAttempts

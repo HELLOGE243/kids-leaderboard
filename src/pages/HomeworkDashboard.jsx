@@ -327,6 +327,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   const [showStatsPopup, setShowStatsPopup] = useState(true)
   const [showVocabHint, setShowVocabHint] = useState(false)
   const [showTrialReport, setShowTrialReport] = useState(false)
+  const [sealedNotice, setSealedNotice] = useState(null)
 
   // Shown once, then never again on this device: a tip a student has read is
   // just clutter on top of their work.
@@ -593,6 +594,12 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   }
 
   function handleQuizCardClick(quizSet, hasAttempt) {
+    if (hasAttempt && !quizResultsVisible(quizSet.id, user.id)) {
+      // A trial paper closes on submission and stays closed. Opening it would
+      // show the questions and the answers given, which is most of the paper.
+      setSealedNotice(quizSet.friendlyTitle || quizSet.rawTitle || 'This paper')
+      return
+    }
     if (hasAttempt) {
       prepareQuiz(quizSet).then((resolved) => {
         setResolvedQuestions(resolved)
@@ -1152,10 +1159,11 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                 <strong>{takingQuiz.friendlyTitle}</strong> has been handed in.
               </p>
               <p className="text-dim" style={{ fontSize: '0.85rem', lineHeight: 1.7, marginBottom: 24 }}>
-                This is a trial test, so marks stay sealed until your teacher releases them.
-                You will get your full report — your ranking, every paper, and where to work next — as soon as they do.
+                This is a trial test. Your paper is closed now — no marks, no answers, and no review —
+                until your teacher releases the results for the whole sitting. You will get your full
+                report then: your ranking, every paper, and where to work next.
               </p>
-              <button className="btn" onClick={exitQuiz}>Back to the Course</button>
+              <button className="btn" onClick={() => { exitQuiz(); setActiveModuleId(null) }}>Back to my dashboard</button>
             </div>
           </div>
         )
@@ -2407,6 +2415,20 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
 
     return (
       <div className="hw-page">
+        {sealedNotice && (
+          <div className="neon-overlay" onClick={() => setSealedNotice(null)}>
+            <div className="neon-popup" style={{ maxWidth: 460, padding: '36px 32px' }} onClick={(e) => e.stopPropagation()}>
+              <p className="pixel-heading" style={{ fontSize: '0.9rem', marginBottom: 14 }}>Results sealed</p>
+              <p style={{ fontSize: '1rem', lineHeight: 1.7, marginBottom: 10 }}><strong>{sealedNotice}</strong> is finished and locked.</p>
+              <p className="text-dim" style={{ fontSize: '0.85rem', lineHeight: 1.7, marginBottom: 24 }}>
+                Your teacher releases the results for the whole trial at once. Come back then to see your
+                marks, your report and your review.
+              </p>
+              <button className="btn" onClick={() => setSealedNotice(null)}>Got it</button>
+            </div>
+          </div>
+        )}
+
         <div className="header">
           <div>
             <div className="hw-course-title-row">
