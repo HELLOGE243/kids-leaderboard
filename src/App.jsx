@@ -89,7 +89,7 @@ function BootLoader({ done, onHidden }) {
   return (
     <div className={`boot-loader${leaving ? ' is-leaving' : ''}`} role="status" aria-label="Loading">
       <div className="boot-logo"><img src="/avant-logo.png" alt="AVANT OC & Selective" /></div>
-      <h1 className="boot-title">CleverSpace EduPortal</h1>
+      <h1 className="boot-title">Cleverspace EduPortal</h1>
       <div className="boot-bar">
         <div className="boot-bar-fill" ref={fillRef} style={{ animationDelay: `-${Math.round(performance.now())}ms` }} />
       </div>
