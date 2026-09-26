@@ -2293,6 +2293,63 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 }
 
 /* Token popup */
+/* Token award: a gold band across the middle of the screen, held until the
+   student clicks it away. Sibling of the revision hall's "Correct!" strip. */
+.qt-token-burst {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.18);
+  animation: token-burst-in .25s ease-out;
+}
+.qt-token-strip {
+  position: relative;
+  width: 100%;
+  height: clamp(110px, 18vh, 170px);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(90deg, rgba(255,171,0,0) 0%, rgba(255,171,0,.6) 18%, rgba(255,215,0,.85) 50%, rgba(255,171,0,.6) 82%, rgba(255,171,0,0) 100%);
+  border-top: 2px solid rgba(255, 224, 130, .9);
+  border-bottom: 2px solid rgba(255, 224, 130, .9);
+  box-shadow: 0 0 60px rgba(255, 193, 7, .55), inset 0 0 40px rgba(255, 255, 255, .3);
+  animation: token-strip-in .5s cubic-bezier(.22, 1, .36, 1) both;
+}
+.qt-token-shimmer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 45%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.8), transparent);
+  filter: blur(2px);
+  animation: token-strip-shine 1.4s ease-in-out .1s infinite;
+}
+.qt-token-text {
+  position: relative;
+  font-family: var(--font-pixel);
+  font-size: clamp(0.8rem, 2.2vw, 1.4rem);
+  line-height: 1.6;
+  color: #3b2600;
+  text-align: center;
+  padding: 0 24px;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, .45);
+}
+@keyframes token-burst-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes token-strip-in {
+  0% { opacity: 0; transform: scaleY(0.2); }
+  70% { opacity: 1; transform: scaleY(1.06); }
+  100% { opacity: 1; transform: scaleY(1); }
+}
+@keyframes token-strip-shine { from { left: -50%; } to { left: 105%; } }
+@media (prefers-reduced-motion: reduce) {
+  .qt-token-strip, .qt-token-shimmer { animation-duration: .01ms; animation-iteration-count: 1; }
+}
+
 .qt-token-popup {
   position: fixed;
   top: 60px;

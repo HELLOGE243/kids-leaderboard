@@ -363,13 +363,25 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   const mineDrafts = useRef({})
   function sendQuestionToTeacher(idx, question) {
     if (!takingQuiz || askedTeacher.has(idx)) return
-    const cardId = addDojoCard(user.id, question, 'homework', takingQuiz.id, idx, { className: '', courseName: '', quizTitle: takingQuiz.friendlyTitle || '' })
-    if (cardId) markDojoAskTeacher(cardId)
+    // addDojoCard returns the card, not its id: passing the object straight on
+    // meant the card was never flagged and never reached the Ask for Help deck.
+    const card = addDojoCard(user.id, question, 'homework', takingQuiz.id, idx, { className: '', courseName: '', quizTitle: takingQuiz.friendlyTitle || '' })
+    if (card?.id) markDojoAskTeacher(card.id)
     setAskedTeacher((prev) => new Set(prev).add(idx))
   }
   const [reviewTokensAwarded, setReviewTokensAwarded] = useState({})
   const [reviewNudge, setReviewNudge] = useState(false)
   const [tokenPopup, setTokenPopup] = useState(null)
+
+  /**
+   * Earning a token is the point of the review, so it is announced across the
+   * middle of the screen with a chime, and waits there until the student
+   * clicks it away rather than disappearing while they are still reading.
+   */
+  function showTokenBanner(text) {
+    setTokenPopup(text)
+    playCoinSound()
+  }
   const [isRedo, setIsRedo] = useState(false)
   const [showReportModal, setShowReportModal] = useState(null)
   const [reportType, setReportType] = useState('')
@@ -1516,7 +1528,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                           const doneChat = { ...base, step: 'done', feedback: result.reply }
                           updateChat(doneChat)
                           const newTokens = { ...reviewTokensAwarded }
-                          if (!newTokens[`chat-${qIdx}`]) { addTokens(user.id, 1); newTokens[`chat-${qIdx}`] = true; setReviewTokensAwarded(newTokens); setTokenPopup('+1 Token — Great explanation!'); setTimeout(() => setTokenPopup(null), 2000) }
+                          if (!newTokens[`chat-${qIdx}`]) { addTokens(user.id, 1); newTokens[`chat-${qIdx}`] = true; setReviewTokensAwarded(newTokens); showTokenBanner('+1 Token — Great explanation!') }
                           saveHomeworkReviewState(takingQuiz.id, user.id, { chats: { ...reviewChats, [qIdx]: doneChat }, tokens: newTokens })
                         } else {
                           updateChat({ ...base, step: 'explain', feedback: result.reply })
@@ -1681,8 +1693,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                               tokens = { ...tokens, [`chat-${currentQ}`]: true }
                               addTokens(user.id, 1)
                               setReviewTokensAwarded(tokens)
-                              setTokenPopup('+1 Token — every word defined!')
-                              setTimeout(() => setTokenPopup(null), 2000)
+                              showTokenBanner('+1 Token — every word defined!')
                             }
                             saveHomeworkReviewState(takingQuiz.id, user.id, { chats: merged, tokens })
                           }
@@ -1842,8 +1853,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                             tokens = { ...tokens, [`chat-${key}`]: true }
                             addTokens(user.id, 1)
                             setReviewTokensAwarded(tokens)
-                            setTokenPopup('+1 Token — Great explanation!')
-                            setTimeout(() => setTokenPopup(null), 2000)
+                            showTokenBanner('+1 Token — Great explanation!')
                           }
                           saveHomeworkReviewState(takingQuiz.id, user.id, { chats: merged, tokens })
                         } else {
@@ -2316,7 +2326,12 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
           )
         })()}
         {tokenPopup && (
-          <div className="qt-token-popup">{tokenPopup}</div>
+          <div className="qt-token-burst" onClick={() => setTokenPopup(null)}>
+            <div className="qt-token-strip">
+              <span className="qt-token-shimmer" aria-hidden="true" />
+              <span className="qt-token-text">{tokenPopup}</span>
+            </div>
+          </div>
         )}
         {vocabTooltip && (
           <>

@@ -815,8 +815,8 @@ function QuizDashboard({ user, onBack, initialNav }) {
                         className={`qt-help-follow-btn qt-help-follow-ask${askedTeacher.has(qIdx) ? ' is-sent' : ''}`}
                         disabled={askedTeacher.has(qIdx)}
                         onClick={() => {
-                          const cardId = addDojoCard(user.id, q, 'quiz', quiz.id, qIdx, { className: '', courseName: '', quizTitle: quiz.title || '' })
-                          if (cardId) markDojoAskTeacher(cardId)
+                          const card = addDojoCard(user.id, q, 'quiz', quiz.id, qIdx, { className: '', courseName: '', quizTitle: quiz.title || '' })
+                          if (card?.id) markDojoAskTeacher(card.id)
                           setAskedTeacher((prev) => new Set(prev).add(qIdx))
                         }}
                       >{askedTeacher.has(qIdx) ? 'Sent to your teacher ✓' : 'I still don’t get it — ask my teacher'}</button>
