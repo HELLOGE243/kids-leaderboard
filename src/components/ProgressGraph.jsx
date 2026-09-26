@@ -53,7 +53,7 @@ function ProgressGraph({ dataPoints, height = 220, color = '#e94560' }) {
 
       const val = Math.round(maxVal - (maxVal / gridLines) * i)
       ctx.fillStyle = '#a0a0b0'
-      ctx.font = '600 12px "Google Sans Flex", sans-serif'
+      ctx.font = '600 12px Inter, "Segoe UI", sans-serif'
       ctx.textAlign = 'right'
       ctx.fillText(val + '%', pad.left - 8, y + 4)
     }
@@ -99,14 +99,14 @@ function ProgressGraph({ dataPoints, height = 220, color = '#e94560' }) {
     })
 
     ctx.fillStyle = '#a0a0b0'
-    ctx.font = '500 11px "Google Sans Flex", sans-serif'
+    ctx.font = '500 11px Inter, "Segoe UI", sans-serif'
     ctx.textAlign = 'center'
     points.forEach((p) => {
       const dateStr = new Date(p.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
       ctx.fillText(dateStr, p.x, height - pad.bottom + 16)
     })
 
-    ctx.font = '700 12px "Google Sans Flex", sans-serif'
+    ctx.font = '700 12px Inter, "Segoe UI", sans-serif'
     ctx.textAlign = 'center'
     points.forEach((p) => {
       const label = p.rankLabel ? p.value + '%, ' + p.rankLabel : p.value + '%'

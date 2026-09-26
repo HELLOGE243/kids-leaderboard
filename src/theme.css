@@ -26,8 +26,8 @@
   --danger: #ff1744;
   --warning: #ffab00;
   --font-pixel: 'Press Start 2P', monospace;
-  --font-body: 'Google Sans Flex', 'Segoe UI', sans-serif;
-  --font-display: 'Outfit', 'Google Sans Flex', 'Segoe UI', sans-serif;
+  --font-body: 'Inter', 'Segoe UI', Arial, sans-serif;
+  --font-display: 'Outfit', 'Inter', 'Segoe UI', sans-serif;
   --radius: 4px;
   --pixel-border: 3px solid var(--border);
 }
@@ -832,7 +832,7 @@ body {
 }
 
 .landing-title {
-  font-family: 'Google Sans Flex', 'Inter', 'Segoe UI', sans-serif;
+  font-family: var(--font-body);
   font-size: 2.8rem;
   font-weight: 700;
   letter-spacing: -0.5px;
@@ -853,7 +853,7 @@ body {
 }
 
 .landing-heading {
-  font-family: 'Google Sans Flex', 'Inter', 'Segoe UI', sans-serif;
+  font-family: var(--font-body);
   font-size: 1.6rem;
   font-weight: 600;
   color: #ffffff;
@@ -862,7 +862,7 @@ body {
 }
 
 .landing-text {
-  font-family: 'Google Sans Flex', 'Inter', 'Segoe UI', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.95rem;
   font-weight: 400;
   color: rgba(255, 255, 255, 0.55);
@@ -870,7 +870,7 @@ body {
 }
 
 .landing-input {
-  font-family: 'Google Sans Flex', 'Inter', 'Segoe UI', sans-serif !important;
+  font-family: var(--font-body) !important;
   font-size: 0.95rem !important;
   background: rgba(255, 255, 255, 0.06) !important;
   border: 2px solid rgba(255, 255, 255, 0.15) !important;
@@ -999,7 +999,7 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 .google-login-btn {
   display: inline-flex; align-items: center; justify-content: center;
   padding: 12px 28px; border-radius: 8px; border: 1px solid #dadce0;
-  background: #fff; color: #3c4043; font-family: 'Google Sans Flex', Arial, sans-serif;
+  background: #fff; color: #3c4043; font-family: var(--font-body);
   font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: box-shadow 0.15s;
 }
 .google-login-btn:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
@@ -1641,7 +1641,7 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   color: var(--accent);
 }
 .rank-list-badge {
-  font-family: 'Google Sans Flex', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.75rem;
   font-weight: 600;
   text-align: center;
@@ -1679,7 +1679,7 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   color: #ffd700;
 }
 .rank-list-score {
-  font-family: 'Google Sans Flex', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.8rem;
   font-weight: 700;
   color: var(--accent);
@@ -1688,7 +1688,7 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 
 /* --- Report Sections --- */
 .report-page {
-  font-family: 'Google Sans Flex', sans-serif;
+  font-family: var(--font-body);
 }
 .report-section { margin-bottom: 8px; }
 .report-section-title {
@@ -1838,7 +1838,7 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   flex: 1;
 }
 .pq-topic-name {
-  font-family: 'Google Sans Flex', sans-serif;
+  font-family: var(--font-body);
   font-weight: 700;
   font-size: 0.95rem;
   color: var(--accent);
@@ -1907,7 +1907,7 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   min-width: 0;
 }
 .pq-quiz-name {
-  font-family: 'Google Sans Flex', sans-serif;
+  font-family: var(--font-body);
   font-weight: 600;
   font-size: 0.88rem;
   color: var(--text);
@@ -1929,7 +1929,7 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   letter-spacing: 1px;
 }
 .pq-quiz-score {
-  font-family: 'Google Sans Flex', sans-serif;
+  font-family: var(--font-body);
   font-weight: 700;
   font-size: 0.85rem;
   padding: 2px 8px;
@@ -2306,7 +2306,7 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   border: none;
   border-radius: 8px;
   padding: 8px 16px;
-  font-family: 'Google Sans Flex', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.82rem;
   font-weight: 500;
   cursor: pointer;
@@ -2325,7 +2325,7 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   color: #fff;
   padding: 12px 24px;
   border-radius: 10px;
-  font-family: 'Google Sans Flex', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.88rem;
   display: flex;
   align-items: center;
@@ -2345,7 +2345,7 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   color: #fff;
   border-radius: 8px;
   padding: 8px 16px;
-  font-family: 'Google Sans Flex', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.82rem;
   font-weight: 500;
   display: inline-block;
@@ -2367,7 +2367,7 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   max-width: 420px;
   width: 90vw;
   z-index: 199;
-  font-family: 'Google Sans Flex', sans-serif;
+  font-family: var(--font-body);
   color: #e0e0e0;
   box-shadow: 0 8px 32px rgba(0,0,0,0.5);
   animation: vocab-pop 0.25s ease-out;
@@ -2848,10 +2848,21 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   background: #fff;
 }
 .qt-question-text {
+  font-family: var(--font-body);
   font-size: 1.2rem;
   line-height: 1.8;
   color: #222;
   margin-bottom: 0;
+}
+/* Imported papers mark emphasis with <strong>; keep the family and use a real
+   600 face, which sits alongside the body text instead of shouting over it. */
+.qt-question-text strong, .qt-question-text b,
+.qt-desc-content strong, .qt-desc-content b,
+.qt-prompt-display strong, .qt-prompt-display b,
+.qt-option-text strong, .qt-option-text b,
+.qt-help-text strong, .qt-help-text b {
+  font-family: inherit;
+  font-weight: 600;
 }
 .qt-question-text img { max-width: 100%; height: auto; display: block; margin: 12px auto; }
 .qt-prompt-display {
@@ -2948,7 +2959,7 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 .qt-desc-tab-active { background: #fff; color: #1a1a2e; font-weight: 700; border-color: #aaa; border-bottom: 2px solid #fff; }
 /* The left panel scrolls, so the extract shows in full; imported passages carry
    no colour of their own, so set dark text on the white panel explicitly. */
-.qt-desc-content { padding: 18px 12px; border: none; border-radius: 0; background: #fff; margin-bottom: 16px; min-height: 60px; font-size: 1.05rem; line-height: 1.8; color: #222; }
+.qt-desc-content { font-family: var(--font-body); padding: 18px 12px; border: none; border-radius: 0; background: #fff; margin-bottom: 16px; min-height: 60px; font-size: 1.05rem; line-height: 1.8; color: #222; }
 .qt-desc-content * { color: inherit; }
 .qt-desc-content img { max-width: 100%; height: auto; }
 
@@ -3097,14 +3108,14 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   border-radius: 12px;
 }
 .qt-wr-score-banner-num {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-weight: 900;
   font-size: 2.2rem;
   color: var(--banner-color);
   line-height: 1;
 }
 .qt-wr-score-banner-of {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-weight: 600;
   font-size: 1.1rem;
   color: #999;
@@ -3441,7 +3452,7 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 }
 .qt-report-modal-icon { font-size: 2.5rem; margin-bottom: 8px; }
 .qt-report-modal-title {
-  font-family: 'Google Sans Flex', Arial, sans-serif;
+  font-family: var(--font-body);
   font-size: 1.2rem;
   font-weight: 700;
   color: #fff;
@@ -4638,6 +4649,10 @@ a.qt-video-btn {
 .gap-8 { gap: 8px; }
 .w-full { width: 100%; }
 
+/* Never let the browser fake a bold or an italic: a synthesised weight is what
+   made bold text read as a different, heavier typeface. */
+* { font-synthesis-weight: none; }
+
 /* ===== HOMEWORK DASHBOARD ===== */
 
 .hw-page {
@@ -4650,6 +4665,8 @@ a.qt-video-btn {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 16px;
+  /* Cards size themselves; without this one long title stretches its whole row. */
+  align-items: start;
 }
 
 .hw-course-card {
@@ -4761,7 +4778,14 @@ a.qt-video-btn {
   line-height: 1.35;
   color: var(--text);
   letter-spacing: 0;
-  word-break: break-word;
+  /* Exactly two lines, always: long class names ellipsise instead of growing
+     the card and every other card in the same grid row. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.7em;
+  overflow-wrap: anywhere;
   transition: color 0.2s;
 }
 .hw-course-card:hover + .hw-course-name {
@@ -4811,8 +4835,13 @@ a.qt-video-btn {
   padding: 12px 16px;
 }
 .pq-class-card-name {
-  display: block;
-  font-family: 'Google Sans Flex', sans-serif;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.6em;
+  overflow-wrap: anywhere;
+  font-family: var(--font-body);
   font-weight: 700;
   font-size: 0.95rem;
   color: var(--text);
@@ -5279,6 +5308,15 @@ a.qt-video-btn {
 /* Sits in the bottom bar beside Back and Next, so it is built like them and
    set apart by colour alone rather than by being a different kind of button. */
 /* Review help: a row of action buttons instead of a chat window */
+.cd-locked-tag, .cd-leaves-tag { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; vertical-align: middle; }
+.cd-locked-tag { background: rgba(255, 23, 68, 0.15); color: #ff5c7a; }
+.cd-leaves-tag { background: rgba(255, 171, 0, 0.14); color: #ffb74d; }
+
+.qb-timelimit { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px 2px 10px; border: 1px solid var(--accent); border-radius: 6px; white-space: nowrap; }
+.qb-timelimit-label { font-size: 0.55rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); }
+.qb-timelimit-input { width: 52px; font-size: 0.65rem; padding: 4px; text-align: center; }
+.qb-timelimit-unit { font-size: 0.55rem; color: var(--text-dim); }
+
 .qt-help { margin: 0 0 18px; }
 .qt-help-row { display: flex; flex-wrap: wrap; gap: 10px; }
 .qt-help-btn {
@@ -5477,7 +5515,7 @@ a.qt-video-btn {
   width: 100%;
   padding: 56px 24px 48px;
   text-align: center;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 .hw-res-actions {
   display: flex;
@@ -5527,7 +5565,7 @@ a.qt-video-btn {
   box-shadow: 0 0 16px rgba(233, 69, 96, 0.25);
 }
 .hw-res-title-text {
-  font-family: 'Google Sans Flex', 'Google Sans', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 1.5rem;
   font-weight: 700;
   color: #f0f0f0;
@@ -5961,17 +5999,17 @@ button.hw-res-qth.active {
 /* --- Student Report (rpt-) --- */
 .rpt-content { max-width: 920px; }
 .rpt-student-name {
-  font-family: 'Google Sans Flex', Arial, sans-serif;
+  font-family: var(--font-body);
   font-size: 1.8rem; font-weight: 700; color: #fff;
   display: block; line-height: 1.2;
 }
 .rpt-student-info {
-  font-family: 'Google Sans Flex', Arial, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.82rem; color: rgba(255,255,255,0.6);
   display: block; margin-top: 2px;
 }
 .rpt-report-label {
-  font-family: 'Google Sans Flex', Arial, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.85rem; color: rgba(255,255,255,0.5);
   text-transform: uppercase; letter-spacing: 0.1em; margin-top: 4px;
   display: block;
@@ -5985,7 +6023,7 @@ button.hw-res-qth.active {
 .rpt-course-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .rpt-course-name { font-size: 0.9rem; font-weight: 600; color: var(--text); }
 .rpt-course-class { font-size: 0.72rem; color: var(--text-dim); margin-top: 2px; }
-.rpt-course-pct { font-size: 1.4rem; font-weight: 800; font-family: 'Google Sans Flex', Arial, sans-serif; }
+.rpt-course-pct { font-size: 1.4rem; font-weight: 800; font-family: var(--font-body); }
 .rpt-course-grade { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 0.65rem; font-weight: 700; color: #fff; letter-spacing: 0.3px; white-space: nowrap; text-transform: uppercase; }
 .rpt-course-footer { font-size: 0.72rem; color: var(--text-dim); margin-top: 8px; }
 .rpt-mini-bar-track {
@@ -6024,7 +6062,7 @@ button.hw-res-qth.active {
 .rpt-dojo-stat { text-align: center; }
 .rpt-dojo-num {
   display: block; font-size: 1.6rem; font-weight: 800;
-  font-family: 'Google Sans Flex', Arial, sans-serif; line-height: 1.2;
+  font-family: var(--font-body); line-height: 1.2;
 }
 .rpt-dojo-label { display: block; font-size: 0.7rem; color: var(--text-dim); margin-top: 4px; }
 .rpt-empty-note { font-size: 0.82rem; color: var(--text-dim); margin-top: 8px; }
@@ -6049,7 +6087,7 @@ button.hw-res-qth.active {
   margin-top: 5px;
 }
 .rpt-percentile-val {
-  font-family: 'Google Sans Flex', Arial, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.82rem; font-weight: 700; color: var(--text);
 }
 .rpt-percentile-val sup { font-size: 0.55em; }
@@ -6070,7 +6108,7 @@ button.hw-res-qth.active {
 .rpt-writing-title { font-size: 0.82rem; font-weight: 600; color: var(--text-main); }
 .rpt-writing-date { font-size: 0.68rem; color: var(--text-dim); }
 .rpt-writing-score-row { display: flex; align-items: baseline; gap: 3px; margin-bottom: 6px; }
-.rpt-writing-score { font-size: 1.3rem; font-weight: 700; font-family: 'Google Sans Flex', Arial, sans-serif; }
+.rpt-writing-score { font-size: 1.3rem; font-weight: 700; font-family: var(--font-body); }
 .rpt-writing-of { font-size: 0.78rem; color: var(--text-dim); font-weight: 600; }
 .rpt-writing-coins { margin-left: auto; font-size: 0.75rem; font-weight: 600; color: #ffd700; }
 .rpt-writing-cats {
@@ -6085,7 +6123,7 @@ button.hw-res-qth.active {
 }
 .rpt-writing-cat-score {
   font-size: 0.65rem; font-weight: 700; color: var(--text-main);
-  font-family: 'Google Sans Flex', Arial, sans-serif;
+  font-family: var(--font-body);
 }
 .rpt-writing-comment {
   margin-top: 8px; font-size: 0.72rem; color: var(--text-dim);
@@ -6131,7 +6169,7 @@ button.hw-res-qth.active {
 }
 .rpt-camp-cutoff {
   font-size: 0.6rem; font-weight: 700; color: rgba(255,255,255,0.25);
-  font-family: 'Google Sans Flex', Arial, sans-serif; line-height: 1.2;
+  font-family: var(--font-body); line-height: 1.2;
 }
 .rpt-camp-rl .rpt-camp-info { align-items: flex-end; }
 .rpt-camp-passed .rpt-camp-flag {
@@ -6164,7 +6202,7 @@ button.hw-res-qth.active {
   margin-top: 1px; font-size: 0.65rem; font-weight: 700; color: #ffd700;
   text-align: center; line-height: 1.25; white-space: nowrap;
   text-shadow: 0 0 8px rgba(255,215,0,0.4), 0 1px 4px rgba(0,0,0,0.9);
-  font-family: 'Google Sans Flex', Arial, sans-serif;
+  font-family: var(--font-body);
 }
 /* --- Light mode --- */
 .theme-light .rpt-everest { border-color: rgba(0,0,0,0.08); }
@@ -6315,7 +6353,7 @@ button.hw-res-qth.active {
 }
 
 .portal-greeting {
-  font-family: 'Google Sans Flex', 'Segoe UI', sans-serif;
+  font-family: var(--font-body);
   font-size: 2.6rem;
   font-weight: 700;
   color: var(--text);
@@ -6355,7 +6393,7 @@ button.hw-res-qth.active {
   animation: portal-quote-in 0.8s ease-out 0.3s forwards;
 }
 .portal-quote-text {
-  font-family: 'Google Sans Flex', 'Georgia', serif;
+  font-family: Georgia, 'Times New Roman', serif;
   font-size: 0.95rem;
   font-style: italic;
   color: var(--text);
@@ -6449,7 +6487,7 @@ button.hw-res-qth.active {
   align-items: center;
   gap: 6px;
   padding: 0 16px;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.82rem;
   color: var(--text);
 }
@@ -6510,7 +6548,7 @@ button.hw-res-qth.active {
   font-size: 2rem;
 }
 .news-article-title {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 1.6rem;
   font-weight: 700;
   color: #fff;
@@ -6519,14 +6557,14 @@ button.hw-res-qth.active {
 .news-article-meta {
   display: flex;
   gap: 8px;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.8rem;
   color: var(--text-dim);
   margin-bottom: 24px;
   padding-left: 20px;
 }
 .news-article-body {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 1.05rem;
   color: var(--text);
   line-height: 1.8;
@@ -6539,12 +6577,12 @@ button.hw-res-qth.active {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 .news-article-stat {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.8rem;
   color: var(--text-dim);
 }
 .news-article-more-title {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 1rem;
   font-weight: 700;
   color: var(--text);
@@ -6573,14 +6611,14 @@ button.hw-res-qth.active {
   font-size: 1.3rem;
 }
 .news-article-more-name {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.9rem;
   font-weight: 700;
   color: #fff;
   display: block;
 }
 .news-article-more-desc {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.78rem;
   color: var(--text-dim);
   display: block;
@@ -6616,14 +6654,14 @@ button.hw-res-qth.active {
   cursor: default;
 }
 .help-tooltip-title {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 1.1rem;
   font-weight: 700;
   color: #fff;
   margin: 0 0 8px;
 }
 .help-tooltip-desc {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.88rem;
   color: var(--text-dim);
   line-height: 1.6;
@@ -6635,7 +6673,7 @@ button.hw-res-qth.active {
   align-items: center;
 }
 .help-tooltip-count {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.7rem;
   color: var(--text-dim);
   font-weight: 600;
@@ -7034,7 +7072,7 @@ button.hw-res-qth.active {
   color: var(--text-dim);
 }
 .portal-news-title {
-  font-family: 'Google Sans Flex', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.92rem;
   font-weight: 700;
   color: var(--text);
@@ -7162,6 +7200,7 @@ button.hw-res-qth.active {
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 14px;
   margin-bottom: 24px;
+  align-items: start;
 }
 
 .portal-class-card {
@@ -7227,6 +7266,12 @@ button.hw-res-qth.active {
   font-size: 0.85rem;
   font-weight: 700;
   text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 3.1em;
+  overflow-wrap: anywhere;
 }
 
 .portal-class-card-wrap {
@@ -7515,7 +7560,7 @@ button.hw-res-qth.active {
 .theme-switch-label {
   flex: 1;
   text-align: center;
-  font-family: 'Google Sans Flex', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.7rem;
   font-weight: 600;
   z-index: 1;
@@ -7587,7 +7632,7 @@ button.hw-res-qth.active {
 .lang-switch-label {
   flex: 1;
   text-align: center;
-  font-family: 'Google Sans Flex', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.65rem;
   font-weight: 700;
   z-index: 1;
@@ -8563,11 +8608,11 @@ button.hw-res-qth.active {
   width: 100%; margin-bottom: 12px; padding: 0 16px; box-sizing: border-box;
 }
 .sr-top-title {
-  font-family: 'Google Sans Flex', Arial, sans-serif;
+  font-family: var(--font-body);
   font-size: 1.1rem; font-weight: 600; color: var(--text);
 }
 .sr-top-progress {
-  font-family: 'Google Sans Flex', Arial, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.85rem; color: var(--text-dim);
 }
 .sr-done-card {
@@ -8579,16 +8624,16 @@ button.hw-res-qth.active {
 }
 .sr-done-icon { font-size: 3.5rem; margin-bottom: 16px; }
 .sr-done-title {
-  font-family: 'Google Sans Flex', Arial, sans-serif;
+  font-family: var(--font-body);
   font-size: 1.5rem; font-weight: 700; color: #fff; margin: 0 0 12px;
 }
 .sr-done-score {
-  font-family: 'Google Sans Flex', Arial, sans-serif;
+  font-family: var(--font-body);
   font-size: 2.4rem; font-weight: 800; color: #64ffda; margin: 0 0 8px;
   text-shadow: 0 0 20px rgba(100,255,218,0.3);
 }
 .sr-done-sub {
-  font-family: 'Google Sans Flex', Arial, sans-serif;
+  font-family: var(--font-body);
   font-size: 1rem; color: rgba(255,255,255,0.85); margin: 0 0 28px;
 }
 .sr-continue-btn {
@@ -13085,7 +13130,7 @@ button.hw-res-qth.active {
   max-width: 1200px;
   margin: 0 auto;
   padding: 24px;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 .wr-page.wr-marking-mode {
   max-width: 100%;
@@ -13150,13 +13195,13 @@ button.hw-res-qth.active {
   font-size: 0.82rem;
   color: #555;
   cursor: pointer;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   transition: all 0.15s;
 }
 .wr-back-btn:hover { border-color: #999; color: #333; background: #f5f0e8; }
 .wr-top-bar-center { flex: 1; display: flex; align-items: center; gap: 10px; }
 .wr-student-name {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-weight: 800;
   font-size: 1.25rem;
   color: #2d2a3a;
@@ -13165,7 +13210,7 @@ button.hw-res-qth.active {
 .wr-top-bar-date {
   font-size: 0.85rem;
   color: #888;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 .wr-top-bar-score {
   display: flex;
@@ -13177,7 +13222,7 @@ button.hw-res-qth.active {
   padding: 8px 18px;
 }
 .wr-score-display {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-weight: 900;
   font-size: 2rem;
   transition: color 0.3s;
@@ -13186,7 +13231,7 @@ button.hw-res-qth.active {
 .wr-score-of {
   font-size: 1rem;
   color: #999;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-weight: 600;
 }
 
@@ -13384,7 +13429,7 @@ button.hw-res-qth.active {
   margin-bottom: 8px;
 }
 .wr-marking-mode .wr-prompt-label {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.7rem;
   font-weight: 700;
   color: #8b7355;
@@ -13435,7 +13480,7 @@ button.hw-res-qth.active {
   flex-wrap: wrap;
 }
 .wr-marking-mode .wr-response-label {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.7rem;
   font-weight: 700;
   color: #999;
@@ -13524,7 +13569,7 @@ button.hw-res-qth.active {
   background: #fff;
   border: 1px solid #ccc;
   color: #2d2a3a;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.85rem;
   padding: 10px 14px;
 }
@@ -13538,7 +13583,7 @@ button.hw-res-qth.active {
   color: #666;
   font-size: 0.8rem;
   cursor: pointer;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 .wr-annot-cancel-btn:hover { background: #f5f0e8; }
 .wr-annot-add-btn {
@@ -13550,7 +13595,7 @@ button.hw-res-qth.active {
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 .wr-annot-add-btn:hover { background: #3d6a4b; }
 .wr-annot-add-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -13577,7 +13622,7 @@ button.hw-res-qth.active {
   margin-bottom: 10px;
 }
 .wr-marking-mode .wr-annot-list-title {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.72rem;
   font-weight: 700;
   color: #999;
@@ -13605,7 +13650,7 @@ button.hw-res-qth.active {
 .wr-annot-item-suggestion { color: #66bb6a; display: block; margin-top: 2px; }
 .wr-marking-mode .wr-annot-item-suggestion {
   color: #4a7c59;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.78rem;
 }
 .wr-annot-remove {
@@ -13633,7 +13678,7 @@ button.hw-res-qth.active {
   text-align: center;
 }
 .wr-marking-mode .wr-rubric-heading {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.75rem;
   font-weight: 700;
   color: #6b5a40;
@@ -13669,7 +13714,7 @@ button.hw-res-qth.active {
   color: #fff;
 }
 .wr-marking-mode .wr-rubric-cat-name {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   color: #2d2a3a;
   font-size: 0.82rem;
 }
@@ -13683,7 +13728,7 @@ button.hw-res-qth.active {
   white-space: nowrap;
 }
 .wr-marking-mode .wr-rubric-cat-badge {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.68rem;
   padding: 2px 8px;
   border-radius: 10px;
@@ -13696,7 +13741,7 @@ button.hw-res-qth.active {
   line-height: 1.5;
 }
 .wr-marking-mode .wr-rubric-criterion {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   color: #888;
   font-size: 0.7rem;
 }
@@ -13762,7 +13807,7 @@ button.hw-res-qth.active {
   background: #fff;
   border: 1px solid #ddd;
   color: #2d2a3a;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.78rem;
   padding: 8px 12px;
 }
@@ -13789,7 +13834,7 @@ button.hw-res-qth.active {
 .wr-save-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); }
 .wr-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .wr-marking-mode .wr-save-btn {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.85rem;
   font-weight: 700;
   padding: 12px;
@@ -13815,7 +13860,7 @@ button.hw-res-qth.active {
   color: #2e7d32;
   font-weight: 800;
   font-size: 1rem;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   letter-spacing: 0.02em;
 }
 .wr-done-btn {
@@ -13825,7 +13870,7 @@ button.hw-res-qth.active {
   border-radius: 8px;
   background: #4a7c59;
   color: #fff;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.88rem;
   font-weight: 700;
   cursor: pointer;
@@ -13839,7 +13884,7 @@ button.hw-res-qth.active {
   border-radius: 8px;
   background: none;
   color: #666;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.8rem;
   cursor: pointer;
   transition: all 0.15s;
@@ -13892,7 +13937,7 @@ button.hw-res-qth.active {
   border: 1.5px solid #ddd;
   background: #faf6ef;
   color: #666;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.8rem;
   padding: 7px 14px;
   border-radius: 6px;
@@ -13939,7 +13984,7 @@ button.hw-res-qth.active {
 }
 .wr-marking-mode .wr-toolbar-hint {
   color: #b8860b;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.75rem;
   margin-left: 0;
   margin-top: 6px;
@@ -14067,7 +14112,7 @@ button.hw-res-qth.active {
   background: #eef5ff;
   border-left-color: #5b8fd4;
   color: #4a5568;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 .wr-margin-comment-num {
   background: #42a5f5;
@@ -14162,7 +14207,7 @@ button.hw-res-qth.active {
   transition: background 0.12s;
   color: #555;
   flex-shrink: 0;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 .wr-sel-btn:hover { background: #f5edd8; color: #2d2a3a; }
 .wr-sel-popup-wide {
@@ -14192,7 +14237,7 @@ button.hw-res-qth.active {
   border: 1px solid #ddd;
   border-radius: 6px;
   font-size: 0.85rem;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   color: #2d2a3a;
   background: #faf6ef;
   resize: none;
@@ -14364,7 +14409,7 @@ button.hw-res-qth.active {
   border: 1.5px dashed #c4a5e0;
   background: #f8f0ff;
   color: #7c4daa;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.82rem;
 }
 .wr-marking-mode .wr-ai-btn:hover:not(:disabled) { border-color: #7c4daa; background: #f0e4fc; }
@@ -14389,7 +14434,7 @@ button.hw-res-qth.active {
   margin-bottom: 10px;
 }
 .wr-marking-mode .wr-ai-panel-title {
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.7rem;
   font-weight: 700;
   color: #7c4daa;
@@ -14430,7 +14475,7 @@ button.hw-res-qth.active {
   border-color: #4a7c59;
   background: rgba(74,124,89,0.08);
   color: #4a7c59;
-  font-family: 'Google Sans Flex', system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 .wr-marking-mode .wr-ai-sug-accept:hover { background: rgba(74,124,89,0.15); }
 
@@ -14648,7 +14693,7 @@ button.hw-res-qth.active {
   color: #fff; border: none; border-radius: 6px;
   padding: 5px 14px; font-size: 0.78rem; font-weight: 600;
   cursor: pointer; transition: opacity 0.15s, transform 0.15s;
-  font-family: 'Google Sans Flex', Arial, sans-serif;
+  font-family: var(--font-body);
 }
 .vb-ai-def-btn:hover { opacity: 0.85; transform: scale(1.03); }
 .vb-ai-def-btn:disabled { opacity: 0.5; cursor: default; transform: none; }
@@ -14713,7 +14758,7 @@ button.hw-res-qth.active {
 .vb-flashcard-flipped .vb-flashcard-front { transform: rotateY(180deg); }
 .vb-flashcard-flipped .vb-flashcard-back { transform: rotateY(0deg); }
 .vb-flashcard-word {
-  font-family: 'Google Sans Flex', Arial, sans-serif;
+  font-family: var(--font-body);
   font-size: 1.6rem;
   font-weight: 700;
   color: #fff;
@@ -15252,7 +15297,7 @@ button.hw-res-qth.active {
 .vt-result-score {
   font-size: 3rem;
   font-weight: 800;
-  font-family: 'Google Sans Flex', Arial, sans-serif;
+  font-family: var(--font-body);
 }
 .vt-result-label {
   font-size: 1.1rem;
@@ -15995,7 +16040,7 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .pq-row {
   display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(160px, 260px) auto auto;
   align-items: center; gap: 14px; width: 100%; text-align: left; cursor: pointer;
-  padding: 10px 14px; border-radius: 12px; font-family: 'Google Sans Flex', 'Segoe UI', sans-serif;
+  padding: 10px 14px; border-radius: 12px; font-family: var(--font-body);
   background: var(--bg-card); color: var(--text);
   border: 1px solid rgba(255, 255, 255, 0.08);
   transition: border-color .15s, background .15s, transform .15s;
@@ -16028,7 +16073,7 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
   --fill-a: #5c6bc0; --fill-b: #7986cb; --glow: rgba(121, 134, 203, 0.45);
   position: relative; display: block; width: 100%; min-height: 96px; padding: 0; overflow: visible;
   border-radius: 18px; cursor: pointer; text-align: left; isolation: isolate;
-  font-family: 'Google Sans Flex', 'Segoe UI', sans-serif; color: #fff;
+  font-family: var(--font-body); color: #fff;
   background: rgba(255, 255, 255, 0.05);
   border: 2px solid rgba(255, 255, 255, 0.1);
   box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.35);
@@ -16085,7 +16130,7 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .pq-bar-sub { font-size: .88rem; opacity: .85; }
 .pq-bar-badge { flex: none; font-size: .8rem; font-weight: 800; padding: 5px 12px; border-radius: 999px; background: #ffab00; color: #1a1a2e; box-shadow: 0 0 12px rgba(255,171,0,.6); animation: pq-pulse 1.8s ease-in-out infinite; }
 .pq-bar-score { flex: none; display: flex; flex-direction: column; align-items: flex-end; line-height: 1; text-shadow: 0 2px 8px rgba(0,0,0,.5); }
-.pq-bar-pct { font-family: 'Outfit', 'Google Sans Flex', sans-serif; font-size: 2.6rem; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
+.pq-bar-pct { font-family: 'Outfit', var(--font-body); font-size: 2.6rem; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
 .pq-bar-lg .pq-bar-pct { font-size: 3.2rem; }
 .pq-bar-pct small { font-size: .5em; margin-left: 2px; opacity: .85; }
 .pq-bar-tier { margin-top: 6px; font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .95; }
@@ -16160,7 +16205,7 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .rim-overlay { z-index: 100001; }
 .rim {
   position: relative; width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow-y: auto; box-sizing: border-box;
-  padding: 26px 24px 20px; border-radius: 20px; color: #fff; font-family: 'Google Sans Flex', 'Segoe UI', sans-serif;
+  padding: 26px 24px 20px; border-radius: 20px; color: #fff; font-family: var(--font-body);
   background: #1c1b33; border: 1px solid rgba(255,255,255,.12); box-shadow: 0 24px 60px rgba(0,0,0,.5);
   animation: rim-in .22s ease-out;
 }

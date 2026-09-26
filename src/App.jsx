@@ -53,9 +53,22 @@ function loadSession() {
 function BootLoader({ done, onHidden }) {
   const fillRef = useRef(null)
   const [leaving, setLeaving] = useState(false)
+  // Web fonts must be in place before the app shows, or the first paint uses a
+  // fallback and every label visibly re-flows a moment later.
+  const [fontsReady, setFontsReady] = useState(() => !document.fonts || document.fonts.status === 'loaded')
 
   useEffect(() => {
-    if (!done) return
+    if (fontsReady) return
+    let cancelled = false
+    const settle = () => { if (!cancelled) setFontsReady(true) }
+    document.fonts.ready.then(settle).catch(settle)
+    // Never hold the app hostage to a slow font CDN.
+    const t = setTimeout(settle, 3000)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [fontsReady])
+
+  useEffect(() => {
+    if (!done || !fontsReady) return
     const el = fillRef.current
     const timers = []
     if (el) {
@@ -71,7 +84,7 @@ function BootLoader({ done, onHidden }) {
     timers.push(setTimeout(() => setLeaving(true), 900))
     timers.push(setTimeout(() => onHidden(), 1450))
     return () => timers.forEach(clearTimeout)
-  }, [done, onHidden])
+  }, [done, fontsReady, onHidden])
 
   return (
     <div className={`boot-loader${leaving ? ' is-leaving' : ''}`} role="status" aria-label="Loading">
@@ -80,7 +93,7 @@ function BootLoader({ done, onHidden }) {
       <div className="boot-bar">
         <div className="boot-bar-fill" ref={fillRef} style={{ animationDelay: `-${Math.round(performance.now())}ms` }} />
       </div>
-      <div className="boot-text">{done ? 'Ready' : 'Loading'}</div>
+      <div className="boot-text">{done && fontsReady ? 'Ready' : 'Loading'}</div>
     </div>
   )
 }

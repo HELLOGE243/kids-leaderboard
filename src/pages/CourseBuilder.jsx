@@ -478,7 +478,7 @@ function CourseBuilder({ orgId, onBack, onEditQuiz }) {
                 <div className="portal-class-img" style={cls.image ? { backgroundImage: `url(${cls.image})` } : {}}>
                   {!cls.image && <span className="portal-class-placeholder">📖</span>}
                 </div>
-                <div className="portal-class-name">{cls.name}</div>
+                <div className="portal-class-name" title={cls.name}>{cls.name}</div>
               </div>
             </div>
           ))}

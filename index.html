@@ -4,7 +4,11 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link href="https://fonts.googleapis.com/css2?family=Bungee+Shade&family=Cinzel:wght@700&family=Outfit:wght@500;600;700;800&family=Google+Sans+Flex:wght@400;500;600;700&family=Press+Start+2P&family=Shojumaru&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Inter carries the body text: Google Sans Flex ships a 400 weight only,
+         so every bold in the app used to be a browser-synthesised smear of it. -->
+    <link href="https://fonts.googleapis.com/css2?family=Bungee+Shade&family=Cinzel:wght@700&family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Google+Sans+Flex&family=Press+Start+2P&family=Shojumaru&display=swap" rel="stylesheet">
     <title>AVANT CleverSpace</title>
     <link rel="preload" as="image" href="/avant-logo.png" />
     <style>
@@ -15,7 +19,7 @@
          carries on instead of restarting. */
       .boot-loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(20px, 4vh, 40px); padding: 0 16px; background: #1a1a2e; z-index: 50; }
       .boot-logo { width: 14vw; min-width: 130px; max-width: 60vw; line-height: 0; }
-      .boot-title { margin: 0; font-family: 'Outfit', 'Google Sans Flex', 'Segoe UI', sans-serif; font-weight: 800; font-size: clamp(2rem, 4.6vw, 4.6rem); line-height: 1.05; letter-spacing: -0.02em; text-align: center; color: #eaf1ff;
+      .boot-title { margin: 0; font-family: 'Outfit', 'Inter', 'Segoe UI', sans-serif; font-weight: 800; font-size: clamp(2rem, 4.6vw, 4.6rem); line-height: 1.05; letter-spacing: -0.02em; text-align: center; color: #eaf1ff;
         background: linear-gradient(180deg, #ffffff 0%, #b8cdf5 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
       .boot-logo img { width: 100%; height: auto; display: block; user-select: none; -webkit-user-drag: none; }
       .boot-bar { position: relative; width: 30vw; min-width: 240px; max-width: 90vw; height: 14px; border-radius: 999px; overflow: hidden;
@@ -27,7 +31,7 @@
         background: linear-gradient(90deg, #ffd400 0%, #c6e600 45%, #22c55e 100%); }
       .boot-bar-fill::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent);
         transform: translateX(-100%); animation: boot-shine 1.6s ease-in-out infinite; }
-      .boot-text { font-family: 'Google Sans Flex', 'Segoe UI', sans-serif; font-size: .8rem; letter-spacing: .3em; text-transform: uppercase; color: #a0a0b0; margin-top: -8px; }
+      .boot-text { font-family: 'Inter', 'Segoe UI', sans-serif; font-size: .8rem; letter-spacing: .3em; text-transform: uppercase; color: #a0a0b0; margin-top: -8px; }
       /* Races ahead, then slows near the end: it never claims "done" before the app is ready. */
       @keyframes boot-progress { 0% { width: 0; } 20% { width: 45%; } 50% { width: 72%; } 100% { width: 94%; } }
       @keyframes boot-shine { to { transform: translateX(100%); } }

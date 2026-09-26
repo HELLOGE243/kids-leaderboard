@@ -24,7 +24,7 @@
 import { extractAndStoreImages, findImageRefs, deleteImages } from './imageStore.js'
 import { pickSolutionVideo } from '../utils/video.js'
 import { planImport, applyAiSplit, mergeCloze, describeCoverage } from '../utils/cleverspaceImport.js'
-import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, deleteStudentFirestore, ensureQuizSetsLoaded, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
+import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, deleteStudentFirestore, ensureQuizSetsLoaded, loadAiExplanations, saveAiExplanation, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
 
 export { onDataChange, onBroadcast, sendBroadcast, loadContacts }
 
@@ -2312,6 +2312,52 @@ export function submitHomeworkAttempt(quizSetId, studentId, answers, questionTim
   const attempt = { id, quizSetId, studentId, answers, score, total, questionTimes: questionTimes || [], date: new Date().toISOString(), term, orgId, ...screenMeta(meta) }
   mutateStudentArray(studentId, 'homeworkAttempts', (arr) => arr.push(attempt))
   return attempt
+}
+
+// ------------------------------------------------------------
+// Shared AI explanations
+//
+// The first student to ask "explain this question" pays for the generation;
+// every student after them reads the same answer. Entries carry a fingerprint
+// of the question they were written for, so an explanation is ignored - and
+// regenerated - once a teacher edits the question or fixes its answer key.
+// ------------------------------------------------------------
+function explanationKey(question, questionIndex) {
+  return question?.id ? `q_${question.id}` : `i_${questionIndex}`
+}
+
+function questionFingerprint(question) {
+  const parts = [(question?.text || '').replace(/<[^>]*>/g, ''), ...(question?.options || []), String(question?.correctIndex ?? '')]
+  const s = parts.join('|')
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0
+  return String(h)
+}
+
+/**
+ * The explanation already generated for this question, or null if there is none
+ * (or the question has changed since it was written).
+ * @returns {Promise<{general:string, options:object}|null>}
+ */
+export async function getSharedExplanation(quizSetId, question, questionIndex) {
+  if (!quizSetId) return null
+  const all = await loadAiExplanations(quizSetId)
+  const entry = all[explanationKey(question, questionIndex)]
+  if (!entry) return null
+  if (entry.fp && entry.fp !== questionFingerprint(question)) return null
+  return { general: entry.general || '', options: entry.options || {} }
+}
+
+/** Publishes a generated explanation for every other student to reuse. */
+export function saveSharedExplanation(quizSetId, question, questionIndex, payload) {
+  if (!quizSetId || !payload) return Promise.resolve(false)
+  if (!payload.general && !Object.keys(payload.options || {}).length) return Promise.resolve(false)
+  return saveAiExplanation(quizSetId, explanationKey(question, questionIndex), {
+    general: payload.general || '',
+    options: payload.options || {},
+    fp: questionFingerprint(question),
+    at: Date.now(),
+  })
 }
 
 export function getHomeworkAttempt(quizSetId, studentId) {

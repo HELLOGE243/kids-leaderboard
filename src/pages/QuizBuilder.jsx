@@ -52,7 +52,7 @@ import { extractTextFromPDF, processWithAI, parseBookletMeta, getPDFPageCount } 
 import { RichTextEditor, RichText } from '../components/RichTextEditor.jsx'
 import { generateExplanation, parseExplanation, serializeExplanation } from '../utils/aiChat.js'
 import { resolveImages, extractAndStoreImages } from '../data/imageStore.js'
-import { getLastWriteErrors, getChunkSizes } from '../data/firebase.js'
+import { getLastWriteErrors, getChunkSizes, flushPendingWrites, resyncQuizSets, uploadMissingQuizSets, getLibraryError } from '../data/firebase.js'
 
 const QUESTION_TYPES = [
   { value: 'multiple-choice', label: 'MC' },
@@ -63,6 +63,13 @@ const QUESTION_TYPES = [
   { value: 'multi-matching', label: 'Matching' },
   { value: 'free-writing', label: 'Free Write' },
 ]
+
+// A sensible default for sets that have never had a limit set: about a minute
+// and a half per question, rounded to five minutes, capped at an hour.
+function suggestedTimeLimit(questionCount) {
+  const mins = Math.round((questionCount || 1) * 1.5 / 5) * 5
+  return Math.max(5, Math.min(60, mins))
+}
 
 function emptyQuestion(type = 'multiple-choice') {
   const q = { type, text: '', prompt: '', options: ['', '', '', '', '', '', '', ''], correctIndex: 0, expGeneral: '', expOptions: {}, videoUrl: '' }
@@ -121,6 +128,8 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
   const [dragOverFolder, setDragOverFolder] = useState(null)
   const [mergeTarget, setMergeTarget] = useState(null)
   const [importProgress, setImportProgress] = useState(null)
+  const [syncingLibrary, setSyncingLibrary] = useState(false)
+  const [syncNote, setSyncNote] = useState('')
   const [selectedHomework, setSelectedHomework] = useState(new Set())
   const [pendingTypeChange, setPendingTypeChange] = useState(null)
   const [pdfProgress, setPdfProgress] = useState('')
@@ -268,6 +277,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
       })
     )
     setEditingImported(set.id)
+    setTimeLimit(set.timeLimit || suggestedTimeLimit(set.questions.length))
     setQuizQuestions(resolved.map((q) => {
       const opts = [...(q.options || [])]
       const realCount = opts.filter(o => o).length || 4
@@ -361,7 +371,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
         // mark it again when a correct answer actually changed.
         const before = getImportedQuizSet(editingImported)?.questions || []
         const keyChanges = changedAnswerKeys(before, valid)
-        updateImportedQuizSet(editingImported, { questions: valid })
+        updateImportedQuizSet(editingImported, { questions: valid, timeLimit })
         const setId = editingImported
         setEditingImported(null)
         setPdfReviewFlags(null)
@@ -445,6 +455,19 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
     e.target.value = ''
     for (const file of files) {
       await importOneJSONFile(file)
+    }
+    // Uploads are coalesced in the background, so an import is not safe until
+    // the queue has drained. Closing the tab before this resolved is how a
+    // library ends up present on one device and missing everywhere else.
+    setImportProgress({ done: 0, total: 0, file: 'Saving to cloud...' })
+    await flushPendingWrites()
+    setImportProgress(null)
+    const check = await uploadMissingQuizSets()
+    if (check.uploaded > 0) {
+      setImportReport((current) => ({
+        ...(current || { files: [], totalAssigned: 0, totalUnassigned: 0, totalQuestions: 0, errors: [] }),
+        repaired: check.uploaded,
+      }))
     }
   }
 
@@ -592,7 +615,12 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
               <tbody>
                 {rows.map((att) => (
                   <tr key={att.id}>
-                    <td>{att.studentName}</td>
+                    <td>
+                      {att.studentName}
+                      {att.lockedOut
+                        ? <span className="cd-locked-tag" title={`Left the quiz screen ${att.screenLeaves || 3} times; submitted automatically`}>Auto-submitted</span>
+                        : att.screenLeaves > 0 && <span className="cd-leaves-tag" title="Times the student left the quiz screen">Left screen ×{att.screenLeaves}</span>}
+                    </td>
                     <td style={{ textAlign: 'center', color: att.pct >= 70 ? 'var(--success)' : att.pct >= 40 ? 'var(--warning)' : 'var(--danger)' }}>
                       {att.score}/{att.total}
                     </td>
@@ -732,19 +760,20 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
               <select value={qType} onChange={(e) => changeQuestionType(e.target.value)} className="select" style={{ width: 100, fontSize: '0.65rem', padding: '4px' }} title="Question type">
                 {QUESTION_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
+              <label className="qb-timelimit" title="How long the student gets for this quiz">
+                <span className="qb-timelimit-label">Time limit</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={180}
+                  value={timeLimit}
+                  onChange={(e) => setTimeLimit(Math.max(1, Math.min(180, parseInt(e.target.value, 10) || 1)))}
+                  className="input qb-timelimit-input"
+                />
+                <span className="qb-timelimit-unit">min</span>
+              </label>
               {!isImported && (
                 <>
-                  <input
-                    type="number"
-                    min={1}
-                    max={180}
-                    value={timeLimit}
-                    onChange={(e) => setTimeLimit(Math.max(1, Math.min(180, parseInt(e.target.value, 10) || 1)))}
-                    className="input"
-                    style={{ width: 52, fontSize: '0.65rem', padding: '4px', textAlign: 'center' }}
-                    title="Time limit (minutes)"
-                  />
-                  <span style={{ fontSize: '0.55rem', color: 'var(--text-dim)', marginLeft: -4 }}>min</span>
                   <div ref={lockDropRef} style={{ position: 'relative', minWidth: 260 }}>
                     <div
                       className="input"
@@ -1474,6 +1503,26 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                     Undo Import ({getLastImportBatch()?.count})
                   </button>
                 )}
+                <button
+                  className="btn btn-small btn-outline"
+                  style={{ fontSize: '0.45rem', padding: '4px 8px' }}
+                  disabled={syncingLibrary}
+                  title="Re-read the quiz library from the cloud and upload anything this device has that the cloud does not"
+                  onClick={async () => {
+                    setSyncingLibrary(true)
+                    setSyncNote('')
+                    try {
+                      const pulled = await resyncQuizSets()
+                      const pushed = await uploadMissingQuizSets()
+                      forceRefresh()
+                      setSyncNote(pulled.ok
+                        ? `${pulled.total} sets in the cloud · ${pulled.added} new here · ${pushed.uploaded} uploaded from here`
+                        : `Could not read the library: ${pulled.error}`)
+                    } finally {
+                      setSyncingLibrary(false)
+                    }
+                  }}
+                >{syncingLibrary ? 'Syncing...' : 'Sync library'}</button>
                 <button className="btn btn-small" style={{ fontSize: '0.45rem', padding: '4px 8px' }} onClick={() => fileInputRef.current?.click()} disabled={!!importProgress}>{importProgress ? 'Importing...' : 'Import JSON'}</button>
                 <button className="btn btn-small" style={{ fontSize: '0.45rem', padding: '4px 8px' }} onClick={() => setShowBulkTag(true)}>{'✨'} Tag all with AI</button>
                 <button className="btn btn-small" style={{ fontSize: '0.45rem', padding: '4px 8px', background: '#7c3aed' }} onClick={() => pdfInputRef.current?.click()} disabled={!!pdfProgress}>
@@ -1484,9 +1533,22 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
               <input ref={pdfInputRef} type="file" accept=".pdf" style={{ display: 'none' }} onChange={handleImportPDF} />
             </div>
 
+            {(syncNote || getLibraryError()) && (
+              <div style={{ padding: '8px 10px', marginBottom: 6, background: getLibraryError() ? 'rgba(255,23,68,0.1)' : 'rgba(0,229,255,0.08)', border: `1px solid ${getLibraryError() ? 'var(--danger)' : 'var(--token)'}`, borderRadius: 'var(--radius)', fontSize: '0.6rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ flex: 1 }}>
+                  {getLibraryError()
+                    ? `The quiz library did not finish loading on this device (${getLibraryError()}). Some sets may be missing from the list below — press "Sync library" to try again.`
+                    : syncNote}
+                </span>
+                {syncNote && <button className="btn btn-small btn-outline" style={{ fontSize: '0.4rem', padding: '2px 6px' }} onClick={() => setSyncNote('')}>Dismiss</button>}
+              </div>
+            )}
+
             {importProgress && (
               <div style={{ padding: '8px 10px', marginBottom: 6, background: 'rgba(0,255,136,0.08)', border: '1px solid var(--accent)', borderRadius: 'var(--radius)', fontSize: '0.65rem' }}>
-                <div>Importing {importProgress.done}/{importProgress.total} quiz sets{importProgress.file ? ` — ${importProgress.file}` : ''}...</div>
+                <div>{importProgress.total
+                  ? `Importing ${importProgress.done}/${importProgress.total} quiz sets${importProgress.file ? ` — ${importProgress.file}` : ''}...`
+                  : (importProgress.file || 'Working...')}</div>
                 <div style={{ width: '100%', height: 4, background: 'var(--border)', borderRadius: 2, marginTop: 4, overflow: 'hidden' }}>
                   <div style={{ width: `${importProgress.total ? (importProgress.done / importProgress.total) * 100 : 0}%`, height: '100%', background: 'var(--accent)', borderRadius: 2, transition: 'width 0.3s ease' }} />
                 </div>
@@ -1637,6 +1699,23 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                     <td style={{ textAlign: 'center', fontSize: '0.55rem', color: set.week ? 'var(--coin)' : 'var(--text-dim)' }}>{set.week || '--'}</td>
                     <td style={{ textAlign: 'center', fontSize: '0.55rem' }}>{set.questions.length}</td>
                     <td style={{ textAlign: 'center', padding: '2px' }} onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="number"
+                        min={1}
+                        max={180}
+                        value={set.timeLimit || ''}
+                        placeholder={String(suggestedTimeLimit(set.questions.length))}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          const raw = parseInt(e.target.value, 10)
+                          updateImportedQuizSet(set.id, { timeLimit: raw ? Math.max(1, Math.min(180, raw)) : null })
+                          forceRefresh()
+                        }}
+                        title="Time limit in minutes (blank uses the suggested default)"
+                        style={{ width: 32, fontSize: '0.5rem', padding: '1px', textAlign: 'center', background: 'transparent', border: `1px solid ${set.timeLimit ? 'var(--accent)' : 'rgba(255,255,255,0.15)'}`, color: set.timeLimit ? 'var(--accent)' : 'var(--text-dim)', borderRadius: 2 }}
+                      />
+                    </td>
+                    <td style={{ textAlign: 'center', padding: '2px' }} onClick={(e) => e.stopPropagation()}>
                       <select
                         value={set.trialTestSubject || ''}
                         onChange={(e) => { e.stopPropagation(); const val = e.target.value; updateImportedQuizSet(set.id, { trialTest: !!val, trialTestSubject: val || null }); forceRefresh() }}
@@ -1696,6 +1775,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                         </span>
                       </div>
                     </td>
+                    <td></td>
                     <td></td>
                     <td></td>
                     <td></td>
@@ -1774,6 +1854,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                         <th className="sortable-th" style={{ textAlign: 'center', width: 32, fontSize: '0.5rem' }} onClick={() => toggleImportSort('year')}>Y{arrow('year')}</th>
                         <th className="sortable-th" style={{ textAlign: 'center', width: 32, fontSize: '0.5rem' }} onClick={() => toggleImportSort('week')}>W{arrow('week')}</th>
                         <th style={{ textAlign: 'center', width: 24, fontSize: '0.5rem' }}>Q</th>
+                        <th style={{ textAlign: 'center', width: 34, fontSize: '0.5rem' }} title="Time limit in minutes">Mins</th>
                         <th style={{ textAlign: 'center', width: 52, fontSize: '0.5rem' }}>Trial</th>
                         <th style={{ textAlign: 'center', width: 28, fontSize: '0.5rem' }}>HW</th>
                         <th style={{ textAlign: 'center', width: 80, fontSize: '0.5rem' }}>Action</th>

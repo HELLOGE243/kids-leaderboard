@@ -178,6 +178,77 @@ function assignedQuizSetIds(data, studentId) {
   return [...ids]
 }
 
+// The quiz library is the largest read this app makes (~22 MB across 600+
+// documents). On a weak connection it can fail outright, and it used to do so
+// silently: a teacher was then shown only the handful of sets that later got
+// fetched on demand, which looks exactly like "my imports did not upload".
+let _libraryError = null
+
+/** The error from the last whole-library read, or null. */
+export function getLibraryError() {
+  return _libraryError
+}
+
+async function fetchWholeLibrary() {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const qs = await getDocs(collection(db, QUIZ_SETS_COLLECTION))
+      _libraryError = null
+      return qs
+    } catch (e) {
+      console.warn(`Firestore: quizSets read failed (attempt ${attempt}/3):`, e)
+      _libraryError = e?.message || String(e)
+      if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 800))
+    }
+  }
+  return null
+}
+
+/**
+ * Re-reads the whole library and merges it into the cache. Used by the "Sync
+ * library" button, so a teacher whose first read failed - or who is on a second
+ * device - can pull in what another device imported without signing out.
+ * @returns {Promise<{ok:boolean, total:number, added:number, error:string|null}>}
+ */
+export async function resyncQuizSets() {
+  if (!_cache) return { ok: false, total: 0, added: 0, error: 'not ready' }
+  const qs = await fetchWholeLibrary()
+  if (!qs) return { ok: false, total: 0, added: 0, error: _libraryError }
+  const remote = qs.docs.map((d) => d.data()).filter((s) => s && s.id)
+  const byId = new Map((_cache.importedQuizSets || []).map((s) => [s.id, s]))
+  let added = 0
+  for (const set of remote) {
+    if (!byId.has(set.id)) added++
+    byId.set(set.id, set)
+    _lastWrittenSets[set.id] = JSON.stringify(set)
+  }
+  _cache.importedQuizSets = [...byId.values()]
+  notifyChange()
+  return { ok: true, total: remote.length, added, error: null }
+}
+
+/**
+ * Writes every cached quiz set the server does not have. Recovers a library
+ * that was imported on a device whose uploads never finished.
+ * @returns {Promise<{checked:number, uploaded:number}>}
+ */
+export async function uploadMissingQuizSets() {
+  if (!_cache) return { checked: 0, uploaded: 0 }
+  const local = (_cache.importedQuizSets || []).filter((s) => s && s.id)
+  const qs = await fetchWholeLibrary()
+  const onServer = new Set(qs ? qs.docs.map((d) => d.id) : [])
+  const missing = local.filter((s) => !onServer.has(s.id))
+  for (const set of missing) {
+    try {
+      await setDoc(doc(db, QUIZ_SETS_COLLECTION, set.id), set)
+      _lastWrittenSets[set.id] = JSON.stringify(set)
+    } catch (e) {
+      console.warn(`Firestore: failed to upload quiz set ${set.id}:`, e)
+    }
+  }
+  return { checked: local.length, uploaded: missing.length }
+}
+
 /** Reads the named quiz sets, in parallel, skipping any that no longer exist. */
 async function fetchQuizSets(ids) {
   const wanted = [...new Set(ids)].filter(Boolean)
@@ -203,6 +274,56 @@ export async function ensureQuizSetsLoaded(ids) {
   for (const set of fetched) _lastWrittenSets[set.id] = JSON.stringify(set)
   notifyChange()
   return fetched.length
+}
+
+// ------------------------------------------------------------
+// Shared AI explanations
+//
+// Explanations the AI writes during review are worth generating once for the
+// whole school, not once per student: the second student to ask the same
+// question reads the first one's answer. Keyed by quiz set, with one entry per
+// question, so a set's explanations arrive in a single read.
+// ------------------------------------------------------------
+const AI_EXPLANATIONS_COLLECTION = 'aiExplanations'
+const _aiExpCache = new Map() // setId -> { [questionKey]: { general, options } }
+
+/** Loads (and memoises) every cached explanation for one quiz set. */
+export async function loadAiExplanations(setId) {
+  if (!setId) return {}
+  if (_aiExpCache.has(setId)) return _aiExpCache.get(setId)
+  let data = {}
+  try {
+    const snap = await getDoc(doc(db, AI_EXPLANATIONS_COLLECTION, String(setId)))
+    if (snap.exists()) data = snap.data() || {}
+  } catch (e) {
+    console.warn('Firestore: failed to load AI explanations:', e)
+  }
+  _aiExpCache.set(setId, data)
+  return data
+}
+
+/**
+ * Stores one question's generated explanation for everyone else. Merges, so two
+ * students generating different questions at once cannot overwrite each other.
+ */
+export async function saveAiExplanation(setId, questionKey, payload) {
+  if (!setId || !questionKey || !payload) return false
+  const local = _aiExpCache.get(setId) || {}
+  local[questionKey] = payload
+  _aiExpCache.set(setId, local)
+  try {
+    await setDoc(doc(db, AI_EXPLANATIONS_COLLECTION, String(setId)), { [questionKey]: payload }, { merge: true })
+    return true
+  } catch (e) {
+    console.warn('Firestore: failed to save AI explanation:', e)
+    return false
+  }
+}
+
+/** Drops a set's memoised explanations (after a teacher edits its questions). */
+export function clearAiExplanationCache(setId) {
+  if (setId) _aiExpCache.delete(setId)
+  else _aiExpCache.clear()
 }
 
 /**
@@ -265,7 +386,7 @@ export async function initFirestore() {
       const allReads = [
         ...CHUNKS.map((chunk) => getDoc(doc(db, 'appData', chunk)).then((snap) => ({ type: 'chunk', chunk, snap })).catch((e) => { console.warn(`Firestore: failed to load chunk "${chunk}":`, e); return null })),
         ...(studentOnly ? [] : [
-          getDocs(collection(db, QUIZ_SETS_COLLECTION)).then((qs) => ({ type: 'quizSets', qs })).catch((e) => { console.warn('Firestore: failed to load quizSets collection:', e); return null }),
+          fetchWholeLibrary().then((qs) => ({ type: 'quizSets', qs })),
           getDoc(doc(db, 'appData', UNASSIGNED_DOC)).then((snap) => ({ type: 'unassigned', snap })).catch(() => null),
         ]),
       ]
@@ -277,7 +398,7 @@ export async function initFirestore() {
       for (const r of results) {
         if (!r) continue
         if (r.type === 'quizSets') {
-          perSetSets = r.qs.docs.map((d) => d.data())
+          perSetSets = r.qs ? r.qs.docs.map((d) => d.data()) : []
           if (perSetSets.length) hasCloudData = true
           continue
         }
@@ -434,9 +555,11 @@ function flushWrites() {
   if (_flushTimer) { clearTimeout(_flushTimer); _flushTimer = null }
   const data = _cache
   if (!data) return
-  _writeQueue = _writeQueue.then(() => writeAllChunks(data, false)).catch((e) => {
-    console.error('Firestore write failed:', e)
-  })
+  _inFlight++
+  _writeQueue = _writeQueue
+    .then(() => writeAllChunks(data, false))
+    .catch((e) => { console.error('Firestore write failed:', e) })
+    .finally(() => { _inFlight = Math.max(0, _inFlight - 1) })
 }
 
 /** Mirrors the cache into localStorage in the background (offline fallback only). */
@@ -452,11 +575,28 @@ export function scheduleLocalMirror(data) {
     : setTimeout(run, LOCAL_MIRROR_MS)
 }
 
+// Tracks writes that have been queued but not confirmed, so the page can warn
+// before closing. Uploading a quiz library takes a while; a reload halfway
+// through used to leave the sets on this device only.
+let _inFlight = 0
+
+/** How many write passes are still waiting to reach Firestore. */
+export function pendingWriteCount() {
+  return _inFlight + (_flushTimer ? 1 : 0)
+}
+
 if (typeof window !== 'undefined') {
   const flushNow = () => { if (_flushTimer) flushWrites() }
   window.addEventListener('pagehide', flushNow)
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushNow()
+  })
+  window.addEventListener('beforeunload', (e) => {
+    flushNow()
+    if (pendingWriteCount() === 0) return
+    e.preventDefault()
+    e.returnValue = 'Changes are still saving to the cloud. Leave anyway?'
+    return e.returnValue
   })
 }
 

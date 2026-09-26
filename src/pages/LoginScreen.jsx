@@ -7,7 +7,14 @@ function PasswordInput(props) {
   const [visible, setVisible] = useState(false)
   return (
     <div className="pw-field">
-      <input {...props} type={visible ? 'text' : 'password'} />
+      <input
+        autoComplete="new-password"
+        autoCorrect="off"
+        autoCapitalize="none"
+        spellCheck={false}
+        {...props}
+        type={visible ? 'text' : 'password'}
+      />
       <button
         type="button"
         className="pw-toggle"
@@ -355,7 +362,7 @@ function LoginScreen({ onLogin }) {
         <p className="landing-text" style={{ margin: '0 0 12px', textAlign: 'center' }}>
           We emailed a 6-digit code to <b>{parentEmail}</b>.<br />It can take a minute - check the junk folder too.
         </p>
-        <form onSubmit={handleVerifySubmit} {...formBusyProps} className="form-stack">
+        <form onSubmit={handleVerifySubmit} {...formBusyProps} autoComplete="off" className="form-stack">
           <input
             type="text"
             inputMode="numeric"
@@ -386,12 +393,13 @@ function LoginScreen({ onLogin }) {
       <div className="page-center landing-page">
         <img src="/avant-logo.png" alt="AVANT OC & Selective" className="landing-logo" />
         <h1 className="landing-heading">A bit about you, <span style={{ color: '#ffd700' }}>{pendingUser.name}</span></h1>
-        <form onSubmit={handleProfileSubmit} {...formBusyProps} className="form-stack">
+        <form onSubmit={handleProfileSubmit} {...formBusyProps} autoComplete="off" className="form-stack">
           <input
             type="text"
             value={firstName}
             onChange={(e) => { setFirstName(e.target.value); setError('') }}
             placeholder="First name"
+            autoComplete="off"
             className="input input-center landing-input"
             autoFocus
           />
@@ -400,6 +408,7 @@ function LoginScreen({ onLogin }) {
             value={lastName}
             onChange={(e) => { setLastName(e.target.value); setError('') }}
             placeholder="Last name"
+            autoComplete="off"
             className="input input-center landing-input"
           />
           <select
@@ -438,10 +447,12 @@ function LoginScreen({ onLogin }) {
             value={parentPhone}
             onChange={handlePhoneChange}
             placeholder="Parent's phone — 04XX XXX XXX"
+            autoComplete="off"
             className="input input-center landing-input"
           />
           <input
             type="email"
+            autoComplete="off"
             value={parentEmail}
             onChange={(e) => { setParentEmail(e.target.value); setError('') }}
             placeholder="Parent's email"
@@ -464,7 +475,7 @@ function LoginScreen({ onLogin }) {
         <img src="/avant-logo.png" alt="AVANT OC & Selective" className="landing-logo" />
         <h1 className="landing-heading">Welcome, <span style={{ color: '#ffd700' }}>{pendingUser.name}</span>!</h1>
         <p className="landing-text">Set a password for your account</p>
-        <form onSubmit={handleSetPassword} {...formBusyProps} className="form-stack">
+        <form onSubmit={handleSetPassword} {...formBusyProps} autoComplete="off" className="form-stack">
           <PasswordInput
             value={password}
             onChange={(e) => { setPassword(e.target.value); setError('') }}
@@ -495,7 +506,7 @@ function LoginScreen({ onLogin }) {
         <img src="/avant-logo.png" alt="AVANT OC & Selective" className="landing-logo" />
         <h1 className="landing-heading"><>Welcome, <span style={{ color: '#ffd700' }}>{pendingUser.name}</span>!</></h1>
         <p className="landing-text">Enter your password</p>
-        <form onSubmit={handleEnterPassword} {...formBusyProps} className="form-stack">
+        <form onSubmit={handleEnterPassword} {...formBusyProps} autoComplete="off" className="form-stack">
           <PasswordInput
             value={password}
             onChange={(e) => { setPassword(e.target.value); setError('') }}
@@ -534,9 +545,10 @@ function LoginScreen({ onLogin }) {
         <img src="/avant-logo.png" alt="AVANT OC & Selective" className="landing-logo" />
         <h1 className="landing-heading">Reset Password</h1>
         <p className="landing-text">Enter the parent email linked to <span style={{ color: '#ffd700' }}>{pendingUser.name}</span>'s account</p>
-        <form onSubmit={handleForgotSubmit} {...formBusyProps} className="form-stack">
+        <form onSubmit={handleForgotSubmit} {...formBusyProps} autoComplete="off" className="form-stack">
           <input
             type="email"
+            autoComplete="off"
             value={forgotEmail}
             onChange={(e) => { setForgotEmail(e.target.value); setError('') }}
             placeholder="Parent's email"
@@ -578,7 +590,7 @@ function LoginScreen({ onLogin }) {
         <img src="/avant-logo.png" alt="AVANT OC & Selective" className="landing-logo" />
         <h1 className="landing-heading">New Password</h1>
         <p className="landing-text">Set a new password for <span style={{ color: '#ffd700' }}>{pendingUser.name}</span></p>
-        <form onSubmit={handleResetSubmit} {...formBusyProps} className="form-stack">
+        <form onSubmit={handleResetSubmit} {...formBusyProps} autoComplete="off" className="form-stack">
           <PasswordInput
             value={password}
             onChange={(e) => { setPassword(e.target.value); setError('') }}
@@ -608,13 +620,17 @@ function LoginScreen({ onLogin }) {
       <img src="/avant-logo.png" alt="AVANT OC & Selective" className="landing-logo" />
       <h1 className="landing-heading">{label} Login</h1>
       <p className="landing-text">Enter your nickname</p>
-      <form onSubmit={handleNicknameSubmit} {...formBusyProps} className="form-stack">
+      <form onSubmit={handleNicknameSubmit} {...formBusyProps} autoComplete="off" className="form-stack">
         <input
           ref={nicknameRef}
           type="text"
           value={nickname}
           onChange={(e) => { setNickname(e.target.value); setError('') }}
           placeholder="Your nickname"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="none"
+        spellCheck={false}
           className="input input-center landing-input"
           autoFocus
         />

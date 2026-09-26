@@ -26,6 +26,8 @@ import {
   getUnlockedModuleCount,
   getModuleDeadline,
   addDojoCard,
+  getSharedExplanation,
+  saveSharedExplanation,
   markDojoAskTeacher,
   getStudentPercentile,
   getAllAttemptsForQuizSet,
@@ -1380,10 +1382,17 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                           return
                         }
                         updateChat({ ...chat, panel: kind, loading: kind })
-                        const ai = await generateExplanation({ questionText, options: q.options, correctIndex: q.correctIndex })
-                        const got = kind === 'wrong'
-                          ? ((myLetter && ai.options?.[myLetter]) || ai.general)
-                          : (ai.general || ai.options?.[correctLetter])
+                        const pick = (src) => kind === 'wrong'
+                          ? ((myLetter && src.options?.[myLetter]) || src.general)
+                          : (src.general || src.options?.[correctLetter])
+                        // Another student may already have paid for this one.
+                        const shared = await getSharedExplanation(takingQuiz.id, q, qIdx)
+                        let got = shared ? pick(shared) : ''
+                        if (!got) {
+                          const ai = await generateExplanation({ questionText, options: q.options, correctIndex: q.correctIndex })
+                          got = pick(ai)
+                          saveSharedExplanation(takingQuiz.id, q, qIdx, ai)
+                        }
                         setReviewChats(prev => {
                           const cur = prev[qIdx] || chat
                           return { ...prev, [qIdx]: { ...cur, panel: kind, loading: null, help: { ...(cur.help || {}), [kind]: got || 'No explanation is available for this one yet — try Ask Teacher below.' } } }
@@ -2287,7 +2296,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                   {c.term && <div className="hw-course-term-badge">{c.term}</div>}
                   <div className="hw-course-shine" />
                 </div>
-                <div className="hw-course-name">{c.name}</div>
+                <div className="hw-course-name" title={c.name}>{c.name}</div>
               </div>
             )
           })}

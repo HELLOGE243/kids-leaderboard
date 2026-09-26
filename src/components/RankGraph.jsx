@@ -48,7 +48,7 @@ function RankGraph({ dataPoints, height = 220 }) {
 
       const rankVal = Math.round(1 + ((maxRank - 1) / gridLines) * i)
       ctx.fillStyle = '#a0a0b0'
-      ctx.font = '600 12px "Google Sans Flex", sans-serif'
+      ctx.font = '600 12px Inter, "Segoe UI", sans-serif'
       ctx.textAlign = 'right'
       ctx.fillText(rankVal.toString(), pad.left - 6, y + 4)
     }
@@ -83,7 +83,7 @@ function RankGraph({ dataPoints, height = 220 }) {
     })
 
     ctx.fillStyle = '#a0a0b0'
-    ctx.font = '500 11px "Google Sans Flex", sans-serif'
+    ctx.font = '500 11px Inter, "Segoe UI", sans-serif'
     ctx.textAlign = 'center'
     dataPoints.forEach((d, i) => {
       const x = pad.left + (dataPoints.length === 1 ? graphW / 2 : (i / (dataPoints.length - 1)) * graphW)
@@ -91,7 +91,7 @@ function RankGraph({ dataPoints, height = 220 }) {
       ctx.fillText(dateStr, x, height - pad.bottom + 16)
     })
 
-    ctx.font = '700 11px "Google Sans Flex", sans-serif'
+    ctx.font = '700 11px Inter, "Segoe UI", sans-serif'
     ctx.textAlign = 'center'
     dataPoints.forEach((d, i) => {
       const x = pad.left + (dataPoints.length === 1 ? graphW / 2 : (i / (dataPoints.length - 1)) * graphW)

@@ -76,6 +76,16 @@ service cloud.firestore {
       allow write: if isTeacher();
     }
 
+    // AI explanations generated during review, cached once and then shared:
+    // the first student to ask pays for the generation, everyone after reads it.
+    // Any signed-in user may add to a set's document, but nobody may delete it,
+    // and a teacher can overwrite a bad one.
+    match /aiExplanations/{setId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn();
+      allow delete: if isTeacher();
+    }
+
     // --- Per-student work ------------------------------------------------
     // A student may read and write only their own document. Teachers may read
     // and update any student's (awarding tokens, clearing attempts when a quiz
