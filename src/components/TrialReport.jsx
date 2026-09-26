@@ -14,12 +14,14 @@ function ordinal(n) {
   return n + (s[(v - 20) % 10] || s[v] || s[0])
 }
 
-function bandFor(pct) {
-  if (pct >= 85) return { label: 'Outstanding', color: '#00e5ff' }
-  if (pct >= 70) return { label: 'Strong', color: '#66bb6a' }
-  if (pct >= 55) return { label: 'Sound', color: '#ffab00' }
-  if (pct >= 40) return { label: 'Developing', color: '#ff9100' }
-  return { label: 'Needs work', color: '#ff1744' }
+// A colour scale for the weakness bars only - marks themselves are shown
+// plainly, with the cohort figures beside them to give the comparison.
+function barColour(pct) {
+  if (pct >= 85) return '#00e5ff'
+  if (pct >= 70) return '#66bb6a'
+  if (pct >= 55) return '#ffab00'
+  if (pct >= 40) return '#ff9100'
+  return '#ff1744'
 }
 
 /**
@@ -57,7 +59,6 @@ function TrialReport({ courseId, studentId, studentName, onBack }) {
   }
 
   const { overall, papers, weaknesses } = report
-  const band = bandFor(overall.mark)
 
   return (
     <div className="page trial-report" style={{ maxWidth: 1000, margin: '0 auto' }}>
@@ -75,9 +76,8 @@ function TrialReport({ courseId, studentId, studentName, onBack }) {
       {/* Overall */}
       <div className="card tr-overall">
         <div className="tr-overall-mark">
-          <span className="tr-big" style={{ color: band.color }}>{overall.mark}</span>
+          <span className="tr-big">{overall.mark}</span>
           <span className="tr-out-of">/ {overall.outOf}</span>
-          <span className="tr-band" style={{ color: band.color }}>{band.label}</span>
           <span className="text-dim" style={{ fontSize: '0.7rem' }}>
             {overall.papersSat} of {overall.papers} papers · each worth {Math.round(100 / overall.papers)} marks
           </span>
@@ -122,14 +122,13 @@ function TrialReport({ courseId, studentId, studentName, onBack }) {
           </thead>
           <tbody>
             {papers.map((p) => {
-              const b = p.mine ? bandFor(p.mine.pct) : null
               return (
                 <tr key={p.quizSetId}>
                   <td style={{ textAlign: 'left' }}>
                     <span className="tr-subject">{SUBJECT_LABELS[p.subject] || SUBJECT_LABELS.other}</span>
                     <span className="tr-paper-name">{p.name}</span>
                   </td>
-                  <td style={{ color: b?.color, fontWeight: 700 }}>
+                  <td style={{ fontWeight: 700 }}>
                     {p.mine ? `${p.mine.score}/${p.mine.total} (${p.mine.pct}%)` : 'Not sat'}
                   </td>
                   <td>{p.percentile != null ? ordinal(p.percentile) : '—'}</td>
@@ -160,9 +159,9 @@ function TrialReport({ courseId, studentId, studentName, onBack }) {
                 <div className="tr-weak-head">
                   <span className="tr-weak-name">{w.name}</span>
                   <span className="tr-weak-sub">{SUBJECT_LABELS[w.subject] || ''}</span>
-                  <span className="tr-weak-pct" style={{ color: bandFor(w.pct).color }}>{w.right}/{w.asked} correct</span>
+                  <span className="tr-weak-pct" style={{ color: barColour(w.pct) }}>{w.right}/{w.asked} correct</span>
                 </div>
-                <div className="tr-weak-bar"><span style={{ width: `${w.pct}%`, background: bandFor(w.pct).color }} /></div>
+                <div className="tr-weak-bar"><span style={{ width: `${w.pct}%`, background: barColour(w.pct) }} /></div>
               </div>
             ))}
           </div>
