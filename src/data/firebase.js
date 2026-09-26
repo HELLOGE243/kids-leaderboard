@@ -109,6 +109,47 @@ function withoutPrivateFields(students) {
   return out
 }
 
+// ------------------------------------------------------------
+// Nested arrays
+//
+// Firestore refuses an array whose elements are themselves arrays, and one
+// rejected field fails the whole document. A quiz attempt stores one answer per
+// question, and a cloze, drag or matching answer IS an array - so a single such
+// question in a quiz made every write of that student's document fail, and
+// their results vanished on the next reload.
+//
+// Arrays nested directly inside arrays are wrapped on the way out and unwrapped
+// on the way in, so the rest of the app keeps working with plain arrays.
+// ------------------------------------------------------------
+const NESTED_ARRAY_KEY = '__arr'
+
+function packNested(value, insideArray = false) {
+  if (Array.isArray(value)) {
+    const items = value.map((item) => packNested(item, true))
+    return insideArray ? { [NESTED_ARRAY_KEY]: items } : items
+  }
+  if (value && typeof value === 'object') {
+    const out = {}
+    for (const [k, v] of Object.entries(value)) out[k] = packNested(v, false)
+    return out
+  }
+  return value
+}
+
+function unpackNested(value) {
+  if (Array.isArray(value)) return value.map(unpackNested)
+  if (value && typeof value === 'object') {
+    const keys = Object.keys(value)
+    if (keys.length === 1 && keys[0] === NESTED_ARRAY_KEY && Array.isArray(value[NESTED_ARRAY_KEY])) {
+      return value[NESTED_ARRAY_KEY].map(unpackNested)
+    }
+    const out = {}
+    for (const [k, v] of Object.entries(value)) out[k] = unpackNested(v)
+    return out
+  }
+  return value
+}
+
 function buildPayload(chunk, data) {
   const keys = CHUNK_KEYS[chunk]
   const payload = {}
@@ -240,7 +281,7 @@ export async function uploadMissingQuizSets() {
   const missing = local.filter((s) => !onServer.has(s.id))
   for (const set of missing) {
     try {
-      await setDoc(doc(db, QUIZ_SETS_COLLECTION, set.id), set)
+      await setDoc(doc(db, QUIZ_SETS_COLLECTION, set.id), packNested(set))
       _lastWrittenSets[set.id] = JSON.stringify(set)
     } catch (e) {
       console.warn(`Firestore: failed to upload quiz set ${set.id}:`, e)
@@ -254,7 +295,7 @@ async function fetchQuizSets(ids) {
   const wanted = [...new Set(ids)].filter(Boolean)
   if (!wanted.length) return []
   const snaps = await Promise.all(wanted.map((id) => getDoc(doc(db, QUIZ_SETS_COLLECTION, id)).catch(() => null)))
-  return snaps.filter((snap) => snap && snap.exists()).map((snap) => snap.data())
+  return snaps.filter((snap) => snap && snap.exists()).map((snap) => unpackNested(snap.data()))
 }
 
 /**
@@ -345,7 +386,7 @@ function startListeners() {
       if (snap.metadata.hasPendingWrites) return
       if (_localWriteInFlight.has(chunk)) return
 
-      const remoteData = snap.data()
+      const remoteData = unpackNested(snap.data())
       const keys = CHUNK_KEYS[chunk]
       let changed = false
       for (const key of keys) {
@@ -405,9 +446,9 @@ export async function initFirestore() {
         if (!r.snap || !r.snap.exists()) continue
         hasCloudData = true
         if (r.type === 'chunk') {
-          Object.assign(cloudData, r.snap.data())
+          Object.assign(cloudData, unpackNested(r.snap.data()))
         } else if (r.type === 'unassigned') {
-          perSetUnassigned = r.snap.data().unassignedQuestions || []
+          perSetUnassigned = unpackNested(r.snap.data()).unassignedQuestions || []
         }
       }
 
@@ -506,7 +547,7 @@ export async function refreshSharedData() {
     let changed = false
     for (const r of snaps) {
       if (!r || !r.snap.exists()) continue
-      const remote = r.snap.data()
+      const remote = unpackNested(r.snap.data())
       for (const key of CHUNK_KEYS[r.chunk]) {
         if (remote[key] === undefined) continue
         if (JSON.stringify(_cache[key]) === JSON.stringify(remote[key])) continue
@@ -635,7 +676,7 @@ async function writeQuizSets(data) {
     if (_lastWrittenSets[set.id] === serialised) continue
     try {
       _setWritesInFlight.add(set.id)
-      await setDoc(doc(db, QUIZ_SETS_COLLECTION, set.id), set)
+      await setDoc(doc(db, QUIZ_SETS_COLLECTION, set.id), packNested(set))
       _lastWrittenSets[set.id] = serialised
       _setWritesInFlight.delete(set.id)
     } catch (e) {
@@ -662,7 +703,7 @@ async function writeQuizSets(data) {
   const unassignedStr = JSON.stringify(unassigned)
   if (unassignedStr !== _lastWrittenUnassigned) {
     try {
-      await setDoc(doc(db, 'appData', UNASSIGNED_DOC), { unassignedQuestions: unassigned })
+      await setDoc(doc(db, 'appData', UNASSIGNED_DOC), packNested({ unassignedQuestions: unassigned }))
       _lastWrittenUnassigned = unassignedStr
     } catch (e) {
       console.error('Firestore: unassigned questions write failed:', e)
@@ -749,20 +790,20 @@ async function writeChunk(chunk, payload, forceAll) {
 
   // No known base (or an explicit full resync): nothing to merge against.
   if (forceAll || !baseStr) {
-    await setDoc(ref, payload)
+    await setDoc(ref, packNested(payload))
     return payload
   }
 
   const base = JSON.parse(baseStr)
   return runTransaction(db, async (tx) => {
     const snap = await tx.get(ref)
-    const fresh = snap.exists() ? snap.data() : {}
+    const fresh = snap.exists() ? unpackNested(snap.data()) : {}
     const merged = {}
     for (const key of CHUNK_KEYS[chunk]) {
       const v = mergeValue(base[key], payload[key], fresh[key])
       if (v !== undefined) merged[key] = v
     }
-    tx.set(ref, merged)
+    tx.set(ref, packNested(merged))
     return merged
   })
 }
@@ -917,7 +958,7 @@ export async function preloadStudents(studentIds, force = false) {
       try {
         const snap = await getDoc(doc(db, 'studentData', id))
         if (snap.exists()) {
-          _studentCache[id] = snap.data()
+          _studentCache[id] = unpackNested(snap.data())
           _studentLastWritten[id] = JSON.stringify(_studentCache[id])
           loaded++
         } else {
@@ -944,7 +985,7 @@ export async function loadStudentFirestore(studentId) {
     const ref = doc(db, 'studentData', studentId)
     const snap = await getDoc(ref)
     if (snap.exists()) {
-      _studentCache[studentId] = snap.data()
+      _studentCache[studentId] = unpackNested(snap.data())
     } else {
       _studentCache[studentId] = {}
     }
@@ -965,14 +1006,24 @@ export function saveStudentFirestore(studentId, studentData) {
   _studentWriteQueues[studentId] = _studentWriteQueues[studentId].then(async () => {
     const payloadStr = JSON.stringify(snapshot)
     if (payloadStr === _studentLastWritten[studentId]) return
+    const ref = doc(db, 'studentData', studentId)
     try {
       _studentWriteInFlight.add(studentId)
-      const ref = doc(db, 'studentData', studentId)
-      await setDoc(ref, snapshot)
+      await setDoc(ref, packNested(snapshot))
       _studentLastWritten[studentId] = payloadStr
       _studentWriteInFlight.delete(studentId)
     } catch (e) {
       console.error(`Firestore: student "${studentId}" write failed:`, e)
+      // One retry: a student's work is the one thing this app cannot lose, and
+      // a dropped write is invisible until they reload and find it gone.
+      try {
+        await new Promise((r) => setTimeout(r, 1200))
+        await setDoc(ref, packNested(snapshot))
+        _studentLastWritten[studentId] = payloadStr
+        console.warn(`Firestore: student "${studentId}" write succeeded on retry`)
+      } catch (e2) {
+        console.error(`Firestore: student "${studentId}" write failed again:`, e2)
+      }
       _studentWriteInFlight.delete(studentId)
     }
   }).catch((e) => {
@@ -987,7 +1038,7 @@ function startStudentListener(studentId) {
     if (!snap.exists()) return
     if (snap.metadata.hasPendingWrites) return
     if (_studentWriteInFlight.has(studentId)) return
-    _studentCache[studentId] = snap.data()
+    _studentCache[studentId] = unpackNested(snap.data())
     _studentLastWritten[studentId] = JSON.stringify(_studentCache[studentId])
     notifyChange()
   }, (err) => {

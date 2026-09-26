@@ -2652,7 +2652,7 @@ export function getCoursePercentile(studentId, courseId) {
   if (!course) return null
   const allQuizSetIds = course.modules.flatMap(m => m.quizSetIds)
   if (allQuizSetIds.length === 0) return null
-  const attempts = data.homeworkAttempts || []
+  const attempts = collectStudentArray('homeworkAttempts')
   const relevantAttempts = attempts.filter(a => allQuizSetIds.includes(a.quizSetId))
   const studentIds = [...new Set(relevantAttempts.map(a => a.studentId))]
   if (studentIds.length < 2) return null
@@ -2672,8 +2672,7 @@ export function getCoursePercentile(studentId, courseId) {
 }
 
 export function getOverallPercentile(studentId) {
-  const data = loadData()
-  const attempts = data.homeworkAttempts || []
+  const attempts = collectStudentArray('homeworkAttempts')
   if (attempts.length === 0) return null
   const studentIds = [...new Set(attempts.map(a => a.studentId))]
   if (studentIds.length < 2) return null
@@ -2716,6 +2715,7 @@ export function getHomeworkLeaderboard(classId, term) {
   const data = loadData()
   const cls = data.classes[classId]
   if (!cls) return []
+  const allAttempts = collectStudentArray('homeworkAttempts')
   const classCourses = (data.courses || []).filter(c => c.classId === classId && (!term || c.term === term))
   const quizModuleMap = new Map()
   for (const course of classCourses) {
@@ -2730,7 +2730,7 @@ export function getHomeworkLeaderboard(classId, term) {
       const student = data.students[sid]
       if (!student || student.archived) return null
       let totalScore = 0
-      for (const a of (data.homeworkAttempts || [])) {
+      for (const a of allAttempts) {
         if (a.studentId !== sid) continue
         const loc = quizModuleMap.get(a.quizSetId)
         if (!loc) continue
@@ -2752,6 +2752,7 @@ export function getHomeworkWeeklyStats(classId, studentId) {
   const data = loadData()
   const cls = data.classes[classId]
   if (!cls) return []
+  const allAttempts = collectStudentArray('homeworkAttempts')
   const classCourses = (data.courses || []).filter(c => c.classId === classId)
   const results = []
   for (const course of classCourses) {
@@ -2760,7 +2761,7 @@ export function getHomeworkWeeklyStats(classId, studentId) {
       if (mod.quizSetIds.length === 0) continue
       const studentScores = cls.studentIds.map(sid => {
         const attempts = mod.quizSetIds.map(qsId =>
-          (data.homeworkAttempts || []).find(a => a.quizSetId === qsId && a.studentId === sid)
+          allAttempts.find(a => a.quizSetId === qsId && a.studentId === sid)
         ).filter(Boolean)
         if (attempts.length === 0) return null
         const score = attempts.reduce((s, a) => s + a.score, 0)
@@ -2771,7 +2772,7 @@ export function getHomeworkWeeklyStats(classId, studentId) {
       if (!myEntry) continue
       const sorted = [...studentScores].sort((a, b) => b.pct - a.pct)
       const rank = sorted.findIndex(s => s.sid === studentId) + 1
-      const firstAttempt = (data.homeworkAttempts || []).find(a => mod.quizSetIds.includes(a.quizSetId) && a.studentId === studentId)
+      const firstAttempt = allAttempts.find(a => mod.quizSetIds.includes(a.quizSetId) && a.studentId === studentId)
       results.push({
         moduleName: mod.name,
         value: myEntry.pct,
@@ -2792,7 +2793,7 @@ export function getHomeworkOverviewForStudent(studentId, classId) {
     const start = (data.homeworkStarts || []).find(h => h.studentId === studentId && h.courseId === course.id)
     const moduleResults = course.modules.map((mod, i) => {
       const quizAttempts = mod.quizSetIds.map(qsId => {
-        const attempt = (data.homeworkAttempts || []).find(a => a.quizSetId === qsId && a.studentId === studentId)
+        const attempt = collectStudentArray('homeworkAttempts').find(a => a.quizSetId === qsId && a.studentId === studentId)
         return attempt ? { score: attempt.score, total: attempt.total } : null
       }).filter(Boolean)
       const totalScore = quizAttempts.reduce((s, a) => s + a.score, 0)
@@ -2833,6 +2834,7 @@ export function getModuleDeadline(studentId, courseId, moduleIndex) {
 
 export function getPendingHomeworkCount(studentId) {
   const data = loadData()
+  const myAttempts = getStudentArray(studentId, 'homeworkAttempts')
   const studentClassIds = Object.entries(data.classes)
     .filter(([, cls]) => cls.studentIds.includes(studentId))
     .map(([id]) => id)
@@ -2847,7 +2849,7 @@ export function getPendingHomeworkCount(studentId) {
     const modules = course.modules || []
     for (let i = 0; i < Math.min(unlocked, modules.length); i++) {
       for (const qsId of (modules[i].quizSetIds || [])) {
-        if (!(data.homeworkAttempts || []).some((a) => a.quizSetId === qsId && a.studentId === studentId)) {
+        if (!myAttempts.some((a) => a.quizSetId === qsId)) {
           if (i < currentWeek) overdue++; else pending++
         }
       }
@@ -2897,8 +2899,13 @@ export function deleteNewsfeedPost(postId) {
 
 export function getStudentFeedData(studentId) {
   const data = loadData()
-  const attempts = (data.homeworkAttempts || []).filter(a => a.studentId === studentId)
-  const redos = (data.homeworkRedos || []).filter(r => r.studentId === studentId)
+  // Attempts live in the student's own document. Reading the legacy shared
+  // arrays here left the portal's "to do" and "recently completed" panels
+  // permanently stale: a quiz finished a minute ago still showed as due.
+  const attempts = getStudentArray(studentId, 'homeworkAttempts')
+  const redos = getStudentArray(studentId, 'homeworkRedos')
+  const progressAttempts = getStudentArray(studentId, 'quizAttempts')
+  const hasAttemptFor = (quizSetId) => attempts.some(a => a.quizSetId === quizSetId)
   const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000
 
   const hwCompleted = [...attempts, ...redos]
@@ -2916,8 +2923,8 @@ export function getStudentFeedData(studentId) {
       return { id: a.id, name: set ? (set.friendlyTitle || set.rawTitle || 'Quiz') : 'Quiz', courseName: course ? course.name : '', score: a.score, total: a.total, date: a.date, isRedo: !!a.redoOf, source: 'homework', courseId, moduleId, quizSetId: a.quizSetId }
     })
 
-  const progressCompleted = (data.quizAttempts || [])
-    .filter(a => a.studentId === studentId && a.date && new Date(a.date).getTime() >= twoDaysAgo)
+  const progressCompleted = progressAttempts
+    .filter(a => a.date && new Date(a.date).getTime() >= twoDaysAgo)
     .map(a => {
       const quiz = (data.quizzes || []).find(q => q.id === a.quizId)
       const topic = quiz ? (data.topics || []).find(t => t.id === quiz.topicId) : null
@@ -2942,7 +2949,7 @@ export function getStudentFeedData(studentId) {
   for (const course of courses) {
     let start = getHomeworkStart(studentId, course.id)
     if (!start) {
-      const hasAttempt = (data.homeworkAttempts || []).some(a => a.studentId === studentId && (course.modules || []).some(m => (m.quizSetIds || []).includes(a.quizSetId)))
+      const hasAttempt = attempts.some(a => (course.modules || []).some(m => (m.quizSetIds || []).includes(a.quizSetId)))
       if (hasAttempt) {
         start = startHomeworkCourse(studentId, course.id)
       } else {
@@ -2959,7 +2966,7 @@ export function getStudentFeedData(studentId) {
       for (const qsId of (mod.quizSetIds || [])) {
         const set = (data.importedQuizSets || []).find(s => s.id === qsId)
         if (set && set.trialTest) continue
-        if (!(data.homeworkAttempts || []).some(a => a.quizSetId === qsId && a.studentId === studentId)) {
+        if (!hasAttemptFor(qsId)) {
           dueAssignments.push({ id: qsId, name: set ? (set.friendlyTitle || set.rawTitle || 'Quiz') : 'Quiz', module: mod.name || `Module ${i + 1}`, course: course.name, courseId: course.id, moduleId: mod.id, overdue: i < currentWeek })
         }
       }
