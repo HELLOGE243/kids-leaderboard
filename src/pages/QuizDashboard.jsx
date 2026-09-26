@@ -12,10 +12,12 @@ import {
   saveReviewState,
   getReviewState,
   sendBroadcast,
+  addDojoCard,
+  markDojoAskTeacher,
 } from '../data/store.js'
 import { RichText } from '../components/RichTextEditor.jsx'
 import { useScreenGuard } from '../utils/screenGuard.js'
-import { checkExplanation, parseExplanation } from '../utils/aiChat.js'
+import { checkExplanation, parseExplanation, generateExplanation } from '../utils/aiChat.js'
 
 function youtubeEmbedUrl(url) {
   if (!url) return null
@@ -157,6 +159,7 @@ function QuizDashboard({ user, onBack, initialNav }) {
   const [expandedLeft, setExpandedLeft] = useState(false)
   const [reviewChats, setReviewChats] = useState({})
   const [reviewTokensAwarded, setReviewTokensAwarded] = useState({})
+  const [askedTeacher, setAskedTeacher] = useState(() => new Set())
   const [tokenPopup, setTokenPopup] = useState(null)
   const [viewResults, setViewResults] = useState(null)
   const [reviewNudge, setReviewNudge] = useState(false)
@@ -600,7 +603,7 @@ function QuizDashboard({ user, onBack, initialNav }) {
 
           {/* Content */}
           {reviewNudge && (
-            <div className="qt-review-nudge" key={reviewCurrentQ}>Complete your question review chat below!</div>
+            <div className="qt-review-nudge" key={reviewCurrentQ}>Take a look at the help below — explain this one in your own words for a token!</div>
           )}
           <div className="qt-content">
             {q.videoUrl && youtubeEmbedUrl(q.videoUrl) && (
@@ -678,18 +681,40 @@ function QuizDashboard({ user, onBack, initialNav }) {
             {q.correctIndex !== picked && (() => {
               const chat = reviewChats[reviewCurrentQ] || { step: 'ask', messages: [] }
               const qIdx = reviewCurrentQ
-              function updateChat(newChat) {
-                setReviewChats((prev) => ({ ...prev, [qIdx]: newChat }))
-              }
+              function updateChat(next) { setReviewChats((prev) => ({ ...prev, [qIdx]: next })) }
               const correctText = q.options[q.correctIndex] || ''
               const questionText = (q.text || '').replace(/<[^>]*>/g, '')
-
+              const correctLetter = String.fromCharCode(65 + q.correctIndex)
+              const myLetter = picked != null && picked >= 0 ? String.fromCharCode(65 + picked) : null
+              const open = chat.panel || null
+              const isDone = chat.step === 'done'
+              const help = chat.help || {}
+              // Teacher-written explanations come first; the AI only fills the gaps.
+              async function openHelp(kind) {
+                if (open === kind) { updateChat({ ...chat, panel: null }); return }
+                const written = kind === 'wrong'
+                  ? (myLetter ? exp.options?.[myLetter] : '')
+                  : (exp.general || exp.options?.[correctLetter])
+                if (written || help[kind]) {
+                  updateChat({ ...chat, panel: kind, help: { ...help, [kind]: written || help[kind] } })
+                  return
+                }
+                updateChat({ ...chat, panel: kind, loading: kind })
+                const ai = await generateExplanation({ questionText, options: q.options, correctIndex: q.correctIndex })
+                const got = kind === 'wrong'
+                  ? ((myLetter && ai.options?.[myLetter]) || ai.general)
+                  : (ai.general || ai.options?.[correctLetter])
+                setReviewChats((prev) => {
+                  const cur = prev[qIdx] || chat
+                  return { ...prev, [qIdx]: { ...cur, panel: kind, loading: null, help: { ...(cur.help || {}), [kind]: got || 'No explanation is available for this one yet — try asking your teacher.' } } }
+                })
+              }
               async function handleExplanationSubmit(e) {
                 e.preventDefault()
                 const input = e.target.elements.explanation.value.trim()
                 if (!input) return
-                const withStudent = { ...chat, step: 'checking', messages: [...chat.messages, { from: 'student', text: input }] }
-                updateChat(withStudent)
+                const base = { ...chat, panel: 'mine', step: 'checking', mine: input, feedback: '' }
+                updateChat(base)
                 const result = await checkExplanation({
                   questionText,
                   correctAnswer: correctText,
@@ -698,67 +723,77 @@ function QuizDashboard({ user, onBack, initialNav }) {
                   studentExplanation: input,
                 })
                 if (result.coherent) {
-                  const congratsMsgs = [...withStudent.messages, { from: 'ai', text: result.reply }]
-                  updateChat({ ...withStudent, step: 'complete', messages: congratsMsgs })
-                  setTimeout(() => {
-                    const doneChat = { ...withStudent, step: 'done', messages: congratsMsgs }
-                    setReviewChats((prev) => ({ ...prev, [qIdx]: doneChat }))
-                    const newTokens = { ...reviewTokensAwarded }
-                    if (!newTokens[`chat-${qIdx}`]) {
-                      addTokens(user.id, 1)
-                      newTokens[`chat-${qIdx}`] = true
-                      setReviewTokensAwarded(newTokens)
-                      setTokenPopup('+1 Token — Great explanation!')
-                      setTimeout(() => setTokenPopup(null), 2000)
-                    }
-                    saveReviewState(quiz.id, user.id, { chats: { ...reviewChats, [qIdx]: doneChat }, tokens: newTokens })
-                  }, 2500)
+                  const doneChat = { ...base, step: 'done', feedback: result.reply }
+                  updateChat(doneChat)
+                  const newTokens = { ...reviewTokensAwarded }
+                  if (!newTokens[`chat-${qIdx}`]) {
+                    addTokens(user.id, 1)
+                    newTokens[`chat-${qIdx}`] = true
+                    setReviewTokensAwarded(newTokens)
+                    setTokenPopup('+1 Token — Great explanation!')
+                    setTimeout(() => setTokenPopup(null), 2000)
+                  }
+                  saveReviewState(quiz.id, user.id, { chats: { ...reviewChats, [qIdx]: doneChat }, tokens: newTokens })
                 } else {
-                  updateChat({ ...withStudent, step: 'explain', messages: [...withStudent.messages, { from: 'ai', text: result.reply }] })
+                  updateChat({ ...base, step: 'explain', feedback: result.reply })
                 }
               }
-
-              if (chat.step === 'init' || !chat.step || chat.messages.length === 0) {
-                const msgs = [{ from: 'ai', text: `Hmm, it looks like you didn't get this one right. No worries — let's figure out what happened! Why do you think you answered incorrectly?` }]
-                if (chat.step !== 'ask') updateChat({ step: 'ask', messages: msgs })
-                return (
-                  <div className="qt-chat" onClick={(e) => e.stopPropagation()}>
-                    <div className="qt-chat-header"><span>Review Chat</span><span className={`qt-chat-bounty${chat.step === 'done' ? ' qt-chat-bounty-claimed' : ''}`}>{chat.step === 'done' ? '1 Token Claimed!' : 'Token Bounty: 1'}</span></div>
-                    <div className="qt-chat-messages">
-                      {msgs.map((m, i) => <div key={i} className={`qt-chat-msg qt-chat-${m.from}`} dangerouslySetInnerHTML={{ __html: m.text }} />)}
-                    </div>
-                    <div className="qt-chat-reasons">
-                      {['The question was difficult to understand', 'Silly mistake', 'I ran out of time', 'I guessed'].map((reason) => (
-                        <button key={reason} className="qt-chat-reason-btn" onClick={() => {
-                          updateChat({
-                            step: 'explain',
-                            messages: [...msgs, { from: 'student', text: reason }, { from: 'ai', text: `Got it — "${reason.toLowerCase()}". That's okay, it happens! Now, look at the correct answer and explain in your own words why it's the right one. This will help it stick!` }],
-                            reason
-                          })
-                        }}>{reason}</button>
-                      ))}
-                    </div>
-                  </div>
-                )
-              }
               return (
-                <div className="qt-chat" onClick={(e) => e.stopPropagation()}>
-                  <div className="qt-chat-header"><span>Review Chat</span><span className={`qt-chat-bounty${chat.step === 'done' ? ' qt-chat-bounty-claimed' : ''}`}>{chat.step === 'done' ? '1 Token Claimed!' : 'Token Bounty: 1'}</span></div>
-                  <div className="qt-chat-messages">
-                    {chat.messages.map((m, i) => <div key={i} className={`qt-chat-msg qt-chat-${m.from}`} dangerouslySetInnerHTML={{ __html: m.text }} />)}
-                    {chat.step === 'checking' && <div className="qt-chat-msg qt-chat-ai qt-chat-typing">Thinking...</div>}
+                <div className="qt-help" onClick={(e) => e.stopPropagation()}>
+                  <div className="qt-help-row">
+                    <button className={`qt-help-btn${open === 'wrong' ? ' is-open' : ''}`} onClick={() => openHelp('wrong')}>Why did I get this wrong?</button>
+                    <button className={`qt-help-btn${open === 'concept' ? ' is-open' : ''}`} onClick={() => openHelp('concept')}>Explain this question</button>
+                    <button className={`qt-help-btn qt-help-btn-mine${open === 'mine' ? ' is-open' : ''}${isDone ? ' is-done' : ''}`} onClick={() => updateChat({ ...chat, panel: open === 'mine' ? null : 'mine', step: isDone ? 'done' : 'explain' })}>
+                      {isDone ? 'Your explanation ✓' : 'I’ll explain it myself'}
+                      {!isDone && <span className="qt-help-bounty">+1 token</span>}
+                    </button>
                   </div>
-                  {chat.step === 'explain' && (
-                    <form className="qt-chat-input-row" onSubmit={handleExplanationSubmit}>
-                      <input name="explanation" className="qt-chat-input" placeholder="Explain in your own words..." autoFocus />
-                      <button type="submit" className="qt-chat-send">Send</button>
-                    </form>
+                  {open && open !== 'mine' && (
+                    <div className="qt-help-panel">
+                      {chat.loading === open
+                        ? <div className="qt-help-loading">Working it out…</div>
+                        : <div className="qt-help-text" dangerouslySetInnerHTML={{ __html: help[open] || '' }} />}
+                    </div>
                   )}
-                  {chat.step === 'complete' && (
-                    <div className="qt-chat-done" style={{ color: 'var(--success)' }}>Token incoming...</div>
+                  {open === 'mine' && (
+                    <div className="qt-help-panel">
+                      <div className="qt-help-lead">Look at the correct answer — <b>{correctLetter}) {correctText}</b> — then say in your own words why it is right.</div>
+                      {isDone ? (
+                        <>
+                          {chat.mine && <div className="qt-help-mine">{chat.mine}</div>}
+                          <div className="qt-help-feedback">{chat.feedback || 'Nice work — token claimed.'}</div>
+                        </>
+                      ) : chat.step === 'checking' ? (
+                        <div className="qt-help-loading">Reading your explanation…</div>
+                      ) : (
+                        <form className="qt-help-form" onSubmit={handleExplanationSubmit}>
+                          {chat.feedback && <div className="qt-help-feedback qt-help-feedback-retry">{chat.feedback}</div>}
+                          <textarea name="explanation" className="qt-help-input" rows={3} defaultValue={chat.mine || ''} placeholder="Because…" autoFocus />
+                          <button type="submit" className="qt-help-send">Submit explanation</button>
+                        </form>
+                      )}
+                    </div>
                   )}
-                  {chat.step === 'done' && (
-                    <div className="qt-chat-done">Chat complete</div>
+                  {(open || isDone) && (
+                    <div className="qt-help-follow">
+                      <span className="qt-help-follow-label">What happened?</span>
+                      {['Hard to understand', 'Silly mistake', 'Ran out of time', 'I guessed'].map((reason) => (
+                        <button
+                          key={reason}
+                          className={`qt-help-follow-btn${chat.reason === reason ? ' is-picked' : ''}`}
+                          onClick={() => updateChat({ ...chat, reason })}
+                        >{reason}</button>
+                      ))}
+                      <button
+                        className={`qt-help-follow-btn qt-help-follow-ask${askedTeacher.has(qIdx) ? ' is-sent' : ''}`}
+                        disabled={askedTeacher.has(qIdx)}
+                        onClick={() => {
+                          const cardId = addDojoCard(user.id, q, 'quiz', quiz.id, qIdx, { className: '', courseName: '', quizTitle: quiz.title || '' })
+                          if (cardId) markDojoAskTeacher(cardId)
+                          setAskedTeacher((prev) => new Set(prev).add(qIdx))
+                        }}
+                      >{askedTeacher.has(qIdx) ? 'Sent to your teacher ✓' : 'I still don’t get it — ask my teacher'}</button>
+                    </div>
                   )}
                 </div>
               )

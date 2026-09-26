@@ -5276,19 +5276,109 @@ a.qt-video-btn {
 .qt-save-exit-btn:hover { background: #c8d3dc; color: #2e7d32; }
 .qt-save-exit-btn:active { background: #e8f5e9; color: #2e7d32; }
 
+/* Sits in the bottom bar beside Back and Next, so it is built like them and
+   set apart by colour alone rather than by being a different kind of button. */
+/* Review help: a row of action buttons instead of a chat window */
+.qt-help { margin: 0 0 18px; }
+.qt-help-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.qt-help-btn {
+  flex: 1 1 200px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  padding: 16px 18px;
+  border: 2px solid #002147;
+  border-radius: 0;
+  background: #fff;
+  color: #002147;
+  cursor: pointer;
+  text-align: center;
+  transition: background .15s, color .15s;
+}
+.qt-help-btn:hover { background: #e8eef5; }
+.qt-help-btn.is-open { background: #002147; color: #fff; }
+.qt-help-btn-mine { border-color: #ef6c00; color: #ef6c00; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.qt-help-btn-mine:hover { background: #fff3e0; }
+.qt-help-btn-mine.is-open { background: #ef6c00; border-color: #ef6c00; color: #fff; }
+.qt-help-btn-mine.is-done { border-color: #2e7d32; color: #2e7d32; }
+.qt-help-btn-mine.is-done.is-open { background: #2e7d32; border-color: #2e7d32; color: #fff; }
+.qt-help-bounty { font-size: .78rem; font-weight: 700; padding: 3px 8px; background: #ffe0b2; color: #e65100; white-space: nowrap; }
+.qt-help-btn-mine.is-open .qt-help-bounty { background: rgba(255,255,255,.25); color: #fff; }
+
+.qt-help-panel { margin-top: 12px; padding: 18px 20px; background: #f4f7fa; border-left: 5px solid #002147; }
+.qt-help-text, .qt-help-lead { font-size: 1.05rem; line-height: 1.6; color: #1a1a2e; }
+.qt-help-lead { margin-bottom: 12px; }
+.qt-help-loading { font-size: 1.05rem; color: #556; font-style: italic; }
+.qt-help-form { display: flex; flex-direction: column; gap: 10px; }
+.qt-help-input {
+  width: 100%;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  padding: 12px;
+  border: 2px solid #c3cfdb;
+  border-radius: 0;
+  background: #fff;
+  color: #1a1a2e;
+  resize: vertical;
+}
+.qt-help-input:focus { outline: none; border-color: #002147; }
+.qt-help-send {
+  align-self: flex-start;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  padding: 14px 28px;
+  border: none;
+  border-radius: 0;
+  background: #ef6c00;
+  color: #fff;
+  cursor: pointer;
+}
+.qt-help-send:hover { background: #e65100; }
+.qt-help-mine { padding: 12px; background: #fff; border-left: 4px solid #c3cfdb; font-size: 1.05rem; line-height: 1.5; color: #1a1a2e; margin-bottom: 10px; }
+.qt-help-feedback { font-size: 1.05rem; line-height: 1.6; font-weight: 700; color: #2e7d32; }
+.qt-help-feedback-retry { color: #e65100; font-weight: 400; }
+
+@media (max-width: 640px) {
+  .qt-help-btn { flex: 1 1 100%; font-size: .95rem; padding: 13px 14px; }
+  .qt-help-panel { padding: 14px; }
+}
+
+.qt-help-follow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #c3cfdb; }
+.qt-help-follow-label { font-size: .95rem; font-weight: 700; color: #556; margin-right: 4px; }
+.qt-help-follow-btn {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: .9rem;
+  font-weight: 700;
+  padding: 8px 14px;
+  border: 1px solid #c3cfdb;
+  border-radius: 0;
+  background: #fff;
+  color: #002147;
+  cursor: pointer;
+}
+.qt-help-follow-btn:hover:not(:disabled) { background: #e8eef5; }
+.qt-help-follow-btn.is-picked { background: #002147; border-color: #002147; color: #fff; }
+.qt-help-follow-ask { margin-left: auto; border-color: #ef6c00; color: #ef6c00; }
+.qt-help-follow-ask:hover:not(:disabled) { background: #fff3e0; }
+.qt-help-follow-ask.is-sent { border-color: #2e7d32; color: #2e7d32; cursor: default; }
+
 .qt-ask-teacher-btn {
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 8px 16px;
-  border: 1px solid #ff9800;
-  border-radius: 8px;
-  background: rgba(255, 152, 0, 0.1);
-  color: #e65100;
+  font-size: 1.35rem;
+  font-weight: 700;
+  padding: 22px 40px;
+  border: none;
+  border-radius: 0;
+  background: #ef6c00;
+  color: #fff;
   cursor: pointer;
   transition: background 0.15s;
 }
-.qt-ask-teacher-btn:hover { background: rgba(255, 152, 0, 0.2); }
+.qt-ask-teacher-btn:hover:not(:disabled) { background: #e65100; }
+.qt-ask-teacher-btn.is-sent { background: #2e7d32; cursor: default; }
+@media (max-width: 640px) { .qt-ask-teacher-btn { font-size: 1rem; padding: 16px 20px; } }
 
 .hw-quiz-card-locked {
   opacity: 0.4;
