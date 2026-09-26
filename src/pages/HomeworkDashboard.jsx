@@ -24,6 +24,7 @@ import {
   getHomeworkStart,
   startHomeworkCourse,
   getUnlockedModuleCount,
+  refreshQuizSetFromCloud,
   quizResultsVisible,
   getTrialCourseReport,
   getModuleDeadline,
@@ -565,11 +566,21 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       if (progress) {
         resumeHomeworkQuiz(quizSet, progress)
       } else {
-        setShowWarning(quizSet)
+        openWarning(quizSet)
       }
     } else {
-      setShowWarning(quizSet)
+      openWarning(quizSet)
     }
+  }
+
+  // Quizzes are downloaded at sign-in, so a teacher's change since then - a new
+  // time limit, a fixed answer - has not reached this device. Re-read the paper
+  // before it starts, and fall back to the copy in hand if the read fails.
+  function openWarning(quizSet) {
+    setShowWarning(quizSet)
+    refreshQuizSetFromCloud(quizSet.id).then((fresh) => {
+      if (fresh) setShowWarning((cur) => (cur && cur.id === fresh.id ? fresh : cur))
+    })
   }
 
   async function resumeHomeworkQuiz(quizSet, progress) {
@@ -595,7 +606,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
 
   function handleRedoClick(quizSet) {
     setIsRedo(true)
-    setShowWarning(quizSet)
+    openWarning(quizSet)
   }
 
   async function confirmStartQuiz() {

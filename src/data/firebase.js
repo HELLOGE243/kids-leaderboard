@@ -308,6 +308,35 @@ async function fetchQuizSets(ids) {
  * assigned mid-session, or a set behind an old attempt or a revision card.
  * @returns {Promise<number>} how many were added
  */
+/**
+ * Re-reads one quiz set from Firestore and replaces the cached copy.
+ *
+ * A student downloads their quizzes at sign-in, so a teacher's change - a time
+ * limit, a fixed answer, an extra question - would otherwise not reach anyone
+ * already signed in. One document read before a quiz starts is cheap and keeps
+ * a paper's rules current.
+ * @returns {Promise<object|null>} the fresh set, or null if it is gone
+ */
+export async function refreshQuizSet(id) {
+  if (!id || !_cache) return null
+  try {
+    const snap = await getDoc(doc(db, QUIZ_SETS_COLLECTION, id))
+    if (!snap.exists()) return null
+    const fresh = unpackNested(snap.data())
+    const sets = _cache.importedQuizSets || []
+    const idx = sets.findIndex((s) => s && s.id === id)
+    if (idx >= 0) sets[idx] = fresh
+    else sets.push(fresh)
+    _cache.importedQuizSets = sets
+    _lastWrittenSets[id] = JSON.stringify(fresh)
+    notifyChange()
+    return fresh
+  } catch (e) {
+    console.warn(`Firestore: failed to refresh quiz set ${id}:`, e)
+    return null
+  }
+}
+
 export async function ensureQuizSetsLoaded(ids) {
   if (!_cache) return 0
   const have = new Set((_cache.importedQuizSets || []).map((s) => s.id))

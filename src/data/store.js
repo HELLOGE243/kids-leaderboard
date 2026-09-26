@@ -24,7 +24,7 @@
 import { extractAndStoreImages, findImageRefs, deleteImages } from './imageStore.js'
 import { pickSolutionVideo } from '../utils/video.js'
 import { planImport, applyAiSplit, mergeCloze, describeCoverage } from '../utils/cleverspaceImport.js'
-import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, deleteStudentFirestore, ensureQuizSetsLoaded, loadAiExplanations, saveAiExplanation, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
+import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, deleteStudentFirestore, ensureQuizSetsLoaded, refreshQuizSet, loadAiExplanations, saveAiExplanation, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
 
 export { onDataChange, onBroadcast, sendBroadcast, loadContacts }
 
@@ -1836,6 +1836,16 @@ export function importQuizSetsFromPDF(sections, meta) {
 
   saveData(data)
   return added
+}
+
+/**
+ * Pulls the current version of one quiz set from the cloud, so a student who
+ * signed in before a teacher's edit still sits the paper as it stands now.
+ * @returns {Promise<object|null>}
+ */
+export async function refreshQuizSetFromCloud(quizSetId) {
+  const fresh = await refreshQuizSet(quizSetId)
+  return fresh || getImportedQuizSet(quizSetId)
 }
 
 export function getImportedQuizSets(termFilter) {
