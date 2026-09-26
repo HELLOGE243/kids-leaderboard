@@ -5337,11 +5337,18 @@ a.qt-video-btn {
 .qb-timelimit-unit { font-size: 0.55rem; color: var(--text-dim); }
 
 .qt-help { margin: 0 0 18px; }
-.qt-help-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.qt-help-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; }
 .qt-help-btn {
   position: relative;
   overflow: hidden;
   flex: 1 1 200px;
+  /* Fixed box: the label, the badge and the locked state all differ in length,
+     and the row must not resize as they change. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 78px;
   font-family: Arial, Helvetica, sans-serif;
   font-size: 1.05rem;
   font-weight: 700;
@@ -5357,7 +5364,7 @@ a.qt-video-btn {
 .qt-help-btn:hover { background: #e8eef5; }
 .qt-help-btn { padding-left: 46px; padding-right: 20px; }
 .qt-help-btn.is-open { background: #002147; color: #fff; }
-.qt-help-btn-mine { border-color: #ef6c00; color: #ef6c00; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.qt-help-btn-mine { border-color: #ef6c00; color: #ef6c00; }
 /* A big step number sitting behind the label, so the order to work through
    them reads at a glance: ask why, then get the explanation, then write one. */
 .qt-help-step {
@@ -5386,7 +5393,19 @@ a.qt-video-btn {
 .qt-help-bounty { font-size: .78rem; font-weight: 700; padding: 3px 8px; background: #ffe0b2; color: #e65100; white-space: nowrap; }
 .qt-help-btn-mine.is-open .qt-help-bounty { background: rgba(255,255,255,.25); color: #fff; }
 
-.qt-help-panel { margin-top: 12px; padding: 18px 20px; background: #f4f7fa; border-left: 5px solid #002147; }
+.qt-help-panel {
+  margin-top: 12px;
+  padding: 18px 20px;
+  background: #f4f7fa;
+  border-left: 5px solid #002147;
+  height: 230px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.qt-help-panel .qt-help-form { height: 100%; }
+/* The writing box takes whatever the panel has left, so revealing feedback
+   above it does not change the panel's height either. */
+.qt-help-form .qt-help-input { flex: 1 1 auto; min-height: 64px; }
 .qt-help-text, .qt-help-lead { font-size: 1.05rem; line-height: 1.6; color: #1a1a2e; }
 .qt-help-lead { margin-bottom: 12px; }
 .qt-help-loading { font-size: 1.05rem; color: #556; font-style: italic; }
@@ -5422,9 +5441,10 @@ a.qt-video-btn {
 .qt-help-feedback-retry { color: #e65100; font-weight: 400; }
 
 @media (max-width: 640px) {
-  .qt-help-btn { flex: 1 1 100%; font-size: .95rem; padding: 13px 14px 13px 40px; }
+  .qt-help-btn { flex: 1 1 100%; font-size: .95rem; padding: 13px 14px 13px 40px; height: 62px; }
+  .qt-help-panel { height: 260px; padding: 14px; }
   .qt-help-step { font-size: 2.4rem; left: 6px; }
-  .qt-help-panel { padding: 14px; }
+
 }
 
 .qt-help-follow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #c3cfdb; }

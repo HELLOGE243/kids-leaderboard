@@ -300,7 +300,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   const [submittedResult, setSubmittedResult] = useState(null)
   const [reviewMode, setReviewMode] = useState(false)
   const [reviewIndices, setReviewIndices] = useState([])
-  const [showStatsPopup, setShowStatsPopup] = useState(false)
+  const [showStatsPopup, setShowStatsPopup] = useState(true)
   const [showVocabHint, setShowVocabHint] = useState(false)
   const [showWarning, setShowWarning] = useState(null)
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false)
@@ -1045,7 +1045,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
         setReviewIndices(indices)
         const actualStart = (startQ !== undefined && indices.includes(startQ)) ? startQ : indices[0]
         setCurrentQ(actualStart)
-        setShowStatsPopup(false)
+        setShowStatsPopup(true)
         setShowVocabHint(true)
         setReviewMode(true)
       }
@@ -1315,7 +1315,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                 const reviewStats = (
                   <div className="qt-stats-strip">
                     <button className="qt-stats-strip-toggle" onClick={() => setShowStatsPopup(p => !p)}>
-                      {showStatsPopup ? '▾' : '▸'} Stats
+                      {showStatsPopup ? '▾ Hide stats' : '▸ Show stats'}
                     </button>
                     {showStatsPopup && (
                       <div className="qt-stats-strip-body">
