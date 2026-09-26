@@ -280,12 +280,26 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
     )
     setEditingImported(set.id)
     setTimeLimit(set.timeLimit || suggestedTimeLimit(set.questions.length))
-    setQuizQuestions(resolved.map((q) => {
+    // What students have been told. Explanations written by the AI during
+    // review are shared between students, so a teacher needs to see them here -
+    // and correct them - rather than guess what the class is reading.
+    const shared = await getSharedExplanationsForSet(set.id).catch(() => ({}))
+    setQuizQuestions(resolved.map((q, qi) => {
       const opts = [...(q.options || [])]
       const realCount = opts.filter(o => o).length || 4
       while (opts.length < 8) opts.push('')
       const exp = parseExplanation(q.explanation)
-      return { ...q, type: q.type || 'multiple-choice', options: opts, optionCount: Math.max(realCount, 1), expGeneral: exp.general, expOptions: exp.options }
+      const ai = shared[q.id || `i_${qi}`]
+      const hasWritten = !!(exp.general || Object.keys(exp.options || {}).length)
+      return {
+        ...q,
+        type: q.type || 'multiple-choice',
+        options: opts,
+        optionCount: Math.max(realCount, 1),
+        expGeneral: hasWritten ? exp.general : (ai?.general || ''),
+        expOptions: hasWritten ? exp.options : (ai?.options || {}),
+        expFromAi: !hasWritten && !!ai,
+      }
     }))
     setCurrentEditQ(0)
     setShowEditSettings(false)
@@ -964,7 +978,14 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
 
               {/* --- Explanation area (all types) --- */}
               <div className="qe-explain-area">
-                <p style={{ fontSize: '0.7rem', color: '#888', marginBottom: 4 }}>General explanation</p>
+                <p style={{ fontSize: '0.7rem', color: '#888', marginBottom: 4 }}>
+                  General explanation
+                  {q.expFromAi && (
+                    <span title="Written by the AI during a student's review and shared with the class. Edit it here to replace it for everyone." style={{ marginLeft: 8, padding: '1px 6px', borderRadius: 3, background: 'rgba(124,58,237,0.18)', color: '#b39ddb', fontSize: '0.6rem' }}>
+                      AI · shown to students · edit to replace
+                    </span>
+                  )}
+                </p>
                 <RichTextEditor
                   key={`exp-general-${currentEditQ}`}
                   value={q.expGeneral || ''}

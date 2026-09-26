@@ -2745,6 +2745,26 @@ export async function getSharedExplanation(quizSetId, question, questionIndex) {
   return { general: entry.general || '', options: entry.options || {} }
 }
 
+/**
+ * Every AI explanation held for a quiz set, keyed by question id, so the
+ * teacher's editor can show what students are being told and correct it.
+ * @returns {Promise<Object<string,{general:string,options:object}>>}
+ */
+export async function getSharedExplanationsForSet(quizSetId) {
+  if (!quizSetId) return {}
+  const all = await loadAiExplanations(quizSetId)
+  const data = loadData()
+  const set = (data.importedQuizSets || []).find((s) => s.id === quizSetId)
+  const out = {}
+  ;(set?.questions || []).forEach((q, i) => {
+    const entry = all[explanationKey(q, i)]
+    if (!entry) return
+    if (entry.fp && entry.fp !== questionFingerprint(q)) return
+    out[q.id || `i_${i}`] = { general: entry.general || '', options: entry.options || {} }
+  })
+  return out
+}
+
 /** Publishes a generated explanation for every other student to reuse. */
 export function saveSharedExplanation(quizSetId, question, questionIndex, payload) {
   if (!quizSetId || !payload) return Promise.resolve(false)

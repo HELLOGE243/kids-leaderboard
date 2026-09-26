@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { loadOwnContact } from '../data/firebase.js'
 import { extractTabLabel } from '../utils/extractLabel.js'
+import { renderMath } from '../utils/renderMath.js'
 import {
   getCoursesForStudent,
   getCourseById,
@@ -98,7 +99,7 @@ function rankColor(n) {
   return '#fff'
 }
 
-function HwResults({ title, score, total, pct, coins, grade, gradeColor, rank, totalStudents, classAvgPct, classMedianPct, classTopPct, totalBalance, awaitingMarking, percentile, historicalAttempts, timeTaken, avgTimeTaken, questionsCorrect, questionsSkipped, questionBreakdown, isRedo, onGoToQuestion, onReview, onExit }) {
+function HwResults({ title, score, total, pct, coins, grade, gradeColor, rank, totalStudents, classAvgPct, classAvgScore, classMedianScore, classTopScore, totalBalance, awaitingMarking, percentile, historicalAttempts, timeTaken, avgTimeTaken, questionsCorrect, questionsSkipped, questionBreakdown, isRedo, onGoToQuestion, onReview, onExit }) {
   const [sortBy, setSortBy] = useState('number')
   const [sortAsc, setSortAsc] = useState(true)
 
@@ -203,38 +204,20 @@ function HwResults({ title, score, total, pct, coins, grade, gradeColor, rank, t
           <div className="hw-res-perf-panel">
             <p className="hw-res-section-label">Class Comparison</p>
             <div className="hw-res-bar-group">
-              <div className="hw-res-bar-row">
-                <span className="hw-res-bar-label">You</span>
-                <div className="hw-res-bar-track">
-                  <div className={`hw-res-bar-fill ${pct >= classAvgPct ? 'hw-res-bar-you-above' : 'hw-res-bar-you-below'}`} style={{ width: `${pct}%` }} />
-                </div>
-                <span className="hw-res-bar-val" style={{ color: pct >= classAvgPct ? '#00e676' : '#ff9100' }}>{pct}%</span>
-              </div>
-              <div className="hw-res-bar-row">
-                <span className="hw-res-bar-label">Average</span>
-                <div className="hw-res-bar-track">
-                  <div className="hw-res-bar-fill hw-res-bar-class" style={{ width: `${classAvgPct}%` }} />
-                </div>
-                <span className="hw-res-bar-val">{classAvgPct}%</span>
-              </div>
-              {classMedianPct != null && (
-                <div className="hw-res-bar-row">
-                  <span className="hw-res-bar-label">Median</span>
+              {[
+                { label: 'You', value: score, cls: score >= classAvgScore ? 'hw-res-bar-you-above' : 'hw-res-bar-you-below', colour: score >= classAvgScore ? '#00e676' : '#ff9100' },
+                { label: 'Average', value: classAvgScore, cls: 'hw-res-bar-class' },
+                { label: 'Median', value: classMedianScore, cls: 'hw-res-bar-median' },
+                { label: 'Highest', value: classTopScore, cls: 'hw-res-bar-top', colour: '#00e5ff' },
+              ].filter((row) => row.value != null).map((row) => (
+                <div key={row.label} className="hw-res-bar-row">
+                  <span className="hw-res-bar-label">{row.label}</span>
                   <div className="hw-res-bar-track">
-                    <div className="hw-res-bar-fill hw-res-bar-median" style={{ width: `${classMedianPct}%` }} />
+                    <div className={`hw-res-bar-fill ${row.cls}`} style={{ width: `${total > 0 ? Math.round((row.value / total) * 100) : 0}%` }} />
                   </div>
-                  <span className="hw-res-bar-val">{classMedianPct}%</span>
+                  <span className="hw-res-bar-val" style={row.colour ? { color: row.colour } : undefined}>{row.value} / {total}</span>
                 </div>
-              )}
-              {classTopPct != null && (
-                <div className="hw-res-bar-row">
-                  <span className="hw-res-bar-label">Highest</span>
-                  <div className="hw-res-bar-track">
-                    <div className="hw-res-bar-fill hw-res-bar-top" style={{ width: `${classTopPct}%` }} />
-                  </div>
-                  <span className="hw-res-bar-val" style={{ color: '#00e5ff' }}>{classTopPct}%</span>
-                </div>
-              )}
+              ))}
             </div>
             <div className="hw-res-correct-summary">
               <span className="hw-res-cs-item"><span style={{ color: '#00e676' }}>{questionsCorrect}</span> correct</span>
@@ -344,6 +327,17 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   const [showStatsPopup, setShowStatsPopup] = useState(true)
   const [showVocabHint, setShowVocabHint] = useState(false)
   const [showTrialReport, setShowTrialReport] = useState(false)
+
+  // Shown once, then never again on this device: a tip a student has read is
+  // just clutter on top of their work.
+  const VOCAB_HINT_KEY = `vocabHintSeen:${user.id}`
+  function hasSeenVocabHint() {
+    try { return localStorage.getItem(VOCAB_HINT_KEY) === '1' } catch { return false }
+  }
+  function markVocabHintSeen() {
+    try { localStorage.setItem(VOCAB_HINT_KEY, '1') } catch { /* private window */ }
+    setShowVocabHint(false)
+  }
   // The banners above a question are a prompt, not a fixture: they show when the
   // student arrives at a question and step aside after a few seconds, returning
   // if they come back to it.
@@ -499,7 +493,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
 
   useEffect(() => {
     setBannersVisible(true)
-    const t = setTimeout(() => setBannersVisible(false), 3000)
+    const t = setTimeout(() => { setBannersVisible(false); if (reviewMode) markVocabHintSeen() }, 3000)
     // A click anywhere means the student has started working: the banners have
     // been read, or they are not wanted. Listening on the capture phase lets
     // that first click do its own job as well.
@@ -509,7 +503,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       clearTimeout(t)
       document.removeEventListener('pointerdown', dismiss, { capture: true })
     }
-  }, [currentQ, reviewMode, takingQuiz])
+  }, [reviewMode, takingQuiz])
 
   useEffect(() => { setStudentDescTab(0) }, [currentQ])
   useEffect(() => { setSpeakingExp(null); window.speechSynthesis?.cancel() }, [currentQ])
@@ -1074,6 +1068,14 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       const classAvgPct = totalStudents > 0 ? Math.round(allAttempts.reduce((sum, a) => sum + Math.round((a.score / a.total) * 100), 0) / totalStudents) : 0
       // The spread matters as much as the average: a 60% average with a 95%
       // top mark says something different from one where nobody passed 65%.
+      const cohortScores = allAttempts.filter((a) => a.total > 0).map((a) => a.score).sort((x, y) => x - y)
+      const classAvgScore = cohortScores.length ? Math.round(cohortScores.reduce((s, v) => s + v, 0) / cohortScores.length) : null
+      const classMedianScore = cohortScores.length
+        ? (cohortScores.length % 2
+            ? cohortScores[(cohortScores.length - 1) / 2]
+            : Math.round((cohortScores[cohortScores.length / 2 - 1] + cohortScores[cohortScores.length / 2]) / 2))
+        : null
+      const classTopScore = cohortScores.length ? cohortScores[cohortScores.length - 1] : null
       const cohortPcts = allAttempts.filter((a) => a.total > 0).map((a) => Math.round((a.score / a.total) * 100)).sort((x, y) => x - y)
       const classMedianPct = cohortPcts.length
         ? (cohortPcts.length % 2
@@ -1137,7 +1139,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
         const actualStart = (startQ !== undefined && indices.includes(startQ)) ? startQ : indices[0]
         setCurrentQ(actualStart)
         setShowStatsPopup(true)
-        setShowVocabHint(true)
+        setShowVocabHint(!hasSeenVocabHint())
         setReviewMode(true)
       }
 
@@ -1170,7 +1172,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
         score={score} total={markTotal} pct={pct} coins={coins}
         grade={grade} gradeColor={gradeColor}
         rank={rank} totalStudents={totalStudents} classAvgPct={classAvgPct}
-        classMedianPct={classMedianPct} classTopPct={classTopPct} totalBalance={totalBalance}
+        classAvgScore={classAvgScore} classMedianScore={classMedianScore} classTopScore={classTopScore} totalBalance={totalBalance}
         percentile={percentile} historicalAttempts={historicalAttempts}
         timeTaken={timeTaken} avgTimeTaken={avgTimeTaken} questionsCorrect={questionsCorrect} questionsSkipped={questionsSkipped}
         questionBreakdown={questionBreakdown}
@@ -1285,7 +1287,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                 <div className="qt-review-nudge qt-review-nudge-correct" key={`correct-${currentQ}`}>+10 Coins — Correct answer!</div>
               )}
               {isReview && showVocabHint && (
-                <div className="qt-vocab-hint" onClick={() => setShowVocabHint(false)}>
+                <div className="qt-vocab-hint" onClick={markVocabHintSeen}>
                   <span className="qt-vocab-hint-icon">{'\u{1F4D6}'}</span>
                   <span>Double-click any word to look it up and add it to your <strong>Vocabulary Bank</strong></span>
                 </div>
@@ -1582,7 +1584,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                               <span className="qt-option-text">{opt}</span>
                             </div>
                             {optExp && <div className="qt-exp-wrap">
-                              <div className="qt-option-explanation" dangerouslySetInnerHTML={{ __html: optExp }} />
+                              <div className="qt-option-explanation" dangerouslySetInnerHTML={{ __html: renderMath(optExp) }} />
                               <div className="qt-exp-actions">
                                 <button className={`qt-exp-speak ${speakingExp === `${currentQ}-${oi}` ? 'qt-exp-speak-active' : ''}`} title="Read aloud" onClick={() => toggleSpeak(`${currentQ}-${oi}`, optExp)}>{speakingExp === `${currentQ}-${oi}` ? '⏹' : '🔊'}</button>
                                 <button className="qt-exp-report" title="Report explanation issue" onClick={() => { setShowReportModal('explanation'); setReportType(''); setReportDetails(''); setReportSent(false) }}>🚩</button>

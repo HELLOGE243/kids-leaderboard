@@ -1,14 +1,18 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
+import { renderMath } from '../utils/renderMath.js'
 
 function renderMathInHTML(html) {
-  return html.replace(/<span[^>]*class="math-inline"[^>]*data-tex="([^"]*)"[^>]*>.*?<\/span>/g, (_, tex) => {
+  const withEditorMath = html.replace(/<span[^>]*class="math-inline"[^>]*data-tex="([^"]*)"[^>]*>.*?<\/span>/g, (_, tex) => {
     try {
       const rendered = katex.renderToString(tex, { throwOnError: false })
       return `<span class="math-inline" data-tex="${tex}" contenteditable="false">${rendered}</span>`
     } catch { return tex }
   })
+  // Plain LaTeX written straight into the text - \( x \), \[ x \], $x$ - renders
+  // too, so a fraction can be typed or pasted without reaching for the fx button.
+  return renderMath(withEditorMath)
 }
 
 function ImageResizer({ img, wrapRef, editorRef, onDone }) {

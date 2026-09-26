@@ -1,4 +1,40 @@
 import { authedFetch } from '../data/auth.js'
+
+/**
+ * JSON.parse for model output that contains LaTeX.
+ *
+ * A model asked for \(3 	imes 4\) inside a JSON string writes a single
+ * backslash, which is not a legal JSON escape, and the whole reply fails to
+ * parse. Any backslash that does not begin a legal escape is doubled before
+ * parsing, so the maths survives and the JSON is valid.
+ */
+export function parseJsonLoose(text) {
+  try {
+    return JSON.parse(text)
+  } catch {
+    // A model asked for LaTeX writes a single backslash inside a JSON string -
+    // \times, \frac, \( - which is not a legal JSON escape, so the whole reply
+    // fails to parse. Those backslashes are doubled and the maths survives.
+    //
+    // \t and \f are legal JSON escapes AND the start of \times and \frac, so
+    // the next characters decide: a run of two or more letters is a LaTeX
+    // command, a lone escape character is JSON's own.
+    const slash = String.fromCharCode(92)
+    const jsonEscapes = ['"', slash, '/', 'b', 'f', 'n', 'r', 't', 'u']
+    const isLetter = (ch) => !!ch && ch >= 'a' && ch <= 'z' || !!ch && ch >= 'A' && ch <= 'Z'
+    let out = ''
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i]
+      if (ch !== slash) { out += ch; continue }
+      const next = text[i + 1]
+      const latexCommand = isLetter(next) && isLetter(text[i + 2])
+      if (!latexCommand && jsonEscapes.includes(next)) out += ch
+      else out += slash + slash
+    }
+    return JSON.parse(out)
+  }
+}
+
 export async function checkExplanation({ questionText, correctAnswer, officialExplanation, studentReason, studentExplanation }) {
   const explanationContext = officialExplanation
     ? `\nOfficial explanation (written by the teacher): "${officialExplanation}"\nThe student's explanation MUST align with the key concepts in the official explanation to be considered coherent.`
@@ -41,7 +77,7 @@ If coherent is false, identify which key idea from the official explanation the 
     const data = await res.json()
     const text = data.content?.[0]?.text || ''
     const match = text.match(/\{[\s\S]*\}/)
-    if (match) return JSON.parse(match[0])
+    if (match) return parseJsonLoose(match[0])
     return fallbackCheck(studentExplanation, correctAnswer, officialExplanation)
   } catch {
     return fallbackCheck(studentExplanation, correctAnswer, officialExplanation)
@@ -107,7 +143,8 @@ Reject it when it is circular ("it means ${word}"), a guess, unrelated, copied f
 Reply with a JSON object only, no other text:
 {"ok": true/false, "reply": "one short sentence"}
 
-When ok is false, give a hint about the kind of meaning to aim for without stating the definition. Be warm and brief.`
+When ok is false, give a hint about the kind of meaning to aim for without stating the definition. Be warm and brief.
+Write any number or fraction as LaTeX between \\( and \\).`
 
   try {
     const res = await authedFetch('/api/claude/v1/messages', {
@@ -124,7 +161,7 @@ When ok is false, give a hint about the kind of meaning to aim for without stati
     const raw = data.content?.[0]?.text || ''
     const match = raw.match(/\{[\s\S]*\}/)
     if (!match) throw new Error('no JSON')
-    const parsed = JSON.parse(match[0])
+    const parsed = parseJsonLoose(match[0])
     return { ok: !!parsed.ok, reply: parsed.reply || (parsed.ok ? 'That works.' : 'Try again.') }
   } catch (e) {
     console.error('[AI] checkDefinition failed:', e)
@@ -195,7 +232,7 @@ RULES:
     const data = await res.json()
     const text = data.content?.[0]?.text || ''
     const match = text.match(/\[[\s\S]*\]/)
-    if (match) return JSON.parse(match[0])
+    if (match) return parseJsonLoose(match[0])
     return null
   } catch {
     return null
@@ -238,7 +275,7 @@ Return ONLY the JSON array, no other text. Make exercises age-appropriate and th
     const data = await res.json()
     const text = data.content?.[0]?.text || ''
     const match = text.match(/\[[\s\S]*\]/)
-    if (match) return JSON.parse(match[0])
+    if (match) return parseJsonLoose(match[0])
     return []
   } catch {
     return []
@@ -276,7 +313,7 @@ Return ONLY a JSON array. Make questions age-appropriate. Distractors should be 
     const data = await res.json()
     const text = data.content?.[0]?.text || ''
     const match = text.match(/\[[\s\S]*\]/)
-    if (match) return JSON.parse(match[0])
+    if (match) return parseJsonLoose(match[0])
     return []
   } catch {
     return []
@@ -327,7 +364,7 @@ Return ONLY the JSON array, no other text.`
     const data = await res.json()
     const text = data.content?.[0]?.text || ''
     const match = text.match(/\[[\s\S]*\]/)
-    if (match) return JSON.parse(match[0])
+    if (match) return parseJsonLoose(match[0])
     return []
   } catch {
     return []
@@ -379,7 +416,7 @@ Return ONLY a JSON object:
     const data = await res.json()
     const text = data.content?.[0]?.text || ''
     const match = text.match(/\{[\s\S]*\}/)
-    if (match) return JSON.parse(match[0])
+    if (match) return parseJsonLoose(match[0])
     return null
   } catch {
     return null
@@ -417,7 +454,7 @@ Keep it concise. This is for your own reference to give better feedback, not sho
     const data = await res.json()
     const text = data.content?.[0]?.text || ''
     const match = text.match(/\{[\s\S]*\}/)
-    if (match) return JSON.parse(match[0])
+    if (match) return parseJsonLoose(match[0])
     return null
   } catch {
     return null
@@ -465,7 +502,7 @@ Do not change the meaning. Keep the student's voice. Fix grammar, vocabulary, se
     const data = await res.json()
     const text = data.content?.[0]?.text || ''
     const match = text.match(/\{[\s\S]*\}/)
-    if (match) return JSON.parse(match[0])
+    if (match) return parseJsonLoose(match[0])
     return null
   } catch {
     return null
@@ -506,7 +543,8 @@ RULES:
 - Use simple language a 10-year-old understands. Be warm and encouraging.
 - Be SPECIFIC to the actual question content. Never give generic advice.
 - Every option MUST have its own explanation.
-- For maths questions, prefer plain-language explanations and arithmetic (e.g. "3 groups of 4 is 12"). Only use algebra or formal equations when the concept genuinely requires it.`
+- For maths questions, prefer plain-language explanations and arithmetic (e.g. "3 groups of 4 is 12"). Only use algebra or formal equations when the concept genuinely requires it.
+- Write EVERY number, fraction, ratio, equation or piece of working as LaTeX between \\( and \\): for example \\(3 \\times 4 = 12\\), \\(\\frac{3}{4}\\), \\(15\\%\\), \\(2:3\\). Use \\[ ... \\] only for a line of working that deserves its own line. Never write a fraction as 3/4 in plain text.`
 
   try {
     const res = await authedFetch('/api/claude/v1/messages', {
@@ -526,7 +564,7 @@ RULES:
     const text = data.content?.[0]?.text || ''
     const match = text.match(/\{[\s\S]*\}/)
     if (match) {
-      const parsed = JSON.parse(match[0])
+      const parsed = parseJsonLoose(match[0])
       return { general: parsed.general || '', options: parsed.options || {} }
     }
     return { general: text, options: {} }
@@ -552,7 +590,7 @@ export async function generateWordDefinition(word) {
     const data = await res.json()
     const text = data.content?.[0]?.text || ''
     const match = text.match(/\{[\s\S]*\}/)
-    if (match) return JSON.parse(match[0])
+    if (match) return parseJsonLoose(match[0])
     return { definition: text, partOfSpeech: '' }
   } catch (e) {
     console.error('[AI] Word definition failed:', e)
