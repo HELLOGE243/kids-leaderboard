@@ -43,6 +43,7 @@ let _lastWrittenSets = {}      // setId -> serialised form last persisted
 let _lastWrittenUnassigned = null
 let _setWritesInFlight = new Set()
 let _sharedListenersStarted = false
+let _sharedUnsubs = []
 let _syncScope = null
 let _syncUserId = null
 
@@ -381,7 +382,7 @@ function startListeners() {
   _sharedListenersStarted = true
   for (const chunk of CHUNKS) {
     const ref = doc(db, 'appData', chunk)
-    onSnapshot(ref, (snap) => {
+    _sharedUnsubs.push(onSnapshot(ref, (snap) => {
       if (!snap.exists()) return
       if (snap.metadata.hasPendingWrites) return
       if (_localWriteInFlight.has(chunk)) return
@@ -403,12 +404,45 @@ function startListeners() {
       }
     }, (err) => {
       console.warn(`Firestore: listener for "${chunk}" failed:`, err)
-    })
+    }))
   }
 
   // The legacy imports-N buckets are no longer watched. They are a read-only
   // backup since quiz sets moved to per-document storage, and a snapshot from
   // them would overwrite fresh per-set data with stale bucket contents.
+}
+
+/**
+ * Forgets everything this tab loaded, so the next sign-in reads from scratch.
+ *
+ * initFirestore() memoises its promise for the life of the tab. Without this,
+ * signing out of a student account and into a teacher account in the same tab
+ * kept the student's data: a student loads only their assigned quiz sets, so
+ * the teacher was shown that handful and none of the rest of the library.
+ */
+export function resetFirestore() {
+  for (const unsub of _sharedUnsubs) {
+    try { unsub() } catch { /* already gone */ }
+  }
+  _sharedUnsubs = []
+  _sharedListenersStarted = false
+  for (const id of Object.keys(_studentListeners)) {
+    try { _studentListeners[id]() } catch { /* already gone */ }
+    delete _studentListeners[id]
+  }
+  for (const id of Object.keys(_studentCache)) delete _studentCache[id]
+  for (const id of Object.keys(_studentLastWritten)) delete _studentLastWritten[id]
+  stopBroadcastListener()
+  clearAiExplanationCache()
+  _cache = null
+  _ready = false
+  _readyPromise = null
+  _lastWrittenChunks = {}
+  _lastWrittenSets = {}
+  _lastWrittenUnassigned = null
+  _libraryError = null
+  _syncScope = null
+  _syncUserId = null
 }
 
 export async function initFirestore() {
@@ -566,6 +600,11 @@ export async function refreshSharedData() {
 
 export function getSyncScope() {
   return _syncScope
+}
+
+/** The user id this tab's data was loaded for, as a string. */
+export function getSyncUserId() {
+  return _syncUserId
 }
 
 export function getFirestoreCache() {
@@ -1098,9 +1137,19 @@ export async function sendBroadcast(message) {
   }
 }
 
+let _broadcastUnsub = null
+
+function stopBroadcastListener() {
+  if (_broadcastUnsub) {
+    try { _broadcastUnsub() } catch { /* already gone */ }
+    _broadcastUnsub = null
+  }
+}
+
 function startBroadcastListener() {
+  stopBroadcastListener()
   const ref = doc(db, 'appData', 'broadcasts')
-  onSnapshot(ref, (snap) => {
+  _broadcastUnsub = onSnapshot(ref, (snap) => {
     if (!snap.exists()) return
     if (snap.metadata.hasPendingWrites) return
     const messages = snap.data().messages || []

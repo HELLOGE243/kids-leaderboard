@@ -6,8 +6,8 @@ import SessionRevision from './pages/SessionRevision.jsx'
 import GpuNotice from './components/GpuNotice.jsx'
 import ScreenLeaveNotice from './components/ScreenLeaveNotice.jsx'
 import PolicyNotice from './components/PolicyNotice.jsx'
-import { initFirestore, setSyncScope, refreshSharedData, unsubscribeAggregates, watchSession } from './data/firebase.js'
-import { initStudentData, syncStudentQuizSets, linkDojoCardQuestionIds } from './data/store.js'
+import { initFirestore, setSyncScope, refreshSharedData, unsubscribeAggregates, watchSession, resetFirestore, getSyncScope, getSyncUserId } from './data/firebase.js'
+import { initStudentData, syncStudentQuizSets, linkDojoCardQuestionIds, clearStudentLocalCache } from './data/store.js'
 import { auth, signOutUser } from './data/auth.js'
 
 const SESSION_KEY = 'leaderboard_session'
@@ -111,6 +111,14 @@ function App() {
   // Data loads only once a Firebase Auth session exists: security rules refuse
   // unauthenticated reads, and the sign-in screen needs no data at all.
   function startData(s) {
+    // Belt and braces: if this tab already loaded data for somebody else (a
+    // restored session, a sign-in without a sign-out), start over rather than
+    // serving them the previous account's scope.
+    const scope = getSyncScope()
+    if (scope && (scope !== s.role || getSyncUserId() !== (s.user?.id ? String(s.user.id) : null))) {
+      resetFirestore()
+      clearStudentLocalCache()
+    }
     setSyncScope(s.role, s.user?.id)
     return initFirestore()
       .then(() => {
@@ -247,9 +255,16 @@ function App() {
     sessionStorage.removeItem(SESSION_KEY)
     clearCookie()
     unsubscribeAggregates()
-    setSyncScope(null)
-    signOutUser()
+    // Everything this tab loaded belonged to the account signing out. A student
+    // loads only their assigned quiz sets, so keeping that cache meant the next
+    // person to sign in here - a teacher - saw those few sets as the whole
+    // library.
+    resetFirestore()
+    clearStudentLocalCache()
     setSession(null)
+    setDbReady(false)
+    setBootHidden(false)
+    signOutUser()
   }
 
   /* ---- "Stay on this tab" overlay: students only ---- */

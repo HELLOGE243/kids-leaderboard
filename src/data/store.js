@@ -237,6 +237,11 @@ function saveData(data) {
 
 const _studentLocalCache = {}
 
+/** Drops this tab's per-student cache, so a new sign-in starts clean. */
+export function clearStudentLocalCache() {
+  for (const id of Object.keys(_studentLocalCache)) delete _studentLocalCache[id]
+}
+
 function loadStudentData(studentId) {
   if (!studentId) return null
   if (isStudentDataReady(studentId)) {
