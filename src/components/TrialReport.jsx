@@ -73,7 +73,7 @@ function TrialReport({ courseId, studentId, studentName, onBack }) {
         {onBack && <button className="btn-logout" onClick={onBack}>Back</button>}
       </div>
 
-      {/* Overall */}
+      {/* Overall mark */}
       <div className="card tr-overall">
         <div className="tr-overall-mark">
           <span className="tr-big">{overall.mark}</span>
@@ -82,28 +82,41 @@ function TrialReport({ courseId, studentId, studentName, onBack }) {
             {overall.papersSat} of {overall.papers} papers · each worth {Math.round(100 / overall.papers)} marks
           </span>
         </div>
-        <div className="tr-overall-stats">
-          <div className="tr-stat">
-            <span className="tr-stat-val">{overall.percentile != null ? ordinal(overall.percentile) : '—'}</span>
-            <span className="tr-stat-lbl">percentile</span>
+      </div>
+
+      {/* The two comparisons: this sitting, and everyone who has ever sat it */}
+      <div className="tr-compare-row">
+        {[
+          { key: 'cohort', title: 'This sitting', sub: 'Students taking this trial with you', data: overall.cohort },
+          { key: 'historical', title: 'All time', sub: 'Everyone who has ever sat these papers', data: overall.historical },
+        ].map(({ key, title, sub, data }) => (
+          <div key={key} className={`card tr-compare tr-compare-${key}`}>
+            <p className="tr-compare-title">{title}</p>
+            <p className="tr-compare-sub">{sub}</p>
+            <div className="tr-overall-stats">
+              <div className="tr-stat">
+                <span className="tr-stat-val">{data.percentile != null ? ordinal(data.percentile) : '—'}</span>
+                <span className="tr-stat-lbl">percentile</span>
+              </div>
+              <div className="tr-stat">
+                <span className="tr-stat-val">{data.rank ? ordinal(data.rank) : '—'}</span>
+                <span className="tr-stat-lbl">of {data.sat} sitting</span>
+              </div>
+              <div className="tr-stat">
+                <span className="tr-stat-val">{data.average ?? '—'}</span>
+                <span className="tr-stat-lbl">average</span>
+              </div>
+              <div className="tr-stat">
+                <span className="tr-stat-val">{data.median ?? '—'}</span>
+                <span className="tr-stat-lbl">median</span>
+              </div>
+              <div className="tr-stat">
+                <span className="tr-stat-val" style={{ color: 'var(--token)' }}>{data.top ?? '—'}</span>
+                <span className="tr-stat-lbl">top mark</span>
+              </div>
+            </div>
           </div>
-          <div className="tr-stat">
-            <span className="tr-stat-val">{overall.rank ? `${ordinal(overall.rank)}` : '—'}</span>
-            <span className="tr-stat-lbl">of {overall.cohortSize} sitting</span>
-          </div>
-          <div className="tr-stat">
-            <span className="tr-stat-val">{overall.average ?? '—'}</span>
-            <span className="tr-stat-lbl">average</span>
-          </div>
-          <div className="tr-stat">
-            <span className="tr-stat-val">{overall.median ?? '—'}</span>
-            <span className="tr-stat-lbl">median</span>
-          </div>
-          <div className="tr-stat">
-            <span className="tr-stat-val" style={{ color: 'var(--token)' }}>{overall.top ?? '—'}</span>
-            <span className="tr-stat-lbl">top mark</span>
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Per paper */}
@@ -112,36 +125,42 @@ function TrialReport({ courseId, studentId, studentName, onBack }) {
         <table className="table w-full tr-table">
           <thead>
             <tr>
-              <th style={{ textAlign: 'left' }}>Paper</th>
-              <th>Your mark</th>
+              <th style={{ textAlign: 'left' }} rowSpan={2}>Paper</th>
+              <th rowSpan={2}>Your mark</th>
+              <th colSpan={3} className="tr-group-head">This sitting</th>
+              <th colSpan={3} className="tr-group-head tr-group-alt">All time</th>
+            </tr>
+            <tr>
               <th>Percentile</th>
               <th>Average</th>
-              <th>Median</th>
               <th>Top</th>
+              <th className="tr-group-alt">Percentile</th>
+              <th className="tr-group-alt">Average</th>
+              <th className="tr-group-alt">Top</th>
             </tr>
           </thead>
           <tbody>
-            {papers.map((p) => {
-              return (
-                <tr key={p.quizSetId}>
-                  <td style={{ textAlign: 'left' }}>
-                    <span className="tr-subject">{SUBJECT_LABELS[p.subject] || SUBJECT_LABELS.other}</span>
-                    <span className="tr-paper-name">{p.name}</span>
-                  </td>
-                  <td style={{ fontWeight: 700 }}>
-                    {p.mine ? `${p.mine.score}/${p.mine.total} (${p.mine.pct}%)` : 'Not sat'}
-                  </td>
-                  <td>{p.percentile != null ? ordinal(p.percentile) : '—'}</td>
-                  <td>{p.average != null ? `${p.average}%` : '—'}</td>
-                  <td>{p.median != null ? `${p.median}%` : '—'}</td>
-                  <td style={{ color: 'var(--token)' }}>{p.top != null ? `${p.top}%` : '—'}</td>
-                </tr>
-              )
-            })}
+            {papers.map((p) => (
+              <tr key={p.quizSetId}>
+                <td style={{ textAlign: 'left' }}>
+                  <span className="tr-subject">{SUBJECT_LABELS[p.subject] || SUBJECT_LABELS.other}</span>
+                  <span className="tr-paper-name">{p.name}</span>
+                </td>
+                <td style={{ fontWeight: 700 }}>
+                  {p.mine ? `${p.mine.score}/${p.mine.total} (${p.mine.pct}%)` : 'Not sat'}
+                </td>
+                <td>{p.cohort.percentile != null ? ordinal(p.cohort.percentile) : '—'}</td>
+                <td>{p.cohort.average != null ? `${p.cohort.average}%` : '—'}</td>
+                <td style={{ color: 'var(--token)' }}>{p.cohort.top != null ? `${p.cohort.top}%` : '—'}</td>
+                <td className="tr-group-alt">{p.historical.percentile != null ? ordinal(p.historical.percentile) : '—'}</td>
+                <td className="tr-group-alt">{p.historical.average != null ? `${p.historical.average}%` : '—'}</td>
+                <td className="tr-group-alt" style={{ color: 'var(--token)' }}>{p.historical.top != null ? `${p.historical.top}%` : '—'}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
         <p className="text-dim" style={{ fontSize: '0.65rem', marginTop: 8 }}>
-          Cohort figures count every student who has sat that paper.
+          This sitting counts the students taking this trial together; all time counts everyone who has ever sat the paper.
         </p>
       </div>
 

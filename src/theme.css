@@ -5488,6 +5488,19 @@ a.qt-video-btn {
 
 .hw-quiz-status-sealed { background: rgba(124,58,237,0.16); color: #b39ddb; border: 1px solid rgba(124,58,237,0.5); }
 
+.tr-compare-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+.tr-compare { padding: 18px 20px; }
+.tr-compare-cohort { border-left: 4px solid var(--accent); }
+.tr-compare-historical { border-left: 4px solid var(--token); }
+.tr-compare-title { margin: 0; font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--text); }
+.tr-compare-sub { margin: 2px 0 14px; font-size: 0.7rem; color: var(--text-dim); }
+.tr-compare .tr-overall-stats { gap: 18px; }
+.tr-group-head { font-size: 0.6rem; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); border-bottom: 1px solid rgba(255,255,255,0.12); }
+.tr-group-alt { background: rgba(0, 229, 255, 0.05); }
+.tr-table th.tr-group-alt, .tr-table td.tr-group-alt { border-left: 1px solid rgba(255,255,255,0.08); }
+.tr-group-head.tr-group-alt { color: var(--token); }
+@media (max-width: 800px) { .tr-compare-row { grid-template-columns: 1fr; } }
+
 .trial-report .tr-overall { display: flex; flex-wrap: wrap; align-items: center; gap: 28px; justify-content: space-between; }
 .tr-overall-mark { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .tr-big { font-family: var(--font-display); font-size: 3.4rem; font-weight: 800; line-height: 1; color: var(--text); }

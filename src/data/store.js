@@ -313,8 +313,9 @@ export function remarkStudentWork(studentId) {
       const set = sets.get(attempt.quizSetId)
       if (!set || !Array.isArray(attempt.answers)) continue
       const { score, total } = rescoreAttempt(set, attempt)
-      if (score === attempt.score && total === attempt.total) continue
-      updates.push({ id: attempt.id, score, total })
+      const pending = countWritingPending(set, attempt)
+      if (score === attempt.score && total === attempt.total && pending === attempt.writingPending) continue
+      updates.push({ id: attempt.id, score, total, pending })
     }
     if (!updates.length) continue
     changed += updates.length
@@ -324,6 +325,7 @@ export function remarkStudentWork(studentId) {
         if (!a) continue
         a.score = u.score
         a.total = u.total
+        a.writingPending = u.pending
         a.remarkedAt = new Date().toISOString()
         // The help they read argued for the old answer. Their own explanations
         // and the tokens they earned stay; the borrowed reasoning goes.
@@ -2512,6 +2514,25 @@ export function getTrialCourseReport(courseId, studentId) {
 
   const weight = 100 / quizSetIds.length
   const myAttempts = getStudentArray(studentId, 'homeworkAttempts')
+  // Two comparisons matter and they answer different questions: how a student
+  // sits among the classmates taking this trial with them, and how they sit
+  // against everyone who has ever sat these papers.
+  const cohortIds = new Set(getCourseStudentIds(courseId).map(String))
+
+  const spread = (rows, mine) => {
+    const pcts = rows.map((r) => r.pct)
+    const sorted = [...pcts].sort((a, b) => b - a)
+    return {
+      sat: rows.length,
+      average: pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null,
+      median: median(pcts),
+      top: sorted.length ? sorted[0] : null,
+      percentile: mine && pcts.length > 1
+        ? Math.round((pcts.filter((p) => p < mine.pct).length / pcts.length) * 100)
+        : null,
+      rank: mine && pcts.length ? sorted.indexOf(mine.pct) + 1 : null,
+    }
+  }
 
   // pct per student per paper, from the shared aggregate.
   const perPaper = quizSetIds.map((qsId) => {
@@ -2526,52 +2547,40 @@ export function getTrialCourseReport(courseId, studentId) {
         const a = myAttempts.find((x) => x.quizSetId === qsId)
         return a && a.total > 0 ? { studentId: String(studentId), pct: Math.round((a.score / a.total) * 100), score: a.score, total: a.total } : null
       })()
-    const pcts = rows.map((r) => r.pct)
-    const sorted = [...pcts].sort((a, b) => b - a)
+    const cohortRows = rows.filter((r) => cohortIds.has(r.studentId))
     return {
       quizSetId: qsId,
       name: set ? (set.friendlyTitle || set.rawTitle || 'Paper') : 'Paper',
       subject: subjectForQuizSet(set) || 'other',
       weight: Math.round(weight),
       mine,
-      cohort: rows,
-      sat: rows.length,
-      average: pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null,
-      median: median(pcts),
-      top: sorted.length ? sorted[0] : null,
-      percentile: mine && pcts.length > 1
-        ? Math.round((pcts.filter((p) => p < mine.pct).length / pcts.length) * 100)
-        : null,
+      rows,
+      cohort: spread(cohortRows, mine),
+      historical: spread(rows, mine),
     }
   })
 
   // Weighted totals out of 100, per student, across the papers they sat.
   const totals = new Map()
   for (const paper of perPaper) {
-    for (const row of paper.cohort) {
+    for (const row of paper.rows) {
       const cur = totals.get(row.studentId) || 0
       totals.set(row.studentId, cur + (row.pct / 100) * weight)
     }
   }
   const myTotal = perPaper.reduce((sum, p) => sum + (p.mine ? (p.mine.pct / 100) * weight : 0), 0)
   totals.set(String(studentId), myTotal)
-
-  const allTotals = [...totals.values()].map((t) => Math.round(t))
-  const sortedTotals = [...allTotals].sort((a, b) => b - a)
   const myRounded = Math.round(myTotal)
+  const mineTotalRow = { pct: myRounded }
+
+  const totalRows = [...totals.entries()].map(([sid, t]) => ({ studentId: sid, pct: Math.round(t) }))
   const overall = {
     mark: myRounded,
     outOf: 100,
     papersSat: perPaper.filter((p) => p.mine).length,
     papers: perPaper.length,
-    cohortSize: allTotals.length,
-    average: allTotals.length ? Math.round(allTotals.reduce((a, b) => a + b, 0) / allTotals.length) : null,
-    median: median(allTotals),
-    top: sortedTotals.length ? sortedTotals[0] : null,
-    rank: sortedTotals.indexOf(myRounded) + 1,
-    percentile: allTotals.length > 1
-      ? Math.round((allTotals.filter((t) => t < myRounded).length / allTotals.length) * 100)
-      : null,
+    cohort: spread(totalRows.filter((r) => cohortIds.has(r.studentId)), mineTotalRow),
+    historical: spread(totalRows, mineTotalRow),
   }
 
   // Where this student lost marks, by tag: their own answers, their own paper.
@@ -2652,6 +2661,23 @@ function totalMarksForQuestion(q, writingMark) {
   return 1
 }
 
+/**
+ * How many writing questions in this attempt are still waiting on a teacher.
+ *
+ * A prompt the student left blank is not waiting on anybody - these papers
+ * often offer two prompts and expect one - so it is neither pending nor
+ * counted in the marks. Only what they actually wrote can be marked.
+ */
+function countWritingPending(set, attempt) {
+  if (!set || !attempt) return 0
+  return set.questions.filter((q, i) => {
+    if ((q.type || 'multiple-choice') !== 'free-writing') return false
+    const answer = attempt.answers?.[i]
+    if (typeof answer !== 'string' || !answer.trim()) return false
+    return !writingMarkFor(attempt.id, i)
+  }).length
+}
+
 /** The teacher's mark for one writing question of one attempt, or null. */
 export function writingMarkFor(attemptId, questionIndex) {
   return (loadData().writingMarks || []).find(
@@ -2679,7 +2705,8 @@ export function submitHomeworkAttempt(quizSetId, studentId, answers, questionTim
   const student = data.students[studentId]
   const orgId = student?.orgId || null
   const term = orgId ? (data.organisations[orgId]?.activeTerm || null) : null
-  const attempt = { id, quizSetId, studentId, answers, score, total, questionTimes: questionTimes || [], date: new Date().toISOString(), term, orgId, ...screenMeta(meta) }
+  const writingPending = set.questions.filter((q) => (q.type || 'multiple-choice') === 'free-writing').length
+  const attempt = { id, quizSetId, studentId, answers, score, total, writingPending, questionTimes: questionTimes || [], date: new Date().toISOString(), term, orgId, ...screenMeta(meta) }
   mutateStudentArray(studentId, 'homeworkAttempts', (arr) => arr.push(attempt))
   return attempt
 }
@@ -5095,13 +5122,18 @@ function rescoreAttempt(set, attempt) {
 /**
  * True while a paper still holds writing nobody has marked. Used to hold back
  * the score, the ranking and the class figures, which would all be wrong.
+ *
+ * Answered from the attempt's own `writingPending` count wherever possible:
+ * marks live in a shared document a student only reads at sign-in, while their
+ * own document is live, so counting the marks here would leave a student
+ * staring at PENDING long after their teacher had marked the work.
  */
 export function attemptAwaitsMarking(quizSetId, studentId) {
-  const set = (loadData().importedQuizSets || []).find((s) => s.id === quizSetId)
-  if (!set) return false
   const attempt = getStudentArray(studentId, 'homeworkAttempts').find((a) => a.quizSetId === quizSetId)
   if (!attempt) return false
-  return set.questions.some((q, i) => (q.type || 'multiple-choice') === 'free-writing' && !writingMarkFor(attempt.id, i))
+  if (typeof attempt.writingPending === 'number') return attempt.writingPending > 0
+  const set = (loadData().importedQuizSets || []).find((s) => s.id === quizSetId)
+  return !!set && countWritingPending(set, attempt) > 0
 }
 
 /**
@@ -5120,12 +5152,14 @@ export function applyWritingMarkToAttempt(attemptId, studentId) {
     const set = (data.importedQuizSets || []).find((s) => s.id === attempt.quizSetId)
     if (!set) return false
     const { score, total } = rescoreAttempt(set, attempt)
-    if (score === attempt.score && total === attempt.total) return false
+    const pending = countWritingPending(set, attempt)
+    if (score === attempt.score && total === attempt.total && pending === attempt.writingPending) return false
     mutateStudentArray(studentId, key, (arr) => {
       const a = arr.find((x) => x.id === attemptId)
       if (!a) return
       a.score = score
       a.total = total
+      a.writingPending = pending
       a.markedAt = new Date().toISOString()
     })
     return true
