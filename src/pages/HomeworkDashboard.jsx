@@ -97,7 +97,7 @@ function rankColor(n) {
   return '#fff'
 }
 
-function HwResults({ title, score, total, pct, coins, grade, gradeColor, rank, totalStudents, classAvgPct, totalBalance, percentile, historicalAttempts, timeTaken, avgTimeTaken, questionsCorrect, questionsSkipped, questionBreakdown, isRedo, onGoToQuestion, onReview, onExit }) {
+function HwResults({ title, score, total, pct, coins, grade, gradeColor, rank, totalStudents, classAvgPct, classMedianPct, classTopPct, totalBalance, awaitingMarking, percentile, historicalAttempts, timeTaken, avgTimeTaken, questionsCorrect, questionsSkipped, questionBreakdown, isRedo, onGoToQuestion, onReview, onExit }) {
   const [sortBy, setSortBy] = useState('number')
   const [sortAsc, setSortAsc] = useState(true)
 
@@ -141,11 +141,14 @@ function HwResults({ title, score, total, pct, coins, grade, gradeColor, rank, t
                 {isRedo ? 'Revision — ' : ''}{title}
               </span>
             </div>
-            {!isRedo && <div className="hw-res-grade-badge" style={{ '--grade-bg': gradeColor }}>
+            {!isRedo && !awaitingMarking && <div className="hw-res-grade-badge" style={{ '--grade-bg': gradeColor }}>
               <span className="hw-res-grade-text">{grade}</span>
             </div>}
+            {!isRedo && awaitingMarking && <div className="hw-res-grade-badge" style={{ '--grade-bg': '#7c3aed' }}>
+              <span className="hw-res-grade-text">Pending</span>
+            </div>}
           </div>
-          {!isRedo && <div className="hw-res-banner-ring">
+          {!isRedo && !awaitingMarking && <div className="hw-res-banner-ring">
             <svg viewBox="0 0 120 120" className="hw-res-ring-svg">
               <circle cx="60" cy="60" r="52" fill="none" className="hw-res-ring-track" strokeWidth="10" />
               <circle cx="60" cy="60" r="52" fill="none" stroke={pctBarColor} strokeWidth="10" strokeLinecap="round" strokeDasharray={`${pct * 3.267} 326.7`} transform="rotate(-90 60 60)" className="hw-res-ring-fill" />
@@ -161,14 +164,20 @@ function HwResults({ title, score, total, pct, coins, grade, gradeColor, rank, t
         {!isRedo && <div className="hw-res-metrics">
           <div className="hw-res-metric">
             <span className="hw-res-metric-label">Score</span>
-            <span className="hw-res-metric-val">{score} / {total}</span>
+            {awaitingMarking
+              ? <span className="hw-res-metric-val" style={{ color: '#b39ddb' }}>PENDING</span>
+              : <span className="hw-res-metric-val">{score} / {total}</span>}
           </div>
           <div className="hw-res-metric-sep" />
-          <div className="hw-res-metric">
-            <span className="hw-res-metric-label">Ranking</span>
-            <span className="hw-res-metric-val" style={{ color: rankColor(rank) }}>{ordinal(rank)} <span style={{ color: 'var(--text-dim)' }}>/ {totalStudents}</span></span>
-          </div>
-          <div className="hw-res-metric-sep" />
+          {!awaitingMarking && (
+            <>
+              <div className="hw-res-metric">
+                <span className="hw-res-metric-label">Ranking</span>
+                <span className="hw-res-metric-val" style={{ color: rankColor(rank) }}>{ordinal(rank)} <span style={{ color: 'var(--text-dim)' }}>/ {totalStudents}</span></span>
+              </div>
+              <div className="hw-res-metric-sep" />
+            </>
+          )}
           <div className="hw-res-metric">
             <span className="hw-res-metric-label">Time</span>
             <span className="hw-res-metric-val">{timeTaken}</span>
@@ -181,8 +190,15 @@ function HwResults({ title, score, total, pct, coins, grade, gradeColor, rank, t
           </div>
         </div>}
 
+        {!isRedo && awaitingMarking && (
+          <div className="hw-res-pending-note">
+            Your writing goes to your teacher to mark. Your score, your ranking and the class figures
+            appear here once they have marked it.
+          </div>
+        )}
+
         {/* Performance summary: Class comparison + Percentile side by side */}
-        {!isRedo && <div className="hw-res-perf-row">
+        {!isRedo && !awaitingMarking && <div className="hw-res-perf-row">
           <div className="hw-res-perf-panel">
             <p className="hw-res-section-label">Class Comparison</p>
             <div className="hw-res-bar-group">
@@ -194,12 +210,30 @@ function HwResults({ title, score, total, pct, coins, grade, gradeColor, rank, t
                 <span className="hw-res-bar-val" style={{ color: pct >= classAvgPct ? '#00e676' : '#ff9100' }}>{pct}%</span>
               </div>
               <div className="hw-res-bar-row">
-                <span className="hw-res-bar-label">Class</span>
+                <span className="hw-res-bar-label">Average</span>
                 <div className="hw-res-bar-track">
                   <div className="hw-res-bar-fill hw-res-bar-class" style={{ width: `${classAvgPct}%` }} />
                 </div>
                 <span className="hw-res-bar-val">{classAvgPct}%</span>
               </div>
+              {classMedianPct != null && (
+                <div className="hw-res-bar-row">
+                  <span className="hw-res-bar-label">Median</span>
+                  <div className="hw-res-bar-track">
+                    <div className="hw-res-bar-fill hw-res-bar-median" style={{ width: `${classMedianPct}%` }} />
+                  </div>
+                  <span className="hw-res-bar-val">{classMedianPct}%</span>
+                </div>
+              )}
+              {classTopPct != null && (
+                <div className="hw-res-bar-row">
+                  <span className="hw-res-bar-label">Highest</span>
+                  <div className="hw-res-bar-track">
+                    <div className="hw-res-bar-fill hw-res-bar-top" style={{ width: `${classTopPct}%` }} />
+                  </div>
+                  <span className="hw-res-bar-val" style={{ color: '#00e5ff' }}>{classTopPct}%</span>
+                </div>
+              )}
             </div>
             <div className="hw-res-correct-summary">
               <span className="hw-res-cs-item"><span style={{ color: '#00e676' }}>{questionsCorrect}</span> correct</span>
@@ -238,7 +272,7 @@ function HwResults({ title, score, total, pct, coins, grade, gradeColor, rank, t
         </div>}
 
         {/* Question Breakdown Table */}
-        <div className="hw-res-qtable-wrap">
+        {!awaitingMarking && <div className="hw-res-qtable-wrap">
           <p className="hw-res-section-label">Question Breakdown</p>
           <div className="hw-res-qtable">
             <div className="hw-res-qtable-header">
@@ -271,7 +305,7 @@ function HwResults({ title, score, total, pct, coins, grade, gradeColor, rank, t
               ))}
             </div>
           </div>
-        </div>
+        </div>}
 
         </div>{/* end hw-res-report-box */}
       </div>
@@ -641,7 +675,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     screenLeaves.current = 0
     questionEnteredAt.current = Date.now()
     setTakingQuiz(quizSet)
-    setShowVocabHint(true)
+    setShowVocabHint(false)
     if (quizSet.trialTest && quizSet.trialTestSubject) {
       setTrialScreen(0)
       setTrialNameInput('')
@@ -1017,6 +1051,15 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       const rank = sorted.findIndex((a) => a.studentId === user.id) + 1
       const totalStudents = allAttempts.length
       const classAvgPct = totalStudents > 0 ? Math.round(allAttempts.reduce((sum, a) => sum + Math.round((a.score / a.total) * 100), 0) / totalStudents) : 0
+      // The spread matters as much as the average: a 60% average with a 95%
+      // top mark says something different from one where nobody passed 65%.
+      const cohortPcts = allAttempts.filter((a) => a.total > 0).map((a) => Math.round((a.score / a.total) * 100)).sort((x, y) => x - y)
+      const classMedianPct = cohortPcts.length
+        ? (cohortPcts.length % 2
+            ? cohortPcts[(cohortPcts.length - 1) / 2]
+            : Math.round((cohortPcts[cohortPcts.length / 2 - 1] + cohortPcts[cohortPcts.length / 2]) / 2))
+        : null
+      const classTopPct = cohortPcts.length ? cohortPcts[cohortPcts.length - 1] : null
 
       let grade, gradeColor
       if (pct === 100) { grade = 'Mastery'; gradeColor = '#b464ff' }
@@ -1095,11 +1138,17 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
         )
       }
 
+      // A free-writing answer is marked by a teacher, so nothing about this
+      // paper's score, rank or class figures means anything yet.
+      const awaitingMarking = questions.some((qq) => (qq.type || 'multiple-choice') === 'free-writing')
+
       return <HwResults
+        awaitingMarking={awaitingMarking}
         title={takingQuiz.friendlyTitle}
         score={score} total={markTotal} pct={pct} coins={coins}
         grade={grade} gradeColor={gradeColor}
-        rank={rank} totalStudents={totalStudents} classAvgPct={classAvgPct} totalBalance={totalBalance}
+        rank={rank} totalStudents={totalStudents} classAvgPct={classAvgPct}
+        classMedianPct={classMedianPct} classTopPct={classTopPct} totalBalance={totalBalance}
         percentile={percentile} historicalAttempts={historicalAttempts}
         timeTaken={timeTaken} avgTimeTaken={avgTimeTaken} questionsCorrect={questionsCorrect} questionsSkipped={questionsSkipped}
         questionBreakdown={questionBreakdown}
@@ -1205,6 +1254,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
 
           {/* Banners: the review prompt, then the vocabulary tip beneath it. */}
           {(
+            <div className="qt-banner-anchor">
             <div className={`qt-banner-stack${bannersVisible ? '' : ' is-hidden'}`} aria-hidden={!bannersVisible}>
               {isReview && reviewNudge && (
                 <div className="qt-review-nudge" key={currentQ}>Take a look at the help below — explain this one in your own words for a token!</div>
@@ -1212,12 +1262,13 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
               {isReview && submittedResult && isQuestionCorrect(q, submittedResult.answers[currentQ]) && (
                 <div className="qt-review-nudge qt-review-nudge-correct" key={`correct-${currentQ}`}>+10 Coins — Correct answer!</div>
               )}
-              {showVocabHint && (
+              {isReview && showVocabHint && (
                 <div className="qt-vocab-hint" onClick={() => setShowVocabHint(false)}>
                   <span className="qt-vocab-hint-icon">{'\u{1F4D6}'}</span>
                   <span>Double-click any word to look it up and add it to your <strong>Vocabulary Bank</strong></span>
                 </div>
               )}
+            </div>
             </div>
           )}
 

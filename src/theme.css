@@ -2093,9 +2093,12 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 
 /* Banners float over the top of the question rather than sitting in the flow:
    appearing and fading must not move the question under the reader's eyes. */
+/* A zero-height anchor sits in the flow directly under the top bar, so the
+   banners hang below it without taking any space of their own. */
+.qt-banner-anchor { position: relative; height: 0; z-index: 60; }
 .qt-banner-stack {
   position: absolute;
-  top: 8px;
+  top: 10px;
   left: 0;
   right: 0;
   z-index: 60;
@@ -2343,8 +2346,9 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   color: #fff;
   padding: 12px 24px;
   border-radius: 10px;
-  font-family: var(--font-body);
-  font-size: 0.88rem;
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
+  line-height: 1.7;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -5447,6 +5451,39 @@ a.qt-video-btn {
 
 .wr-title-course { display: block; font-size: 0.7rem; font-weight: 500; color: var(--text-dim); margin-top: 2px; }
 
+.qb-title-input { width: 260px; max-width: 34vw; font-family: var(--font-body); font-size: 0.85rem; padding: 3px 8px; background: rgba(255,255,255,0.06); border: 1px solid transparent; border-radius: 4px; color: #fff; }
+.qb-title-input:hover { border-color: rgba(255,255,255,0.25); }
+.qb-title-input:focus { outline: none; border-color: var(--accent); background: rgba(0,0,0,0.25); }
+
+.hw-res-pending-note {
+  margin: 0 0 16px;
+  padding: 16px 20px;
+  background: rgba(124,58,237,0.12);
+  border-left: 4px solid #7c3aed;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: var(--text);
+}
+
+.qt-help-reasons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.qt-help-reason {
+  flex: 1 1 200px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: .95rem;
+  font-weight: 600;
+  text-align: left;
+  padding: 12px 14px;
+  border: 2px solid #c3cfdb;
+  border-radius: 0;
+  background: #fff;
+  color: #1a1a2e;
+  cursor: pointer;
+}
+.qt-help-reason:hover { background: #e8eef5; }
+.qt-help-reason.is-picked { background: #002147; border-color: #002147; color: #fff; }
+.qt-help-text-after { padding-top: 12px; border-top: 1px dashed #c3cfdb; }
+
 .qb-timelimit { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px 2px 10px; border: 1px solid var(--accent); border-radius: 6px; white-space: nowrap; }
 .qb-timelimit-label { font-size: 0.55rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); }
 .qb-timelimit-input { width: 52px; font-size: 0.65rem; padding: 4px; text-align: center; }
@@ -5934,6 +5971,12 @@ a.qt-video-btn {
 }
 .hw-res-bar-class {
   background: linear-gradient(90deg, #4a6cf7, #6e8efb);
+}
+.hw-res-bar-median {
+  background: linear-gradient(90deg, #7c3aed, #a78bfa);
+}
+.hw-res-bar-top {
+  background: linear-gradient(90deg, #0097a7, #00e5ff);
 }
 .hw-res-bar-you-above {
   background: linear-gradient(90deg, #00c853, #00e676);

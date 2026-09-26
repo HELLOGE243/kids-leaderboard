@@ -437,6 +437,7 @@ function WritingReview({ orgId, teacherId, onBack }) {
                     {[s.courseName, s.moduleName].filter(Boolean).join(' · ')}
                     {(s.courseName || s.moduleName) ? ' — ' : ''}
                     {s.writingCount} writing question{s.writingCount !== 1 ? 's' : ''}
+                    {s.lastSubmittedAt && ` · last response ${new Date(s.lastSubmittedAt).toLocaleDateString()}`}
                   </span>
                 </div>
                 <div className="wr-set-stats">

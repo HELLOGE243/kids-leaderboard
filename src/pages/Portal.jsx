@@ -616,6 +616,39 @@ function Portal({ user, onLogout }) {
         </div>{/* end data-help=today */}
 
         {/* === SECTION: CLASSES === */}
+
+      {/* Action Buttons */}
+      <p className="pixel-heading portal-section-heading" style={{ marginTop: 20 }}>{t('portals')}</p>
+      <button className="btn-homework w-full mt-16" data-help="assignments" style={{ position: 'relative' }} onClick={() => setShowHomework(true)}>
+        📚 {t('assignments')}
+        {homeworkStatus.overdue > 0
+          ? <span className="hw-badge-overdue">⏰ {homeworkStatus.overdue}</span>
+          : (homeworkStatus.pending + newCourseCount) > 0
+            ? <span className="hw-badge-warn">{homeworkStatus.pending + newCourseCount}</span>
+            : null}
+      </button>
+      <button className="btn-progress-quiz w-full mt-16" data-help="checkpoints" style={{ position: 'relative' }} onClick={() => setShowQuiz(true)}>
+        🎯 {t('checkpointTests')}
+        {pendingQuizCount > 0 && <span className="quiz-alert-badge">{pendingQuizCount}</span>}
+      </button>
+      <button className="btn-dojo w-full mt-16" data-help="dojo" style={{ position: 'relative' }} onClick={() => setShowDojo(true)}>
+        🥷🏻 {t('revisionDojo')}
+        {dojoDueCount > 0 && <span className="hw-badge-warn">{dojoDueCount}</span>}
+      </button>
+      <button className="btn-vocab w-full mt-16" data-help="vocab" onClick={() => setShowVocab(true)}>
+        🔤 {t('vocabBank')}
+      </button>
+      <button className="btn-battlegrounds w-full mt-16" data-help="battlegrounds" onClick={() => {
+        if (student?.battlegroundsApproved) {
+          setShowBattlegrounds(true)
+        }
+      }} style={!student?.battlegroundsApproved ? { opacity: 0.45, cursor: 'not-allowed' } : {}}>
+        ⚔️ {t('battlegrounds')} {!student?.battlegroundsApproved && <span style={{ fontSize: '0.5rem', opacity: 0.7, marginLeft: 8 }}>🔒 {t('locked')}</span>}
+      </button>
+      <button className="btn-progress-tracker w-full mt-16" onClick={() => setShowReport(true)}>
+        {t('myReports')}
+      </button>
+
         <div data-help="leaderboards">
         <p className="pixel-heading portal-section-heading">{t('leaderboards')}</p>
         {classes.length === 0 ? (
@@ -811,38 +844,6 @@ function Portal({ user, onLogout }) {
         </div>
       )}
       </div>{/* end data-help=leaderboards */}
-
-      {/* Action Buttons */}
-      <p className="pixel-heading portal-section-heading" style={{ marginTop: 20 }}>{t('portals')}</p>
-      <button className="btn-homework w-full mt-16" data-help="assignments" style={{ position: 'relative' }} onClick={() => setShowHomework(true)}>
-        📚 {t('assignments')}
-        {homeworkStatus.overdue > 0
-          ? <span className="hw-badge-overdue">⏰ {homeworkStatus.overdue}</span>
-          : (homeworkStatus.pending + newCourseCount) > 0
-            ? <span className="hw-badge-warn">{homeworkStatus.pending + newCourseCount}</span>
-            : null}
-      </button>
-      <button className="btn-progress-quiz w-full mt-16" data-help="checkpoints" style={{ position: 'relative' }} onClick={() => setShowQuiz(true)}>
-        🎯 {t('checkpointTests')}
-        {pendingQuizCount > 0 && <span className="quiz-alert-badge">{pendingQuizCount}</span>}
-      </button>
-      <button className="btn-dojo w-full mt-16" data-help="dojo" style={{ position: 'relative' }} onClick={() => setShowDojo(true)}>
-        🥷🏻 {t('revisionDojo')}
-        {dojoDueCount > 0 && <span className="hw-badge-warn">{dojoDueCount}</span>}
-      </button>
-      <button className="btn-vocab w-full mt-16" data-help="vocab" onClick={() => setShowVocab(true)}>
-        🔤 {t('vocabBank')}
-      </button>
-      <button className="btn-battlegrounds w-full mt-16" data-help="battlegrounds" onClick={() => {
-        if (student?.battlegroundsApproved) {
-          setShowBattlegrounds(true)
-        }
-      }} style={!student?.battlegroundsApproved ? { opacity: 0.45, cursor: 'not-allowed' } : {}}>
-        ⚔️ {t('battlegrounds')} {!student?.battlegroundsApproved && <span style={{ fontSize: '0.5rem', opacity: 0.7, marginLeft: 8 }}>🔒 {t('locked')}</span>}
-      </button>
-      <button className="btn-progress-tracker w-full mt-16" onClick={() => setShowReport(true)}>
-        {t('myReports')}
-      </button>
 
       {/* Help Walkthrough */}
       {helpStep >= 0 && (() => {

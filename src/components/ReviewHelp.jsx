@@ -15,6 +15,15 @@ import { useState } from 'react'
  * All state lives in the `chat` object the caller stores and persists, so a
  * student who leaves the review and comes back finds their progress intact.
  */
+// What a student says went wrong, in their own terms. Kept short enough to read
+// at a glance and specific enough to be worth reporting back to a teacher.
+const REASONS = [
+  'I didn’t understand the question',
+  'I understood it but didn’t know the strategy',
+  'Silly mistake',
+  'I ran out of time or guessed',
+]
+
 function ReviewHelp({
   chat,
   onChange,
@@ -38,6 +47,9 @@ function ReviewHelp({
 
   async function openHelp(kind) {
     if (open === kind) { onChange({ ...chat, panel: null }); return }
+    // Step 1 asks the student to say what happened first; the explanation of
+    // their own answer follows once they have. Step 2 explains straight away.
+    if (kind === 'wrong' && !chat.reason) { onChange({ ...chat, panel: 'wrong' }); return }
     if (help[kind]) { onChange({ ...chat, panel: kind }); return }
     onChange({ ...chat, panel: kind, loading: kind })
     const text = kind === 'wrong' ? await fetchWrong() : await fetchConcept()
@@ -46,6 +58,19 @@ function ReviewHelp({
       panel: kind,
       loading: null,
       help: { ...help, [kind]: text || 'No explanation is available for this one yet — try Ask Teacher.' },
+    })
+  }
+
+  // Picking a reason opens the explanation of the answer they gave.
+  async function pickReason(reason) {
+    const next = { ...chat, reason, panel: 'wrong' }
+    if (help.wrong) { onChange(next); return }
+    onChange({ ...next, loading: 'wrong' })
+    const text = await fetchWrong()
+    onChange({
+      ...next,
+      loading: null,
+      help: { ...help, wrong: text || 'No explanation is available for this one yet — try Ask Teacher.' },
     })
   }
 
@@ -70,7 +95,27 @@ function ReviewHelp({
         </button>
       </div>
 
-      {open && open !== 'mine' && (
+      {open === 'wrong' && (
+        <div className="qt-help-panel">
+          <div className="qt-help-lead">What happened on this one?</div>
+          <div className="qt-help-reasons">
+            {REASONS.map((reason) => (
+              <button
+                key={reason}
+                className={`qt-help-reason${chat.reason === reason ? ' is-picked' : ''}`}
+                onClick={() => pickReason(reason)}
+              >{reason}</button>
+            ))}
+          </div>
+          {chat.loading === 'wrong'
+            ? <div className="qt-help-loading">Working it out…</div>
+            : help.wrong
+              ? <div className="qt-help-text qt-help-text-after" dangerouslySetInnerHTML={{ __html: help.wrong }} />
+              : null}
+        </div>
+      )}
+
+      {open && open !== 'mine' && open !== 'wrong' && (
         <div className="qt-help-panel">
           {chat.loading === open
             ? <div className="qt-help-loading">Working it out…</div>
@@ -80,23 +125,13 @@ function ReviewHelp({
 
       {open === 'mine' && <div className="qt-help-panel">{renderMine()}</div>}
 
-      {(open || isDone) && (
+      {(open || isDone) && onAskTeacher && (
         <div className="qt-help-follow">
-          <span className="qt-help-follow-label">What happened?</span>
-          {['Hard to understand', 'Silly mistake', 'Ran out of time', 'I guessed'].map((reason) => (
-            <button
-              key={reason}
-              className={`qt-help-follow-btn${chat.reason === reason ? ' is-picked' : ''}`}
-              onClick={() => onChange({ ...chat, reason })}
-            >{reason}</button>
-          ))}
-          {onAskTeacher && (
-            <button
-              className={`qt-help-follow-btn qt-help-follow-ask${asked ? ' is-sent' : ''}`}
-              disabled={asked}
-              onClick={onAskTeacher}
-            >{asked ? 'Sent to your teacher ✓' : 'I still don’t get it — ask my teacher'}</button>
-          )}
+          <button
+            className={`qt-help-follow-btn qt-help-follow-ask${asked ? ' is-sent' : ''}`}
+            disabled={asked}
+            onClick={onAskTeacher}
+          >{asked ? 'Sent to your teacher ✓' : 'I still don’t get it — ask my teacher'}</button>
         </div>
       )}
     </div>

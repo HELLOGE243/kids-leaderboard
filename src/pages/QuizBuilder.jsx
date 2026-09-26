@@ -129,6 +129,8 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
   const [mergeTarget, setMergeTarget] = useState(null)
   const [importProgress, setImportProgress] = useState(null)
   const [syncingLibrary, setSyncingLibrary] = useState(false)
+  const [renamingSet, setRenamingSet] = useState(null)
+  const [renamingSetText, setRenamingSetText] = useState('')
   const [syncNote, setSyncNote] = useState('')
   const [selectedHomework, setSelectedHomework] = useState(new Set())
   const [pendingTypeChange, setPendingTypeChange] = useState(null)
@@ -731,7 +733,23 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
           {/* Top bar */}
           <div className="qt-topbar">
             <div className="qt-timer-area" style={{ minWidth: 'auto' }}>
-              <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>{editorTitle}</span>
+              {isImported ? (
+                <input
+                  className="qb-title-input"
+                  defaultValue={editorTitle}
+                  title="Rename this quiz"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }}
+                  onBlur={(e) => {
+                    const name = e.target.value.trim()
+                    if (!name || name === editorTitle) { e.target.value = editorTitle; return }
+                    updateImportedQuizSet(editingImported, { friendlyTitle: name })
+                    forceRefresh()
+                  }}
+                />
+              ) : (
+                <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>{editorTitle}</span>
+              )}
             </div>
             <div className="qt-center-group">
               <div className="qt-question-indicator">
@@ -1680,7 +1698,35 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                         <button className="btn btn-danger btn-small" style={{ padding: '2px 6px', fontSize: '0.4rem', lineHeight: 1, minWidth: 0 }} onClick={() => requestConfirm(`Delete "${set.friendlyTitle}"?`, () => { deleteImportedQuizSet(set.id); forceRefresh() })}>x</button>
                       </div>
                     </td>
-                    <td style={{ fontSize: '0.65rem' }}>{set.friendlyTitle}</td>
+                    <td style={{ fontSize: '0.65rem' }} onDoubleClick={(e) => { e.stopPropagation(); setRenamingSet(set.id); setRenamingSetText(set.friendlyTitle || set.rawTitle || '') }}>
+                      {renamingSet === set.id ? (
+                        <form
+                          onClick={(e) => e.stopPropagation()}
+                          onSubmit={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            const name = renamingSetText.trim()
+                            if (name) { updateImportedQuizSet(set.id, { friendlyTitle: name }); forceRefresh() }
+                            setRenamingSet(null)
+                          }}
+                        >
+                          <input
+                            value={renamingSetText}
+                            autoFocus
+                            onChange={(e) => setRenamingSetText(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Escape') setRenamingSet(null) }}
+                            onBlur={(e) => {
+                              const name = e.target.value.trim()
+                              if (name) { updateImportedQuizSet(set.id, { friendlyTitle: name }); forceRefresh() }
+                              setRenamingSet(null)
+                            }}
+                            style={{ width: '100%', fontSize: '0.65rem', padding: '2px 4px', background: 'transparent', border: '1px solid var(--accent)', color: '#fff', borderRadius: 2 }}
+                          />
+                        </form>
+                      ) : (
+                        <span title="Double-click to rename" style={{ cursor: 'text' }}>{set.friendlyTitle}</span>
+                      )}
+                    </td>
                     <td style={{ textAlign: 'center', padding: '2px' }}>
                       <select
                         value={set.term || ''}

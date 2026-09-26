@@ -4385,6 +4385,11 @@ export function getStudentWritingMarks(studentId) {
   return data.writingMarks.filter(m => m.studentId === studentId)
 }
 
+/**
+ * Quizzes with writing in them, newest response first: a teacher marking work
+ * wants what has just come in, not an alphabet of papers nobody has sat.
+ * Papers with nothing submitted sort last, by name.
+ */
 export function getQuizSetsWithWriting(orgId) {
   const data = loadData()
   return data.importedQuizSets.filter(s => {
@@ -4408,7 +4413,14 @@ export function getQuizSetsWithWriting(orgId) {
       submissionCount: submissions.length,
       markedCount: marked,
       courseId: course?.id || null,
+      // getWritingSubmissions already returns newest first.
+      lastSubmittedAt: submissions[0]?.date || null,
     }
+  }).sort((a, b) => {
+    if (a.lastSubmittedAt && b.lastSubmittedAt) return new Date(b.lastSubmittedAt) - new Date(a.lastSubmittedAt)
+    if (a.lastSubmittedAt) return -1
+    if (b.lastSubmittedAt) return 1
+    return a.title.localeCompare(b.title)
   })
 }
 
