@@ -304,6 +304,10 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   const [reviewIndices, setReviewIndices] = useState([])
   const [showStatsPopup, setShowStatsPopup] = useState(true)
   const [showVocabHint, setShowVocabHint] = useState(false)
+  // The banners above a question are a prompt, not a fixture: they show when the
+  // student arrives at a question and step aside after a few seconds, returning
+  // if they come back to it.
+  const [bannersVisible, setBannersVisible] = useState(true)
   const [showWarning, setShowWarning] = useState(null)
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false)
   const [quizStartTime, setQuizStartTime] = useState(null)
@@ -440,6 +444,12 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     const chat = reviewChats[currentQ] || {}
     setReviewNudge(!isCorrectR && chat.step !== 'done' && (q.type || 'multiple-choice') !== 'free-writing')
   }, [currentQ, reviewMode, submittedResult, reviewChats])
+
+  useEffect(() => {
+    setBannersVisible(true)
+    const t = setTimeout(() => setBannersVisible(false), 3000)
+    return () => clearTimeout(t)
+  }, [currentQ, reviewMode, takingQuiz])
 
   useEffect(() => { setStudentDescTab(0) }, [currentQ])
   useEffect(() => { setSpeakingExp(null); window.speechSynthesis?.cancel() }, [currentQ])
@@ -1160,12 +1170,22 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
             </div>
           </div>
 
-          {/* Nudge notification */}
-          {isReview && reviewNudge && (
-            <div className="qt-review-nudge" key={currentQ}>Take a look at the help below — explain this one in your own words for a token!</div>
-          )}
-          {isReview && submittedResult && isQuestionCorrect(q, submittedResult.answers[currentQ]) && (
-            <div className="qt-review-nudge qt-review-nudge-correct" key={`correct-${currentQ}`}>+10 Coins — Correct answer!</div>
+          {/* Banners: the review prompt, then the vocabulary tip beneath it. */}
+          {bannersVisible && (
+            <div className="qt-banner-stack">
+              {isReview && reviewNudge && (
+                <div className="qt-review-nudge" key={currentQ}>Take a look at the help below — explain this one in your own words for a token!</div>
+              )}
+              {isReview && submittedResult && isQuestionCorrect(q, submittedResult.answers[currentQ]) && (
+                <div className="qt-review-nudge qt-review-nudge-correct" key={`correct-${currentQ}`}>+10 Coins — Correct answer!</div>
+              )}
+              {showVocabHint && (
+                <div className="qt-vocab-hint" onClick={() => setShowVocabHint(false)}>
+                  <span className="qt-vocab-hint-icon">{'\u{1F4D6}'}</span>
+                  <span>Double-click any word to look it up and add it to your <strong>Vocabulary Bank</strong></span>
+                </div>
+              )}
+            </div>
           )}
 
           {/* Two-panel content */}
@@ -1307,8 +1327,12 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                 const skipped = qType === 'free-writing' ? (typeof picked !== 'string' || !picked.trim()) : (Array.isArray(picked) ? picked.every(x => x === -1) : picked === -1)
                 const allAttempts = getHomeworkAttemptsForQuiz(takingQuiz.id)
                 const totalStudents = allAttempts.length
-                const correctCount = totalStudents > 0 ? allAttempts.filter(a => isQuestionCorrect(q, a.answers[currentQ])).length : 0
-                const classPct = totalStudents > 0 ? Math.round((correctCount / totalStudents) * 100) : 0
+                // Attempts served from the quizStats aggregate carry a score but
+                // no answer list, so only the ones that have answers can say
+                // whether this particular question was right.
+                const markable = allAttempts.filter((a) => Array.isArray(a.answers))
+                const correctCount = markable.filter(a => isQuestionCorrect(q, a.answers[currentQ])).length
+                const classPct = markable.length > 0 ? Math.round((correctCount / markable.length) * 100) : null
                 const timesForQ = allAttempts.map(a => a.questionTimes?.[currentQ]).filter(t => t != null && t > 0)
                 const avgTimeSec = timesForQ.length > 0 ? Math.round(timesForQ.reduce((a, b) => a + b, 0) / timesForQ.length) : null
                 const studentTimeSec = submittedResult.questionTimes?.[currentQ]
@@ -1326,7 +1350,12 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                           <span className="qt-review-stat-label">{qType === 'free-writing' ? 'Written' : isCorrectQ ? 'Correct' : (Array.isArray(submittedResult.answers[currentQ]) ? submittedResult.answers[currentQ].every(x => x === -1) : submittedResult.answers[currentQ] === -1) ? 'Skipped' : 'Incorrect'}</span>
                         </div>
                         <div className="qt-review-stat-cell">
-                          {(() => {
+                          {classPct == null ? (
+                            <>
+                              <span className="qt-review-stat-big" style={{ color: '#90a0b0' }}>—</span>
+                              <span className="qt-review-stat-label">no class data yet</span>
+                            </>
+                          ) : (() => {
                             let diff, diffColor
                             if (classPct <= 10) { diff = 'Challenging'; diffColor = '#ff1744' }
                             else if (classPct <= 40) { diff = 'Separator'; diffColor = '#ff9100' }
@@ -2181,17 +2210,6 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
             </div>
           </div>
         </div>
-
-        {/* Vocab hint tooltip at quiz start */}
-        {showVocabHint && (
-          <>
-            <div style={{ position: 'fixed', inset: 0, zIndex: 198 }} onClick={() => setShowVocabHint(false)} />
-            <div className="qt-vocab-hint" onClick={() => setShowVocabHint(false)}>
-              <span className="qt-vocab-hint-icon">{'\u{1F4D6}'}</span>
-              <span>Double-click any word to look it up and add it to your <strong>Vocabulary Bank</strong></span>
-            </div>
-          </>
-        )}
 
         {/* Submit confirmation popup */}
         {showSaveExitConfirm && (

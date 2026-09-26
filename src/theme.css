@@ -2091,6 +2091,7 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 
 .qt-review-time-row + .qt-review-time-row { margin-top: 8px; }
 
+.qt-banner-stack { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 10px 0 0; }
 .qt-review-nudge {
   margin: 0 auto;
   padding: 14px 32px;
@@ -2098,8 +2099,8 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   font-family: var(--font-pixel);
   font-size: 0.7rem;
   color: #fff;
-  background: #1e3a5f;
-  border: 1px solid #2d5a8e;
+  background: #1565c0;
+  border: 1px solid #42a5f5;
   border-radius: 8px;
   text-shadow: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
@@ -2316,11 +2317,10 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 }
 .qt-vocab-tooltip-btn:hover { transform: scale(1.05); }
 .qt-vocab-hint {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 199;
+  position: relative;
+  z-index: 2;
+  width: fit-content;
+  max-width: 100%;
   background: linear-gradient(135deg, #6a5acd, #7c3aed);
   color: #fff;
   padding: 12px 24px;
@@ -2337,8 +2337,8 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 }
 .qt-vocab-hint-icon { font-size: 1.4rem; }
 @keyframes vocab-hint-slide {
-  0% { transform: translateX(-50%) translateY(60px); opacity: 0; }
-  100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+  0% { transform: translateY(-12px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
 }
 .qt-vocab-tooltip-saved {
   background: #66bb6a;
