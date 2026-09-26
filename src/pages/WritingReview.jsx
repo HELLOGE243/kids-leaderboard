@@ -351,9 +351,15 @@ function WritingReview({ orgId, teacherId, onBack }) {
 
   function renderAnnotatedText(html) {
     const plain = stripHtml(html)
-    if (!annotations.length) return <div className="wr-annotated-text">{plain}</div>
+    // While a tool is open the chosen words stay marked, whatever the browser
+    // does with the live selection.
+    const pending = popup && popup.type === 'selection' && popup.endOffset > popup.startOffset
+      ? { id: '__pending', action: 'pending', startOffset: popup.startOffset, endOffset: popup.endOffset }
+      : null
+    const all = pending ? [...annotations, pending] : annotations
+    if (!all.length) return <div className="wr-annotated-text">{plain}</div>
 
-    const sorted = [...annotations].sort((a, b) => a.startOffset - b.startOffset)
+    const sorted = [...all].sort((a, b) => a.startOffset - b.startOffset)
     const parts = []
     let cursor = 0
 
@@ -363,7 +369,9 @@ function WritingReview({ orgId, teacherId, onBack }) {
         parts.push({ type: 'text', content: plain.slice(cursor, ann.startOffset) })
       }
 
-      if (ann.action === 'highlight') {
+      if (ann.action === 'pending') {
+        parts.push({ type: 'pending', content: plain.slice(ann.startOffset, ann.endOffset), id: ann.id })
+      } else if (ann.action === 'highlight') {
         parts.push({ type: 'highlight', content: plain.slice(ann.startOffset, ann.endOffset), color: ann.color, id: ann.id })
       } else if (ann.action === 'strikethrough') {
         parts.push({ type: 'strikethrough', content: plain.slice(ann.startOffset, ann.endOffset), id: ann.id })
@@ -387,6 +395,7 @@ function WritingReview({ orgId, teacherId, onBack }) {
         <div className="wr-annotated-text">
           {parts.map((p, i) => {
             if (p.type === 'text') return <span key={i}>{p.content}</span>
+            if (p.type === 'pending') return <span key={i} className="wr-mark-pending">{p.content}</span>
             if (p.type === 'highlight') return <mark key={i} className="wr-mark-highlight" style={{ backgroundColor: p.color + '33', borderBottomColor: p.color }}>{p.content}</mark>
             if (p.type === 'strikethrough') return <span key={i} className="wr-mark-strike">{p.content}</span>
             if (p.type === 'comment') {
@@ -572,7 +581,7 @@ function WritingReview({ orgId, teacherId, onBack }) {
             )}
 
             {popup && popup.step === 'choose' && (
-              <div className="wr-sel-popup" style={{ left: popup.x, top: popup.y }} onMouseDown={e => e.stopPropagation()}>
+              <div className="wr-sel-popup" style={{ left: popup.x, top: popup.y }} onMouseDown={e => { e.preventDefault(); e.stopPropagation() }}>
                 <button className="wr-sel-btn" onClick={() => applyFromPopup('strikethrough')}>Strikethrough</button>
                 <span className="wr-sel-divider" />
                 <button className="wr-sel-btn" onClick={() => setPopup(p => ({ ...p, step: 'input', action: 'comment' }))}>Comment</button>
@@ -582,7 +591,7 @@ function WritingReview({ orgId, teacherId, onBack }) {
             )}
 
             {popup && popup.step === 'ai-loading' && (
-              <div className="wr-sel-popup wr-sel-popup-ai" style={{ left: Math.max(0, popup.x - 60), top: popup.y }} onMouseDown={e => e.stopPropagation()}>
+              <div className="wr-sel-popup wr-sel-popup-ai" style={{ left: Math.max(0, popup.x - 60), top: popup.y }} onMouseDown={e => { e.preventDefault(); e.stopPropagation() }}>
                 <div className="wr-ai-annot-loading">
                   <span className="wr-ai-annot-spinner" />
                   <span>AI is thinking...</span>
@@ -591,7 +600,7 @@ function WritingReview({ orgId, teacherId, onBack }) {
             )}
 
             {popup && popup.step === 'ai-result' && aiAnnotResult && (
-              <div className="wr-sel-popup wr-sel-popup-ai" style={{ left: Math.max(0, popup.x - 100), top: popup.y }} onMouseDown={e => e.stopPropagation()}>
+              <div className="wr-sel-popup wr-sel-popup-ai" style={{ left: Math.max(0, popup.x - 100), top: popup.y }} onMouseDown={e => { e.preventDefault(); e.stopPropagation() }}>
                 {aiAnnotResult.comment && (
                   <div className="wr-ai-annot-row">
                     <span className="wr-ai-annot-label">Comment</span>
@@ -614,7 +623,7 @@ function WritingReview({ orgId, teacherId, onBack }) {
             )}
 
             {popup && popup.step === 'input' && (
-              <div className="wr-sel-popup wr-sel-popup-wide" style={{ left: Math.max(0, popup.x - 60), top: popup.y }} onMouseDown={e => e.stopPropagation()}>
+              <div className="wr-sel-popup wr-sel-popup-wide" style={{ left: Math.max(0, popup.x - 60), top: popup.y }} onMouseDown={e => { e.preventDefault(); e.stopPropagation() }}>
                 <span className="wr-sel-input-label">{popup.action === 'comment' ? 'Comment' : popup.action === 'insertion' ? 'Insert' : 'Correct'}</span>
                 <textarea className="wr-sel-input" value={popup.inputValue} onChange={e => { setPopup(p => ({ ...p, inputValue: e.target.value })); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }}
                   placeholder={popup.action === 'comment' ? 'Add comment...' : popup.action === 'insertion' ? 'Insert text here...' : 'Correct to...'}
