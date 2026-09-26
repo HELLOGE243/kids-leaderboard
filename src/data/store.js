@@ -2617,8 +2617,14 @@ export function getNewCourseCount(studentId) {
 
 // --- Homework Attempts ---
 
-function scoreOneQuestion(q, answer) {
+// The most a writing question can score: every rubric category out of 5.
+export const WRITING_MAX = 25
+
+function scoreOneQuestion(q, answer, writingMark) {
   const type = q.type || 'multiple-choice'
+  // A writing question is worth nothing until a teacher marks it, and its mark
+  // once given, so a marked paper's score is the whole paper.
+  if (type === 'free-writing') return writingMark ? (writingMark.totalScore || 0) : 0
   if (type === 'multiple-choice' || type === 'multi-description') return answer === q.correctIndex ? 1 : 0
   if (type === 'dropdown-cloze') {
     if (!Array.isArray(answer) || !q.blanks) return 0
@@ -2635,13 +2641,22 @@ function scoreOneQuestion(q, answer) {
   return 0
 }
 
-function totalMarksForQuestion(q) {
+function totalMarksForQuestion(q, writingMark) {
   const type = q.type || 'multiple-choice'
   if (type === 'dropdown-cloze') return q.blanks?.length || 1
   if (type === 'drag-drop' || type === 'drag-sentence' || type === 'drag-summary') return q.correctOrder?.length || 6
   if (type === 'multi-matching') return q.matchQuestions?.length || 1
-  if (type === 'free-writing') return 0
+  // Out of nothing until marked: an unmarked writing question must not drag a
+  // student's percentage down while it waits on a teacher.
+  if (type === 'free-writing') return writingMark ? WRITING_MAX : 0
   return 1
+}
+
+/** The teacher's mark for one writing question of one attempt, or null. */
+export function writingMarkFor(attemptId, questionIndex) {
+  return (loadData().writingMarks || []).find(
+    (m) => m.attemptId === attemptId && m.questionIndex === questionIndex
+  ) || null
 }
 
 function screenMeta(meta) {
@@ -4371,13 +4386,16 @@ export function saveWritingMark({ attemptId, questionIndex, studentId, quizSetId
     data.writingMarks.push(mark)
   }
   saveData(data)
+  // The mark is part of the student's score, not a note beside it.
+  applyWritingMarkToAttempt(attemptId, studentId)
   return mark
 }
 
-export function deleteWritingMark(attemptId, questionIndex) {
+export function deleteWritingMark(attemptId, questionIndex, studentId) {
   const data = loadData()
   data.writingMarks = data.writingMarks.filter(m => !(m.attemptId === attemptId && m.questionIndex === questionIndex))
   saveData(data)
+  if (studentId) applyWritingMarkToAttempt(attemptId, studentId)
 }
 
 export function getStudentWritingMarks(studentId) {
@@ -5067,10 +5085,52 @@ function rescoreAttempt(set, attempt) {
   let score = 0
   let total = 0
   set.questions.forEach((q, i) => {
-    score += scoreOneQuestion(q, attempt.answers?.[i])
-    total += totalMarksForQuestion(q)
+    const mark = (q.type || 'multiple-choice') === 'free-writing' ? writingMarkFor(attempt.id, i) : null
+    score += scoreOneQuestion(q, attempt.answers?.[i], mark)
+    total += totalMarksForQuestion(q, mark)
   })
   return { score, total }
+}
+
+/**
+ * True while a paper still holds writing nobody has marked. Used to hold back
+ * the score, the ranking and the class figures, which would all be wrong.
+ */
+export function attemptAwaitsMarking(quizSetId, studentId) {
+  const set = (loadData().importedQuizSets || []).find((s) => s.id === quizSetId)
+  if (!set) return false
+  const attempt = getStudentArray(studentId, 'homeworkAttempts').find((a) => a.quizSetId === quizSetId)
+  if (!attempt) return false
+  return set.questions.some((q, i) => (q.type || 'multiple-choice') === 'free-writing' && !writingMarkFor(attempt.id, i))
+}
+
+/**
+ * Folds a freshly given writing mark into the student's attempt, so the score
+ * reaches their results card, the class figures and the trial report without
+ * waiting for them to sign in again. The server's aggregate rebuilds itself
+ * from the student's document, so writing it here is enough.
+ * @returns {boolean} whether a score changed
+ */
+export function applyWritingMarkToAttempt(attemptId, studentId) {
+  if (!attemptId || !studentId) return false
+  const data = loadData()
+  for (const key of ['homeworkAttempts', 'homeworkRedos']) {
+    const attempt = getStudentArray(studentId, key).find((a) => a.id === attemptId)
+    if (!attempt) continue
+    const set = (data.importedQuizSets || []).find((s) => s.id === attempt.quizSetId)
+    if (!set) return false
+    const { score, total } = rescoreAttempt(set, attempt)
+    if (score === attempt.score && total === attempt.total) return false
+    mutateStudentArray(studentId, key, (arr) => {
+      const a = arr.find((x) => x.id === attemptId)
+      if (!a) return
+      a.score = score
+      a.total = total
+      a.markedAt = new Date().toISOString()
+    })
+    return true
+  }
+  return false
 }
 
 /**

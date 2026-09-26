@@ -26,6 +26,7 @@ import {
   getUnlockedModuleCount,
   refreshQuizSetFromCloud,
   quizResultsVisible,
+  attemptAwaitsMarking,
   getTrialCourseReport,
   getModuleDeadline,
   addDojoCard,
@@ -1159,8 +1160,9 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       }
 
       // A free-writing answer is marked by a teacher, so nothing about this
-      // paper's score, rank or class figures means anything yet.
-      const awaitingMarking = questions.some((qq) => (qq.type || 'multiple-choice') === 'free-writing')
+      // paper's score, rank or class figures means anything until they have.
+      // Once the mark is in, it is part of the score like any other question.
+      const awaitingMarking = attemptAwaitsMarking(takingQuiz.id, user.id)
 
       return <HwResults
         awaitingMarking={awaitingMarking}

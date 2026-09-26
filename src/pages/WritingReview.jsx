@@ -533,10 +533,6 @@ function WritingReview({ orgId, teacherId, onBack }) {
           {aiPreloadStatus === 'ready' && '🤖 AI Ready'}
           {aiPreloadStatus === 'error' && '🤖 AI Unavailable'}
         </span>
-        <div className="wr-top-bar-score">
-          <span className="wr-score-display" style={{ color: allScored ? SCORE_COLORS[Math.ceil(totalScore / 5)] : '#999' }}>{totalScore}</span>
-          <span className="wr-score-of">/25</span>
-        </div>
       </div>
 
       <div className="wr-marking-layout">
