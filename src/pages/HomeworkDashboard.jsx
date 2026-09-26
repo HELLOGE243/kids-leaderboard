@@ -47,6 +47,8 @@ import { resolveImages } from '../data/imageStore.js'
 import { parseVideoUrl } from '../utils/video.js'
 import { useScreenGuard } from '../utils/screenGuard.js'
 import ReportIssueModal from '../components/ReportIssueModal.jsx'
+import ClozeGapReview from '../components/ClozeGapReview.jsx'
+import ReviewHelp from '../components/ReviewHelp.jsx'
 import { checkExplanation, parseExplanation, generateWordDefinition, generateExplanation } from '../utils/aiChat.js'
 
 const TRIAL_INSTRUCTIONS = {
@@ -313,6 +315,9 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   const [reviewChats, setReviewChats] = useState({})
   // Questions already sent to the teacher, so the button can confirm itself.
   const [askedTeacher, setAskedTeacher] = useState(() => new Set())
+  // Draft explanations for matching sub-questions, kept out of state so typing
+  // does not re-render the whole review screen on every keystroke.
+  const mineDrafts = useRef({})
   function sendQuestionToTeacher(idx, question) {
     if (!takingQuiz || askedTeacher.has(idx)) return
     const cardId = addDojoCard(user.id, question, 'homework', takingQuiz.id, idx, { className: '', courseName: '', quizTitle: takingQuiz.friendlyTitle || '' })
@@ -1033,15 +1038,12 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
           setReviewChats({})
           setReviewTokensAwarded({})
         }
-        const mcqTypes = ['multiple-choice', 'multi-description']
-        const wrongMcqIdxs = questions.map((qq, i) => {
-          const t = qq.type || 'multiple-choice'
-          if (!mcqTypes.includes(t)) return -1
-          const ans = submittedResult.answers[i]
-          return isQuestionCorrect(qq, ans) ? -1 : i
-        }).filter(i => i !== -1)
-        const allMcqIdxs = questions.map((qq, i) => mcqTypes.includes(qq.type || 'multiple-choice') ? i : -1).filter(i => i !== -1)
-        const indices = wrongMcqIdxs.length > 0 ? wrongMcqIdxs : allMcqIdxs.length > 0 ? allMcqIdxs : questions.map((_, i) => i)
+        // Every question type is reviewable. This used to admit multiple choice
+        // only, which is why cloze, matching and drag questions never appeared.
+        const wrongIdxs = questions
+          .map((qq, i) => (isQuestionCorrect(qq, submittedResult.answers[i]) ? -1 : i))
+          .filter((i) => i !== -1)
+        const indices = wrongIdxs.length > 0 ? wrongIdxs : questions.map((_, i) => i)
         setReviewIndices(indices)
         const actualStart = (startQ !== undefined && indices.includes(startQ)) ? startQ : indices[0]
         setCurrentQ(actualStart)
@@ -1509,25 +1511,139 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
 
                 if (qType === 'dropdown-cloze') {
                   const blanks = q.blanks || []
-                  const correctCount = blanks.filter((b, i) => Array.isArray(picked) && picked[i] === b.correctIndex).length
+                  const answers = Array.isArray(picked) ? picked : []
+                  const correctCount = blanks.filter((b, i) => answers[i] === b.correctIndex).length
+                  const wrongGaps = blanks.map((b, i) => (answers[i] === b.correctIndex ? -1 : i)).filter((i) => i >= 0)
+                  const parts = (q.text || '').split('___')
+                  const plain = (html) => (html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+                  // The sentence around a gap, for the AI to explain against.
+                  const sentenceFor = (bi) => plain(`${parts[bi] || ''} ___ ${parts[bi + 1] || ''}`)
+                  // A gap behaves like a small multiple-choice question, which is
+                  // what both the explanation cache and the AI prompt expect.
+                  const gapQuestion = (bi) => ({
+                    id: q.id ? `${q.id}#g${bi}` : null,
+                    text: sentenceFor(bi),
+                    options: blanks[bi].options || [],
+                    correctIndex: blanks[bi].correctIndex,
+                  })
+                  const gapChatKey = (bi) => `${currentQ}:g${bi}`
+                  const gapDone = (bi) => {
+                    const gchat = reviewChats[gapChatKey(bi)] || {}
+                    const words = (blanks[bi].options || []).filter((w) => w && w.trim())
+                    return words.length > 0 && words.every((_, oi) => gchat.defs?.[oi]?.ok)
+                  }
+                  const allGapsDone = wrongGaps.length > 0 && wrongGaps.every(gapDone)
                   return <>
                     <div className="qt-review-scroll">
                     {q.prompt && <div className="qt-prompt-display" dangerouslySetInnerHTML={{ __html: q.prompt }} />}
                     <div className="qt-review-sub-score">{correctCount}/{blanks.length} blanks correct</div>
-                    <div className="qt-sub-review-list">
-                      {blanks.map((blank, bi) => {
-                        const studentPick = Array.isArray(picked) ? picked[bi] : -1
-                        const isRight = studentPick === blank.correctIndex
-                        return (
-                          <div key={bi} className={`qt-sub-review-row ${isRight ? 'qt-sub-correct' : 'qt-sub-wrong'}`}>
-                            <span className="qt-sub-review-label">Blank {bi + 1}:</span>
-                            <span className="qt-sub-review-icon">{isRight ? '✓' : '✗'}</span>
-                            {!isRight && <span className="qt-sub-review-picked">Your answer: {studentPick >= 0 ? (blank.options[studentPick] || '—') : 'Skipped'}</span>}
-                            <span className="qt-sub-review-correct">Correct: {blank.options[blank.correctIndex] || '—'}</span>
-                          </div>
-                        )
-                      })}
+                    <div className="qt-cloze-review-split">
+                      <div className="qt-cloze-review-left">
+                        <div className="qt-cloze-review-heading">The passage</div>
+                        <div className="qt-cloze-passage-text">
+                          {parts.map((part, pi) => (
+                            <span key={pi}>
+                              <span dangerouslySetInnerHTML={{ __html: part }} />
+                              {pi < parts.length - 1 && pi < blanks.length && (
+                                <span className={`qt-cloze-gapmark ${answers[pi] === blanks[pi].correctIndex ? 'is-right' : 'is-wrong'}`}>
+                                  <span className="qt-cloze-gapmark-num">{pi + 1}</span>
+                                  {blanks[pi].options[blanks[pi].correctIndex] || '—'}
+                                </span>
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="qt-cloze-review-right">
+                        <div className="qt-cloze-review-heading">Every gap, every choice</div>
+                        {blanks.map((blank, bi) => {
+                          const studentPick = answers[bi] ?? -1
+                          const isRight = studentPick === blank.correctIndex
+                          return (
+                            <div key={bi} className={`qt-cloze-gap-card ${isRight ? 'is-right' : 'is-wrong'}`}>
+                              <div className="qt-cloze-gap-card-head">
+                                <span className="qt-cloze-gap-card-num">Gap {bi + 1}</span>
+                                <span className="qt-cloze-gap-card-icon">{isRight ? '✓' : '✗'}</span>
+                              </div>
+                              <div className="qt-cloze-gap-options">
+                                {(blank.options || []).map((opt, oi) => {
+                                  if (!opt) return null
+                                  const isCorrect = oi === blank.correctIndex
+                                  const isYours = oi === studentPick && !isCorrect
+                                  return (
+                                    <span key={oi} className={`qt-cloze-gap-option${isCorrect ? ' is-correct' : ''}${isYours ? ' is-yours' : ''}`}>
+                                      {opt}
+                                      {isCorrect && <span className="qt-cloze-gap-tag">correct</span>}
+                                      {isYours && <span className="qt-cloze-gap-tag">your answer</span>}
+                                    </span>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
+                    {wrongGaps.length > 0 && (
+                      <div className="qt-cloze-review-help">
+                        <div className="qt-cloze-review-heading">
+                          Work through the gaps you missed
+                          <span className="qt-cloze-review-token">{allGapsDone ? '1 token earned ✓' : 'Define every word of each missed gap to earn 1 token'}</span>
+                        </div>
+                        {wrongGaps.map((bi) => {
+                          const key = gapChatKey(bi)
+                          const gchat = reviewChats[key] || {}
+                          const gq = gapQuestion(bi)
+                          const setChat = (next) => {
+                            const merged = { ...reviewChats, [key]: next }
+                            setReviewChats(merged)
+                            const everyGapDone = wrongGaps.every((gi) => {
+                              const cc = gi === bi ? next : (merged[gapChatKey(gi)] || {})
+                              const words = (blanks[gi].options || []).filter((w) => w && w.trim())
+                              return words.length > 0 && words.every((_, oi) => cc.defs?.[oi]?.ok)
+                            })
+                            let tokens = reviewTokensAwarded
+                            if (everyGapDone && !tokens[`chat-${currentQ}`]) {
+                              tokens = { ...tokens, [`chat-${currentQ}`]: true }
+                              addTokens(user.id, 1)
+                              setReviewTokensAwarded(tokens)
+                              setTokenPopup('+1 Token — every word defined!')
+                              setTimeout(() => setTokenPopup(null), 2000)
+                            }
+                            saveHomeworkReviewState(takingQuiz.id, user.id, { chats: merged, tokens })
+                          }
+                          const fetchFor = async (kind) => {
+                            const letterOf = (i) => String.fromCharCode(65 + i)
+                            const pickText = (src) => kind === 'wrong'
+                              ? ((answers[bi] >= 0 && src.options?.[letterOf(answers[bi])]) || src.general)
+                              : (src.general || src.options?.[letterOf(blanks[bi].correctIndex)])
+                            const shared = await getSharedExplanation(takingQuiz.id, gq, `${currentQ}g${bi}`)
+                            if (shared) {
+                              const got = pickText(shared)
+                              if (got) return got
+                            }
+                            const ai = await generateExplanation({ questionText: gq.text, options: gq.options, correctIndex: gq.correctIndex })
+                            saveSharedExplanation(takingQuiz.id, gq, `${currentQ}g${bi}`, ai)
+                            return pickText(ai)
+                          }
+                          return (
+                            <ClozeGapReview
+                              key={bi}
+                              gap={blanks[bi]}
+                              gapIndex={bi}
+                              sentence={sentenceFor(bi)}
+                              chat={gchat}
+                              onChange={setChat}
+                              studentPick={answers[bi] ?? -1}
+                              fetchWrong={() => fetchFor('wrong')}
+                              fetchConcept={() => fetchFor('concept')}
+                              onAskTeacher={() => sendQuestionToTeacher(currentQ, q)}
+                              asked={askedTeacher.has(currentQ)}
+                            />
+                          )
+                        })}
+                      </div>
+                    )}
                     </div>
                     {reviewStats}
                   </>
@@ -1584,25 +1700,137 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                 if (qType === 'multi-matching') {
                   const mqs = q.matchQuestions || []
                   const descs = q.descriptions || []
-                  const correctCount = mqs.filter((mq, i) => Array.isArray(picked) && picked[i] === mq.correctExtract).length
+                  const answers = Array.isArray(picked) ? picked : []
+                  const correctCount = mqs.filter((mq, i) => answers[i] === mq.correctExtract).length
+                  const extractLabel = (i) => `Extract ${String.fromCharCode(65 + i)}`
+                  const plain = (html) => (html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+                  const wrongOnes = mqs.map((mq, i) => (answers[i] === mq.correctExtract ? -1 : i)).filter((i) => i >= 0)
                   return <>
                     <div className="qt-review-scroll">
                     {q.prompt && <div className="qt-prompt-display" dangerouslySetInnerHTML={{ __html: q.prompt }} />}
                     <div className="qt-review-sub-score">{correctCount}/{mqs.length} matches correct</div>
-                    <div className="qt-sub-review-list">
-                      {mqs.map((mq, mi) => {
-                        const studentPick = Array.isArray(picked) ? picked[mi] : -1
-                        const isRight = studentPick === mq.correctExtract
-                        return (
-                          <div key={mi} className={`qt-sub-review-row ${isRight ? 'qt-sub-correct' : 'qt-sub-wrong'}`}>
-                            <span className="qt-sub-review-label" dangerouslySetInnerHTML={{ __html: mq.question }} />
-                            <span className="qt-sub-review-icon">{isRight ? '✓' : '✗'}</span>
-                            {!isRight && <span className="qt-sub-review-picked">Your answer: {studentPick >= 0 ? `Extract ${String.fromCharCode(65 + studentPick)}` : 'Skipped'}</span>}
-                            <span className="qt-sub-review-correct">Correct: {`Extract ${String.fromCharCode(65 + mq.correctExtract)}`}</span>
-                          </div>
-                        )
-                      })}
+                    <div className="qt-match-review-extracts">
+                      {descs.map((d, di) => (
+                        <details key={di} className="qt-match-extract">
+                          <summary>{extractLabel(di)}{d.title ? ` — ${plain(d.title)}` : ''}</summary>
+                          <div className="qt-desc-content" dangerouslySetInnerHTML={{ __html: d.content }} />
+                        </details>
+                      ))}
                     </div>
+                    {mqs.map((mq, mi) => {
+                      const studentPick = answers[mi] ?? -1
+                      const isRight = studentPick === mq.correctExtract
+                      const key = `${currentQ}:m${mi}`
+                      const mchat = reviewChats[key] || {}
+                      // Each statement is its own little question: which extract
+                      // it belongs to, and why the one they picked was not it.
+                      const subQuestion = {
+                        id: q.id ? `${q.id}#m${mi}` : null,
+                        text: `${plain(q.prompt)} ${plain(mq.question)}`.trim(),
+                        options: descs.map((d, di) => `${extractLabel(di)}: ${plain(d.content).slice(0, 400)}`),
+                        correctIndex: mq.correctExtract,
+                      }
+                      const setChat = (next) => {
+                        const merged = { ...reviewChats, [key]: next }
+                        setReviewChats(merged)
+                        saveHomeworkReviewState(takingQuiz.id, user.id, { chats: merged, tokens: reviewTokensAwarded })
+                      }
+                      const fetchFor = async (kind) => {
+                        const letterOf = (i) => String.fromCharCode(65 + i)
+                        const pickText = (src) => kind === 'wrong'
+                          ? ((studentPick >= 0 && src.options?.[letterOf(studentPick)]) || src.general)
+                          : (src.general || src.options?.[letterOf(mq.correctExtract)])
+                        const shared = await getSharedExplanation(takingQuiz.id, subQuestion, `${currentQ}m${mi}`)
+                        if (shared) {
+                          const got = pickText(shared)
+                          if (got) return got
+                        }
+                        const ai = await generateExplanation({ questionText: subQuestion.text, options: subQuestion.options, correctIndex: subQuestion.correctIndex })
+                        saveSharedExplanation(takingQuiz.id, subQuestion, `${currentQ}m${mi}`, ai)
+                        return pickText(ai)
+                      }
+                      async function submitMine(text) {
+                        const input = (text || '').trim()
+                        if (!input) return
+                        setChat({ ...mchat, panel: 'mine', step: 'checking', mine: input, feedback: '' })
+                        const result = await checkExplanation({
+                          questionText: subQuestion.text,
+                          correctAnswer: extractLabel(mq.correctExtract),
+                          officialExplanation: [mchat.help?.wrong, mchat.help?.concept].filter(Boolean).join(' '),
+                          studentReason: mchat.reason || '',
+                          studentExplanation: input,
+                        })
+                        if (result.coherent) {
+                          const doneChat = { ...mchat, panel: 'mine', step: 'done', mine: input, feedback: result.reply }
+                          const merged = { ...reviewChats, [key]: doneChat }
+                          setReviewChats(merged)
+                          let tokens = reviewTokensAwarded
+                          if (!tokens[`chat-${key}`]) {
+                            tokens = { ...tokens, [`chat-${key}`]: true }
+                            addTokens(user.id, 1)
+                            setReviewTokensAwarded(tokens)
+                            setTokenPopup('+1 Token — Great explanation!')
+                            setTimeout(() => setTokenPopup(null), 2000)
+                          }
+                          saveHomeworkReviewState(takingQuiz.id, user.id, { chats: merged, tokens })
+                        } else {
+                          setChat({ ...mchat, panel: 'mine', step: 'explain', mine: input, feedback: result.reply })
+                        }
+                      }
+                      return (
+                        <div key={mi} className={`qt-match-review-item ${isRight ? 'is-right' : 'is-wrong'}`}>
+                          <div className="qt-match-review-head">
+                            <span className="qt-match-review-num">{mi + 1}</span>
+                            <span className="qt-match-review-q" dangerouslySetInnerHTML={{ __html: mq.question }} />
+                            <span className="qt-match-review-icon">{isRight ? '✓' : '✗'}</span>
+                          </div>
+                          <div className="qt-match-review-answers">
+                            {!isRight && <span className="qt-sub-review-picked">You chose: {studentPick >= 0 ? extractLabel(studentPick) : 'Skipped'}</span>}
+                            <span className="qt-sub-review-correct">Correct: {extractLabel(mq.correctExtract)}</span>
+                          </div>
+                          {!isRight && (
+                            <ReviewHelp
+                              chat={mchat}
+                              onChange={setChat}
+                              wrongLabel="Why is my extract wrong?"
+                              conceptLabel="Why is this the answer?"
+                              mineLabel="Explain it yourself"
+                              fetchWrong={() => fetchFor('wrong')}
+                              fetchConcept={() => fetchFor('concept')}
+                              isDone={mchat.step === 'done'}
+                              onAskTeacher={() => sendQuestionToTeacher(currentQ, q)}
+                              asked={askedTeacher.has(currentQ)}
+                              compact
+                              renderMine={() => (
+                                <div className="qt-help-form">
+                                  <div className="qt-help-lead">Say in your own words why <b>{extractLabel(mq.correctExtract)}</b> is the one that matches this statement.</div>
+                                  {mchat.step === 'done' ? (
+                                    <>
+                                      {mchat.mine && <div className="qt-help-mine">{mchat.mine}</div>}
+                                      <div className="qt-help-feedback">{mchat.feedback || 'Nice work — token claimed.'}</div>
+                                    </>
+                                  ) : mchat.step === 'checking' ? (
+                                    <div className="qt-help-loading">Reading your explanation…</div>
+                                  ) : (
+                                    <>
+                                      {mchat.feedback && <div className="qt-help-feedback qt-help-feedback-retry">{mchat.feedback}</div>}
+                                      <textarea
+                                        className="qt-help-input"
+                                        rows={3}
+                                        defaultValue={mchat.mine || ''}
+                                        placeholder="Because the extract says…"
+                                        onChange={(e) => { mineDrafts.current[key] = e.target.value }}
+                                      />
+                                      <button className="qt-help-send" onClick={() => submitMine(mineDrafts.current[key] ?? mchat.mine)}>Submit explanation</button>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            />
+                          )}
+                        </div>
+                      )
+                    })}
                     </div>
                     {reviewStats}
                   </>

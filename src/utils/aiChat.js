@@ -84,6 +84,56 @@ function fallbackCheck(explanation, correctAnswer, officialExplanation) {
   return { coherent: true, reply: "Nice work! You clearly understand why that's the correct answer. Keep it up!" }
 }
 
+/**
+ * Marks a student's definition of one word from a cloze gap. Definitions are
+ * what a cloze question is really testing, so this is deliberately stricter
+ * than a spelling check and more forgiving than a dictionary match: the idea
+ * has to be right, the wording does not.
+ * @returns {Promise<{ok:boolean, reply:string}>}
+ */
+export async function checkDefinition({ word, context, studentDefinition }) {
+  const text = (studentDefinition || '').trim()
+  if (text.length < 3) return { ok: false, reply: 'Write a little more - what does the word actually mean?' }
+
+  const prompt = `A student aged 8-13 is defining a word from a cloze passage. Decide whether their definition shows they know what the word means.
+
+Word: "${word}"${context ? `
+The sentence it came from: "${context}"` : ''}
+Student's definition: "${text}"
+
+Accept it when the core meaning is right, even if the grammar, spelling or wording is childlike or imprecise. A synonym plus a little explanation is fine.
+Reject it when it is circular ("it means ${word}"), a guess, unrelated, copied from the sentence without saying what the word means, or so vague it shows nothing ("it's a thing", "good word").
+
+Reply with a JSON object only, no other text:
+{"ok": true/false, "reply": "one short sentence"}
+
+When ok is false, give a hint about the kind of meaning to aim for without stating the definition. Be warm and brief.`
+
+  try {
+    const res = await authedFetch('/api/claude/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 150,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    })
+    if (!res.ok) throw new Error(`API ${res.status}`)
+    const data = await res.json()
+    const raw = data.content?.[0]?.text || ''
+    const match = raw.match(/\{[\s\S]*\}/)
+    if (!match) throw new Error('no JSON')
+    const parsed = JSON.parse(match[0])
+    return { ok: !!parsed.ok, reply: parsed.reply || (parsed.ok ? 'That works.' : 'Try again.') }
+  } catch (e) {
+    console.error('[AI] checkDefinition failed:', e)
+    // Never block a student on an API failure: accept anything they clearly
+    // wrote themselves, and say so plainly.
+    return { ok: text.split(/\s+/).length >= 4, reply: text.split(/\s+/).length >= 4 ? 'Marked offline - accepted.' : 'Write a fuller sentence.' }
+  }
+}
+
 export function parseExplanation(exp) {
   if (!exp) return { general: '', options: {} }
   try {

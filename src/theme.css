@@ -5331,6 +5331,79 @@ a.qt-video-btn {
 .sr-selfmark-no { background: #78909c; }
 .sr-selfmark-no:hover { background: #607d8b; }
 
+/* ===== CLOZE REVIEW ===== */
+/* Passage on the left as the student saw it, every gap and every choice on the
+   right, so the two can be read against each other. */
+.qt-cloze-review-split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.qt-cloze-review-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #556; margin-bottom: 10px; }
+.qt-cloze-review-left, .qt-cloze-review-right { min-width: 0; }
+.qt-cloze-review-left .qt-cloze-passage-text { background: #fff; padding: 18px 20px; border: 1px solid #d6dee6; line-height: 2.1; font-size: 1.05rem; color: #222; }
+.qt-cloze-gapmark { display: inline-flex; align-items: baseline; gap: 6px; margin: 0 3px; padding: 2px 10px 2px 6px; border-radius: 3px; font-weight: 600; }
+.qt-cloze-gapmark.is-right { background: #e3f3e4; color: #1b5e20; }
+.qt-cloze-gapmark.is-wrong { background: #fdecea; color: #b71c1c; }
+.qt-cloze-gapmark-num { font-size: .7rem; font-weight: 700; opacity: .75; }
+
+.qt-cloze-gap-card { border: 1px solid #d6dee6; border-left-width: 5px; background: #fff; padding: 12px 14px; margin-bottom: 10px; }
+.qt-cloze-gap-card.is-right { border-left-color: #2e7d32; }
+.qt-cloze-gap-card.is-wrong { border-left-color: #c62828; }
+.qt-cloze-gap-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.qt-cloze-gap-card-num { font-size: .85rem; font-weight: 700; color: #1a1a2e; }
+.qt-cloze-gap-card-icon { font-size: 1.05rem; font-weight: 700; }
+.qt-cloze-gap-card.is-right .qt-cloze-gap-card-icon { color: #2e7d32; }
+.qt-cloze-gap-card.is-wrong .qt-cloze-gap-card-icon { color: #c62828; }
+.qt-cloze-gap-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.qt-cloze-gap-option { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid #d6dee6; background: #fafcfe; font-size: .95rem; color: #333; }
+.qt-cloze-gap-option.is-correct { border-color: #2e7d32; background: #edf7ee; color: #1b5e20; font-weight: 600; }
+.qt-cloze-gap-option.is-yours { border-color: #c62828; background: #fdecea; color: #b71c1c; }
+.qt-cloze-gap-tag { font-size: .65rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .8; }
+
+.qt-cloze-review-help { margin-top: 24px; }
+.qt-cloze-review-token { font-size: .72rem; font-weight: 700; text-transform: none; letter-spacing: 0; color: #e65100; background: #ffe0b2; padding: 4px 10px; }
+.qt-cloze-gap-review { border: 1px solid #d6dee6; border-top: 4px solid #c62828; background: #fff; padding: 14px 16px; margin-bottom: 16px; }
+.qt-cloze-gap-review-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
+.qt-cloze-gap-review-num { font-size: .9rem; font-weight: 700; color: #1a1a2e; }
+.qt-cloze-gap-review-picked { font-size: .92rem; color: #556; }
+.qt-cloze-gap-review-done { margin-left: auto; font-size: .75rem; font-weight: 700; color: #2e7d32; }
+
+.qt-cloze-defs { display: flex; flex-direction: column; gap: 10px; }
+.qt-cloze-defs-count { margin-left: 8px; font-size: .78rem; font-weight: 700; color: #e65100; }
+.qt-cloze-def-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.qt-cloze-def-row .qt-help-input { flex: 1 1 220px; min-height: 0; }
+.qt-cloze-def-row .qt-help-send { padding: 10px 18px; font-size: .95rem; }
+.qt-cloze-def-word { min-width: 120px; font-size: 1rem; font-weight: 700; color: #1a1a2e; }
+.qt-cloze-def-row.is-done .qt-cloze-def-word { color: #2e7d32; }
+.qt-cloze-def-saved { flex: 1; font-size: .95rem; color: #445; font-style: italic; }
+.qt-cloze-def-row .qt-help-feedback { flex: 1 1 100%; font-size: .9rem; }
+.qt-nopaste-note { flex: 1 1 100%; font-size: .78rem; color: #e65100; }
+
+/* ===== MULTIPLE MATCHING REVIEW ===== */
+.qt-match-review-extracts { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+.qt-match-extract { border: 1px solid #d6dee6; background: #fff; }
+.qt-match-extract > summary { padding: 10px 14px; font-size: .95rem; font-weight: 700; color: #1a1a2e; cursor: pointer; }
+.qt-match-extract[open] > summary { border-bottom: 1px solid #e3e9ef; }
+.qt-match-review-item { border: 1px solid #d6dee6; border-left-width: 5px; background: #fff; padding: 14px 16px; margin-bottom: 14px; }
+.qt-match-review-item.is-right { border-left-color: #2e7d32; }
+.qt-match-review-item.is-wrong { border-left-color: #c62828; }
+.qt-match-review-head { display: flex; align-items: flex-start; gap: 10px; }
+.qt-match-review-num { min-width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; background: #002147; color: #fff; font-size: .85rem; font-weight: 700; }
+.qt-match-review-q { flex: 1; font-size: 1.02rem; line-height: 1.6; color: #222; }
+.qt-match-review-icon { font-size: 1.1rem; font-weight: 700; }
+.qt-match-review-item.is-right .qt-match-review-icon { color: #2e7d32; }
+.qt-match-review-item.is-wrong .qt-match-review-icon { color: #c62828; }
+.qt-match-review-answers { display: flex; flex-wrap: wrap; gap: 14px; margin: 10px 0 4px 36px; font-size: .92rem; }
+
+/* Sub-question help sits inside a card, so it runs a little tighter. */
+.qt-help-compact { margin: 12px 0 0 36px; }
+.qt-help-compact .qt-help-btn { height: 58px; font-size: .95rem; padding-left: 40px; }
+.qt-help-compact .qt-help-step { font-size: 2.3rem; }
+.qt-help-compact .qt-help-panel { height: 200px; }
+.qt-cloze-gap-review .qt-help-compact { margin-left: 0; }
+
+@media (max-width: 900px) {
+  .qt-cloze-review-split { grid-template-columns: 1fr; }
+  .qt-match-review-answers, .qt-help-compact { margin-left: 0; }
+}
+
 .qb-timelimit { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px 2px 10px; border: 1px solid var(--accent); border-radius: 6px; white-space: nowrap; }
 .qb-timelimit-label { font-size: 0.55rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); }
 .qb-timelimit-input { width: 52px; font-size: 0.65rem; padding: 4px; text-align: center; }
