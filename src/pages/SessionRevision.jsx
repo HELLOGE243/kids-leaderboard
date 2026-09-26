@@ -70,6 +70,49 @@ function SessionRevision({ user, onComplete }) {
     setParticles(pts)
   }
 
+  // Cloze, matching and drag questions have no option list to click, so the
+  // card shows the answer and the student marks their own recall. Without this
+  // they appeared as an empty card with nothing to press.
+  function answerSummary(question) {
+    if (!question) return ''
+    const t = question.type || 'multiple-choice'
+    if (t === 'dropdown-cloze') {
+      return (question.blanks || [])
+        .map((b, i) => `${i + 1}. ${(b.options || [])[b.correctIndex] ?? '—'}`)
+        .join('   ')
+    }
+    if (t === 'drag-sentence' || t === 'drag-summary' || t === 'drag-drop') {
+      const opts = question.summaryOptions || []
+      return (question.correctOrder || [])
+        .map((oi, gi) => `Gap ${question.gapNumbers?.[gi] ?? gi + 1}: ${opts[oi] ?? '—'}`)
+        .join(' · ')
+    }
+    if (t === 'multi-matching') {
+      return (question.matchQuestions || [])
+        .map((m, i) => `${i + 1}. Extract ${String.fromCharCode(65 + (m.correctExtract ?? 0))}`)
+        .join('   ')
+    }
+    if (t === 'free-writing') return ''
+    return question.options?.[question.correctIndex] || ''
+  }
+
+  function handleSelfMark(knewIt) {
+    if (answered) return
+    setAnswered(true)
+    setResult(knewIt ? 'correct' : 'incorrect')
+    if (knewIt) {
+      setScore(s => s + 1)
+      setFeedbackMsg('Returned successfully')
+      setShowBurst(true)
+      spawnParticles()
+      playCorrectChime()
+      setTimeout(() => setShowBurst(false), 1800)
+    } else {
+      setFeedbackMsg('Kept in your revision deck')
+    }
+    recordCompulsoryRevisionAnswer(card.id, knewIt)
+  }
+
   function handleSubmit() {
     if (selected === -1 || answered) return
     const correct = selected === q.correctIndex
@@ -125,6 +168,7 @@ function SessionRevision({ user, onComplete }) {
     )
   }
 
+  const selfMarked = !(q?.options || []).some((o) => o && String(o).trim())
   const textHtml = resolvedHtml[q?.text] || q?.text || ''
   const promptHtml = resolvedHtml[q?.prompt] || q?.prompt || ''
   const hasPrompt = promptHtml && promptHtml.trim()
@@ -179,7 +223,19 @@ function SessionRevision({ user, onComplete }) {
                     <div className="qt-split-divider" />
                     <div className="qt-split-right">
                       {hasPrompt && <div className="qt-prompt-display"><RichText html={promptHtml} /></div>}
-                      {!hasPrompt && <div className="dojo-q-statement-label">Select your answer</div>}
+                      {!hasPrompt && <div className="dojo-q-statement-label">{selfMarked ? 'Recall the answer, then check yourself' : 'Select your answer'}</div>}
+                      {selfMarked ? (
+                        <div className="sr-selfmark">
+                          {answered ? (
+                            <div className="sr-selfmark-answer">
+                              <span className="sr-selfmark-label">Answer</span>
+                              <span className="sr-selfmark-text">{answerSummary(q) || 'Read your teacher’s notes on this one.'}</span>
+                            </div>
+                          ) : (
+                            <p className="sr-selfmark-hint">Work the answer out in your head first, then check it.</p>
+                          )}
+                        </div>
+                      ) : (
                       <div className="qt-options">
                         {(q?.options || []).map((opt, oi) => {
                           if (!opt) return null
@@ -197,6 +253,7 @@ function SessionRevision({ user, onComplete }) {
                           )
                         })}
                       </div>
+                      )}
                     </div>
                   </div>
                   <div className="qt-bottombar">
@@ -214,7 +271,14 @@ function SessionRevision({ user, onComplete }) {
                     </div>
                     <div className="qt-bottom-right">
                       {!answered ? (
-                        <button className="qt-submit-btn" disabled={selected === -1} onClick={handleSubmit}>Submit</button>
+                        selfMarked ? (
+                          <span className="sr-selfmark-actions">
+                            <button className="qt-submit-btn sr-selfmark-no" onClick={() => handleSelfMark(false)}>Still unsure</button>
+                            <button className="qt-submit-btn" onClick={() => handleSelfMark(true)}>I knew it</button>
+                          </span>
+                        ) : (
+                          <button className="qt-submit-btn" disabled={selected === -1} onClick={handleSubmit}>Submit</button>
+                        )
                       ) : (
                         <button className="qt-submit-btn" onClick={handleNext}>
                           {idx + 1 >= total ? 'See Results' : 'Next'}

@@ -252,6 +252,19 @@ function QuizDashboard({ user, onBack, initialNav }) {
     if (result) {
       const quizLabel = selectedTopic ? `${selectedTopic.name} Quiz ${activeQuiz.number}` : `Quiz ${activeQuiz.number}`
       sendBroadcast(`${user.name} finished ${quizLabel}`)
+      // Every wrong answer joins the revision deck. Homework has always done
+      // this; tests did not, so questions missed in a test - the ones most
+      // worth revising - never reached the daily five.
+      const cls = getClassesForStudent(user.id).find((c) => c.id === activeQuiz.classId) || null
+      ;(activeQuiz.questions || []).forEach((q, qi) => {
+        if (q.correctIndex !== finalAnswers[qi]) {
+          addDojoCard(user.id, q, 'quiz', activeQuiz.id, qi, {
+            className: cls?.name || '',
+            courseName: selectedTopic?.name || '',
+            quizTitle: quizLabel,
+          })
+        }
+      })
     }
   }
 
