@@ -1118,9 +1118,19 @@ async function percentileOf(quizId, studentId) {
 
 const ordinal = (n) => `${n}${['th', 'st', 'nd', 'rd'][(n % 100 > 10 && n % 100 < 14) || n % 10 > 3 ? 0 : n % 10]}`
 
-function courseForQuiz(courses, classIds, quizSetId) {
+/**
+ * A course can be limited to named students inside its class; no list means
+ * the whole class takes it. Mirrors courseIncludesStudent in src/data/store.js.
+ */
+function courseIncludesStudent(course, studentId) {
+  if (!Array.isArray(course.studentIds)) return true
+  return course.studentIds.includes(studentId)
+}
+
+function courseForQuiz(courses, classIds, quizSetId, studentId) {
   for (const c of courses) {
     if (!classIds.includes(c.classId)) continue
+    if (studentId && !courseIncludesStudent(c, studentId)) continue
     if ((c.modules || []).some((m) => (m.quizSetIds || []).includes(quizSetId))) return c
   }
   return null
@@ -1150,7 +1160,7 @@ async function queueAttemptAlerts(studentId, after, before) {
     const checkpoint = kind === 'checkpoint' ? (content.quizzes || []).find((q) => q.id === quizId) : null
     const topic = checkpoint ? (content.topics || []).find((t) => t.id === checkpoint.topicId) : null
     const title = checkpoint ? `${topic?.name || 'Checkpoint'} · Quiz ${checkpoint.number}` : (quizMeta.get(quizId)?.title || 'Quiz')
-    const course = kind === 'homework' ? courseForQuiz(content.courses || [], classIds, quizId) : null
+    const course = kind === 'homework' ? courseForQuiz(content.courses || [], classIds, quizId, studentId) : null
     const link = course ? `${APP_URL}/?report=${encodeURIComponent(course.id)}` : `${APP_URL}/?report=all`
     const score = `${a.score}/${a.total}${pct(a.score, a.total) != null ? ` (${pct(a.score, a.total)}%)` : ''}`
 
@@ -1209,7 +1219,7 @@ async function queueScheduledAlerts(now) {
     const weekly = []
     const queued = []
 
-    for (const course of courses.filter((c) => classIds.includes(c.classId))) {
+    for (const course of courses.filter((c) => classIds.includes(c.classId) && courseIncludesStudent(c, studentId))) {
       const start = starts.find((h) => h.courseId === course.id)
       if (!start) continue
       const startMs = new Date(start.startedDate).getTime()

@@ -215,6 +215,9 @@ function assignedQuizSetIds(data, studentId) {
   const ids = new Set()
   for (const course of data.courses || []) {
     if (!classIds.includes(course.classId)) continue
+    // A course can be limited to named students within the class; no list
+    // means the whole class takes it. Mirrors courseIncludesStudent in store.js.
+    if (Array.isArray(course.studentIds) && !course.studentIds.includes(studentId)) continue
     for (const mod of course.modules || []) for (const id of mod.quizSetIds || []) ids.add(id)
   }
   return [...ids]

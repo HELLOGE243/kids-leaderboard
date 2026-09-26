@@ -272,6 +272,7 @@ export async function syncStudentQuizSets(studentId) {
     .map(([id]) => id)
   for (const course of data.courses || []) {
     if (!classIds.includes(course.classId)) continue
+    if (!courseIncludesStudent(course, studentId)) continue
     for (const mod of course.modules || []) for (const id of mod.quizSetIds || []) ids.add(id)
   }
   for (const key of ['homeworkAttempts', 'homeworkRedos', 'homeworkProgress']) {
@@ -2251,12 +2252,60 @@ export function getAssignedQuizSetIds() {
   return ids
 }
 
+/**
+ * Whether a course is for this student.
+ *
+ * A course belongs to a class, and by default everyone in that class takes it.
+ * A teacher can narrow it to named students instead - `studentIds` on the
+ * course - for a stream, an extension group, or a catch-up set. No list at all
+ * means the whole class, so courses made before this existed keep working.
+ */
+export function courseIncludesStudent(course, studentId) {
+  if (!course) return false
+  if (!Array.isArray(course.studentIds)) return true
+  return course.studentIds.includes(studentId)
+}
+
 export function getCoursesForStudent(studentId) {
   const data = loadData()
   const studentClassIds = Object.entries(data.classes)
     .filter(([, cls]) => cls.studentIds.includes(studentId))
     .map(([id]) => id)
-  return (data.courses || []).filter((c) => studentClassIds.includes(c.classId))
+  return (data.courses || []).filter((c) => studentClassIds.includes(c.classId) && courseIncludesStudent(c, studentId))
+}
+
+/**
+ * The students taking a course: the named list if there is one, otherwise
+ * everyone on the class roll.
+ */
+export function getCourseStudentIds(courseId) {
+  const data = loadData()
+  const course = (data.courses || []).find((c) => c.id === courseId)
+  if (!course) return []
+  const roll = (data.classes[course.classId]?.studentIds) || []
+  if (!Array.isArray(course.studentIds)) return [...roll]
+  return roll.filter((id) => course.studentIds.includes(id))
+}
+
+/** True when the course is open to the whole class rather than a named list. */
+export function courseTakesWholeClass(courseId) {
+  const data = loadData()
+  const course = (data.courses || []).find((c) => c.id === courseId)
+  return !!course && !Array.isArray(course.studentIds)
+}
+
+/**
+ * Sets who takes a course. Passing null restores "everyone in the class",
+ * which is also what a new course starts as.
+ */
+export function setCourseStudentIds(courseId, studentIds) {
+  const data = loadData()
+  const course = (data.courses || []).find((c) => c.id === courseId)
+  if (!course) return null
+  if (studentIds === null) delete course.studentIds
+  else course.studentIds = [...new Set(studentIds)]
+  saveData(data)
+  return course
 }
 
 export function getNewCourseCount(studentId) {
@@ -2758,13 +2807,13 @@ export function getHomeworkWeeklyStats(classId, studentId) {
   const cls = data.classes[classId]
   if (!cls) return []
   const allAttempts = collectStudentArray('homeworkAttempts')
-  const classCourses = (data.courses || []).filter(c => c.classId === classId)
+  const classCourses = (data.courses || []).filter(c => c.classId === classId && courseIncludesStudent(c, studentId))
   const results = []
   for (const course of classCourses) {
     for (let mi = 0; mi < course.modules.length; mi++) {
       const mod = course.modules[mi]
       if (mod.quizSetIds.length === 0) continue
-      const studentScores = cls.studentIds.map(sid => {
+      const studentScores = cls.studentIds.filter(sid => courseIncludesStudent(course, sid)).map(sid => {
         const attempts = mod.quizSetIds.map(qsId =>
           allAttempts.find(a => a.quizSetId === qsId && a.studentId === sid)
         ).filter(Boolean)
@@ -2794,7 +2843,7 @@ export function getHomeworkOverviewForStudent(studentId, classId) {
   const data = loadData()
   const classCourses = (data.courses || []).filter(c => c.classId === classId)
   const results = []
-  for (const course of classCourses) {
+  for (const course of classCourses.filter(c => courseIncludesStudent(c, studentId))) {
     const start = (data.homeworkStarts || []).find(h => h.studentId === studentId && h.courseId === course.id)
     const moduleResults = course.modules.map((mod, i) => {
       const quizAttempts = mod.quizSetIds.map(qsId => {
@@ -2843,7 +2892,7 @@ export function getPendingHomeworkCount(studentId) {
   const studentClassIds = Object.entries(data.classes)
     .filter(([, cls]) => cls.studentIds.includes(studentId))
     .map(([id]) => id)
-  const courses = (data.courses || []).filter((c) => studentClassIds.includes(c.classId))
+  const courses = (data.courses || []).filter((c) => studentClassIds.includes(c.classId) && courseIncludesStudent(c, studentId))
   let pending = 0, overdue = 0
   for (const course of courses) {
     const unlocked = getUnlockedModuleCount(studentId, course.id)
@@ -2949,7 +2998,7 @@ export function getStudentFeedData(studentId) {
   const studentClassIds = Object.entries(data.classes)
     .filter(([, cls]) => cls.studentIds.includes(studentId))
     .map(([id]) => id)
-  const courses = (data.courses || []).filter(c => studentClassIds.includes(c.classId))
+  const courses = (data.courses || []).filter(c => studentClassIds.includes(c.classId) && courseIncludesStudent(c, studentId))
   const dueAssignments = []
   for (const course of courses) {
     let start = getHomeworkStart(studentId, course.id)

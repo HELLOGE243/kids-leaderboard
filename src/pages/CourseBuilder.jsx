@@ -16,6 +16,10 @@ import {
   getImportedQuizSet,
   getActiveTerm,
   getQuizFolders,
+  getCourseStudentIds,
+  setCourseStudentIds,
+  courseTakesWholeClass,
+  getStudentById,
 } from '../data/store.js'
 
 function CourseBuilder({ orgId, onBack, onEditQuiz }) {
@@ -31,6 +35,7 @@ function CourseBuilder({ orgId, onBack, onEditQuiz }) {
   const [newCourseName, setNewCourseName] = useState('')
   const [newCourseTerm, setNewCourseTerm] = useState('')
   const [editingCourse, setEditingCourse] = useState(null)
+  const [showEnrolment, setShowEnrolment] = useState(false)
   const [newModuleName, setNewModuleName] = useState('')
   const [activeModule, setActiveModule] = useState(null)
   const [confirmAction, setConfirmAction] = useState(null)
@@ -135,11 +140,90 @@ function CourseBuilder({ orgId, onBack, onEditQuiz }) {
             {course.image && (
               <img src={course.image} alt="" style={{ height: 36, borderRadius: 4, objectFit: 'cover' }} />
             )}
+            {(() => {
+              const roll = (cls?.studentIds) || []
+              const taking = getCourseStudentIds(course.id)
+              const everyone = courseTakesWholeClass(course.id)
+              return (
+                <button
+                  className="btn btn-outline btn-small"
+                  style={{ fontSize: '0.5rem', padding: '6px 12px' }}
+                  onClick={() => setShowEnrolment(true)}
+                  title="Choose which students in this class take this course"
+                >
+                  Students: {everyone ? `All (${roll.length})` : `${taking.length} of ${roll.length}`}
+                </button>
+              )
+            })()}
             <button className="btn-logout" onClick={() => { setEditingCourse(null); setActiveModule(null); setQuizSearch('') }}>
               Back to Courses
             </button>
           </div>
         </div>
+
+        {showEnrolment && (() => {
+          const roll = (cls?.studentIds) || []
+          const everyone = courseTakesWholeClass(course.id)
+          const taking = new Set(getCourseStudentIds(course.id))
+          const setTaking = (ids) => { setCourseStudentIds(course.id, ids); forceRefresh() }
+          return (
+            <div className="modal-overlay" onClick={() => setShowEnrolment(false)}>
+              <div className="card" style={{ maxWidth: 520, width: '92%', maxHeight: '86vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+                  <h2 className="pixel-heading" style={{ margin: 0, fontSize: '0.8rem' }}>Who takes {course.name}?</h2>
+                  <button className="btn btn-outline btn-small" style={{ fontSize: '0.5rem', padding: '4px 10px' }} onClick={() => setShowEnrolment(false)}>Close</button>
+                </div>
+                <div style={{ padding: '4px 4px 12px' }}>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                    <button
+                      className={`btn btn-small ${everyone ? '' : 'btn-outline'}`}
+                      style={{ fontSize: '0.5rem', padding: '6px 12px' }}
+                      onClick={() => setTaking(null)}
+                    >Everyone in this class</button>
+                    <button
+                      className={`btn btn-small ${everyone ? 'btn-outline' : ''}`}
+                      style={{ fontSize: '0.5rem', padding: '6px 12px' }}
+                      onClick={() => setTaking(roll)}
+                    >Choose students</button>
+                  </div>
+                  <p className="text-dim" style={{ fontSize: '0.7rem', marginBottom: 10 }}>
+                    {everyone
+                      ? 'Every student on the class roll sees this course, including anyone added later.'
+                      : 'Only the students ticked below see this course and download its quizzes.'}
+                  </p>
+                  {roll.length === 0 ? (
+                    <p className="text-dim" style={{ fontSize: '0.75rem' }}>No students on this class roll yet.</p>
+                  ) : (
+                    <div style={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {roll.map((sid) => {
+                        const s = getStudentById(sid)
+                        const on = everyone || taking.has(sid)
+                        return (
+                          <label
+                            key={sid}
+                            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 4, cursor: everyone ? 'default' : 'pointer', background: on ? 'rgba(233,69,96,0.08)' : 'transparent', opacity: everyone ? 0.65 : 1 }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={on}
+                              disabled={everyone}
+                              onChange={() => {
+                                const next = new Set(taking)
+                                if (next.has(sid)) next.delete(sid); else next.add(sid)
+                                setTaking([...next])
+                              }}
+                            />
+                            <span style={{ fontSize: '0.85rem' }}>{s ? `${s.firstName || ''} ${s.lastName || ''}`.trim() || s.name : sid}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        })()}
 
         <div style={{ display: 'flex', gap: 16, marginTop: 16, flex: 1, minHeight: 0 }}>
           {/* Left: Modules */}
@@ -400,6 +484,7 @@ function CourseBuilder({ orgId, onBack, onEditQuiz }) {
                   <th style={{ textAlign: 'left', fontSize: '0.7rem' }}>Course</th>
                   <th style={{ textAlign: 'center', width: 60, fontSize: '0.7rem' }}>Term</th>
                   <th style={{ textAlign: 'center', width: 80, fontSize: '0.7rem' }}>Modules</th>
+                  <th style={{ textAlign: 'center', width: 90, fontSize: '0.7rem' }}>Students</th>
                   <th style={{ textAlign: 'center', width: 120, fontSize: '0.7rem' }}>Action</th>
                 </tr>
               </thead>
@@ -419,6 +504,9 @@ function CourseBuilder({ orgId, onBack, onEditQuiz }) {
                       </select>
                     </td>
                     <td style={{ textAlign: 'center', fontSize: '0.8rem' }}>{c.modules.length}</td>
+                    <td style={{ textAlign: 'center', fontSize: '0.8rem', color: courseTakesWholeClass(c.id) ? 'var(--text-dim)' : 'var(--accent)' }}>
+                      {courseTakesWholeClass(c.id) ? 'All' : `${getCourseStudentIds(c.id).length} of ${(classes.find((x) => x.id === c.classId)?.studentIds || []).length}`}
+                    </td>
                     <td style={{ textAlign: 'center' }}>
                       <button
                         className="btn btn-outline btn-small"
