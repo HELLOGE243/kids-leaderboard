@@ -487,7 +487,15 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   useEffect(() => {
     setBannersVisible(true)
     const t = setTimeout(() => setBannersVisible(false), 3000)
-    return () => clearTimeout(t)
+    // A click anywhere means the student has started working: the banners have
+    // been read, or they are not wanted. Listening on the capture phase lets
+    // that first click do its own job as well.
+    const dismiss = () => setBannersVisible(false)
+    document.addEventListener('pointerdown', dismiss, { capture: true })
+    return () => {
+      clearTimeout(t)
+      document.removeEventListener('pointerdown', dismiss, { capture: true })
+    }
   }, [currentQ, reviewMode, takingQuiz])
 
   useEffect(() => { setStudentDescTab(0) }, [currentQ])
@@ -1483,39 +1491,19 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                       const questionText = (q.text || '').replace(/<[^>]*>/g, '')
                       const correctLetter = String.fromCharCode(65 + q.correctIndex)
                       const myLetter = picked != null && picked >= 0 ? String.fromCharCode(65 + picked) : null
-                      const open = chat.panel || null
                       const isDone = chat.step === 'done'
-                      const help = chat.help || {}
-                      // The token is for understanding, not for typing: a student reads why their
-                      // answer was wrong and what the right one is before they explain it back.
-                      const stepsRead = !!help.wrong && !!help.concept
-                      const mineLocked = !stepsRead && !isDone
-                      // Teacher-written explanations come first; the AI only fills the gaps.
-                      async function openHelp(kind) {
-                        if (open === kind) { updateChat({ ...chat, panel: null }); return }
-                        const written = kind === 'wrong'
-                          ? (myLetter ? exp.options?.[myLetter] : '')
-                          : (exp.general || exp.options?.[correctLetter])
-                        if (written || help[kind]) {
-                          updateChat({ ...chat, panel: kind, help: { ...help, [kind]: written || help[kind] } })
-                          return
-                        }
-                        updateChat({ ...chat, panel: kind, loading: kind })
-                        const pick = (src) => kind === 'wrong'
-                          ? ((myLetter && src.options?.[myLetter]) || src.general)
-                          : (src.general || src.options?.[correctLetter])
-                        // Another student may already have paid for this one.
+                      // The teacher's own explanation comes first; the AI only fills
+                      // the gap, and what it writes is shared with everyone else.
+                      async function openHelp() {
+                        const written = exp.general || exp.options?.[correctLetter]
+                        if (written) return written
+                        const pick = (src) => src.general || src.options?.[correctLetter]
                         const shared = await getSharedExplanation(takingQuiz.id, q, qIdx)
-                        let got = shared ? pick(shared) : ''
-                        if (!got) {
-                          const ai = await generateExplanation({ questionText, options: q.options, correctIndex: q.correctIndex })
-                          got = pick(ai)
-                          saveSharedExplanation(takingQuiz.id, q, qIdx, ai)
-                        }
-                        setReviewChats(prev => {
-                          const cur = prev[qIdx] || chat
-                          return { ...prev, [qIdx]: { ...cur, panel: kind, loading: null, help: { ...(cur.help || {}), [kind]: got || 'No explanation is available for this one yet — try Ask Teacher below.' } } }
-                        })
+                        const fromShared = shared ? pick(shared) : ''
+                        if (fromShared) return fromShared
+                        const ai = await generateExplanation({ questionText, options: q.options, correctIndex: q.correctIndex })
+                        saveSharedExplanation(takingQuiz.id, q, qIdx, ai)
+                        return pick(ai)
                       }
                       async function handleExplanationSubmit(e) {
                         e.preventDefault()
@@ -1535,25 +1523,15 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                         }
                       }
                       return (
-                        <div className="qt-help" onClick={e => e.stopPropagation()}>
-                          <div className="qt-help-row">
-                            <button className={`qt-help-btn qt-click-flash${open === 'wrong' ? ' is-open' : ''}`} onClick={() => openHelp('wrong')}><span className="qt-help-step" aria-hidden="true">1</span>Why did I get this wrong?</button>
-                            <button className={`qt-help-btn qt-click-flash${open === 'concept' ? ' is-open' : ''}`} onClick={() => openHelp('concept')}><span className="qt-help-step" aria-hidden="true">2</span>Explain this question</button>
-                            <button className={`qt-help-btn qt-help-btn-mine qt-click-flash${open === 'mine' ? ' is-open' : ''}${isDone ? ' is-done' : ''}${mineLocked ? ' is-locked' : ''}`} disabled={mineLocked} title={mineLocked ? 'Read 1 and 2 first' : ''} onClick={() => updateChat({ ...chat, panel: open === 'mine' ? null : 'mine', step: isDone ? 'done' : 'explain' })}>
-        <span className="qt-help-step" aria-hidden="true">3</span>
-                      {isDone ? 'Your explanation ✓' : 'I’ll explain it myself'}
-                              {!isDone && <span className="qt-help-bounty">{mineLocked ? 'Read 1 & 2 first' : '+1 token'}</span>}
-                            </button>
-                          </div>
-                          {open && open !== 'mine' && (
-                            <div className="qt-help-panel">
-                              {chat.loading === open
-                                ? <div className="qt-help-loading">Working it out…</div>
-                                : <div className="qt-help-text" dangerouslySetInnerHTML={{ __html: help[open] || '' }} />}
-                            </div>
-                          )}
-                          {open === 'mine' && (
-                            <div className="qt-help-panel">
+                        <ReviewHelp
+                          chat={chat}
+                          onChange={updateChat}
+                          fetchConcept={openHelp}
+                          isDone={isDone}
+                          onAskTeacher={() => sendQuestionToTeacher(qIdx, q)}
+                          asked={askedTeacher.has(qIdx)}
+                          renderMine={() => (
+                            <div className="qt-help-form">
                               <div className="qt-help-lead">Look at the correct answer — <b>{correctLetter}) {correctText}</b> — then say in your own words why it is right.</div>
                               {isDone ? (
                                 <>
@@ -1571,24 +1549,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                               )}
                             </div>
                           )}
-                          {(open || isDone) && (
-                            <div className="qt-help-follow">
-                              <span className="qt-help-follow-label">What happened?</span>
-                              {['Hard to understand', 'Silly mistake', 'Ran out of time', 'I guessed'].map((reason) => (
-                                <button
-                                  key={reason}
-                                  className={`qt-help-follow-btn${chat.reason === reason ? ' is-picked' : ''}`}
-                                  onClick={() => updateChat({ ...chat, reason })}
-                                >{reason}</button>
-                              ))}
-                              <button
-                                className={`qt-help-follow-btn qt-help-follow-ask${askedTeacher.has(qIdx) ? ' is-sent' : ''}`}
-                                disabled={askedTeacher.has(qIdx)}
-                                onClick={() => sendQuestionToTeacher(qIdx, q)}
-                              >{askedTeacher.has(qIdx) ? 'Sent to your teacher ✓' : 'I still don’t get it — ask my teacher'}</button>
-                            </div>
-                          )}
-                        </div>
+                        />
                       )
                     })()}
                     {q.prompt && <div className="qt-prompt-display" dangerouslySetInnerHTML={{ __html: q.prompt }} />}
@@ -1748,7 +1709,6 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                               chat={gchat}
                               onChange={setChat}
                               studentPick={answers[bi] ?? -1}
-                              fetchWrong={() => fetchFor('wrong')}
                               fetchConcept={() => fetchFor('concept')}
                               onAskTeacher={() => sendQuestionToTeacher(currentQ, q)}
                               asked={askedTeacher.has(currentQ)}
@@ -1905,10 +1865,9 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                             <ReviewHelp
                               chat={mchat}
                               onChange={setChat}
-                              wrongLabel="Why is my extract wrong?"
+                              wrongLabel="Why did I get this wrong?"
                               conceptLabel="Why is this the answer?"
                               mineLabel="Explain it yourself"
-                              fetchWrong={() => fetchFor('wrong')}
                               fetchConcept={() => fetchFor('concept')}
                               isDone={mchat.step === 'done'}
                               onAskTeacher={() => sendQuestionToTeacher(currentQ, q)}

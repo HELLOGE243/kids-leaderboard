@@ -3,9 +3,9 @@ import { useState } from 'react'
 /**
  * The three-step help a student works through on a question they got wrong:
  *
- *   1. Why did I get this wrong?   - the explanation for the answer they chose
+ *   1. Why did I get this wrong?   - the student says what happened, in one click
  *   2. Explain this question       - the explanation for the right answer
- *   3. their own turn              - locked until 1 and 2 have been read
+ *   3. their own turn              - locked until 1 and 2 are done
  *
  * Step 3 is left to the caller (`renderMine`), because what earns the token
  * differs by question type: a multiple-choice question asks for an explanation
@@ -29,10 +29,10 @@ function ReviewHelp({
   onChange,
   wrongLabel = 'Why did I get this wrong?',
   conceptLabel = 'Explain this question',
+  reasonPrompt = 'What happened on this one?',
   mineLabel = 'I’ll explain it myself',
   mineDoneLabel = 'Your explanation ✓',
   bountyLabel = '+1 token',
-  fetchWrong,
   fetchConcept,
   renderMine,
   isDone = false,
@@ -42,35 +42,23 @@ function ReviewHelp({
 }) {
   const open = chat.panel || null
   const help = chat.help || {}
-  const stepsRead = !!help.wrong && !!help.concept
+  // Step 1 is done the moment they say what happened; step 2 when the
+  // explanation has been opened.
+  const stepsRead = !!chat.reason && !!help.concept
   const mineLocked = !stepsRead && !isDone
 
   async function openHelp(kind) {
     if (open === kind) { onChange({ ...chat, panel: null }); return }
-    // Step 1 asks the student to say what happened first; the explanation of
-    // their own answer follows once they have. Step 2 explains straight away.
-    if (kind === 'wrong' && !chat.reason) { onChange({ ...chat, panel: 'wrong' }); return }
+    // Step 1 is the student's own answer about themselves - nothing to fetch.
+    if (kind === 'wrong') { onChange({ ...chat, panel: 'wrong' }); return }
     if (help[kind]) { onChange({ ...chat, panel: kind }); return }
     onChange({ ...chat, panel: kind, loading: kind })
-    const text = kind === 'wrong' ? await fetchWrong() : await fetchConcept()
+    const text = await fetchConcept()
     onChange({
       ...chat,
       panel: kind,
       loading: null,
       help: { ...help, [kind]: text || 'No explanation is available for this one yet — try Ask Teacher.' },
-    })
-  }
-
-  // Picking a reason opens the explanation of the answer they gave.
-  async function pickReason(reason) {
-    const next = { ...chat, reason, panel: 'wrong' }
-    if (help.wrong) { onChange(next); return }
-    onChange({ ...next, loading: 'wrong' })
-    const text = await fetchWrong()
-    onChange({
-      ...next,
-      loading: null,
-      help: { ...help, wrong: text || 'No explanation is available for this one yet — try Ask Teacher.' },
     })
   }
 
@@ -97,21 +85,17 @@ function ReviewHelp({
 
       {open === 'wrong' && (
         <div className="qt-help-panel">
-          <div className="qt-help-lead">What happened on this one?</div>
+          <div className="qt-help-lead">{reasonPrompt}</div>
           <div className="qt-help-reasons">
             {REASONS.map((reason) => (
               <button
                 key={reason}
                 className={`qt-help-reason${chat.reason === reason ? ' is-picked' : ''}`}
-                onClick={() => pickReason(reason)}
+                onClick={() => onChange({ ...chat, reason, panel: 'wrong' })}
               >{reason}</button>
             ))}
           </div>
-          {chat.loading === 'wrong'
-            ? <div className="qt-help-loading">Working it out…</div>
-            : help.wrong
-              ? <div className="qt-help-text qt-help-text-after" dangerouslySetInnerHTML={{ __html: help.wrong }} />
-              : null}
+          {chat.reason && <div className="qt-help-reason-done">Noted — now open step 2 to see why the right answer is right.</div>}
         </div>
       )}
 

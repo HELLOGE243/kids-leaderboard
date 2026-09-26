@@ -10,7 +10,7 @@ import { checkDefinition } from '../utils/aiChat.js'
  * gap, typed out rather than pasted. The gap is finished only when all of them
  * pass, and the question's token is awarded once every wrong gap is finished.
  */
-function ClozeGapReview({ gap, gapIndex, sentence, chat, onChange, studentPick, fetchWrong, fetchConcept, onAskTeacher, asked }) {
+function ClozeGapReview({ gap, gapIndex, sentence, chat, onChange, studentPick, fetchConcept, onAskTeacher, asked }) {
   const [drafts, setDrafts] = useState({})
   const [checking, setChecking] = useState(null)
 
@@ -79,12 +79,11 @@ function ClozeGapReview({ gap, gapIndex, sentence, chat, onChange, studentPick, 
       <ReviewHelp
         chat={chat}
         onChange={onChange}
-        wrongLabel="Why is my word wrong?"
+        wrongLabel="Why did I get this wrong?"
         conceptLabel="Explain the right word"
         mineLabel="Define every word"
         mineDoneLabel="Words defined ✓"
         bountyLabel={`${words.length} words`}
-        fetchWrong={fetchWrong}
         fetchConcept={fetchConcept}
         renderMine={renderMine}
         isDone={isDone}
