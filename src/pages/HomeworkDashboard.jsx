@@ -2409,7 +2409,16 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       <div className="hw-page">
         <div className="header">
           <div>
-            <h1 className="pixel-title">{course.name}</h1>
+            <div className="hw-course-title-row">
+              <h1 className="pixel-title">{course.name}</h1>
+              {/* The report is the point of a released trial, so it sits with the
+                  course's name rather than off among the navigation. */}
+              {course.trialTest && course.resultsReleased && (
+                <button className="hw-trial-report-btn" onClick={() => setShowTrialReport(true)}>
+                  View trial report
+                </button>
+              )}
+            </div>
             {cls && <p style={{ fontSize: '0.8rem', color: 'var(--accent)', marginTop: 2 }}>Class: <strong>{cls.name}</strong></p>}
             {course.trialTest && (
               <p style={{ fontSize: '0.75rem', color: course.resultsReleased ? 'var(--success)' : 'var(--token)', marginTop: 4 }}>
@@ -2420,11 +2429,6 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
             )}
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {course.trialTest && course.resultsReleased && (
-              <button className="btn btn-small" style={{ padding: '8px 14px' }} onClick={() => setShowTrialReport(true)}>
-                View trial report
-              </button>
-            )}
             <button className="btn-logout" onClick={() => { setActiveCourse(null); setActiveModuleId(null) }}>
               Back to Courses
             </button>

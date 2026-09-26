@@ -40,7 +40,10 @@
         background: linear-gradient(90deg, #ffd400 0%, #c6e600 45%, #22c55e 100%); }
       .boot-bar-fill::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent);
         transform: translateX(-100%); animation: boot-shine 1.6s ease-in-out infinite; }
-      .boot-text { font-family: 'Press Start 2P', monospace; font-size: .55rem; letter-spacing: .3em; text-transform: uppercase; color: #a0a0b0; margin-top: -8px; }
+      /* The caption rides on the bar, so it has to read against the yellow and
+         green fill as well as the empty track: dark ink with a light halo. */
+      .boot-text { position: relative; z-index: 2; margin-top: -15px; font-family: 'Press Start 2P', monospace; font-size: .5rem; letter-spacing: .28em;
+        text-transform: uppercase; color: #06240f; text-shadow: 0 1px 0 rgba(255, 255, 255, .65), 0 0 6px rgba(255, 255, 255, .45); }
       /* Races ahead, then slows near the end: it never claims "done" before the app is ready. */
       @keyframes boot-progress { 0% { width: 0; } 20% { width: 45%; } 50% { width: 72%; } 100% { width: 94%; } }
       @keyframes boot-shine { to { transform: translateX(100%); } }

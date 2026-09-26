@@ -6026,17 +6026,39 @@ a.qt-video-btn {
   flex-direction: column;
   gap: 10px;
 }
+/* Labels read "Average" and "Highest" and values read "20 / 25", so both
+   columns need room: at 36px each they ran into the bar between them. */
+.hw-course-title-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+/* Violet, so it reads as its own thing beside the course name rather than as
+   another navigation button. */
+.hw-trial-report-btn {
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  letter-spacing: .04em;
+  padding: 10px 18px;
+  border-radius: 6px;
+  border: 2px solid #b39ddb;
+  background: linear-gradient(180deg, #7c3aed, #5b21b6);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, .35);
+  transition: transform .12s, box-shadow .12s;
+}
+.hw-trial-report-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 0 rgba(0, 0, 0, .35); }
+.hw-trial-report-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 rgba(0, 0, 0, .35); }
+
 .hw-res-bar-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 .hw-res-bar-label {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-dim);
-  width: 36px;
+  width: 68px;
   text-align: right;
+  white-space: nowrap;
   flex-shrink: 0;
 }
 .hw-res-bar-track {
@@ -6069,8 +6091,9 @@ a.qt-video-btn {
 .hw-res-bar-val {
   font-size: 0.8rem;
   font-weight: 600;
-  width: 36px;
+  min-width: 72px;
   text-align: left;
+  white-space: nowrap;
   flex-shrink: 0;
 }
 
