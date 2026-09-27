@@ -351,6 +351,82 @@ export async function ensureQuizSetsLoaded(ids) {
 }
 
 // ------------------------------------------------------------
+// The submission archive
+//
+// Answers live in the student's own document, which is rewritten whole on every
+// save. That is one document between a paper and oblivion, so every submission
+// is also written here as its own record, and work in progress is snapshotted
+// while the paper is open. Rules allow a student to create their own and nobody
+// to change one afterwards.
+// ------------------------------------------------------------
+const SUBMISSIONS_COLLECTION = 'submissions'
+const DRAFTS_COLLECTION = 'attemptDrafts'
+
+/**
+ * Files a submitted paper. Never throws: a failure here must not stop a student
+ * handing in, and the copy in their own document still stands.
+ * @returns {Promise<boolean>} whether the record was written
+ */
+export async function archiveSubmission(record) {
+  if (!record?.id || !record?.studentId) return false
+  try {
+    await setDoc(doc(db, SUBMISSIONS_COLLECTION, String(record.id)), packNested({
+      ...record,
+      archivedAt: new Date().toISOString(),
+    }))
+    return true
+  } catch (e) {
+    console.error('Firestore: could not archive submission:', e)
+    return false
+  }
+}
+
+/** Every archived submission, newest first. Teachers only, by the rules. */
+export async function loadArchivedSubmissions() {
+  try {
+    const snap = await getDocs(collection(db, SUBMISSIONS_COLLECTION))
+    return snap.docs
+      .map((d) => unpackNested(d.data()))
+      .sort((a, b) => String(b.archivedAt || '').localeCompare(String(a.archivedAt || '')))
+  } catch (e) {
+    console.warn('Firestore: could not read the submission archive:', e)
+    return []
+  }
+}
+
+/**
+ * Snapshots a paper in progress. Called every few seconds while a student
+ * works, so a closed tab costs nothing. One document per student per quiz,
+ * overwritten each time.
+ */
+export async function saveAttemptDraft(studentId, quizSetId, draft) {
+  if (!studentId || !quizSetId) return false
+  try {
+    await setDoc(doc(db, DRAFTS_COLLECTION, `${studentId}_${quizSetId}`), packNested({
+      studentId: String(studentId),
+      quizSetId: String(quizSetId),
+      ...draft,
+      savedAt: new Date().toISOString(),
+    }))
+    return true
+  } catch (e) {
+    console.warn('Firestore: could not save the attempt draft:', e)
+    return false
+  }
+}
+
+/** Drafts for papers that are open or were never handed in. Teachers only. */
+export async function loadAttemptDrafts() {
+  try {
+    const snap = await getDocs(collection(db, DRAFTS_COLLECTION))
+    return snap.docs.map((d) => unpackNested(d.data()))
+  } catch (e) {
+    console.warn('Firestore: could not read attempt drafts:', e)
+    return []
+  }
+}
+
+// ------------------------------------------------------------
 // Shared AI explanations
 //
 // Explanations the AI writes during review are worth generating once for the

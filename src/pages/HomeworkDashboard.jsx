@@ -25,6 +25,7 @@ import {
   getHomeworkStart,
   startHomeworkCourse,
   getUnlockedModuleCount,
+  snapshotAttempt,
   refreshQuizSetFromCloud,
   quizResultsVisible,
   attemptAwaitsMarking,
@@ -750,6 +751,26 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   }
 
   doSubmitRef.current = doSubmit
+
+  // A paper in progress is snapshotted to its own document every ten seconds
+  // and whenever an answer changes, so a closed tab, a flat battery or a crash
+  // costs a student nothing. Quiet on failure: this is a safety net, not a
+  // thing to interrupt a test for.
+  useEffect(() => {
+    if (!takingQuiz || !quizStartTime || submittedResult) return undefined
+    let stopped = false
+    const save = () => {
+      if (stopped) return
+      snapshotAttempt(user.id, takingQuiz.id, quizAnswers, questionTimes.current, {
+        quizTitle: takingQuiz.friendlyTitle || takingQuiz.rawTitle || '',
+        startedAt: new Date(quizStartTime).toISOString(),
+        screenLeaves: screenLeaves.current,
+      })
+    }
+    const t = setTimeout(save, 1200)
+    const interval = setInterval(save, 10000)
+    return () => { stopped = true; clearTimeout(t); clearInterval(interval) }
+  }, [takingQuiz, quizStartTime, submittedResult, quizAnswers, user.id])
 
   useEffect(() => {
     const inProgress = !!(takingQuiz && quizStartTime && !submittedResult)

@@ -24,7 +24,7 @@
 import { extractAndStoreImages, findImageRefs, deleteImages } from './imageStore.js'
 import { pickSolutionVideo } from '../utils/video.js'
 import { planImport, applyAiSplit, mergeCloze, describeCoverage } from '../utils/cleverspaceImport.js'
-import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, deleteStudentFirestore, ensureQuizSetsLoaded, refreshQuizSet, loadAiExplanations, saveAiExplanation, deleteAiExplanations, clearAiExplanationCache, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
+import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, deleteStudentFirestore, ensureQuizSetsLoaded, refreshQuizSet, loadAiExplanations, saveAiExplanation, deleteAiExplanations, clearAiExplanationCache, archiveSubmission, saveAttemptDraft, loadArchivedSubmissions, loadAttemptDrafts, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
 
 export { onDataChange, onBroadcast, sendBroadcast, loadContacts }
 
@@ -1499,6 +1499,7 @@ export function submitQuizAttempt(quizId, studentId, answers, questionTimes, met
   const term = orgId ? (data.organisations[orgId]?.activeTerm || null) : null
   const attempt = { id, quizId, studentId, answers, score, total: quiz.questions.length, date: new Date().toISOString(), questionTimes: questionTimes || [], term, orgId, ...screenMeta(meta) }
   mutateStudentArray(studentId, 'quizAttempts', (arr) => arr.push(attempt))
+  archiveAttempt({ ...attempt, quizSetId: quizId }, quiz, 'checkpoint')
   return attempt
 }
 
@@ -2733,6 +2734,98 @@ function screenMeta(meta) {
   return { screenLeaves: meta.screenLeaves || 0, lockedOut: !!meta.lockedOut }
 }
 
+/**
+ * Writes a paper to the archive as it was handed in, alongside the copy in the
+ * student's own document.
+ *
+ * The answer key is recorded with it: a paper marked today should still be
+ * checkable in a month, after the quiz has been edited. Fire and forget - a
+ * student is never held up by it.
+ */
+function archiveAttempt(attempt, set, kind) {
+  try {
+    archiveSubmission({
+      id: attempt.id,
+      kind,
+      studentId: String(attempt.studentId),
+      studentName: fullName(getStudentById(attempt.studentId) || {}) || '',
+      quizSetId: attempt.quizSetId,
+      quizTitle: set?.friendlyTitle || set?.rawTitle || '',
+      answers: attempt.answers || [],
+      questionTimes: attempt.questionTimes || [],
+      score: attempt.score,
+      total: attempt.total,
+      date: attempt.date,
+      term: attempt.term || null,
+      orgId: attempt.orgId || null,
+      screenLeaves: attempt.screenLeaves || 0,
+      lockedOut: !!attempt.lockedOut,
+      // The paper as it stood when they sat it.
+      questionIds: (set?.questions || []).map((q) => q.id || null),
+      answerKey: (set?.questions || []).map((q) => ({
+        type: q.type || 'multiple-choice',
+        correctIndex: q.correctIndex ?? null,
+        blanks: (q.blanks || []).map((b) => b.correctIndex),
+        correctOrder: q.correctOrder || null,
+        match: (q.matchQuestions || []).map((m) => m.correctExtract),
+      })),
+    })
+  } catch (e) {
+    console.warn('store: could not archive the submission:', e)
+  }
+}
+
+/**
+ * Snapshots a paper in progress to its own document, so a closed tab, a flat
+ * battery or a crash does not cost a student their answers.
+ */
+export function snapshotAttempt(studentId, quizSetId, answers, questionTimes, extra = {}) {
+  return saveAttemptDraft(studentId, quizSetId, {
+    answers: answers || [],
+    questionTimes: questionTimes || [],
+    ...extra,
+  })
+}
+
+/** Everything the archive holds, newest first. Teacher tools only. */
+export function getArchivedSubmissions() {
+  return loadArchivedSubmissions()
+}
+
+/** Papers that were open but never handed in. */
+export function getAttemptDrafts() {
+  return loadAttemptDrafts()
+}
+
+/**
+ * Puts an archived paper back into a student's record, for the day a paper
+ * goes missing from their document. Leaves an existing attempt alone.
+ * @returns {boolean} whether anything was restored
+ */
+export function restoreArchivedSubmission(record) {
+  if (!record?.studentId || !record?.quizSetId) return false
+  const existing = getStudentArray(record.studentId, 'homeworkAttempts')
+  if (existing.some((a) => a.id === record.id || a.quizSetId === record.quizSetId)) return false
+  mutateStudentArray(record.studentId, 'homeworkAttempts', (arr) => {
+    arr.push({
+      id: record.id,
+      quizSetId: record.quizSetId,
+      studentId: String(record.studentId),
+      answers: record.answers || [],
+      questionTimes: record.questionTimes || [],
+      score: record.score ?? 0,
+      total: record.total ?? 0,
+      date: record.date || new Date().toISOString(),
+      term: record.term || null,
+      orgId: record.orgId || null,
+      screenLeaves: record.screenLeaves || 0,
+      lockedOut: !!record.lockedOut,
+      restoredAt: new Date().toISOString(),
+    })
+  })
+  return true
+}
+
 export function submitHomeworkAttempt(quizSetId, studentId, answers, questionTimes, meta = {}) {
   const existing = getStudentArray(studentId, 'homeworkAttempts').find(a => a.quizSetId === quizSetId)
   if (existing) return null
@@ -2752,6 +2845,7 @@ export function submitHomeworkAttempt(quizSetId, studentId, answers, questionTim
   const writingPending = set.questions.filter((q) => (q.type || 'multiple-choice') === 'free-writing').length
   const attempt = { id, quizSetId, studentId, answers, score, total, writingPending, questionTimes: questionTimes || [], date: new Date().toISOString(), term, orgId, ...screenMeta(meta) }
   mutateStudentArray(studentId, 'homeworkAttempts', (arr) => arr.push(attempt))
+  archiveAttempt(attempt, set, 'homework')
   return attempt
 }
 
@@ -2961,6 +3055,7 @@ export function submitHomeworkRedo(quizSetId, studentId, answers, questionTimes,
   const term = orgId ? (data.organisations[orgId]?.activeTerm || null) : null
   const attempt = { id, quizSetId, studentId, answers, score, total, questionTimes: questionTimes || [], date: new Date().toISOString(), term, orgId, ...screenMeta(meta) }
   mutateStudentArray(studentId, 'homeworkRedos', (arr) => arr.push(attempt))
+  archiveAttempt(attempt, set, 'redo')
   return attempt
 }
 

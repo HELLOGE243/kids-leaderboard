@@ -14,6 +14,7 @@ const FUNCTIONS_BASE = 'https://australia-southeast1-cleverspacev2.cloudfunction
 import NewsfeedManager from './NewsfeedManager.jsx'
 import ClassDashboard from './ClassDashboard.jsx'
 import AdminTeacherPanel from '../components/AdminTeacherPanel.jsx'
+import SubmissionArchive from '../components/SubmissionArchive.jsx'
 import '../teacher-dashboard.css'
 import { uploadImage } from '../data/imageStore.js'
 import '../teacher-fonts.css'
@@ -945,6 +946,15 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                 />
               </details>
             )}
+            <details className="td2-card" style={{ marginTop: 16 }}>
+              <summary className="td2-h2">Submission archive · recovery</summary>
+              <p className="td2-muted td2-small" style={{ margin: '8px 0 12px' }}>
+                Every paper as it was handed in, kept apart from the students' own records. Nothing here
+                can be changed or deleted, by anyone. Use it to check a mark, to take a copy before a
+                sitting, or to put a paper back if one goes missing.
+              </p>
+              <SubmissionArchive />
+            </details>
           </>
         )}
       </main>

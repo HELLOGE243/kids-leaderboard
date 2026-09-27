@@ -86,6 +86,25 @@ service cloud.firestore {
       allow delete: if isTeacher();
     }
 
+    // --- The submission archive -------------------------------------------
+    // A written record of every paper as it was handed in, kept apart from the
+    // student's own document so that a bad write, a bug or a deletion there
+    // cannot take the answers with it. A student writes their own and nobody -
+    // teacher included - may change or remove one afterwards.
+    match /submissions/{submissionId} {
+      allow read: if isTeacher() || (signedIn() && resource.data.studentId == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.studentId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Work in progress, rewritten every few seconds while a paper is open, so
+    // a closed tab or a flat battery does not cost a student their answers.
+    match /attemptDrafts/{draftId} {
+      allow read: if isTeacher() || (signedIn() && resource.data.studentId == request.auth.uid);
+      allow create, update: if signedIn() && request.resource.data.studentId == request.auth.uid;
+      allow delete: if isTeacher();
+    }
+
     // --- Per-student work ------------------------------------------------
     // A student may read and write only their own document. Teachers may read
     // and update any student's (awarding tokens, clearing attempts when a quiz
