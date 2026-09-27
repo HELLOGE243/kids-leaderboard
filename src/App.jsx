@@ -167,12 +167,14 @@ function App() {
     return () => { cancelled = true }
   }, [])
 
-  // One device per account: when a newer sign-in replaces this one, sign this
-  // device out rather than letting two devices share a login.
+  // When a newer sign-in replaces this one, sign this device out rather than
+  // letting two devices share a login.
   useEffect(() => {
     if (!session?.user?.id || !session?.sessionId) return undefined
-    // Every account, including an admin's: signing in somewhere new ends the
-    // session everywhere else, so a login is only ever live in one place.
+    // One device per student: a login is a seat in an exam, and sharing it is
+    // how two people sit one paper. Teachers work from a laptop, a classroom
+    // machine and a phone at once, so their sessions run side by side.
+    if (session.role !== 'student') return undefined
     return watchSession(session.user.id, session.sessionId, () => {
       setReplacedElsewhere(true)
       sessionStorage.removeItem(SESSION_KEY)
