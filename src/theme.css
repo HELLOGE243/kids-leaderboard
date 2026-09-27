@@ -2947,6 +2947,7 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 }
 .qt-question-text img { max-width: 100%; height: auto; display: block; margin: 12px auto; }
 .qt-prompt-display {
+  font-family: var(--font-response);
   font-size: 1.15rem;
   font-weight: 600;
   color: #222;
@@ -3040,12 +3041,12 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 .qt-desc-tab-active { background: #fff; color: #1a1a2e; font-weight: 700; border-color: #aaa; border-bottom: 2px solid #fff; }
 /* The left panel scrolls, so the extract shows in full; imported passages carry
    no colour of their own, so set dark text on the white panel explicitly. */
-.qt-desc-content { font-family: var(--font-body); padding: 18px 12px; border: none; border-radius: 0; background: #fff; margin-bottom: 16px; min-height: 60px; font-size: 1.05rem; line-height: 1.8; color: #222; }
+.qt-desc-content { font-family: var(--font-response); padding: 18px 12px; border: none; border-radius: 0; background: #fff; margin-bottom: 16px; min-height: 60px; font-size: 1.05rem; line-height: 1.8; color: #222; }
 .qt-desc-content * { color: inherit; }
 .qt-desc-content img { max-width: 100%; height: auto; }
 
 /* Cloze blanks (quiz-taking) */
-.qt-cloze-instructions { padding: 10px 0; margin-bottom: 10px; font-size: 0.88rem; font-weight: 700; color: #333; line-height: 1.5; }
+.qt-cloze-instructions { font-family: var(--font-response); padding: 10px 0; margin-bottom: 10px; font-size: 1.05rem; font-weight: 700; color: #333; line-height: 1.8; }
 .qt-cloze-blanks { display: flex; flex-direction: column; gap: 12px; padding: 8px 0; }
 .qt-cloze-blank-row { display: flex; align-items: center; gap: 10px; }
 .qt-cloze-blank-label { font-size: 0.85rem; font-weight: 600; color: #555; min-width: 70px; }
@@ -3054,7 +3055,7 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 
 /* Cloze inline passage (full-width) */
 .qt-cloze-fullwidth { padding: 28px 60px; font-size: 0.95rem; line-height: 2.2; color: #1a1a2e; background: #fff; overflow-y: auto; flex: 1; min-height: 0; position: relative; }
-.qt-cloze-passage-text { line-height: 2.6; }
+.qt-cloze-passage-text { font-family: var(--font-response); font-size: 1.05rem; line-height: 2.6; }
 .qt-cloze-inline-select {
   display: inline-block; padding: 4px 28px 4px 10px; margin: 0 2px;
   border: 2px solid #1a3a5c; border-radius: 4px; font-size: 1.05rem;
@@ -3117,6 +3118,7 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 /* Drag-drop table layout (quiz-taking) */
 .qt-drag-sentences { display: flex; flex-direction: column; gap: 0; margin-bottom: 20px; border: 2px solid #000; }
 .qt-drag-sentence {
+  font-family: var(--font-response);
   padding: 16px 20px; font-size: 1rem; color: #333; background: #fff;
   border: none; border-bottom: 1px solid #ccc; border-radius: 0; cursor: pointer; -webkit-user-select: none; user-select: none;
   touch-action: none; text-align: center; transition: background 0.15s, opacity 0.2s;
@@ -3127,6 +3129,8 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 .qt-drag-sentence-placed { opacity: 0.35; cursor: default; text-decoration: line-through; background: #f5f5f5; }
 /* The sentence bank as it appeared during the quiz, shown again in review so a
    student can see what they were choosing between. Nothing here is draggable. */
+.qt-drag-instructions { font-family: var(--font-response); font-size: 1rem; font-weight: 700; color: #333; line-height: 1.6; margin-bottom: 4px; }
+.qt-drag-instructions-sub { font-family: var(--font-response); font-size: 1rem; font-weight: 400; color: #555; line-height: 1.6; margin-bottom: 12px; }
 .qt-drag-sentences-review { margin-bottom: 18px; }
 .qt-drag-sentence-review { cursor: default; display: flex; align-items: flex-start; gap: 10px; text-align: left; }
 .qt-drag-sentence-review:hover { background: #fff; }
@@ -3161,10 +3165,10 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 .qt-matching-questions { display: flex; flex-direction: column; gap: 14px; padding: 0; margin: 0; }
 .qt-matching-row { display: flex; flex-direction: row; align-items: center; gap: 16px; padding: 0; border: none; background: transparent; }
 .qt-matching-num { font-weight: 700; color: #1a1a2e; min-width: 28px; font-size: 0.95rem; }
-.qt-matching-question { font-size: 0.95rem; color: #1a1a2e; font-weight: 400; flex: 1; line-height: 1.5; }
+.qt-matching-question { font-family: var(--font-response); font-size: 0.95rem; color: #1a1a2e; font-weight: 400; flex: 1; line-height: 1.5; }
 .qt-matching-question p, .qt-matching-question h4 { margin: 0; font-size: inherit; font-weight: inherit; }
 .qt-matching-row .qt-cloze-select { flex: none; width: 90px; }
-.qt-matching-instructions { font-size: 0.82rem; color: #555; font-style: italic; padding: 0 0 12px 0; line-height: 1.5; }
+.qt-matching-instructions { font-family: var(--font-response); font-size: 0.95rem; color: #333; padding: 0 0 12px 0; line-height: 1.6; }
 
 /* Free-writing (quiz-taking) */
 .qt-freewrite-area { width: 100%; padding: 14px; border: 2px solid #d0d0d0; border-radius: 8px; font-size: 0.9rem; font-family: var(--font-response); resize: vertical; min-height: 160px; background: #fff; color: #1a1a2e; line-height: 1.6; box-sizing: border-box; }

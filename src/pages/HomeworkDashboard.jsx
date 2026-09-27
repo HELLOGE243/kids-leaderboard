@@ -1191,8 +1191,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
               </p>
               <p className="text-dim" style={{ fontSize: '0.85rem', lineHeight: 1.7, marginBottom: 24 }}>
                 This is a trial test. Your paper is closed now — no marks, no answers, and no review —
-                until your teacher releases the results for the whole sitting. You will get your full
-                report then: your ranking, every paper, and where to work next.
+                until your teacher releases the results for the whole sitting.
               </p>
               <button className="btn" onClick={() => { exitQuiz(); setActiveModuleId(null) }}>Back to my dashboard</button>
             </div>
@@ -2124,8 +2123,8 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                   const gapName = (si) => (q.gapNumbers && q.gapNumbers[si] != null ? q.gapNumbers[si] : si + 1)
                   return <>
                     {q.prompt && <div className="qt-prompt-display" dangerouslySetInnerHTML={{ __html: q.prompt }} />}
-                    <p style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: 4 }}>Choose from the {dragLabel === 'sentence' ? 'sentences' : 'summaries'} ({gapLabels.join(', ')}) the one which fits each gap.</p>
-                    <p style={{ fontSize: '0.8rem', color: '#555', marginBottom: 12 }}>Drag each {dragLabel} into a gap below, or tap a {dragLabel} and then tap the gap. Tap a filled gap to clear it.</p>
+                    <p className="qt-drag-instructions">Choose from the {dragLabel === 'sentence' ? 'sentences' : 'summaries'} ({gapLabels.join(', ')}) the one which fits each gap.</p>
+                    <p className="qt-drag-instructions-sub">Drag each {dragLabel} into a gap below, or tap a {dragLabel} and then tap the gap. Tap a filled gap to clear it.</p>
                     {(() => {
                       const visible = shuffled.filter(i => opts[i])
                       const labelOf = (oi) => gapLabels[visible.indexOf(oi)]
@@ -2474,7 +2473,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
             </div>
             {cls && <p style={{ fontSize: '0.8rem', color: 'var(--accent)', marginTop: 2 }}>Class: <strong>{cls.name}</strong></p>}
             {course.trialTest && (
-              <p style={{ fontSize: '0.75rem', color: course.resultsReleased ? 'var(--success)' : 'var(--token)', marginTop: 4 }}>
+              <p style={{ fontSize: '0.75rem', color: course.resultsReleased ? 'var(--success)' : 'var(--accent)', marginTop: 4 }}>
                 {course.resultsReleased
                   ? 'Trial test · results released'
                   : 'Trial test · marks stay sealed until your teacher releases them'}
