@@ -17033,3 +17033,10 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
   /* !important: katex.min.css sets this and loads after this file. */
   font-size: calc(1.21em + 5px) !important;
 }
+
+/* A revision card with nothing left to revise stays visible as a record, but
+   offers nothing to open. */
+.hw-quiz-card-empty {
+  opacity: 0.55;
+  cursor: default;
+}

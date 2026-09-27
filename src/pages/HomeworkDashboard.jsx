@@ -382,6 +382,9 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     playCoinSound()
   }
   const [isRedo, setIsRedo] = useState(false)
+  // Which questions of the paper a revision sitting is made of: the ones the
+  // student got wrong. Null for an ordinary attempt, which covers all of them.
+  const [redoIndices, setRedoIndices] = useState(null)
   const [showReportModal, setShowReportModal] = useState(null)
   const [reportType, setReportType] = useState('')
   const [reportDetails, setReportDetails] = useState('')
@@ -668,15 +671,32 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     setQuizStartTime(Date.now())
   }
 
+  // Revision is for what was got wrong, so an unanswered question counts and a
+  // correct one does not. Free writing is left out: it is marked by a teacher,
+  // never right or wrong here, and would land in every revision for ever.
+  function wrongQuestionIndices(quizSet) {
+    const attempt = getHomeworkAttempt(quizSet.id, user.id)
+    if (!attempt) return []
+    return (quizSet.questions || []).reduce((acc, q, i) => {
+      if ((q.type || 'multiple-choice') === 'free-writing') return acc
+      if (!isQuestionCorrect(q, attempt.answers?.[i])) acc.push(i)
+      return acc
+    }, [])
+  }
+
   function handleRedoClick(quizSet) {
+    const wrong = wrongQuestionIndices(quizSet)
+    if (wrong.length === 0) return
     setIsRedo(true)
+    setRedoIndices(wrong)
     openWarning(quizSet)
   }
 
   async function confirmStartQuiz() {
     const quizSet = showWarning
     setShowWarning(null)
-    const resolved = await prepareQuiz(quizSet)
+    const all = await prepareQuiz(quizSet)
+    const resolved = isRedo && redoIndices ? redoIndices.map((i) => all[i]).filter(Boolean) : all
     setResolvedQuestions(resolved)
     setQuizAnswers(resolved.map(q => {
       const type = q.type || 'multiple-choice'
@@ -729,9 +749,27 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     const finalAnswers = quizAnswers.map((a) => (a === -1 ? -1 : a))
     const times = questionTimes.current.map((t) => Math.round((t || 0) / 1000))
     const meta = { screenLeaves: screenLeaves.current, lockedOut }
-    const result = isRedo
-      ? submitHomeworkRedo(takingQuiz.id, user.id, finalAnswers, times, meta)
-      : submitHomeworkAttempt(takingQuiz.id, user.id, finalAnswers, times, meta)
+    let result
+    if (isRedo) {
+      // The student saw only their wrong questions, so their answers are spread
+      // back out over the whole paper before marking: the store scores the ones
+      // that were asked, and everything keeps its original question number.
+      const spread = (arr, blank) => {
+        if (!redoIndices) return arr
+        const full = new Array(takingQuiz.questions?.length || arr.length).fill(blank)
+        redoIndices.forEach((orig, i) => { full[orig] = arr[i] })
+        return full
+      }
+      result = submitHomeworkRedo(
+        takingQuiz.id,
+        user.id,
+        spread(finalAnswers, -1),
+        spread(times, 0),
+        { ...meta, questionIndices: redoIndices },
+      )
+    } else {
+      result = submitHomeworkAttempt(takingQuiz.id, user.id, finalAnswers, times, meta)
+    }
     setSubmittedResult(result)
     setQuizStartTime(null)
     setTimeLeft(null)
@@ -919,6 +957,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     setReviewNudge(false)
     setTokenPopup(null)
     setIsRedo(false)
+    setRedoIndices(null)
     setTrialScreen(null)
     setTrialNameInput('')
     setVisitedQuestions(new Set())
@@ -2669,8 +2708,13 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                               const isUnlocked = !!attempt
                               if (!isUnlocked) return null
                               const redo = getLatestHomeworkRedo(s.id, user.id)
+                              const toRevise = wrongQuestionIndices(s).length
                               return (
-                                <div key={`rev-${s.id}`} className={`hw-quiz-card hw-quiz-card-redo`} onClick={() => handleRedoClick(s)}>
+                                <div
+                                  key={`rev-${s.id}`}
+                                  className={`hw-quiz-card hw-quiz-card-redo${toRevise === 0 ? ' hw-quiz-card-empty' : ''}`}
+                                  onClick={() => handleRedoClick(s)}
+                                >
                                   <div className="hw-quiz-title-row">
                                     <span className="hw-quiz-title">{s.friendlyTitle}</span>
                                     <span className="hw-rev-check">
@@ -2678,7 +2722,11 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                                         : <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" stroke="currentColor" strokeWidth="2" opacity="0.35"/></svg>}
                                     </span>
                                   </div>
-                                  <div className="hw-quiz-meta">{s.questions.length} questions</div>
+                                  <div className="hw-quiz-meta">
+                                    {toRevise === 0
+                                      ? 'All correct — nothing to revise'
+                                      : `${toRevise} ${toRevise === 1 ? 'question' : 'questions'} to revise`}
+                                  </div>
                                 </div>
                               )
                             })}

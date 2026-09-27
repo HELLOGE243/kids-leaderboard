@@ -3073,17 +3073,23 @@ export function submitHomeworkRedo(quizSetId, studentId, answers, questionTimes,
   const data = loadData()
   const set = (data.importedQuizSets || []).find((s) => s.id === quizSetId)
   if (!set) return null
+  // A revision sitting covers only the questions the student got wrong, so it is
+  // marked out of those alone. The answers stay aligned to the whole paper, with
+  // -1 where a question was not asked, so per-question analytics still line up.
+  const asked = Array.isArray(meta.questionIndices) && meta.questionIndices.length
+    ? meta.questionIndices.filter((i) => i >= 0 && i < set.questions.length)
+    : set.questions.map((_, i) => i)
   let score = 0
-  set.questions.forEach((q, i) => {
-    score += scoreOneQuestion(q, answers[i])
+  let total = 0
+  asked.forEach((i) => {
+    score += scoreOneQuestion(set.questions[i], answers[i])
+    total += totalMarksForQuestion(set.questions[i])
   })
   const id = 'hwredo-' + generateId(6)
-  let total = 0
-  set.questions.forEach(q => { total += totalMarksForQuestion(q) })
   const student = data.students[studentId]
   const orgId = student?.orgId || null
   const term = orgId ? (data.organisations[orgId]?.activeTerm || null) : null
-  const attempt = { id, quizSetId, studentId, answers, score, total, questionTimes: questionTimes || [], date: new Date().toISOString(), term, orgId, ...screenMeta(meta) }
+  const attempt = { id, quizSetId, studentId, answers, score, total, questionIndices: asked, questionTimes: questionTimes || [], date: new Date().toISOString(), term, orgId, ...screenMeta(meta) }
   mutateStudentArray(studentId, 'homeworkRedos', (arr) => arr.push(attempt))
   archiveAttempt(attempt, set, 'redo')
   return attempt
