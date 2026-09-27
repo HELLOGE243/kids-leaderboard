@@ -286,6 +286,13 @@ function Portal({ user, onLogout }) {
   const testEvents = useMemo(() => activeTab ? getTestEventsForClass(activeTab).filter(e => !e.term || e.term === activeTerm) : [], [activeTab, activeTerm, refresh])
   const homeworkWeekly = useMemo(() => activeTab ? getHomeworkWeeklyStats(activeTab, user.id) : [], [activeTab, user.id, refresh])
 
+  // Checkpoint tests belong to topics inside a class. A trial testing class has
+  // none, so the portal would open on an empty screen: the button is only shown
+  // to a student who actually has checkpoint tests to sit.
+  const hasCheckpoints = useMemo(() => classes.some(
+    (cls) => getTopicsForClass(cls.id).some((topic) => getQuizzesForTopic(topic.id).length > 0)
+  ), [classes, refresh])
+
   const pendingQuizCount = useMemo(() => {
     let count = 0
     for (const cls of classes) {
@@ -638,10 +645,12 @@ function Portal({ user, onLogout }) {
             ? <span className="hw-badge-warn">{homeworkStatus.pending + newCourseCount}</span>
             : null}
       </button>
-      <button className="btn-progress-quiz w-full mt-16" data-help="checkpoints" style={{ position: 'relative' }} onClick={() => setShowQuiz(true)}>
-        🎯 {t('checkpointTests')}
-        {pendingQuizCount > 0 && <span className="quiz-alert-badge">{pendingQuizCount}</span>}
-      </button>
+      {hasCheckpoints && (
+        <button className="btn-progress-quiz w-full mt-16" data-help="checkpoints" style={{ position: 'relative' }} onClick={() => setShowQuiz(true)}>
+          🎯 {t('checkpointTests')}
+          {pendingQuizCount > 0 && <span className="quiz-alert-badge">{pendingQuizCount}</span>}
+        </button>
+      )}
       <button className="btn-dojo w-full mt-16" data-help="dojo" style={{ position: 'relative' }} onClick={() => setShowDojo(true)}>
         🥷🏻 {t('revisionDojo')}
         {dojoDueCount > 0 && <span className="hw-badge-warn">{dojoDueCount}</span>}
@@ -858,21 +867,25 @@ function Portal({ user, onLogout }) {
 
       {/* Help Walkthrough */}
       {helpStep >= 0 && (() => {
+        // In the order the page reads, and only for what this student can see:
+        // a step whose target is missing is skipped as the walkthrough runs.
         const HELP_STEPS = [
           { selector: '[data-help="profile"]', title: 'Your Profile', desc: 'This is you! Your name and class are shown here.' },
-          { selector: '[data-help="ticker"]', title: 'School News', desc: 'Announcements, tips and reminders from your school scroll here.' },
           { selector: '[data-help="today"]', title: 'Today', desc: 'Your pending assignments appear here. Red means overdue — complete these first! Completed quizzes show your score.' },
-          { selector: '[data-help="leaderboards"]', title: 'Leaderboards', desc: 'See how you rank against classmates in each subject.' },
-          { selector: '[data-help="assignments"]', title: 'Assignments', desc: 'All your homework and class quizzes, organised by course and week.' },
+          { selector: '[data-help="assignments"]', title: 'Assignments', desc: 'All your homework and trial test papers, organised by course and week.' },
           { selector: '[data-help="checkpoints"]', title: 'Checkpoint Tests', desc: 'Formal tests set by your teacher. Timed and single-attempt.' },
           { selector: '[data-help="dojo"]', title: 'Revision Hall', desc: 'Review questions you got wrong. Master cards by getting 3 correct in a row. Earns tokens.' },
+          { selector: '[data-help="vocab"]', title: 'Vocabulary Bank', desc: 'Words you have saved from quizzes. Study with flashcards and practice.' },
           { selector: '[data-help="battlegrounds"]', title: 'Battlegrounds', desc: 'Daily word games, live arena battles, and the Arcade.' },
-          { selector: '[data-help="vocab"]', title: 'Vocabulary Bank', desc: 'Words you\'ve saved from quizzes. Study with flashcards and practice.' },
-          { selector: '[data-help="shop"]', title: 'Shop', desc: 'Spend your coins here on avatars, eggs, and loot. Coins are earned by completing homework. Tokens are earned from revision, the Dojo, and vocabulary practice.' },
+          { selector: '[data-help="leaderboards"]', title: 'Leaderboards', desc: 'See how you rank against classmates in each subject.' },
         ]
         const step = HELP_STEPS[helpStep]
         if (!step) { setHelpStep(-1); return null }
+        // A walkthrough step for something this student cannot see - the shop,
+        // the ticker, checkpoint tests in a trial class - is skipped rather
+        // than pointing at nothing.
         const el = document.querySelector(step.selector)
+        if (!el) { setTimeout(() => setHelpStep((s) => s + 1), 0); return null }
         if (el) el.scrollIntoView({ behavior: 'instant', block: 'center' })
         const rect = el ? el.getBoundingClientRect() : null
         const tooltipTop = rect
