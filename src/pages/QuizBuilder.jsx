@@ -47,6 +47,7 @@ import {
   previewRemark,
   applyRemark,
   preloadAllStudents,
+  getSharedExplanationsForSet,
 } from '../data/store.js'
 import { extractTextFromPDF, processWithAI, parseBookletMeta, getPDFPageCount } from '../utils/pdfImport.js'
 import { RichTextEditor, RichText } from '../components/RichTextEditor.jsx'
@@ -283,7 +284,8 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
     // What students have been told. Explanations written by the AI during
     // review are shared between students, so a teacher needs to see them here -
     // and correct them - rather than guess what the class is reading.
-    const shared = await getSharedExplanationsForSet(set.id).catch(() => ({}))
+    let shared = {}
+    try { shared = await getSharedExplanationsForSet(set.id) } catch (e) { console.warn('Could not load shared explanations:', e) }
     setQuizQuestions(resolved.map((q, qi) => {
       const opts = [...(q.options || [])]
       const realCount = opts.filter(o => o).length || 4
