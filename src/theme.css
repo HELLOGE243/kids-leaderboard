@@ -16986,3 +16986,12 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .katex annotation {
   display: none !important;
 }
+
+/* Rendered maths runs small beside the text around it — KaTeX's own 1.21em was
+   not enough against the question and option fonts here, so every expression
+   gets five more pixels wherever it appears. */
+.katex,
+.katex-display > .katex {
+  /* !important: katex.min.css sets this and loads after this file. */
+  font-size: calc(1.21em + 5px) !important;
+}
