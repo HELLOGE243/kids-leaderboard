@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import '../report-page.css'
 import { getStudentReport } from '../data/store.js'
+import TrialReport from '../components/TrialReport.jsx'
 import { onDataChange } from '../data/firebase.js'
 
 // Per-course student report, written for parents as much as students: is the
@@ -182,12 +183,19 @@ function Overview({ report, onOpen }) {
         {report.courses.map((c) => (
           <button key={c.courseId} className="rp-course-card" onClick={() => onOpen(c.courseId)}>
             <span className="rp-course-class">{c.className}</span>
-            <span className="rp-course-name">{c.courseName}</span>
+            <span className="rp-course-name">{c.courseName}{c.trialTest && <span className="rp-tab-trial">Trial</span>}</span>
+            {/* A trial is one sitting, not a term of weekly work: its card says
+                where to find the ranked report rather than a completion count. */}
+            {c.trialTest ? (
+              <span className="rp-course-row">
+                <span>{c.resultsReleased ? 'Results released — open for your full report' : 'Results sealed until your teacher releases them'}</span>
+              </span>
+            ) : (
             <span className="rp-course-row">
               <span><b>{c.completion.total ? `${c.completion.done}/${c.completion.assigned || c.completion.total}` : '—'}</b> done</span>
               <span><b className={`rp-band-${band(c.avgPct)}`}>{c.avgPct != null ? `${c.avgPct}%` : '—'}</b> avg</span>
               <span><b>{c.coursePercentile != null ? ordinal(c.coursePercentile) : '—'}</b> percentile</span>
-            </span>
+            </span>)}
             {(c.completion.missing > 0 || c.lockouts > 0) && (
               <span className="rp-course-alerts">
                 {c.completion.missing > 0 && <span className="rp-flag rp-flag-bad">{c.completion.missing} missing</span>}
@@ -236,11 +244,16 @@ export default function ReportPage({ studentId, onBack, initialCourseId = null }
               {report.courses.map((c) => (
                 <button key={c.courseId} role="tab" aria-selected={tab === c.courseId} className={tab === c.courseId ? 'is-active' : ''} onClick={() => setTab(c.courseId)}>
                   {c.courseName}
-                  {c.completion.missing > 0 && <span className="rp-tab-dot" aria-label="has missing work" />}
+                  {c.trialTest && <span className="rp-tab-trial" title="Trial test">Trial</span>}
+                  {!c.trialTest && c.completion.missing > 0 && <span className="rp-tab-dot" aria-label="has missing work" />}
                 </button>
               ))}
             </nav>
-            {course ? <CourseView course={course} /> : <Overview report={report} onOpen={setTab} />}
+            {course
+              ? (course.trialTest
+                  ? <TrialReport courseId={course.courseId} studentId={studentId} studentName={report.student.name} />
+                  : <CourseView course={course} />)
+              : <Overview report={report} onOpen={setTab} />}
           </>
         )}
       </div>

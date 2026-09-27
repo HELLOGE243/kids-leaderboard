@@ -5188,6 +5188,7 @@ export function getStudentReport(studentId) {
       }
       courses.push({
         courseId: course.id, courseName: course.name, className: cls.name, term: course.term || '', started: !!start,
+        trialTest: !!course.trialTest, resultsReleased: !!course.resultsReleased,
         modules, checkpoints,
         coursePercentile: percentileFrom(statRows, studentId),
         ...summarise(quizRows, checkpoints, allSkills, dueRevision),

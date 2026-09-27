@@ -28,6 +28,7 @@ import {
   snapshotAttempt,
   refreshQuizSetFromCloud,
   quizResultsVisible,
+  courseForQuizSet,
   attemptAwaitsMarking,
   getTrialCourseReport,
   getModuleDeadline,
@@ -144,7 +145,7 @@ function HwResults({ title, score, total, pct, coins, grade, gradeColor, rank, t
                 {isRedo ? 'Revision — ' : ''}{title}
               </span>
             </div>
-            {!isRedo && !awaitingMarking && <div className="hw-res-grade-badge" style={{ '--grade-bg': gradeColor }}>
+            {!isRedo && !awaitingMarking && grade && <div className="hw-res-grade-badge" style={{ '--grade-bg': gradeColor }}>
               <span className="hw-res-grade-text">{grade}</span>
             </div>}
             {!isRedo && awaitingMarking && <div className="hw-res-grade-badge" style={{ '--grade-bg': '#7c3aed' }}>
@@ -1143,8 +1144,10 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
         : null
       const classTopPct = cohortPcts.length ? cohortPcts[cohortPcts.length - 1] : null
 
+      const isTrialPaper = !!(courseForQuizSet(takingQuiz.id, user.id)?.trialTest)
       let grade, gradeColor
-      if (pct === 100) { grade = 'Mastery'; gradeColor = '#b464ff' }
+      if (isTrialPaper) { grade = ''; gradeColor = 'var(--text)' }
+      else if (pct === 100) { grade = 'Mastery'; gradeColor = '#b464ff' }
       else if (pct >= 80) { grade = 'High Distinction'; gradeColor = '#00e5ff' }
       else if (pct >= 55) { grade = 'Distinction'; gradeColor = '#66bb6a' }
       else if (pct >= 40) { grade = 'Satisfactory'; gradeColor = '#ffab00' }
@@ -1271,8 +1274,10 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
               )}
               {isReview && (() => {
                 const reviewPct = submittedResult.total > 0 ? Math.round((submittedResult.score / submittedResult.total) * 100) : 0
+                const reviewIsTrial = !!(courseForQuizSet(takingQuiz.id, user.id)?.trialTest)
                 let reviewGrade, reviewGradeColor
-                if (reviewPct === 100) { reviewGrade = 'Mastery'; reviewGradeColor = '#b464ff' }
+                if (reviewIsTrial) { reviewGrade = ''; reviewGradeColor = '#fff' }
+                else if (reviewPct === 100) { reviewGrade = 'Mastery'; reviewGradeColor = '#b464ff' }
                 else if (reviewPct >= 80) { reviewGrade = 'High Distinction'; reviewGradeColor = '#00e5ff' }
                 else if (reviewPct >= 55) { reviewGrade = 'Distinction'; reviewGradeColor = '#76ff03' }
                 else if (reviewPct >= 40) { reviewGrade = 'Satisfactory'; reviewGradeColor = '#ffab00' }
@@ -1280,7 +1285,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                 else { reviewGrade = 'Needs Review'; reviewGradeColor = '#ff1744' }
                 return (
                   <div className="qt-review-score" style={{ color: reviewGradeColor }}>
-                    {submittedResult.score}/{submittedResult.total} ({reviewPct}%) — {reviewGrade}
+                    {submittedResult.score}/{submittedResult.total} ({reviewPct}%){reviewGrade ? ` — ${reviewGrade}` : ''}
                   </div>
                 )
               })()}
@@ -2484,8 +2489,8 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
           <div>
             <div className="hw-course-title-row">
               <h1 className="pixel-title">{course.name}</h1>
-              {/* The report is the point of a released trial, so it sits with the
-                  course's name rather than off among the navigation. */}
+              {/* The report itself lives in My Reports, with every other report
+                  a student has; this is the way in from the course. */}
               {course.trialTest && course.resultsReleased && (
                 <button className="hw-trial-report-btn" onClick={() => setShowTrialReport(true)}>
                   View trial report
@@ -2512,7 +2517,14 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
           const unlockedCount = getUnlockedModuleCount(user.id, course.id)
           const hwStart = getHomeworkStart(user.id, course.id)
           const weeksSinceStart = hwStart ? Math.floor((Date.now() - new Date(hwStart.startedDate).getTime()) / (7 * 24 * 60 * 60 * 1000)) : 0
-          const currentWeekIdx = Math.min(weeksSinceStart, course.modules.length - 1)
+          // A trial is sat paper after paper, not a module a week, so NOW points
+          // at the first paper still to be done rather than at this week's.
+          const firstUnfinished = course.modules.findIndex(
+            (m) => (m.quizSetIds || []).some((qid) => !getHomeworkAttempt(qid, user.id))
+          )
+          const currentWeekIdx = course.trialTest
+            ? (firstUnfinished === -1 ? course.modules.length - 1 : firstUnfinished)
+            : Math.min(weeksSinceStart, course.modules.length - 1)
 
           return (
             <>
@@ -2526,7 +2538,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                   const completedCount = m.quizSetIds.filter(qid => getHomeworkAttempt(qid, user.id)).length
                   const allDone = !isLocked && quizCount > 0 && completedCount === quizCount
                   const pendingCount = !isLocked ? quizCount - completedCount : 0
-                  const isOverdue = pendingCount > 0 && i < currentWeekIdx
+                  const isOverdue = !course.trialTest && pendingCount > 0 && i < currentWeekIdx
                   const deadline = getModuleDeadline(user.id, course.id, i)
                   const deadlineMs = deadline ? deadline.getTime() - Date.now() : null
                   const deadlineExpired = deadlineMs !== null && deadlineMs <= 0
@@ -2585,8 +2597,9 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                           const resultsOut = quizResultsVisible(s.id, user.id)
                           const hwProgress = !hasAttempt && s.homeworkMode ? getHomeworkProgress(s.id, user.id) : null
                           const pct = hasAttempt ? Math.round((attempt.score / attempt.total) * 100) : 0
+                          const cardIsTrial = !!course.trialTest
                           let cardGrade = '', cardGradeClass = ''
-                          if (hasAttempt) {
+                          if (hasAttempt && !cardIsTrial) {
                             if (pct === 100) { cardGrade = 'Mastery'; cardGradeClass = 'hw-quiz-status-mastery' }
                             else if (pct >= 80) { cardGrade = 'High Distinction'; cardGradeClass = 'hw-quiz-status-hd' }
                             else if (pct >= 55) { cardGrade = 'Distinction'; cardGradeClass = 'hw-quiz-status-done' }
@@ -2618,8 +2631,8 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                               {hasAttempt && !resultsOut ? (
                                 <div className="hw-quiz-status hw-quiz-status-sealed">Submitted — awaiting results</div>
                               ) : hasAttempt ? (
-                                <div className={`hw-quiz-status ${cardGradeClass}`}>
-                                  {attempt.score}/{attempt.total} ({pct}%) — {cardGrade}
+                                <div className={`hw-quiz-status ${cardGradeClass || 'hw-quiz-status-done'}`}>
+                                  {attempt.score}/{attempt.total} ({pct}%){cardGrade ? ` — ${cardGrade}` : ''}
                                 </div>
                               ) : hwProgress ? (
                                 <div className="hw-quiz-status hw-quiz-status-inprogress">

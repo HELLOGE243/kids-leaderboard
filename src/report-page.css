@@ -1,3 +1,16 @@
+.rp-tab-trial {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(124, 58, 237, 0.2);
+  color: #b39ddb;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
 /* ===== Per-course student report (pages/ReportPage.jsx) ===== */
 .rp-page { position: fixed; inset: 0; z-index: 900; overflow-y: auto; background: #f4f6fb; color: #1a1a2e; font-family: 'Outfit', system-ui, sans-serif; }
 .rp-wrap { max-width: 1080px; margin: 0 auto; padding: 24px 20px 60px; }
