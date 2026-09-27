@@ -16990,6 +16990,35 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 /* Rendered maths runs small beside the text around it — KaTeX's own 1.21em was
    not enough against the question and option fonts here, so every expression
    gets five more pixels wherever it appears. */
+/* One voice for question content. Imported papers arrive with their text in
+   whatever tag the original used — an <h4> here, a <p> there, a <font> tag from
+   an old document — and each brought its own size. The content area sets the
+   type; everything inside it inherits, so a question reads the same whichever
+   paper it came from. Maths is the deliberate exception and keeps its own size. */
+.qt-question-text h1, .qt-question-text h2, .qt-question-text h3,
+.qt-question-text h4, .qt-question-text h5, .qt-question-text h6,
+.qt-desc-content h1, .qt-desc-content h2, .qt-desc-content h3,
+.qt-desc-content h4, .qt-desc-content h5, .qt-desc-content h6,
+.qt-prompt-display h1, .qt-prompt-display h2, .qt-prompt-display h3,
+.qt-prompt-display h4, .qt-prompt-display h5, .qt-prompt-display h6,
+.rte-body h1, .rte-body h2, .rte-body h3,
+.rte-body h4, .rte-body h5, .rte-body h6 {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  line-height: inherit;
+  margin: 0 0 8px;
+}
+
+.qt-question-text font, .qt-desc-content font,
+.qt-prompt-display font, .qt-option-text font, .rte-body font,
+.qt-question-text small, .qt-desc-content small,
+.qt-prompt-display small, .qt-option-text small, .rte-body small,
+.qt-question-text big, .qt-desc-content big, .rte-body big {
+  font-family: inherit;
+  font-size: inherit;
+}
+
 .katex,
 .katex-display > .katex {
   /* !important: katex.min.css sets this and loads after this file. */

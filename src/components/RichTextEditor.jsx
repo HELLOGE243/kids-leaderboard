@@ -9,15 +9,19 @@ import { renderMath } from '../utils/renderMath.js'
  * page the student reads, that shows as light text on navy patches. The colours
  * belong to the app's stylesheets, never to the content, so they are taken off.
  */
+// Type that the question carries with it: how it looks, rather than what it says.
+const CARRIED_STYLE = ['color', 'background', 'background-color', 'font-size', 'font-family']
+
 function stripPastedColours(html) {
   if (!html || typeof document === 'undefined') return html
-  if (!/background|color\s*:/i.test(html)) return html
+  if (!/background|color\s*:|font-size|font-family/i.test(html)) return html
   const holder = document.createElement('div')
   holder.innerHTML = html
   holder.querySelectorAll('[style]').forEach((el) => {
-    el.style.removeProperty('color')
-    el.style.removeProperty('background')
-    el.style.removeProperty('background-color')
+    // KaTeX positions its own glyphs with inline styles; those are its rendering,
+    // not pasted formatting, and must be left exactly as they are.
+    if (el.closest('.katex')) return
+    CARRIED_STYLE.forEach((prop) => el.style.removeProperty(prop))
     if (!el.getAttribute('style')) el.removeAttribute('style')
   })
   return holder.innerHTML
@@ -325,7 +329,7 @@ function RichTextEditor({ value, onChange, placeholder, extended }) {
     const items = e.clipboardData?.items
     if (!items) return
     const pastedHtml = e.clipboardData.getData('text/html')
-    if (pastedHtml && /background|color\s*:/i.test(pastedHtml)) {
+    if (pastedHtml && /background|color\s*:|font-size|font-family/i.test(pastedHtml)) {
       e.preventDefault()
       editorRef.current.focus()
       document.execCommand('insertHTML', false, stripPastedColours(pastedHtml))
