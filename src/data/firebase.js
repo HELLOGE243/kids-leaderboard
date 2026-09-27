@@ -809,9 +809,12 @@ if (typeof window !== 'undefined') {
   })
   window.addEventListener('beforeunload', (e) => {
     flushNow()
-    if (pendingWriteCount() === 0) return
+    // A student's answers go through their own write queue, which this guard
+    // did not watch: on a dropped connection the write waits for the network,
+    // and closing the tab before it lands takes the work with it.
+    if (pendingWriteCount() === 0 && _studentWriteInFlight.size === 0) return
     e.preventDefault()
-    e.returnValue = 'Changes are still saving to the cloud. Leave anyway?'
+    e.returnValue = 'Work is still saving. Leave anyway?'
     return e.returnValue
   })
 }
