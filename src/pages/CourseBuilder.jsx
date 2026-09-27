@@ -26,7 +26,7 @@ import {
   getCourseById as getCourse,
 } from '../data/store.js'
 
-function CourseBuilder({ orgId, onBack, onEditQuiz }) {
+function CourseBuilder({ orgId, onBack, onEditQuiz, initialPlace }) {
   const [refresh, setRefresh] = useState(0)
   const forceRefresh = () => setRefresh((r) => r + 1)
 
@@ -35,14 +35,16 @@ function CourseBuilder({ orgId, onBack, onEditQuiz }) {
   const allQuizSets = getImportedQuizSets()
   const activeTerm = getActiveTerm(orgId)
 
-  const [selectedClassId, setSelectedClassId] = useState(null)
+  // Editing a quiz leaves this screen and comes back; the teacher should land on
+  // the module they were looking at, not at the top of the class list.
+  const [selectedClassId, setSelectedClassId] = useState(initialPlace?.classId || null)
   const [newCourseName, setNewCourseName] = useState('')
   const [newCourseTerm, setNewCourseTerm] = useState('')
-  const [editingCourse, setEditingCourse] = useState(null)
+  const [editingCourse, setEditingCourse] = useState(initialPlace?.courseId || null)
   const [showEnrolment, setShowEnrolment] = useState(false)
   const [reportStudent, setReportStudent] = useState(null)
   const [newModuleName, setNewModuleName] = useState('')
-  const [activeModule, setActiveModule] = useState(null)
+  const [activeModule, setActiveModule] = useState(initialPlace?.moduleId || null)
   const [confirmAction, setConfirmAction] = useState(null)
   const [quizSearch, setQuizSearch] = useState('')
   const [pendingAssign, setPendingAssign] = useState(null)
@@ -432,7 +434,7 @@ function CourseBuilder({ orgId, onBack, onEditQuiz }) {
                           <button
                             className="btn btn-small btn-outline"
                             style={{ padding: '3px 8px', fontSize: '0.4rem' }}
-                            onClick={() => onEditQuiz(s.id)}
+                            onClick={() => onEditQuiz(s.id, { classId: selectedClassId, courseId: editingCourse, moduleId: activeModule })}
                           >
                             Edit
                           </button>

@@ -169,6 +169,7 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
   const [confirmAction, setConfirmAction] = useState(null)
   const [showShopAdmin, setShowShopAdmin] = useState(false)
   const [showQuizBuilder, setShowQuizBuilder] = useState(false)
+  const [coursePlace, setCoursePlace] = useState(null)
   const [showCourseBuilder, setShowCourseBuilder] = useState(false)
   const [showWritingReview, setShowWritingReview] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
@@ -354,8 +355,8 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
 
   // --- RENDER ---
   if (reportViewStudent) return <ReportPage studentId={reportViewStudent} onBack={() => setReportViewStudent(null)} />
-  if (showCourseBuilder && org) return <CourseBuilder orgId={org.id} onBack={() => setShowCourseBuilder(false)} onEditQuiz={(quizSetId) => { setShowCourseBuilder(false); setEditQuizId(quizSetId); setShowQuizBuilder(true) }} />
-  if (showQuizBuilder && org) return <QuizBuilder orgId={org.id} onBack={() => { setShowQuizBuilder(false); setEditQuizId(null) }} initialEditQuizId={editQuizId} onSave={editQuizId ? () => { setShowQuizBuilder(false); setEditQuizId(null); setShowCourseBuilder(true) } : undefined} />
+  if (showCourseBuilder && org) return <CourseBuilder orgId={org.id} initialPlace={coursePlace} onBack={() => { setShowCourseBuilder(false); setCoursePlace(null) }} onEditQuiz={(quizSetId, place) => { setCoursePlace(place || null); setShowCourseBuilder(false); setEditQuizId(quizSetId); setShowQuizBuilder(true) }} />
+  if (showQuizBuilder && org) return <QuizBuilder orgId={org.id} onBack={() => { setShowQuizBuilder(false); setEditQuizId(null); if (coursePlace) setShowCourseBuilder(true) }} initialEditQuizId={editQuizId} onSave={coursePlace ? () => { setShowQuizBuilder(false); setEditQuizId(null); setShowCourseBuilder(true) } : undefined} />
   if (showWritingReview && org) return <WritingReview orgId={org.id} teacherId={teacher.id} onBack={() => setShowWritingReview(false)} />
   if (showNotifications && org) return <NotificationsPanel orgId={org.id} onBack={() => setShowNotifications(false)} />
   if (showNewsfeed && org) return <NewsfeedManager orgId={org.id} onBack={() => setShowNewsfeed(false)} />

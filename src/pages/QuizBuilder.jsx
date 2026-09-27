@@ -936,7 +936,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
 
               {/* --- Multi-Description / Multi-Matching: tabbed editors --- */}
               {(qType === 'multi-description' || qType === 'multi-matching') && (
-                <div className="qe-question-area">
+                <div className="qe-question-area qe-extract-area">
                   <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                     {(q.descriptions || []).map((d, di) => (
                       <button
@@ -1248,7 +1248,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
 
               {/* --- Multi-Matching: match questions with extract dropdowns --- */}
               {qType === 'multi-matching' && (
-                <div style={{ overflowY: 'auto', padding: '0 4px' }}>
+                <div style={{ padding: '0 4px' }}>
                   <p style={{ fontSize: '0.6rem', color: '#888', marginBottom: 4 }}>Question statement (shown to students)</p>
                   <RichTextEditor
                     key={`mm-prompt-${currentEditQ}`}

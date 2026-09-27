@@ -4592,6 +4592,13 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   max-height: 46vh;
   overflow-y: auto;
 }
+/* An extract is a passage, not a sentence: it needs room to be read and edited,
+   and scrolls within itself once it outgrows that. */
+.qe-extract-area .rte-body {
+  min-height: 320px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
 .qe-explain-area {
   flex-shrink: 0;
   border-top: 1px solid #ddd;
