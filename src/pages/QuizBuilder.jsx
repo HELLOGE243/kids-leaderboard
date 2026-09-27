@@ -389,6 +389,10 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
         // mark it again when a correct answer actually changed.
         const before = getImportedQuizSet(editingImported)?.questions || []
         const keyChanges = changedAnswerKeys(before, valid)
+        // Deleting a question moves every answer after it, and that repair can
+        // only run against student documents this client has loaded.
+        const removedQuestions = before.some((q) => q.id && !valid.some((v) => v.id === q.id))
+        if (removedQuestions) await preloadAllStudents()
         updateImportedQuizSet(editingImported, { questions: valid, timeLimit })
         const setId = editingImported
         setEditingImported(null)
@@ -732,6 +736,19 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
 
     return (
       <div className="qt-backdrop" onClick={(e) => e.stopPropagation()}>
+        {/* The confirm dialog lives in the library view as well; without a copy
+            here, anything in the editor that asks first silently did nothing. */}
+        {confirmAction && (
+          <div className="neon-overlay" style={{ zIndex: 400 }}>
+            <div className="neon-popup" style={{ maxWidth: 440 }}>
+              <p className="neon-popup-text" style={{ fontSize: '0.7rem', lineHeight: 1.7 }}>{confirmAction.message}</p>
+              <div className="neon-popup-actions" style={{ marginTop: 16 }}>
+                <button className="btn btn-danger" onClick={() => { confirmAction.onConfirm(); setConfirmAction(null) }}>Yes, delete</button>
+                <button className="btn btn-outline" onClick={() => setConfirmAction(null)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="qt-panel" style={{ userSelect: 'auto' }}>
           {pdfReviewFlags && (
             <div className="pdf-editor-banner">
