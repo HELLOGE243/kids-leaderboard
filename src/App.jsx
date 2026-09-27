@@ -251,6 +251,27 @@ function App() {
     })
   }
 
+  useEffect(() => {
+    if (!session) return
+    let last = 0
+    const refresh = () => {
+      if (document.hidden) return
+      const now = Date.now()
+      if (now - last < 20000) return
+      last = now
+      refreshSharedData()
+    }
+    const onVisible = () => { if (!document.hidden) refresh() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', refresh)
+    const timer = setInterval(refresh, 120000)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', refresh)
+      clearInterval(timer)
+    }
+  }, [session])
+
   function handleLogout() {
     sessionStorage.removeItem(SESSION_KEY)
     clearCookie()

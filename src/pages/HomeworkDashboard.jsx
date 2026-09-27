@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { loadOwnContact } from '../data/firebase.js'
+import { loadOwnContact, refreshSharedData } from '../data/firebase.js'
 import { extractTabLabel } from '../utils/extractLabel.js'
 import { renderMath } from '../utils/renderMath.js'
 import {
@@ -416,6 +416,8 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   const doSubmitRef = useRef(null)
   const screenLeaves = useRef(0)
 
+  useEffect(() => { refreshSharedData() }, [])
+
   const courses = getCoursesForStudent(user.id)
   const classes = getClassesForStudent(user.id)
 
@@ -748,6 +750,35 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   }
 
   doSubmitRef.current = doSubmit
+
+  useEffect(() => {
+    const inProgress = !!(takingQuiz && quizStartTime && !submittedResult)
+    if (!inProgress) return
+    // Back, reload or close: the browser shows its own "leave site?" dialog.
+    const warn = (e) => { e.preventDefault(); e.returnValue = ''; return '' }
+    // Whatever they answer, the paper is submitted the moment the page goes.
+    // pagehide is the last event that reliably fires, and firebase.js flushes
+    // its write queue on the same event.
+    const submitOnLeave = () => { try { doSubmitRef.current?.({ lockedOut: true }) } catch { /* going anyway */ } }
+    // The browser's back button does not unload a single-page app, so a history
+    // entry is pushed and popping it counts as leaving too.
+    window.history.pushState({ quizGuard: true }, '')
+    const onPop = () => {
+      if (window.confirm('Leaving now submits this quiz. Are you sure?')) {
+        submitOnLeave()
+      } else {
+        window.history.pushState({ quizGuard: true }, '')
+      }
+    }
+    window.addEventListener('beforeunload', warn)
+    window.addEventListener('pagehide', submitOnLeave)
+    window.addEventListener('popstate', onPop)
+    return () => {
+      window.removeEventListener('beforeunload', warn)
+      window.removeEventListener('pagehide', submitOnLeave)
+      window.removeEventListener('popstate', onPop)
+    }
+  }, [takingQuiz, quizStartTime, submittedResult])
 
   // Leaving the screen too often submits the attempt (utils/screenGuard.js).
   useScreenGuard({

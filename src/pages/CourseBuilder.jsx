@@ -270,6 +270,12 @@ function CourseBuilder({ orgId, onBack, onEditQuiz }) {
                       ? 'Every student on the class roll sees this course, including anyone added later.'
                       : 'Only the students ticked below see this course and download its quizzes.'}
                   </p>
+                  {!everyone && taking.size === 0 && (
+                    <p style={{ fontSize: '0.72rem', color: 'var(--danger)', marginBottom: 10, lineHeight: 1.5 }}>
+                      Nobody is ticked, so no student can see this course at all. Tick the students who
+                      take it, or choose "Everyone in this class".
+                    </p>
+                  )}
                   {roll.length === 0 ? (
                     <p className="text-dim" style={{ fontSize: '0.75rem' }}>No students on this class roll yet.</p>
                   ) : (
@@ -592,7 +598,11 @@ function CourseBuilder({ orgId, onBack, onEditQuiz }) {
                         : <span className="text-dim">—</span>}
                     </td>
                     <td style={{ textAlign: 'center', fontSize: '0.8rem', color: courseTakesWholeClass(c.id) ? 'var(--text-dim)' : 'var(--accent)' }}>
-                      {courseTakesWholeClass(c.id) ? 'All' : `${getCourseStudentIds(c.id).length} of ${(classes.find((x) => x.id === c.classId)?.studentIds || []).length}`}
+                      {courseTakesWholeClass(c.id)
+                        ? 'All'
+                        : getCourseStudentIds(c.id).length === 0
+                          ? <span style={{ color: 'var(--danger)' }} title="No student can see this course">None</span>
+                          : `${getCourseStudentIds(c.id).length} of ${(classes.find((x) => x.id === c.classId)?.studentIds || []).length}`}
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       <button
