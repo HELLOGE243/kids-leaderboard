@@ -173,25 +173,27 @@ function CourseBuilder({ orgId, onBack, onEditQuiz }) {
                     }}
                   >{isTrial ? '★ Trial test' : 'Make trial test'}</button>
                   {isTrial && (
-                    <button
-                      className="btn btn-outline btn-small"
-                      style={{ fontSize: '0.5rem', padding: '6px 12px' }}
-                      onClick={() => setShowEnrolment('reports')}
-                      title="Open any student's trial report"
-                    >Student reports</button>
-                  )}
-                  {isTrial && (
-                    <button
-                      className={`btn btn-small ${released ? 'btn-outline' : ''}`}
-                      style={{ fontSize: '0.5rem', padding: '6px 12px', background: released ? undefined : 'var(--success)', color: released ? undefined : '#04220f' }}
-                      title={released ? 'Results are visible to students' : 'Publish every mark in this course and open each student\u2019s report'}
-                      onClick={() => {
-                        if (!released && !window.confirm('Release results for this trial test? Every student sees their marks and their full report.')) return
-                        if (released && !window.confirm('Pull results back? Students lose access to their marks and report again.')) return
-                        setTrialResultsReleased(course.id, !released)
-                        forceRefresh()
-                      }}
-                    >{released ? 'Results released ✓' : 'Release results'}</button>
+                    <>
+                      {released && <span className="cb-released-tag">Results released</span>}
+                      {/* The button says what pressing it does, so a released
+                          trial can be sealed again in one step. */}
+                      <button
+                        className={`btn btn-small ${released ? 'btn-outline' : ''}`}
+                        style={{ fontSize: '0.5rem', padding: '6px 12px',
+                          background: released ? undefined : 'var(--success)',
+                          color: released ? 'var(--warning)' : '#04220f',
+                          borderColor: released ? 'var(--warning)' : undefined }}
+                        title={released
+                          ? 'Hide every mark and report again until you release them'
+                          : 'Publish every mark in this course and open each student’s report'}
+                        onClick={() => {
+                          if (!released && !window.confirm('Release results for this trial test? Every student sees their marks and their full report.')) return
+                          if (released && !window.confirm('Seal results again? Students lose access to their marks, their report and their review.')) return
+                          setTrialResultsReleased(course.id, !released)
+                          forceRefresh()
+                        }}
+                      >{released ? 'Seal results' : 'Release results'}</button>
+                    </>
                   )}
                 </>
               )

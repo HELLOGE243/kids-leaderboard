@@ -6028,6 +6028,8 @@ a.qt-video-btn {
 }
 /* Labels read "Average" and "Highest" and values read "20 / 25", so both
    columns need room: at 36px each they ran into the bar between them. */
+.cb-released-tag { font-size: 0.5rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--success); padding: 4px 8px; border-radius: 4px; background: rgba(0, 230, 118, 0.12); white-space: nowrap; }
+
 .hw-course-title-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 /* Violet, so it reads as its own thing beside the course name rather than as
    another navigation button. */
