@@ -16971,3 +16971,12 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .pe-row { display: flex; justify-content: space-between; gap: 12px; font-size: 0.86rem; padding: 5px 8px; border-radius: 6px; background: var(--td2-soft); }
 .pe-yes { color: var(--success, #4ade80); }
 .pe-no { color: var(--text-dim, #94a3b8); }
+
+/* KaTeX keeps a MathML copy of every expression for screen readers, hidden by a
+   clip. Questions written before now have that copy baked into their saved HTML,
+   and a browser that does not honour the clip shows the source beside the maths.
+   Nothing here reads it, so it is taken out of the page entirely. */
+.katex-mathml,
+.katex annotation {
+  display: none !important;
+}

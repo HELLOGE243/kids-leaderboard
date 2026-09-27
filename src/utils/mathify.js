@@ -69,4 +69,70 @@ export function wrapMath(text) {
   return inner ? `\\(${inner}\\)` : '\\(\\)'
 }
 
+// A LaTeX command, or a braced sub/superscript: the mark of maths that has been
+// written without any delimiters around it.
+const BARE_LATEX = /\\[a-zA-Z]+|[\^_]\s*\{/
+// Numbers and the operators that join an expression together. On their own they
+// are not maths, but beside a \frac or a \sqrt they belong inside it.
+const GLUE = /^[-+=<>(),.:;\d−×÷]+$/
+
+/**
+ * Some questions arrive with their maths written bare — an option that is simply
+ * "\frac{1}{2}", with no \( … \) around it. Nothing renders that, so the student
+ * reads the source instead of the fraction. This puts the delimiters where they
+ * belong, around the maths and not around the words beside it.
+ *
+ * Text that already carries delimiters, or holds no LaTeX at all, is returned
+ * untouched.
+ */
+export function prepareMath(text) {
+  const src = String(text || '')
+  if (!src || /\\\(|\\\[|\$/.test(src)) return src
+  if (!BARE_LATEX.test(src)) return src
+
+  const tokens = src.split(/(\s+)/)
+  const out = []
+  let run = []
+
+  const flushRun = () => {
+    if (!run.length) return
+    // Whitespace that trails the maths belongs outside it.
+    const tail = []
+    while (run.length && /^\s*$/.test(run[run.length - 1])) tail.unshift(run.pop())
+    // A run of numbers alone is not maths; it only counts with a command in it.
+    if (run.some((t) => BARE_LATEX.test(t))) out.push(`\\(${run.join('')}\\)`)
+    else out.push(run.join(''))
+    out.push(...tail)
+    run = []
+  }
+
+  // Numbers and operators seen before any command is held back: "2 \times 3" has
+  // to keep its 2 inside the maths.
+  let pending = []
+  const dropPending = () => { out.push(...pending); pending = [] }
+
+  for (const token of tokens) {
+    if (/^\s*$/.test(token)) {
+      if (run.length) run.push(token)
+      else if (pending.length) pending.push(token)
+      else out.push(token)
+      continue
+    }
+    if (BARE_LATEX.test(token)) {
+      run.push(...pending, token)
+      pending = []
+    } else if (GLUE.test(token)) {
+      if (run.length) run.push(token)
+      else pending.push(token)
+    } else {
+      flushRun()
+      dropPending()
+      out.push(token)
+    }
+  }
+  flushRun()
+  dropPending()
+  return out.join('')
+}
+
 export default mathifyText

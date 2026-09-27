@@ -1,6 +1,6 @@
 import QuestionTagBar from '../components/QuestionTagBar.jsx'
 import { renderMath } from '../utils/renderMath.js'
-import { mathifyText, wrapMath, looksLikeMath } from '../utils/mathify.js'
+import { mathifyText, wrapMath, looksLikeMath, prepareMath } from '../utils/mathify.js'
 import BulkTagPanel from '../components/BulkTagPanel.jsx'
 import { extractTabLabel } from '../utils/extractLabel.js'
 import { useState, useRef, useEffect } from 'react'
@@ -1112,12 +1112,19 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                             </div>
                             {/* An option can hold maths the same way a question does:
                                 \( … \) inline. Shown rendered so it can be checked here. */}
-                            {/\\\(|\\\[|\$/.test(q.options[oi] || '') && (
-                              <div className="qe-option-math-preview">
-                                <span className="qe-option-math-label">Preview</span>
-                                <span dangerouslySetInnerHTML={{ __html: renderMath(q.options[oi] || '') }} />
-                              </div>
-                            )}
+                            {(() => {
+                              const raw = q.options[oi] || ''
+                              const ready = prepareMath(raw)
+                              // Shown whenever the option holds maths, whether the
+                              // delimiters were written or had to be supplied.
+                              if (!/\\\(|\\\[|\$/.test(ready)) return null
+                              return (
+                                <div className="qe-option-math-preview">
+                                  <span className="qe-option-math-label">Preview</span>
+                                  <span dangerouslySetInnerHTML={{ __html: renderMath(ready) }} />
+                                </div>
+                              )
+                            })()}
                             {hasContent && (
                               <div style={{ marginLeft: 64, marginTop: 2, marginBottom: 8 }}>
                                 <RichTextEditor

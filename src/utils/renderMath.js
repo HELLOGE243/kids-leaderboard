@@ -19,7 +19,9 @@ export function renderMath(html) {
 
   const render = (tex, displayMode) => {
     try {
-      return katex.renderToString(tex.trim(), { throwOnError: false, displayMode })
+      // HTML only: the MathML layer katex also emits carries the source as text,
+      // and where a browser fails to hide it the expression appears twice.
+      return katex.renderToString(tex.trim(), { throwOnError: false, displayMode, output: 'html' })
     } catch {
       return tex
     }

@@ -6,7 +6,7 @@ import { renderMath } from '../utils/renderMath.js'
 function renderMathInHTML(html) {
   const withEditorMath = html.replace(/<span[^>]*class="math-inline"[^>]*data-tex="([^"]*)"[^>]*>.*?<\/span>/g, (_, tex) => {
     try {
-      const rendered = katex.renderToString(tex, { throwOnError: false })
+      const rendered = katex.renderToString(tex, { throwOnError: false, output: 'html' })
       return `<span class="math-inline" data-tex="${tex}" contenteditable="false">${rendered}</span>`
     } catch { return tex }
   })
@@ -251,7 +251,7 @@ function RichTextEditor({ value, onChange, placeholder, extended }) {
   function handleMathChange(tex) {
     setMathValue(tex)
     try {
-      setMathPreview(katex.renderToString(tex, { throwOnError: false }))
+      setMathPreview(katex.renderToString(tex, { throwOnError: false, output: 'html' }))
     } catch {
       setMathPreview('')
     }
@@ -260,7 +260,7 @@ function RichTextEditor({ value, onChange, placeholder, extended }) {
   function insertMath() {
     if (!mathValue.trim()) return
     editorRef.current.focus()
-    const rendered = katex.renderToString(mathValue.trim(), { throwOnError: false })
+    const rendered = katex.renderToString(mathValue.trim(), { throwOnError: false, output: 'html' })
     const mathSpan = `<span class="math-inline" data-tex="${mathValue.trim().replace(/"/g, '&quot;')}" contenteditable="false">${rendered}</span>&nbsp;`
     document.execCommand('insertHTML', false, mathSpan)
     emitChange()

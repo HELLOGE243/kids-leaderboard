@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { renderMath } from '../utils/renderMath.js'
+import { prepareMath } from '../utils/mathify.js'
 import {
   getDueDojoCards,
   getDojoCardsForStudent,
@@ -647,7 +648,7 @@ Return ONLY valid JSON:
                 return (
                   <button key={oi} className={cls} onClick={() => onSelect(oi)}>
                     <span className={radioCls} />
-                    <span className="qt-option-text" dangerouslySetInnerHTML={{ __html: renderMath(opt) }} />
+                    <span className="qt-option-text" dangerouslySetInnerHTML={{ __html: renderMath(prepareMath(opt)) }} />
                   </button>
                 )
               })}
@@ -1109,7 +1110,7 @@ Return ONLY valid JSON:
                         return (
                           <button key={oi} className={cls} onClick={() => { if (!archiveViewAnswered) setArchiveViewSel(oi) }}>
                             <span className={radioCls} />
-                            <span className="qt-option-text" dangerouslySetInnerHTML={{ __html: renderMath(opt) }} />
+                            <span className="qt-option-text" dangerouslySetInnerHTML={{ __html: renderMath(prepareMath(opt)) }} />
                           </button>
                         )
                       })}

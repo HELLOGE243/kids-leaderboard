@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { renderMath } from '../utils/renderMath.js'
+import { prepareMath } from '../utils/mathify.js'
 import {
   getClassesForStudent,
   getTopicsForClass,
@@ -433,7 +434,7 @@ function QuizDashboard({ user, onBack, initialNav }) {
                     onClick={() => setAnswers((prev) => { const next = [...prev]; next[currentQ] = oi; return next })}
                   >
                     <span className="qt-option-radio" />
-                    <span className="qt-option-text" dangerouslySetInnerHTML={{ __html: renderMath(opt) }} />
+                    <span className="qt-option-text" dangerouslySetInnerHTML={{ __html: renderMath(prepareMath(opt)) }} />
                   </button>
                 ))}
               </div>
@@ -643,7 +644,7 @@ function QuizDashboard({ user, onBack, initialNav }) {
                   <div key={oi}>
                     <div className={cls}>
                       <span className={`qt-option-radio ${oi === q.correctIndex ? 'qt-radio-correct' : oi === picked ? 'qt-radio-wrong' : ''}`} />
-                      <span className="qt-option-text" dangerouslySetInnerHTML={{ __html: renderMath(opt) }} />
+                      <span className="qt-option-text" dangerouslySetInnerHTML={{ __html: renderMath(prepareMath(opt)) }} />
                     </div>
                     {optExp && <div className="qt-option-explanation" dangerouslySetInnerHTML={{ __html: optExp }} />}
                   </div>
