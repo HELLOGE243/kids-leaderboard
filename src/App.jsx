@@ -258,7 +258,10 @@ function App() {
   }
 
   useEffect(() => {
-    if (!session) return
+    // Students only: a teacher's client subscribes to these documents and gets
+    // every change pushed to it, so polling would only risk stepping on their
+    // own unsaved edits.
+    if (session?.role !== 'student') return
     let last = 0
     const refresh = () => {
       if (document.hidden) return

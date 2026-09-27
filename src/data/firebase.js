@@ -625,6 +625,11 @@ export function setSyncScope(role, userId = null) {
  */
 export async function refreshSharedData() {
   if (!_ready || !_cache) return false
+  // Never re-read on top of a change that has not been saved yet: this
+  // overwrites the cache with the server's older copy and then records it as
+  // already written, so the change is lost on the way out. A teacher pressing
+  // "Release results" and a refresh landing in the same second is exactly that.
+  if (pendingWriteCount() > 0) return false
   try {
     const snaps = await Promise.all(
       CHUNKS.map((chunk) =>
