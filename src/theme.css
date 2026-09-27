@@ -28,6 +28,11 @@
   --font-pixel: 'Press Start 2P', monospace;
   --font-body: 'Inter', 'Segoe UI', Arial, sans-serif;
   --font-response: 'Arial MT Pro', 'ArialMT', Arial, Helvetica, sans-serif;
+  /* Question-facing content — the passage, the statement, the options and the
+     instructions — is one typeface at one size wherever it is read. */
+  --font-content: 'Arial MT Pro', 'ArialMT', Arial, Helvetica, sans-serif;
+  --size-content: 1.15rem;
+  --line-content: 1.7;
   --font-display: 'Outfit', 'Inter', 'Segoe UI', sans-serif;
   --radius: 4px;
   --pixel-border: 3px solid var(--border);
@@ -2574,6 +2579,7 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   font-size: 0.85rem; padding: 4px 8px; background: #fff; color: #333; border-color: #ccc;
 }
 .rte-body {
+  font-family: var(--font-content);
   min-height: 60px;
   padding: 8px 10px;
   background: var(--bg-input);
@@ -2683,7 +2689,7 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   border-left: 2px solid var(--accent);
   background: #f5f5f5;
   border-radius: 3px;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   /* The options panel is light, so the preview takes the option field's own ink
      rather than the dark theme's, which read as blank against it. */
   color: #333;
@@ -3011,9 +3017,9 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   background: #fff;
 }
 .qt-question-text {
-  font-family: var(--font-body);
-  font-size: 1.2rem;
-  line-height: 1.8;
+  font-family: var(--font-content);
+  font-size: var(--size-content);
+  line-height: var(--line-content);
   color: #222;
   margin-bottom: 0;
 }
@@ -3029,12 +3035,12 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 }
 .qt-question-text img { max-width: 100%; height: auto; display: block; margin: 12px auto; }
 .qt-prompt-display {
-  font-family: var(--font-response);
-  font-size: 1.15rem;
+  font-family: var(--font-content);
+  font-size: var(--size-content);
   font-weight: 600;
   color: #222;
   margin-bottom: 24px;
-  line-height: 1.5;
+  line-height: var(--line-content);
 }
 .qt-prompt-area {
   margin-bottom: 16px;
@@ -3061,7 +3067,8 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   border-radius: 0;
   cursor: pointer;
   color: #222;
-  font-size: 1.15rem;
+  font-family: var(--font-content);
+  font-size: var(--size-content);
   text-align: left;
   transition: border-color 0.15s, background 0.15s;
   font-family: Arial, Helvetica, sans-serif;
@@ -3123,12 +3130,12 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 .qt-desc-tab-active { background: #fff; color: #1a1a2e; font-weight: 700; border-color: #aaa; border-bottom: 2px solid #fff; }
 /* The left panel scrolls, so the extract shows in full; imported passages carry
    no colour of their own, so set dark text on the white panel explicitly. */
-.qt-desc-content { font-family: var(--font-response); padding: 18px 12px; border: none; border-radius: 0; background: #fff; margin-bottom: 16px; min-height: 60px; font-size: 1.05rem; line-height: 1.8; color: #222; }
+.qt-desc-content { font-family: var(--font-content); padding: 18px 12px; border: none; border-radius: 0; background: #fff; margin-bottom: 16px; min-height: 60px; font-size: var(--size-content); line-height: var(--line-content); color: #222; }
 .qt-desc-content * { color: inherit; }
 .qt-desc-content img { max-width: 100%; height: auto; }
 
 /* Cloze blanks (quiz-taking) */
-.qt-cloze-instructions { font-family: var(--font-response); padding: 10px 0; margin-bottom: 10px; font-size: 1.05rem; font-weight: 700; color: #333; line-height: 1.8; }
+.qt-cloze-instructions { font-family: var(--font-content); padding: 10px 0; margin-bottom: 10px; font-size: var(--size-content); font-weight: 700; color: #333; line-height: var(--line-content); }
 .qt-cloze-blanks { display: flex; flex-direction: column; gap: 12px; padding: 8px 0; }
 .qt-cloze-blank-row { display: flex; align-items: center; gap: 10px; }
 .qt-cloze-blank-label { font-size: 0.85rem; font-weight: 600; color: #555; min-width: 70px; }
@@ -3247,10 +3254,10 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 .qt-matching-questions { display: flex; flex-direction: column; gap: 14px; padding: 0; margin: 0; }
 .qt-matching-row { display: flex; flex-direction: row; align-items: center; gap: 16px; padding: 0; border: none; background: transparent; }
 .qt-matching-num { font-weight: 700; color: #1a1a2e; min-width: 28px; font-size: 0.95rem; }
-.qt-matching-question { font-family: var(--font-response); font-size: 0.95rem; color: #1a1a2e; font-weight: 400; flex: 1; line-height: 1.5; }
+.qt-matching-question { font-family: var(--font-content); font-size: var(--size-content); color: #1a1a2e; font-weight: 400; flex: 1; line-height: var(--line-content); }
 .qt-matching-question p, .qt-matching-question h4 { margin: 0; font-size: inherit; font-weight: inherit; }
 .qt-matching-row .qt-cloze-select { flex: none; width: 90px; }
-.qt-matching-instructions { font-family: var(--font-response); font-size: 0.95rem; color: #333; padding: 0 0 12px 0; line-height: 1.6; }
+.qt-matching-instructions { font-family: var(--font-content); font-size: var(--size-content); color: #333; padding: 0 0 12px 0; line-height: var(--line-content); }
 
 /* Free-writing (quiz-taking) */
 .qt-freewrite-area { width: 100%; padding: 14px; border: 2px solid #d0d0d0; border-radius: 8px; font-size: 0.9rem; font-family: var(--font-response); resize: vertical; min-height: 160px; background: #fff; color: #1a1a2e; line-height: 1.6; box-sizing: border-box; }
@@ -4781,7 +4788,9 @@ a.qt-video-btn {
   background: #f5f5f5 !important;
   color: #333 !important;
   padding: 8px 12px !important;
-  font-size: 1rem !important;
+  /* The same type as the content editors either side of it. */
+  font-family: var(--font-content) !important;
+  font-size: 0.9rem !important;
   border-radius: 4px !important;
   min-width: 0;
 }
