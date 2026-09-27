@@ -1329,9 +1329,14 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
               <button
                 className="btn btn-outline"
                 style={{ fontSize: '0.65rem', padding: '10px 16px' }}
+                title="Add a question straight after this one"
                 onClick={() => {
-                  setQuizQuestions((prev) => [...prev, emptyQuestion()])
-                  setCurrentEditQ(quizQuestions.length)
+                  // Straight after the question being looked at, not at the end
+                  // of the paper: a teacher adding a question is nearly always
+                  // adding it here.
+                  const at = currentEditQ + 1
+                  setQuizQuestions((prev) => [...prev.slice(0, at), emptyQuestion(), ...prev.slice(at)])
+                  setCurrentEditQ(at)
                 }}
               >
                 + Add Q

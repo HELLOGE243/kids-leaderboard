@@ -2787,6 +2787,36 @@ export function snapshotAttempt(studentId, quizSetId, answers, questionTimes, ex
   })
 }
 
+/**
+ * Every attempt currently sitting in a student's record, newest first, for the
+ * teacher's reset tool. Covers work done before the archive existed, which the
+ * archive itself cannot show.
+ * @returns {Promise<Array<{studentId,studentName,quizSetId,quizTitle,score,total,date,kind}>>}
+ */
+export async function getCurrentAttempts() {
+  await preloadAllStudents()
+  const data = loadData()
+  const setTitle = (id) => {
+    const s = (data.importedQuizSets || []).find((x) => x.id === id)
+    return s ? (s.friendlyTitle || s.rawTitle || id) : id
+  }
+  const rows = []
+  for (const a of collectStudentArray('homeworkAttempts')) {
+    const student = (data.students || {})[a.studentId]
+    rows.push({
+      studentId: a.studentId,
+      studentName: student ? fullName(student) : a.studentId,
+      quizSetId: a.quizSetId,
+      quizTitle: setTitle(a.quizSetId),
+      score: a.score,
+      total: a.total,
+      date: a.date,
+      kind: 'homework',
+    })
+  }
+  return rows.sort((x, y) => String(y.date || '').localeCompare(String(x.date || '')))
+}
+
 /** Everything the archive holds, newest first. Teacher tools only. */
 export function getArchivedSubmissions() {
   return loadArchivedSubmissions()

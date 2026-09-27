@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getArchivedSubmissions, getAttemptDrafts, restoreArchivedSubmission, preloadAllStudents } from '../data/store.js'
+import { getArchivedSubmissions, getAttemptDrafts, restoreArchivedSubmission, preloadAllStudents, resetQuizForStudent, getCurrentAttempts } from '../data/store.js'
 
 /**
  * The submission archive: every paper as it was handed in, kept apart from the
@@ -12,14 +12,17 @@ import { getArchivedSubmissions, getAttemptDrafts, restoreArchivedSubmission, pr
 export default function SubmissionArchive() {
   const [submissions, setSubmissions] = useState(null)
   const [drafts, setDrafts] = useState([])
+  const [attempts, setAttempts] = useState([])
+  const [filter, setFilter] = useState('')
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
     setBusy(true)
-    const [subs, dfts] = await Promise.all([getArchivedSubmissions(), getAttemptDrafts()])
+    const [subs, dfts, atts] = await Promise.all([getArchivedSubmissions(), getAttemptDrafts(), getCurrentAttempts()])
     setSubmissions(subs)
     setDrafts(dfts)
+    setAttempts(atts)
     setBusy(false)
   }, [])
 
@@ -33,6 +36,22 @@ export default function SubmissionArchive() {
     a.download = `cleverspace-submissions-${new Date().toISOString().slice(0, 10)}.json`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  /**
+   * Clears one student's attempt at one paper so they can sit it again. The
+   * archived copy is untouched - it cannot be deleted by anyone - so a reset
+   * after a malfunction never loses what they had already answered.
+   */
+  async function reset(record) {
+    const who = record.studentName || record.studentId
+    const what = record.quizTitle || record.quizSetId
+    if (!window.confirm(`Reset ${who}'s attempt at "${what}"? Their score and answers are cleared and they can sit it again. The archived copy is kept.`)) return
+    setBusy(true)
+    await preloadAllStudents()
+    resetQuizForStudent(record.quizSetId, record.studentId)
+    setStatus(`${who} can sit "${what}" again. Their archived paper is still here.`)
+    await load()
   }
 
   async function restore(record) {
@@ -64,6 +83,57 @@ export default function SubmissionArchive() {
 
       {status && <p style={{ fontSize: '0.75rem', color: 'var(--accent)', marginBottom: 10 }}>{status}</p>}
 
+      <p className="td2-h2" style={{ fontSize: '0.7rem', marginTop: 4 }}>Reset a paper</p>
+      <p className="td2-muted td2-small" style={{ margin: '4px 0 10px' }}>
+        Clears one student's attempt so they can sit that paper again — for the day a quiz misbehaves
+        mid-sitting. What they had already answered stays in the archive below.
+      </p>
+      <input
+        className="input"
+        placeholder="Filter by student or paper…"
+        value={filter}
+        onChange={(e) => setFilter(e.target.value)}
+        style={{ fontSize: '0.7rem', padding: '6px 10px', marginBottom: 10, maxWidth: 320 }}
+      />
+      {attempts.length === 0 ? (
+        <p className="text-dim" style={{ fontSize: '0.8rem', marginBottom: 16 }}>No attempts on record.</p>
+      ) : (
+        <table className="table w-full" style={{ marginBottom: 20 }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left', fontSize: '0.6rem' }}>Student</th>
+              <th style={{ textAlign: 'left', fontSize: '0.6rem' }}>Paper</th>
+              <th style={{ textAlign: 'center', fontSize: '0.6rem', width: 70 }}>Score</th>
+              <th style={{ textAlign: 'center', fontSize: '0.6rem', width: 130 }}>Sat</th>
+              <th style={{ textAlign: 'center', fontSize: '0.6rem', width: 80 }} />
+            </tr>
+          </thead>
+          <tbody>
+            {attempts
+              .filter((a) => !filter || `${a.studentName} ${a.quizTitle}`.toLowerCase().includes(filter.toLowerCase()))
+              .slice(0, 100)
+              .map((a) => (
+                <tr key={`${a.studentId}-${a.quizSetId}`}>
+                  <td style={{ fontSize: '0.75rem' }}>{a.studentName}</td>
+                  <td style={{ fontSize: '0.75rem' }}>{a.quizTitle}</td>
+                  <td style={{ textAlign: 'center', fontSize: '0.75rem' }}>{a.score}/{a.total}</td>
+                  <td style={{ textAlign: 'center', fontSize: '0.7rem' }}>{a.date ? new Date(a.date).toLocaleString() : '—'}</td>
+                  <td style={{ textAlign: 'center' }}>
+                    <button
+                      className="btn btn-outline btn-small"
+                      style={{ fontSize: '0.45rem', padding: '3px 8px', borderColor: 'var(--warning)', color: 'var(--warning)' }}
+                      disabled={busy}
+                      onClick={() => reset(a)}
+                    >Reset</button>
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      )}
+
+      <p className="td2-h2" style={{ fontSize: '0.7rem' }}>Archived papers</p>
+
       {submissions.length === 0 ? (
         <p className="text-dim" style={{ fontSize: '0.8rem' }}>Nothing archived yet. Every paper handed in from now on is recorded here.</p>
       ) : (
@@ -74,7 +144,7 @@ export default function SubmissionArchive() {
               <th style={{ textAlign: 'left', fontSize: '0.6rem' }}>Paper</th>
               <th style={{ textAlign: 'center', fontSize: '0.6rem', width: 70 }}>Score</th>
               <th style={{ textAlign: 'center', fontSize: '0.6rem', width: 130 }}>Handed in</th>
-              <th style={{ textAlign: 'center', fontSize: '0.6rem', width: 90 }}>Recovery</th>
+              <th style={{ textAlign: 'center', fontSize: '0.6rem', width: 150 }}>Recovery</th>
             </tr>
           </thead>
           <tbody>
@@ -87,11 +157,18 @@ export default function SubmissionArchive() {
                 <td style={{ textAlign: 'center' }}>
                   <button
                     className="btn btn-outline btn-small"
-                    style={{ fontSize: '0.45rem', padding: '3px 8px' }}
+                    style={{ fontSize: '0.45rem', padding: '3px 8px', marginRight: 4 }}
                     disabled={busy}
                     title="Put this paper back into the student's record if it has gone missing"
                     onClick={() => restore(s)}
                   >Restore</button>
+                  <button
+                    className="btn btn-outline btn-small"
+                    style={{ fontSize: '0.45rem', padding: '3px 8px', borderColor: 'var(--warning)', color: 'var(--warning)' }}
+                    disabled={busy}
+                    title="Clear this attempt so the student can sit the paper again"
+                    onClick={() => reset(s)}
+                  >Reset</button>
                 </td>
               </tr>
             ))}
