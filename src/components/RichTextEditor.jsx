@@ -3,15 +3,35 @@ import katex from 'katex'
 import 'katex/dist/katex.min.css'
 import { renderMath } from '../utils/renderMath.js'
 
+/**
+ * Copying inside the editor and pasting back carries the browser's whole computed
+ * style with it, including the editor's own dark background and pale ink. On the
+ * page the student reads, that shows as light text on navy patches. The colours
+ * belong to the app's stylesheets, never to the content, so they are taken off.
+ */
+function stripPastedColours(html) {
+  if (!html || typeof document === 'undefined') return html
+  if (!/background|color\s*:/i.test(html)) return html
+  const holder = document.createElement('div')
+  holder.innerHTML = html
+  holder.querySelectorAll('[style]').forEach((el) => {
+    el.style.removeProperty('color')
+    el.style.removeProperty('background')
+    el.style.removeProperty('background-color')
+    if (!el.getAttribute('style')) el.removeAttribute('style')
+  })
+  return holder.innerHTML
+}
+
 function renderMathInHTML(html) {
   // Saved maths is a span holding a whole KaTeX tree, dozens of nested spans deep.
   // Matching that with a regex ends at the first closing tag and leaves the rest
   // of the old rendering in the page beside the new one — the expression appeared
   // twice. The document parser knows where the span ends; a pattern cannot.
-  let withEditorMath = html
-  if (/math-inline/.test(html) && typeof document !== 'undefined') {
+  let withEditorMath = stripPastedColours(html)
+  if (/math-inline/.test(withEditorMath) && typeof document !== 'undefined') {
     const holder = document.createElement('div')
-    holder.innerHTML = html
+    holder.innerHTML = withEditorMath
     holder.querySelectorAll('span.math-inline[data-tex]').forEach((el) => {
       const tex = el.getAttribute('data-tex') || ''
       try {
@@ -217,7 +237,7 @@ function RichTextEditor({ value, onChange, placeholder, extended }) {
 
   useEffect(() => {
     if (editorRef.current && !isInternalChange.current) {
-      editorRef.current.innerHTML = value || ''
+      editorRef.current.innerHTML = stripPastedColours(value || '')
     }
     isInternalChange.current = false
   }, [value])
@@ -304,6 +324,14 @@ function RichTextEditor({ value, onChange, placeholder, extended }) {
   function handlePaste(e) {
     const items = e.clipboardData?.items
     if (!items) return
+    const pastedHtml = e.clipboardData.getData('text/html')
+    if (pastedHtml && /background|color\s*:/i.test(pastedHtml)) {
+      e.preventDefault()
+      editorRef.current.focus()
+      document.execCommand('insertHTML', false, stripPastedColours(pastedHtml))
+      emitChange()
+      return
+    }
     for (const item of items) {
       if (item.type.startsWith('image/')) {
         e.preventDefault()
