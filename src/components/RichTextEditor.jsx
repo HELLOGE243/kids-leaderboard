@@ -19,6 +19,7 @@ function ImageResizer({ img, wrapRef, editorRef, onDone }) {
   const [size, setSize] = useState({ w: img.offsetWidth, h: img.offsetHeight })
   const [crop, setCrop] = useState(null)
   const [mode, setMode] = useState('resize')
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const naturalW = img.naturalWidth || img.offsetWidth
   const naturalH = img.naturalHeight || img.offsetHeight
   const aspect = naturalW / naturalH
@@ -116,6 +117,11 @@ function ImageResizer({ img, wrapRef, editorRef, onDone }) {
     onDone()
   }
 
+  function deleteImage() {
+    img.remove()
+    onDone()
+  }
+
   const handleStyle = {
     position: 'absolute', width: 12, height: 12, background: '#fff',
     border: '2px solid #2196f3', borderRadius: 2, zIndex: 3,
@@ -142,8 +148,18 @@ function ImageResizer({ img, wrapRef, editorRef, onDone }) {
           <div className="rte-resizer-actions">
             <button type="button" className="rte-resizer-btn" onMouseDown={(e) => e.preventDefault()} onClick={applyResize}>Apply</button>
             <button type="button" className="rte-resizer-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => { setMode('crop'); setCrop({ top: 0, right: 0, bottom: 0, left: 0 }) }}>Crop</button>
+            <button type="button" className="rte-resizer-btn rte-resizer-btn-danger" onMouseDown={(e) => e.preventDefault()} onClick={() => setConfirmDelete(true)}>Delete</button>
             <button type="button" className="rte-resizer-btn rte-resizer-btn-cancel" onMouseDown={(e) => e.preventDefault()} onClick={onDone}>Cancel</button>
           </div>
+          {confirmDelete && (
+            <div className="rte-img-confirm" onMouseDown={(e) => e.preventDefault()}>
+              <p>Delete this image? It is removed from the question when you save.</p>
+              <div className="rte-img-confirm-actions">
+                <button type="button" className="rte-resizer-btn rte-resizer-btn-danger" onClick={deleteImage}>Delete image</button>
+                <button type="button" className="rte-resizer-btn rte-resizer-btn-cancel" onClick={() => setConfirmDelete(false)}>Keep it</button>
+              </div>
+            </div>
+          )}
         </>
       )}
       {mode === 'crop' && (

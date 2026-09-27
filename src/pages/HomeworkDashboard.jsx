@@ -1648,7 +1648,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                           <div key={oi}>
                             <div className={optClass} style={{ cursor: 'default' }}>
                               <span className={`qt-option-radio ${oi === q.correctIndex ? 'qt-radio-correct' : oi === picked ? 'qt-radio-wrong' : ''}`} />
-                              <span className="qt-option-text">{opt}</span>
+                              <span className="qt-option-text" dangerouslySetInnerHTML={{ __html: renderMath(opt) }} />
                             </div>
                             {optExp && <div className="qt-exp-wrap">
                               <div className="qt-option-explanation" dangerouslySetInnerHTML={{ __html: renderMath(optExp) }} />
@@ -2111,7 +2111,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                         return (
                           <button key={oi} className={`qt-option qt-click-flash-option${isSelected ? ' qt-option-selected' : ''}`} onClick={() => setQuizAnswers(prev => { const next = [...prev]; next[currentQ] = oi; return next })} style={{ cursor: 'pointer' }}>
                             <span className="qt-option-radio qt-click-flash-radio" />
-                            <span className="qt-option-text">{opt}</span>
+                            <span className="qt-option-text" dangerouslySetInnerHTML={{ __html: renderMath(opt) }} />
                           </button>
                         )
                       })}

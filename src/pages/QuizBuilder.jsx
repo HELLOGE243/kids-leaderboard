@@ -1,4 +1,5 @@
 import QuestionTagBar from '../components/QuestionTagBar.jsx'
+import { renderMath } from '../utils/renderMath.js'
 import BulkTagPanel from '../components/BulkTagPanel.jsx'
 import { extractTabLabel } from '../utils/extractLabel.js'
 import { useState, useRef, useEffect } from 'react'
@@ -1064,6 +1065,14 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                                 className="qe-option-input"
                               />
                             </div>
+                            {/* An option can hold maths the same way a question does:
+                                \( … \) inline. Shown rendered so it can be checked here. */}
+                            {/\\\(|\\\[|\$/.test(q.options[oi] || '') && (
+                              <div
+                                className="qe-option-math-preview"
+                                dangerouslySetInnerHTML={{ __html: renderMath(q.options[oi] || '') }}
+                              />
+                            )}
                             {hasContent && (
                               <div style={{ marginLeft: 64, marginTop: 2, marginBottom: 8 }}>
                                 <RichTextEditor

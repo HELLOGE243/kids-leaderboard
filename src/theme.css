@@ -2674,6 +2674,51 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   background: #555;
 }
 
+.qe-option-math-preview {
+  margin: 2px 0 8px 64px;
+  padding: 4px 8px;
+  border-left: 2px solid var(--accent);
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.rte-resizer-btn-danger {
+  background: #c0392b;
+}
+
+.rte-resizer-btn-danger:hover {
+  background: #a93226;
+}
+
+.rte-img-confirm {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  width: max-content;
+  max-width: 260px;
+  background: var(--panel, #fff);
+  border: 2px solid #c0392b;
+  border-radius: 6px;
+  padding: 12px 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+
+.rte-img-confirm p {
+  margin: 0 0 10px;
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  line-height: 1.6;
+  color: var(--text, #222);
+}
+
+.rte-img-confirm-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
 /* --- Quiz Taking — NAPLAN-style --- */
 .qt-backdrop {
   position: fixed;

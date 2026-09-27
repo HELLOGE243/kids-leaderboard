@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { renderMath } from '../utils/renderMath.js'
 import { getDojoCardsForStudent, recordCompulsoryRevisionAnswer, markDojoAskTeacher, reportQuestionError } from '../data/store.js'
 import ReportIssueModal from '../components/ReportIssueModal.jsx'
 import { RichText } from '../components/RichTextEditor.jsx'
@@ -248,7 +249,7 @@ function SessionRevision({ user, onComplete }) {
                           return (
                             <button key={oi} className={cls} onClick={() => { if (!answered) setSelected(oi) }}>
                               <span className={radioCls} />
-                              <span className="qt-option-text">{opt}</span>
+                              <span className="qt-option-text" dangerouslySetInnerHTML={{ __html: renderMath(opt) }} />
                             </button>
                           )
                         })}
