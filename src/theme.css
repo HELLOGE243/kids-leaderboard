@@ -6028,6 +6028,10 @@ a.qt-video-btn {
 }
 /* Labels read "Average" and "Highest" and values read "20 / 25", so both
    columns need room: at 36px each they ran into the bar between them. */
+.cb-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+.cb-dot-yes { background: #00e676; box-shadow: 0 0 6px rgba(0, 230, 118, .6); }
+.cb-dot-no { background: #ff1744; box-shadow: 0 0 6px rgba(255, 23, 68, .45); }
+
 .cb-released-tag { font-size: 0.5rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--success); padding: 4px 8px; border-radius: 4px; background: rgba(0, 230, 118, 0.12); white-space: nowrap; }
 
 .hw-course-title-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }

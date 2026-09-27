@@ -573,8 +573,9 @@ function CourseBuilder({ orgId, onBack, onEditQuiz }) {
                   <th style={{ textAlign: 'left', fontSize: '0.7rem' }}>Course</th>
                   <th style={{ textAlign: 'center', width: 60, fontSize: '0.7rem' }}>Term</th>
                   <th style={{ textAlign: 'center', width: 80, fontSize: '0.7rem' }}>Modules</th>
+                  <th style={{ textAlign: 'center', width: 70, fontSize: '0.7rem' }}>Trial</th>
+                  <th style={{ textAlign: 'center', width: 100, fontSize: '0.7rem' }}>Results</th>
                   <th style={{ textAlign: 'center', width: 90, fontSize: '0.7rem' }}>Students</th>
-                  <th style={{ textAlign: 'center', width: 130, fontSize: '0.7rem' }}>Trial test</th>
                   <th style={{ textAlign: 'center', width: 120, fontSize: '0.7rem' }}>Action</th>
                 </tr>
               </thead>
@@ -594,18 +595,29 @@ function CourseBuilder({ orgId, onBack, onEditQuiz }) {
                       </select>
                     </td>
                     <td style={{ textAlign: 'center', fontSize: '0.8rem' }}>{c.modules.length}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <span
+                        className={`cb-dot ${c.trialTest ? 'cb-dot-yes' : 'cb-dot-no'}`}
+                        title={c.trialTest ? 'Trial test course' : 'Ordinary course'}
+                      />
+                    </td>
                     <td style={{ textAlign: 'center', fontSize: '0.75rem' }}>
                       {c.trialTest
                         ? <span style={{ color: c.resultsReleased ? 'var(--success)' : 'var(--warning)' }}>{c.resultsReleased ? 'Released' : 'Sealed'}</span>
                         : <span className="text-dim">—</span>}
                     </td>
-                    <td style={{ textAlign: 'center', fontSize: '0.8rem', color: courseTakesWholeClass(c.id) ? 'var(--text-dim)' : 'var(--accent)' }}>
-                      {courseTakesWholeClass(c.id)
-                        ? 'All'
-                        : getCourseStudentIds(c.id).length === 0
-                          ? <span style={{ color: 'var(--danger)' }} title="No student can see this course">None</span>
-                          : `${getCourseStudentIds(c.id).length} of ${(classes.find((x) => x.id === c.classId)?.studentIds || []).length}`}
-                    </td>
+                    {(() => {
+                      // Always "x of y": the number taking it, out of the class roll.
+                      const roll = (classes.find((x) => x.id === c.classId)?.studentIds || []).length
+                      const taking = getCourseStudentIds(c.id).length
+                      const colour = taking === 0 ? 'var(--danger)' : taking === roll ? 'var(--text-dim)' : 'var(--accent)'
+                      return (
+                        <td
+                          style={{ textAlign: 'center', fontSize: '0.8rem', color: colour }}
+                          title={taking === 0 ? 'No student can see this course' : courseTakesWholeClass(c.id) ? 'Everyone in this class' : 'Chosen students only'}
+                        >{taking} of {roll}</td>
+                      )
+                    })()}
                     <td style={{ textAlign: 'center' }}>
                       <button
                         className="btn btn-outline btn-small"

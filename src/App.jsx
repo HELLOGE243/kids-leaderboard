@@ -171,9 +171,8 @@ function App() {
   // device out rather than letting two devices share a login.
   useEffect(() => {
     if (!session?.user?.id || !session?.sessionId) return undefined
-    // Admins run the school from more than one machine, so the one-device rule
-    // does not apply to them.
-    if (session.isAdmin) return undefined
+    // Every account, including an admin's: signing in somewhere new ends the
+    // session everywhere else, so a login is only ever live in one place.
     return watchSession(session.user.id, session.sessionId, () => {
       setReplacedElsewhere(true)
       sessionStorage.removeItem(SESSION_KEY)
