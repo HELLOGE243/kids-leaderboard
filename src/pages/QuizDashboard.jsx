@@ -183,7 +183,9 @@ function QuizDashboard({ user, onBack, initialNav }) {
       setTimeLeft(remaining)
       if (remaining <= 0) {
         clearInterval(timerRef.current)
-        doSubmit()
+        // Through the ref: this effect is set up when the quiz opens, so the
+        // closure's answers are the blank ones it started with.
+        doSubmitRef.current?.()
       }
     }
     tick()

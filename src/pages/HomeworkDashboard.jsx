@@ -459,7 +459,11 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       setTimeLeft(remaining)
       if (remaining <= 0) {
         clearInterval(timerRef.current)
-        doSubmit()
+        // Through the ref, never the closure: this effect is set up when the
+        // paper opens and only re-runs if the clock is restarted, so calling
+        // doSubmit directly would hand in the answers as they were at the very
+        // start — every one of them blank — and mark the sitting zero.
+        doSubmitRef.current?.()
       }
     }
     tick()
