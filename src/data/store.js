@@ -2053,6 +2053,21 @@ export function updateImportedQuizSet(id, updates) {
     }
   }
 
+  // Deleting a question shifts every answer after it, and attempts store
+  // answers by position. Work out where each surviving question moved to and
+  // rewrite the stored answers to match, so old work still marks against the
+  // questions it was actually given.
+  if (updates.questions && set.questions?.length) {
+    const before = set.questions
+    const after = updates.questions
+    const newIndexById = new Map(after.map((q, i) => [q.id, i]))
+    const removed = before.some((q) => q.id && !newIndexById.has(q.id))
+    if (removed) {
+      const moves = before.map((q) => (q.id && newIndexById.has(q.id) ? newIndexById.get(q.id) : -1))
+      remapAttemptAnswers(id, moves, after.length)
+    }
+  }
+
   Object.assign(set, updates)
   saveData(data)
   if (wipedKeys.length) {
@@ -2060,6 +2075,35 @@ export function updateImportedQuizSet(id, updates) {
     deleteAiExplanations(id, wipedKeys)
   }
   return set
+}
+
+/**
+ * Moves every stored answer to where its question now sits, for every student
+ * who has sat this quiz. `moves[oldIndex]` is the new index, or -1 when the
+ * question is gone; answers to deleted questions are dropped.
+ */
+function remapAttemptAnswers(quizSetId, moves, newLength) {
+  const caches = getAllStudentCaches()
+  for (const studentId of Object.keys(caches)) {
+    for (const key of ['homeworkAttempts', 'homeworkRedos']) {
+      const attempts = getStudentArray(studentId, key).filter((a) => a.quizSetId === quizSetId)
+      if (!attempts.length) continue
+      mutateStudentArray(studentId, key, (arr) => {
+        for (const a of arr) {
+          if (a.quizSetId !== quizSetId || !Array.isArray(a.answers)) continue
+          const answers = new Array(newLength).fill(-1)
+          const times = new Array(newLength).fill(0)
+          moves.forEach((to, from) => {
+            if (to < 0) return
+            answers[to] = a.answers[from] ?? -1
+            times[to] = a.questionTimes?.[from] ?? 0
+          })
+          a.answers = answers
+          a.questionTimes = times
+        }
+      })
+    }
+  }
 }
 
 export function deleteImportedQuizSet(id) {

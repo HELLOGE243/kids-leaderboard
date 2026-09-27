@@ -1321,6 +1321,20 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
               </button>
               <button
                 className="btn btn-outline"
+                style={{ fontSize: '0.65rem', padding: '10px 16px', borderColor: 'var(--danger)', color: 'var(--danger)' }}
+                disabled={quizQuestions.length <= 1}
+                title={quizQuestions.length <= 1 ? 'A quiz needs at least one question' : 'Delete this question'}
+                onClick={() => {
+                  requestConfirm(`Delete question ${currentEditQ + 1} of ${quizQuestions.length}? Answers already given to it are removed from every attempt.`, () => {
+                    setQuizQuestions((prev) => prev.filter((_, i) => i !== currentEditQ))
+                    setCurrentEditQ((cur) => Math.max(0, Math.min(cur, quizQuestions.length - 2)))
+                  })
+                }}
+              >
+                Delete Q
+              </button>
+              <button
+                className="btn btn-outline"
                 style={{ fontSize: '0.65rem', padding: '10px 16px' }}
                 onClick={handlePopulateExplanations}
                 disabled={isGenerating}
