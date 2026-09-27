@@ -1,5 +1,6 @@
 import QuestionTagBar from '../components/QuestionTagBar.jsx'
 import { renderMath } from '../utils/renderMath.js'
+import { mathifyText, wrapMath, looksLikeMath } from '../utils/mathify.js'
 import BulkTagPanel from '../components/BulkTagPanel.jsx'
 import { extractTabLabel } from '../utils/extractLabel.js'
 import { useState, useRef, useEffect } from 'react'
@@ -319,8 +320,10 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
   }
 
 
-  // Wraps whatever is selected in the option field in \( … \), or drops an empty
-  // pair in at the cursor, so maths can be written without knowing the notation.
+  // The button does the notation for the teacher: a selection is converted and
+  // wrapped, and with nothing selected anything in the field that reads as maths
+  // ("1/2", "x^2", "sqrt(9)") is converted where it stands. Only then does it
+  // fall back to dropping in an empty pair to type inside.
   function insertMathIntoOption(oi) {
     const el = optionRefs.current[oi]
     if (!el) return
@@ -328,12 +331,27 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
     const start = el.selectionStart ?? value.length
     const end = el.selectionEnd ?? start
     const chosen = value.slice(start, end)
-    const next = `${value.slice(0, start)}\\(${chosen}\\)${value.slice(end)}`
+
+    if (chosen.trim()) {
+      const converted = wrapMath(chosen)
+      updateOption(currentEditQ, oi, value.slice(0, start) + converted + value.slice(end))
+      const caret = start + converted.length
+      requestAnimationFrame(() => { el.focus(); el.setSelectionRange(caret, caret) })
+      return
+    }
+
+    if (looksLikeMath(value)) {
+      const converted = mathifyText(value)
+      updateOption(currentEditQ, oi, converted)
+      requestAnimationFrame(() => { el.focus(); el.setSelectionRange(converted.length, converted.length) })
+      return
+    }
+
+    const next = `${value.slice(0, start)}\\(\\)${value.slice(end)}`
     updateOption(currentEditQ, oi, next)
-    const caret = start + 2 + chosen.length
+    const caret = start + 2
     requestAnimationFrame(() => { el.focus(); el.setSelectionRange(caret, caret) })
   }
-
   function updateOption(qIdx, oIdx, value) {
     setQuizQuestions((prev) => {
       const next = [...prev]
