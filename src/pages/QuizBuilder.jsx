@@ -106,6 +106,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
   const [lockSearch, setLockSearch] = useState('')
   const [lockDropOpen, setLockDropOpen] = useState(false)
   const [currentEditQ, setCurrentEditQ] = useState(0)
+  const optionRefs = useRef([])
   const [showBulkTag, setShowBulkTag] = useState(false)
   // Re-marking offer after an answer key changed.
   const [remark, setRemark] = useState(null)
@@ -315,6 +316,22 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
       next[idx] = { ...next[idx], [field]: value }
       return next
     })
+  }
+
+
+  // Wraps whatever is selected in the option field in \( … \), or drops an empty
+  // pair in at the cursor, so maths can be written without knowing the notation.
+  function insertMathIntoOption(oi) {
+    const el = optionRefs.current[oi]
+    if (!el) return
+    const value = el.value || ''
+    const start = el.selectionStart ?? value.length
+    const end = el.selectionEnd ?? start
+    const chosen = value.slice(start, end)
+    const next = `${value.slice(0, start)}\\(${chosen}\\)${value.slice(end)}`
+    updateOption(currentEditQ, oi, next)
+    const caret = start + 2 + chosen.length
+    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(caret, caret) })
   }
 
   function updateOption(qIdx, oIdx, value) {
@@ -1063,15 +1080,25 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                                 onChange={(e) => updateOption(currentEditQ, oi, e.target.value)}
                                 placeholder={`Option ${letter}`}
                                 className="qe-option-input"
+                                ref={(el) => { optionRefs.current[oi] = el }}
                               />
+                              {/* Maths in an option is written the same way as in a
+                                  question; this drops the delimiters in so the notation
+                                  does not have to be remembered. */}
+                              <button
+                                type="button"
+                                className="qe-option-math-btn"
+                                title="Insert maths"
+                                onClick={() => insertMathIntoOption(oi)}
+                              >&#402;x</button>
                             </div>
                             {/* An option can hold maths the same way a question does:
                                 \( … \) inline. Shown rendered so it can be checked here. */}
                             {/\\\(|\\\[|\$/.test(q.options[oi] || '') && (
-                              <div
-                                className="qe-option-math-preview"
-                                dangerouslySetInnerHTML={{ __html: renderMath(q.options[oi] || '') }}
-                              />
+                              <div className="qe-option-math-preview">
+                                <span className="qe-option-math-label">Preview</span>
+                                <span dangerouslySetInnerHTML={{ __html: renderMath(q.options[oi] || '') }} />
+                              </div>
                             )}
                             {hasContent && (
                               <div style={{ marginLeft: 64, marginTop: 2, marginBottom: 8 }}>

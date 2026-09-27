@@ -2675,11 +2675,42 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 }
 
 .qe-option-math-preview {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   margin: 2px 0 8px 64px;
-  padding: 4px 8px;
+  padding: 4px 10px;
   border-left: 2px solid var(--accent);
-  font-size: 0.85rem;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 3px;
+  font-size: 0.95rem;
   color: var(--text);
+}
+
+.qe-option-math-label {
+  font-family: var(--font-pixel);
+  font-size: 0.45rem;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.qe-option-math-btn {
+  flex-shrink: 0;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-style: italic;
+  cursor: pointer;
+}
+
+.qe-option-math-btn:hover {
+  background: var(--accent);
+  color: #fff;
 }
 
 .rte-resizer-btn-danger {
