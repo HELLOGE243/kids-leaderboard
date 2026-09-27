@@ -179,6 +179,11 @@ function App() {
       clearCookie()
       signOutUser()
       unsubscribeAggregates()
+      // Say why, then reload: the tab is holding data and listeners for an
+      // account that is now signed in somewhere else, and a clean page is the
+      // only honest state to leave it in. The device that just signed in keeps
+      // its session; this one comes back at the sign-in screen.
+      setTimeout(() => window.location.reload(), 2500)
     })
   }, [session?.user?.id, session?.sessionId])
 
@@ -305,7 +310,8 @@ function App() {
           This account was signed in on another device, so it was signed out here.
           An account can only be used on one device at a time.
         </p>
-        <button className="btn landing-btn" onClick={() => { setReplacedElsewhere(false); setSession(null) }}>Sign in again</button>
+        <p className="landing-text" style={{ marginBottom: 16, opacity: 0.7 }}>Returning to the sign-in screen…</p>
+        <button className="btn landing-btn" onClick={() => window.location.reload()}>Sign in again</button>
       </div>
     )
   }
