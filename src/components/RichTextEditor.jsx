@@ -4,12 +4,25 @@ import 'katex/dist/katex.min.css'
 import { renderMath } from '../utils/renderMath.js'
 
 function renderMathInHTML(html) {
-  const withEditorMath = html.replace(/<span[^>]*class="math-inline"[^>]*data-tex="([^"]*)"[^>]*>.*?<\/span>/g, (_, tex) => {
-    try {
-      const rendered = katex.renderToString(tex, { throwOnError: false, output: 'html' })
-      return `<span class="math-inline" data-tex="${tex}" contenteditable="false">${rendered}</span>`
-    } catch { return tex }
-  })
+  // Saved maths is a span holding a whole KaTeX tree, dozens of nested spans deep.
+  // Matching that with a regex ends at the first closing tag and leaves the rest
+  // of the old rendering in the page beside the new one — the expression appeared
+  // twice. The document parser knows where the span ends; a pattern cannot.
+  let withEditorMath = html
+  if (/math-inline/.test(html) && typeof document !== 'undefined') {
+    const holder = document.createElement('div')
+    holder.innerHTML = html
+    holder.querySelectorAll('span.math-inline[data-tex]').forEach((el) => {
+      const tex = el.getAttribute('data-tex') || ''
+      try {
+        el.innerHTML = katex.renderToString(tex, { throwOnError: false, output: 'html' })
+      } catch {
+        el.textContent = tex
+      }
+      el.setAttribute('contenteditable', 'false')
+    })
+    withEditorMath = holder.innerHTML
+  }
   // Plain LaTeX written straight into the text - \( x \), \[ x \], $x$ - renders
   // too, so a fraction can be typed or pasted without reaching for the fx button.
   return renderMath(withEditorMath)

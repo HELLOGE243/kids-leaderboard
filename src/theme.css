@@ -2681,10 +2681,16 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   margin: 2px 0 8px 64px;
   padding: 4px 10px;
   border-left: 2px solid var(--accent);
-  background: rgba(0, 0, 0, 0.03);
+  background: #f5f5f5;
   border-radius: 3px;
   font-size: 0.95rem;
-  color: var(--text);
+  /* The options panel is light, so the preview takes the option field's own ink
+     rather than the dark theme's, which read as blank against it. */
+  color: #333;
+}
+
+.qe-option-math-preview .katex {
+  color: #333;
 }
 
 .qe-option-math-label {
