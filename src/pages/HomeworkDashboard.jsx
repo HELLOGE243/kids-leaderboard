@@ -605,9 +605,12 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       return
     }
     if (hasAttempt) {
-      prepareQuiz(quizSet).then((resolved) => {
+      // Re-read the paper first: a teacher writing explanations after the paper
+      // was sat is the usual case, and without this the student reviews the
+      // copy they downloaded when they signed in, explanations and all.
+      refreshQuizSetFromCloud(quizSet.id).then((fresh) => prepareQuiz(fresh || quizSet).then((resolved) => {
         setResolvedQuestions(resolved)
-        setTakingQuiz(quizSet)
+        setTakingQuiz(fresh || quizSet)
         const attempt = getHomeworkAttempt(quizSet.id, user.id)
         setSubmittedResult(attempt)
         const saved = getHomeworkReviewState(quizSet.id, user.id)
@@ -620,7 +623,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
         }
         setReviewMode(false)
         setCurrentQ(0)
-      })
+      }))
     } else if (quizSet.homeworkMode) {
       const progress = getHomeworkProgress(quizSet.id, user.id)
       if (progress) {
