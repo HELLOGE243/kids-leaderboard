@@ -457,7 +457,13 @@ function Portal({ user, onLogout }) {
               <button className="btn-help-icon" onClick={() => setHelpStep(0)} title={t('help')}>
                 {t('help')}
               </button>
-              <button className="btn-shop-icon" data-help="shop" onClick={() => setShowShop(true)}>
+              <button
+                className="btn-shop-icon btn-shop-locked"
+                data-help="shop"
+                disabled
+                title="The shop is closed for now"
+                onClick={(e) => e.preventDefault()}
+              >
                 <svg viewBox="0 0 24 24" className="shop-icon-svg">
                   <path d="M4 7h16l-1.5 9H5.5L4 7z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
                   <path d="M4 7L6 3h12l2 4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
@@ -466,6 +472,7 @@ function Portal({ user, onLogout }) {
                   <circle cx="15" cy="19" r="1.5" fill="currentColor" />
                 </svg>
                 {t('shop')}
+                <span className="portal-locked-tag">🔒</span>
               </button>
               <button className="btn-logout" onClick={() => setShowLogoutConfirm(true)}>{t('logOut')}</button>
             </div>
@@ -497,8 +504,8 @@ function Portal({ user, onLogout }) {
           </div>
         </div>
 
-        {/* News Ticker */}
-        {newsfeed.length > 0 && (
+        {/* News ticker: off for students while the school is not posting. */}
+        {false && newsfeed.length > 0 && (
           <div className="portal-ticker-wrap" data-help="ticker">
             <div className="portal-ticker-track">
               {[...newsfeed, ...newsfeed].map((post, i) => (
