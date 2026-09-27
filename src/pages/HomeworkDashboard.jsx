@@ -382,6 +382,9 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     playCoinSound()
   }
   const [isRedo, setIsRedo] = useState(false)
+  // True while sitting a paper a teacher handed back: it behaves like homework
+  // for saving and resuming, while keeping its clock.
+  const [resumedByTeacher, setResumedByTeacher] = useState(false)
   // Which questions of the paper a revision sitting is made of: the ones the
   // student got wrong. Null for an ordinary attempt, which covers all of them.
   const [redoIndices, setRedoIndices] = useState(null)
@@ -628,15 +631,16 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
         setReviewMode(false)
         setCurrentQ(0)
       }))
-    } else if (quizSet.homeworkMode) {
+    } else {
+      // A timed paper does not normally resume, but one a teacher has handed back
+      // after an interrupted sitting does: that is the whole point of handing it
+      // back, and the time already used comes with it.
       const progress = getHomeworkProgress(quizSet.id, user.id)
-      if (progress) {
+      if (progress && (quizSet.homeworkMode || progress.returnedAt)) {
         resumeHomeworkQuiz(quizSet, progress)
       } else {
         openWarning(quizSet)
       }
-    } else {
-      openWarning(quizSet)
     }
   }
 
@@ -651,6 +655,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   }
 
   async function resumeHomeworkQuiz(quizSet, progress) {
+    setResumedByTeacher(!!progress.returnedAt)
     const resolved = await prepareQuiz(quizSet)
     setResolvedQuestions(resolved)
     setQuizAnswers(progress.answers || resolved.map(q => {
@@ -667,8 +672,11 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     screenLeaves.current = progress.screenLeaves || 0
     setVisitedQuestions(new Set(progress.visited || []))
     if (progress.dragShuffles) setDragShuffles(progress.dragShuffles)
+    setCurrentQ(progress.currentQ || 0)
     setTakingQuiz(quizSet)
-    setQuizStartTime(Date.now())
+    // Picking a paper back up gives back the time that was left, not the whole
+    // limit again: the clock is started as far back as they had already sat.
+    setQuizStartTime(Date.now() - (progress.elapsedMs || 0))
   }
 
   // Revision is for what was got wrong, so an unanswered question counts and a
@@ -773,7 +781,10 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     setSubmittedResult(result)
     setQuizStartTime(null)
     setTimeLeft(null)
-    if (takingQuiz.homeworkMode) clearHomeworkProgress(takingQuiz.id, user.id)
+    // Any saved progress goes, homework or a returned paper alike: a submitted
+    // paper must never offer to resume itself.
+    clearHomeworkProgress(takingQuiz.id, user.id)
+    setResumedByTeacher(false)
     if (result) {
       addCoins(user.id, result.score * 10)
       playCoinSound()
@@ -852,7 +863,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   })
   const saveProgressRef = useRef(null)
   saveProgressRef.current = () => {
-    if (!takingQuiz?.homeworkMode || submittedResult) return
+    if (!(takingQuiz?.homeworkMode || resumedByTeacher) || submittedResult) return
     const spent = Date.now() - questionEnteredAt.current
     questionTimes.current[currentQ] = (questionTimes.current[currentQ] || 0) + spent
     saveHomeworkProgress(takingQuiz.id, user.id, {
@@ -863,6 +874,9 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       visited: [...visitedQuestions],
       dragShuffles,
       screenLeaves: screenLeaves.current,
+      // How long they have been sitting it, so an interrupted paper resumes with
+      // the time that was left rather than the whole limit over again.
+      elapsedMs: quizStartTime ? Date.now() - quizStartTime : 0,
     })
   }
 
@@ -872,7 +886,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   // they write, so this costs one small write every 30s per student and never
   // contends with anyone else.
   useEffect(() => {
-    if (!takingQuiz?.homeworkMode || submittedResult) return
+    if (!(takingQuiz?.homeworkMode || resumedByTeacher) || submittedResult) return
     const id = setInterval(() => {
       if (!saveProgressRef.current) return
       saveProgressRef.current()
@@ -887,7 +901,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   useEffect(() => {
     if (!takingQuiz || submittedResult) return
     function handleUnload() {
-      if (takingQuiz?.homeworkMode) {
+      if (takingQuiz?.homeworkMode || resumedByTeacher) {
         if (saveProgressRef.current) saveProgressRef.current()
       } else {
         if (doSubmitRef.current) doSubmitRef.current()
@@ -922,7 +936,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   const [showSaveExitConfirm, setShowSaveExitConfirm] = useState(false)
 
   function saveAndExitHomework() {
-    if (!takingQuiz?.homeworkMode || submittedResult) return
+    if (!(takingQuiz?.homeworkMode || resumedByTeacher) || submittedResult) return
     setShowSaveExitConfirm(true)
   }
 
@@ -938,6 +952,9 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       visited: [...visitedQuestions],
       dragShuffles,
       screenLeaves: screenLeaves.current,
+      // How long they have been sitting it, so an interrupted paper resumes with
+      // the time that was left rather than the whole limit over again.
+      elapsedMs: quizStartTime ? Date.now() - quizStartTime : 0,
     })
     exitQuiz()
   }
@@ -958,6 +975,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     setTokenPopup(null)
     setIsRedo(false)
     setRedoIndices(null)
+    setResumedByTeacher(false)
     setTrialScreen(null)
     setTrialNameInput('')
     setVisitedQuestions(new Set())
@@ -2638,7 +2656,10 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                           // In a trial test course a mark stays sealed until the
                           // teacher releases the sitting.
                           const resultsOut = quizResultsVisible(s.id, user.id)
-                          const hwProgress = !hasAttempt && s.homeworkMode ? getHomeworkProgress(s.id, user.id) : null
+                          // A paper handed back by a teacher shows as in progress too,
+                          // so the student can see there is work of theirs waiting in it.
+                          const savedProgress = hasAttempt ? null : getHomeworkProgress(s.id, user.id)
+                          const hwProgress = savedProgress && (s.homeworkMode || savedProgress.returnedAt) ? savedProgress : null
                           const pct = hasAttempt ? Math.round((attempt.score / attempt.total) * 100) : 0
                           const cardIsTrial = !!course.trialTest
                           let cardGrade = '', cardGradeClass = ''

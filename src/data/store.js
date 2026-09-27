@@ -3035,6 +3035,64 @@ export function resetQuizForStudent(quizSetId, studentId) {
   return true
 }
 
+/**
+ * Hands a paper back to a student exactly as they left it: their answers, their
+ * flags, and the time they actually had left.
+ *
+ * For the sitting that ended by accident — a closed tab, a refresh, a back
+ * button — where the paper was submitted and marked but the student never
+ * finished it. The submitted attempt is taken out of their record so the quiz
+ * unlocks, and their work is written back as progress so it is waiting when they
+ * sign in. The archived copy is never touched: it stays as the record of what
+ * was handed in the first time.
+ *
+ * @param {object} record an archived submission, or a draft of one in progress
+ * @param {object} [draft] the matching draft, when the record is an archived one
+ * @returns {{ok: boolean, reason?: string, elapsedMs: number}}
+ */
+export function returnAttemptInProgress(record, draft = null) {
+  if (!record?.studentId || !record?.quizSetId) return { ok: false, reason: 'no paper given', elapsedMs: 0 }
+  const studentId = String(record.studentId)
+  const quizSetId = record.quizSetId
+
+  // The best record of their work is whichever was written last: a draft is
+  // saved every ten seconds during the sitting, the submission at the end.
+  const source = draft && (!record.date || (draft.savedAt || '') > (record.date || '')) ? draft : record
+
+  // How long they had actually been sitting it. The draft knows when it started
+  // and when it was last written; failing that, the time spent per question adds
+  // up to the same thing.
+  let elapsedMs = 0
+  const started = draft?.startedAt || record.startedAt
+  const lastSeen = draft?.savedAt || record.date
+  if (started && lastSeen) elapsedMs = Math.max(0, new Date(lastSeen) - new Date(started))
+  if (!elapsedMs) {
+    elapsedMs = (source.questionTimes || []).reduce((sum, t) => sum + (Number(t) || 0), 0) * 1000
+  }
+
+  deleteQuizAttempt(quizSetId, studentId)
+  deleteHomeworkAttempt(quizSetId, studentId)
+  // The cards raised from marking that attempt would be about questions they are
+  // about to answer again.
+  mutateStudentArray(studentId, 'dojoCards', (arr) => {
+    const filtered = arr.filter((cd) => cd.sourceId !== quizSetId)
+    arr.length = 0
+    arr.push(...filtered)
+  })
+
+  saveHomeworkProgress(quizSetId, studentId, {
+    answers: source.answers || [],
+    questionTimes: source.questionTimes || [],
+    currentQ: source.currentQ || 0,
+    flagged: source.flagged || [],
+    visited: source.visited || [],
+    screenLeaves: source.screenLeaves || 0,
+    elapsedMs,
+    returnedAt: new Date().toISOString(),
+  })
+  return { ok: true, elapsedMs }
+}
+
 export function saveHomeworkReviewState(quizSetId, studentId, reviewState) {
   mutateStudentArray(studentId, 'homeworkAttempts', (arr) => {
     const attempt = arr.find(a => a.quizSetId === quizSetId && a.studentId === studentId)

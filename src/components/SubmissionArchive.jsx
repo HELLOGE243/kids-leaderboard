@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getArchivedSubmissions, getAttemptDrafts, restoreArchivedSubmission, preloadAllStudents, resetQuizForStudent, getCurrentAttempts } from '../data/store.js'
+import { getArchivedSubmissions, getAttemptDrafts, restoreArchivedSubmission,
+  returnAttemptInProgress, preloadAllStudents, resetQuizForStudent, getCurrentAttempts } from '../data/store.js'
 
 /**
  * The submission archive: every paper as it was handed in, kept apart from the
@@ -51,6 +52,32 @@ export default function SubmissionArchive() {
     await preloadAllStudents()
     resetQuizForStudent(record.quizSetId, record.studentId)
     setStatus(`${who} can sit "${what}" again. Their archived paper is still here.`)
+    await load()
+  }
+
+  /**
+   * Hands the paper back as it stood, for the sitting that ended by accident.
+   * The attempt comes out of their record so the quiz unlocks, their answers go
+   * back in as work in progress, and the clock picks up where it stopped.
+   */
+  async function returnInProgress(record) {
+    const who = record.studentName || record.studentId
+    const what = record.quizTitle || record.quizSetId
+    const draft = drafts.find((d) => String(d.studentId) === String(record.studentId) && d.quizSetId === record.quizSetId) || null
+    if (!window.confirm(
+      `Give "${what}" back to ${who} as unfinished work?
+
+`
+      + 'Their answers and the time they had left are returned, and the mark from '
+      + 'the interrupted sitting is removed so they can carry on. The archived copy is kept.'
+    )) return
+    setBusy(true)
+    await preloadAllStudents()
+    const { ok, elapsedMs } = returnAttemptInProgress(record, draft)
+    const mins = Math.round((elapsedMs || 0) / 60000)
+    setStatus(ok
+      ? `${who} can carry on with "${what}" — ${mins} ${mins === 1 ? 'minute' : 'minutes'} already used. They pick it up next time they sign in.`
+      : `Could not return "${what}" to ${who}.`)
     await load()
   }
 
@@ -164,6 +191,13 @@ export default function SubmissionArchive() {
                   >Restore</button>
                   <button
                     className="btn btn-outline btn-small"
+                    style={{ fontSize: '0.45rem', padding: '3px 8px', marginRight: 4, borderColor: 'var(--accent)', color: 'var(--accent)' }}
+                    disabled={busy}
+                    title="Give the paper back unfinished, with their answers and the time they had left"
+                    onClick={() => returnInProgress(s)}
+                  >Return in progress</button>
+                  <button
+                    className="btn btn-outline btn-small"
                     style={{ fontSize: '0.45rem', padding: '3px 8px', borderColor: 'var(--warning)', color: 'var(--warning)' }}
                     disabled={busy}
                     title="Clear this attempt so the student can sit the paper again"
@@ -186,6 +220,7 @@ export default function SubmissionArchive() {
                 <th style={{ textAlign: 'left', fontSize: '0.6rem' }}>Paper</th>
                 <th style={{ textAlign: 'center', fontSize: '0.6rem', width: 90 }}>Answered</th>
                 <th style={{ textAlign: 'center', fontSize: '0.6rem', width: 150 }}>Last saved</th>
+                <th style={{ textAlign: 'center', fontSize: '0.6rem', width: 110 }} />
               </tr>
             </thead>
             <tbody>
@@ -197,6 +232,15 @@ export default function SubmissionArchive() {
                     {(d.answers || []).filter((a) => Array.isArray(a) ? a.some((x) => x !== -1) : (a !== -1 && a !== '' && a != null)).length} of {(d.answers || []).length}
                   </td>
                   <td style={{ textAlign: 'center', fontSize: '0.7rem' }}>{d.savedAt ? new Date(d.savedAt).toLocaleString() : '—'}</td>
+                  <td style={{ textAlign: 'center' }}>
+                    <button
+                      className="btn btn-outline btn-small"
+                      style={{ fontSize: '0.45rem', padding: '3px 8px', borderColor: 'var(--accent)', color: 'var(--accent)' }}
+                      disabled={busy}
+                      title="Give the paper back unfinished, with their answers and the time they had left"
+                      onClick={() => returnInProgress(d)}
+                    >Return in progress</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
