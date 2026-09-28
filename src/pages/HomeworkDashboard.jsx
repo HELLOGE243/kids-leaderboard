@@ -650,7 +650,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       // after an interrupted sitting does: that is the whole point of handing it
       // back, and the time already used comes with it.
       const progress = getHomeworkProgress(quizSet.id, user.id)
-      if (progress && (quizSet.homeworkMode || progress.returnedAt || progress.interruptedAt)) {
+      if (progress) {
         resumeHomeworkQuiz(quizSet, progress)
       } else {
         openWarning(quizSet)
@@ -694,7 +694,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     if (progress.dragShuffles) setDragShuffles(progress.dragShuffles)
     setCurrentQ(progress.currentQ || 0)
     setTakingQuiz(quizSet)
-    if (progress.interruptedAt && !progress.returnedAt) {
+    if (!progress.returnedAt) {
       setInterruptedNotice(quizSet.friendlyTitle || quizSet.rawTitle || 'your test')
     }
     // A paper a teacher handed back gets the time it had left; a paper the
@@ -1093,9 +1093,9 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
             </>
           ) : (
             <>
-              <p style={{ fontSize: '1rem', color: 'var(--text)', marginBottom: 12, lineHeight: 1.6 }}>The quiz cannot be closed once started.</p>
+              <p style={{ fontSize: '1rem', color: 'var(--text)', marginBottom: 12, lineHeight: 1.6 }}>Stay on this tab until you have finished.</p>
               <p style={{ fontSize: '1rem', color: 'var(--danger)', marginBottom: 8, lineHeight: 1.6 }}>You only have one attempt.</p>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', marginBottom: 28, lineHeight: 1.6 }}>If you exit or close the tab, the questions will be submitted.</p>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', marginBottom: 28, lineHeight: 1.6 }}>If you do leave, your answers are saved and the test will be waiting — but the clock keeps running.</p>
             </>
           )}
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -1407,6 +1407,18 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
 
     return (
       <div className="qt-backdrop" onClick={() => setShowQGrid(false)}>
+        {interruptedNotice && (
+          <div className="neon-overlay" style={{ zIndex: 4000 }} onClick={() => setInterruptedNotice(null)}>
+            <div className="neon-popup" style={{ maxWidth: 460, padding: '36px 32px' }} onClick={(e) => e.stopPropagation()}>
+              <h2 style={{ marginTop: 0 }}>Welcome back</h2>
+              <p style={{ fontSize: '1rem', lineHeight: 1.7, marginBottom: 10 }}>
+                You left <strong>{interruptedNotice}</strong> and your answers were kept. Carry on from where you
+                were — the clock has kept running, so go straight back to it.
+              </p>
+              <button className="btn" onClick={() => setInterruptedNotice(null)}>Keep going</button>
+            </div>
+          </div>
+        )}
         <div className="qt-panel" onClick={() => setShowQGrid(false)} onCopy={(e) => e.preventDefault()} onCut={(e) => e.preventDefault()} onContextMenu={(e) => e.preventDefault()} style={{ userSelect: 'none' }}>
           {/* Top bar */}
           <div className="qt-topbar">
@@ -2626,7 +2638,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
 
     return (
       <div className="hw-page">
-        {interruptedNotice && (
+        {false && interruptedNotice && (
           <div className="neon-overlay" onClick={() => setInterruptedNotice(null)}>
             <div className="neon-popup" style={{ maxWidth: 460, padding: '36px 32px' }} onClick={(e) => e.stopPropagation()}>
               <h2 style={{ marginTop: 0 }}>Welcome back</h2>
@@ -2765,7 +2777,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                           // A paper handed back by a teacher shows as in progress too,
                           // so the student can see there is work of theirs waiting in it.
                           const savedProgress = hasAttempt ? null : getHomeworkProgress(s.id, user.id)
-                          const hwProgress = savedProgress && (s.homeworkMode || savedProgress.returnedAt || savedProgress.interruptedAt) ? savedProgress : null
+                          const hwProgress = savedProgress || null
                           const pct = hasAttempt ? Math.round((attempt.score / attempt.total) * 100) : 0
                           const cardIsTrial = !!course.trialTest
                           let cardGrade = '', cardGradeClass = ''
