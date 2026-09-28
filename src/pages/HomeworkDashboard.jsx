@@ -32,6 +32,7 @@ import {
   courseForQuizSet,
   attemptAwaitsMarking,
   getTrialCourseReport,
+  reconcileAttemptWithArchive,
   getModuleDeadline,
   addDojoCard,
   getSharedExplanation,
@@ -52,6 +53,7 @@ import {
 import { RichText, default as RichTextEditor } from '../components/RichTextEditor.jsx'
 import { playCoinSound } from '../utils/soundManager.js'
 import { resolveImages } from '../data/imageStore.js'
+import { flushPendingWrites } from '../data/firebase.js'
 import { parseVideoUrl } from '../utils/video.js'
 import { useScreenGuard } from '../utils/screenGuard.js'
 import ReportIssueModal from '../components/ReportIssueModal.jsx'
@@ -331,6 +333,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   const [showVocabHint, setShowVocabHint] = useState(false)
   const [showTrialReport, setShowTrialReport] = useState(false)
   const [sealedNotice, setSealedNotice] = useState(null)
+  const [recoveredTick, setRecoveredTick] = useState(0)
 
   // Shown once, then never again on this device: a tip a student has read is
   // just clutter on top of their work.
@@ -423,6 +426,10 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   const questionTimes = useRef([])
   const questionEnteredAt = useRef(Date.now())
   const doSubmitRef = useRef(null)
+  // A sitting is handed in once. Leaving a page fires several events, and each
+  // of them used to submit: the trial filed the same revision twice in the same
+  // second, once as a normal hand-in and once as a locked one.
+  const submittedOnceRef = useRef(false)
   const screenLeaves = useRef(0)
 
   useEffect(() => { refreshSharedData() }, [])
@@ -659,6 +666,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   }
 
   async function resumeHomeworkQuiz(quizSet, progress) {
+    submittedOnceRef.current = false
     setResumedByTeacher(!!progress.returnedAt)
     const resolved = await prepareQuiz(quizSet)
     setResolvedQuestions(resolved)
@@ -706,6 +714,19 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
 
   async function confirmStartQuiz() {
     const quizSet = showWarning
+    // Before a paper opens, ask the archive whether this student has already sat
+    // it. Their own record can lose a hand-in when a tab reloads mid-write; the
+    // archive cannot, and without this check the paper simply starts again.
+    if (!isRedo) {
+      const { alreadySat, recovered } = await reconcileAttemptWithArchive(quizSet.id, user.id)
+      if (alreadySat) {
+        setShowWarning(null)
+        setSealedNotice(quizSet.friendlyTitle || quizSet.rawTitle || 'This paper')
+        if (recovered) setRecoveredTick((t) => t + 1)
+        return
+      }
+    }
+    submittedOnceRef.current = false
     setShowWarning(null)
     const all = await prepareQuiz(quizSet)
     const resolved = isRedo && redoIndices ? redoIndices.map((i) => all[i]).filter(Boolean) : all
@@ -753,6 +774,8 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
 
   function doSubmit({ lockedOut = false } = {}) {
     if (!takingQuiz) return
+    if (submittedOnceRef.current) return
+    submittedOnceRef.current = true
     clearInterval(timerRef.current)
     setShowSubmitConfirm(false)
     setShowSaveExitConfirm(false)
@@ -795,6 +818,9 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       const label = takingQuiz.friendlyTitle || takingQuiz.rawTitle || 'Homework'
       sendBroadcast(`${user.name} finished ${label}`)
     }
+    // Push the hand-in out now rather than on the coalescing timer: the moment
+    // after submitting is exactly when a student closes the tab.
+    flushPendingWrites().catch(() => {})
     if (!isRedo && result && resolvedQuestions) {
       const dojoCourse = activeCourse ? getCourseById(activeCourse) : null
       const dojoCourseName = dojoCourse?.name || ''
@@ -823,12 +849,15 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
         quizTitle: takingQuiz.friendlyTitle || takingQuiz.rawTitle || '',
         startedAt: new Date(quizStartTime).toISOString(),
         screenLeaves: screenLeaves.current,
+        // Kept apart from the assignment's own record.
+        kind: isRedo ? 'redo' : 'homework',
+        questionIndices: isRedo ? redoIndices : null,
       })
     }
     const t = setTimeout(save, 1200)
     const interval = setInterval(save, 10000)
     return () => { stopped = true; clearTimeout(t); clearInterval(interval) }
-  }, [takingQuiz, quizStartTime, submittedResult, quizAnswers, user.id])
+  }, [takingQuiz, quizStartTime, submittedResult, quizAnswers, user.id, isRedo, redoIndices])
 
   useEffect(() => {
     const inProgress = !!(takingQuiz && quizStartTime && !submittedResult)
@@ -904,11 +933,11 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
 
   useEffect(() => {
     if (!takingQuiz || submittedResult) return
+    // Saving only. Handing in on the way out is the leave guard's job, and when
+    // both did it the paper was filed twice.
     function handleUnload() {
       if (takingQuiz?.homeworkMode || resumedByTeacher) {
         if (saveProgressRef.current) saveProgressRef.current()
-      } else {
-        if (doSubmitRef.current) doSubmitRef.current()
       }
     }
     window.addEventListener('beforeunload', handleUnload)

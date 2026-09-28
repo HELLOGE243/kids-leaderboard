@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getArchivedSubmissions, getAttemptDrafts, restoreArchivedSubmission,
-  returnAttemptInProgress, preloadAllStudents, resetQuizForStudent, getCurrentAttempts } from '../data/store.js'
+  returnAttemptInProgress,
+  findDuplicateSubmissions,
+  useArchivedCopy, preloadAllStudents, resetQuizForStudent, getCurrentAttempts } from '../data/store.js'
 
 /**
  * The submission archive: every paper as it was handed in, kept apart from the
@@ -14,16 +16,20 @@ export default function SubmissionArchive() {
   const [submissions, setSubmissions] = useState(null)
   const [drafts, setDrafts] = useState([])
   const [attempts, setAttempts] = useState([])
+  const [dupes, setDupes] = useState([])
   const [filter, setFilter] = useState('')
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
     setBusy(true)
-    const [subs, dfts, atts] = await Promise.all([getArchivedSubmissions(), getAttemptDrafts(), getCurrentAttempts()])
+    const [subs, dfts, atts, dup] = await Promise.all([
+      getArchivedSubmissions(), getAttemptDrafts(), getCurrentAttempts(), findDuplicateSubmissions(),
+    ])
     setSubmissions(subs)
     setDrafts(dfts)
     setAttempts(atts)
+    setDupes(dup)
     setBusy(false)
   }, [])
 
@@ -81,6 +87,22 @@ export default function SubmissionArchive() {
     await load()
   }
 
+  /** Makes one archived copy the sitting that counts for this student. */
+  async function chooseCopy(group, copy) {
+    const when = copy.date ? new Date(copy.date).toLocaleTimeString() : ''
+    if (!window.confirm(
+      `Count ${group.studentName}'s ${when} sitting of "${group.quizTitle}" — ${copy.score}/${copy.total}?
+
+`
+      + 'It replaces whatever their record holds for this paper. Every archived copy is kept either way.'
+    )) return
+    setBusy(true)
+    await preloadAllStudents()
+    useArchivedCopy(copy)
+    setStatus(`${group.studentName}: "${group.quizTitle}" now counts as ${copy.score}/${copy.total}.`)
+    await load()
+  }
+
   async function restore(record) {
     setBusy(true)
     await preloadAllStudents()
@@ -109,6 +131,45 @@ export default function SubmissionArchive() {
       </div>
 
       {status && <p style={{ fontSize: '0.75rem', color: 'var(--accent)', marginBottom: 10 }}>{status}</p>}
+
+      {dupes.length > 0 && (
+        <div style={{ border: '1px solid var(--warning)', borderRadius: 6, padding: '12px 14px', marginBottom: 18 }}>
+          <p className="td2-h2" style={{ fontSize: '0.7rem', color: 'var(--warning)', marginTop: 0 }}>
+            Handed in more than once — {dupes.length} to resolve
+          </p>
+          <p className="td2-muted td2-small" style={{ margin: '4px 0 12px' }}>
+            The same paper was filed twice or more. Choose the sitting that counts; the others stay in the
+            archive as a record. Marks, rankings and percentiles follow the one you choose.
+          </p>
+          {dupes.map((g) => (
+            <div key={`${g.studentId}-${g.quizSetId}-${g.kind}`} style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: 4 }}>
+                {g.studentName} — {g.quizTitle}{g.kind === 'redo' ? ' (revision)' : ''}
+              </div>
+              {g.copies.map((cp) => {
+                const counts = g.counted && g.counted.id === cp.id
+                return (
+                  <div key={cp.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '3px 0', fontSize: '0.72rem' }}>
+                    <span style={{ minWidth: 150 }}>{cp.date ? new Date(cp.date).toLocaleString() : '—'}</span>
+                    <span style={{ minWidth: 70 }}>{cp.score}/{cp.total}</span>
+                    <span style={{ minWidth: 90, opacity: 0.7 }}>{cp.lockedOut ? 'left the page' : 'handed in'}</span>
+                    {counts
+                      ? <span style={{ color: 'var(--accent)', fontWeight: 600 }}>counts now</span>
+                      : (
+                        <button
+                          className="btn btn-outline btn-small"
+                          style={{ fontSize: '0.45rem', padding: '3px 8px' }}
+                          disabled={busy}
+                          onClick={() => chooseCopy(g, cp)}
+                        >Make this the one</button>
+                      )}
+                  </div>
+                )
+              })}
+            </div>
+          ))}
+        </div>
+      )}
 
       <p className="td2-h2" style={{ fontSize: '0.7rem', marginTop: 4 }}>Reset a paper</p>
       <p className="td2-muted td2-small" style={{ margin: '4px 0 10px' }}>

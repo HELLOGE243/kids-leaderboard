@@ -395,6 +395,34 @@ export async function loadArchivedSubmissions() {
 }
 
 /**
+ * The papers this student has already handed in for one quiz, read straight from
+ * the archive rather than from their own record.
+ *
+ * Their record is written through a queue that a reloading tab can cut short;
+ * the archive is one small document written as the paper is handed in, and it
+ * lands. So this is the honest answer to "have they already sat this?", and the
+ * only one that survives a device losing its copy.
+ * @returns {Promise<Array<object>>} newest last, empty if the read fails
+ */
+export async function findArchivedPapers(studentId, quizSetId) {
+  if (!studentId || !quizSetId) return []
+  try {
+    const { query, where } = await import('firebase/firestore')
+    const snap = await getDocs(query(
+      collection(db, SUBMISSIONS_COLLECTION),
+      where('studentId', '==', String(studentId)),
+      where('quizSetId', '==', String(quizSetId)),
+    ))
+    return snap.docs
+      .map((d) => unpackNested(d.data()))
+      .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
+  } catch (e) {
+    console.warn('Firestore: could not check the archive for an earlier paper:', e)
+    return []
+  }
+}
+
+/**
  * Snapshots a paper in progress. Called every few seconds while a student
  * works, so a closed tab costs nothing. One document per student per quiz,
  * overwritten each time.
@@ -402,7 +430,13 @@ export async function loadArchivedSubmissions() {
 export async function saveAttemptDraft(studentId, quizSetId, draft) {
   if (!studentId || !quizSetId) return false
   try {
-    await setDoc(doc(db, DRAFTS_COLLECTION, `${studentId}_${quizSetId}`), packNested({
+    // A revision of a paper is a different sitting from the paper itself, and
+    // sharing one key meant starting a revision erased the record of the
+    // assignment that was still the only copy of that work.
+    const key = draft?.kind && draft.kind !== 'homework'
+      ? `${studentId}_${quizSetId}_${draft.kind}`
+      : `${studentId}_${quizSetId}`
+    await setDoc(doc(db, DRAFTS_COLLECTION, key), packNested({
       studentId: String(studentId),
       quizSetId: String(quizSetId),
       ...draft,
@@ -833,6 +867,10 @@ export function saveToFirestore(data) {
 export async function flushPendingWrites() {
   flushWrites()
   try { await _writeQueue } catch { /* the write logs its own failure */ }
+  // A student's own record has its own queue per student. A hand-in lives there
+  // until it is written, so waiting for those queues is what makes a submitted
+  // paper safe to walk away from.
+  try { await Promise.all(Object.values(_studentWriteQueues)) } catch { /* logged at the write */ }
 }
 
 /**

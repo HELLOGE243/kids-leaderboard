@@ -24,7 +24,7 @@
 import { extractAndStoreImages, findImageRefs, deleteImages } from './imageStore.js'
 import { pickSolutionVideo } from '../utils/video.js'
 import { planImport, applyAiSplit, mergeCloze, describeCoverage } from '../utils/cleverspaceImport.js'
-import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, deleteStudentFirestore, ensureQuizSetsLoaded, refreshQuizSet, loadAiExplanations, saveAiExplanation, deleteAiExplanations, clearAiExplanationCache, archiveSubmission, saveAttemptDraft, loadArchivedSubmissions, loadAttemptDrafts, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
+import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, deleteStudentFirestore, ensureQuizSetsLoaded, refreshQuizSet, loadAiExplanations, saveAiExplanation, deleteAiExplanations, clearAiExplanationCache, archiveSubmission, saveAttemptDraft, findArchivedPapers, loadArchivedSubmissions, loadAttemptDrafts, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
 
 export { onDataChange, onBroadcast, sendBroadcast, loadContacts }
 
@@ -2856,6 +2856,109 @@ export function restoreArchivedSubmission(record) {
   return true
 }
 
+/**
+ * Makes sure this device knows about a paper the student has already handed in.
+ *
+ * A submitted paper is written twice: to the archive, immediately, and to the
+ * student's own record, through a queue. A tab that reloads mid-queue loses the
+ * second one, and the device then believes the paper was never sat — which is
+ * how students in the trial were able to start a finished paper again, and how
+ * the archive ended up with three copies of one Reading paper.
+ *
+ * Asks the archive, and if it holds a paper this device has lost, puts it back.
+ *
+ * @returns {Promise<{alreadySat: boolean, recovered: boolean, attempt: object|null}>}
+ */
+/**
+ * Papers handed in more than once by the same student, grouped so a teacher can
+ * see what happened and choose which sitting counts.
+ *
+ * The trial produced these two ways: a paper filed twice in the same second by
+ * a device on its way out, and a paper genuinely sat again because the device
+ * had lost the first hand-in. Both are now prevented, but the copies already
+ * archived still have to be resolved.
+ *
+ * @returns {Promise<Array<{studentId,studentName,quizSetId,quizTitle,kind,copies:Array,counted:object|null}>>}
+ */
+export async function findDuplicateSubmissions() {
+  const all = await getArchivedSubmissions()
+  const groups = new Map()
+  for (const r of all) {
+    const key = `${r.studentId}|${r.quizSetId}|${r.kind}`
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(r)
+  }
+  await preloadAllStudents()
+  const out = []
+  for (const copies of groups.values()) {
+    if (copies.length < 2) continue
+    copies.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
+    const first = copies[0]
+    const held = first.kind === 'redo'
+      ? getStudentArray(first.studentId, 'homeworkRedos').filter((a) => a.quizSetId === first.quizSetId)
+      : getStudentArray(first.studentId, 'homeworkAttempts').filter((a) => a.quizSetId === first.quizSetId)
+    out.push({
+      studentId: first.studentId,
+      studentName: first.studentName || first.studentId,
+      quizSetId: first.quizSetId,
+      quizTitle: first.quizTitle || first.quizSetId,
+      kind: first.kind,
+      copies,
+      counted: held.find((a) => copies.some((c) => c.id === a.id)) || held[0] || null,
+    })
+  }
+  return out.sort((a, b) => a.studentName.localeCompare(b.studentName))
+}
+
+/**
+ * Makes one archived copy the sitting that counts, replacing whatever the
+ * student's record currently holds for that paper. The archive is untouched:
+ * every copy stays as the record of what happened.
+ */
+export function useArchivedCopy(record) {
+  if (!record?.studentId || !record?.quizSetId) return false
+  const field = record.kind === 'redo' ? 'homeworkRedos' : 'homeworkAttempts'
+  mutateStudentArray(record.studentId, field, (arr) => {
+    const kept = arr.filter((a) => a.quizSetId !== record.quizSetId)
+    arr.length = 0
+    arr.push(...kept, {
+      id: record.id,
+      quizSetId: record.quizSetId,
+      studentId: String(record.studentId),
+      answers: record.answers || [],
+      questionTimes: record.questionTimes || [],
+      score: record.score ?? 0,
+      total: record.total ?? 0,
+      questionIndices: record.questionIndices || undefined,
+      date: record.date || new Date().toISOString(),
+      term: record.term || null,
+      orgId: record.orgId || null,
+      screenLeaves: record.screenLeaves || 0,
+      lockedOut: !!record.lockedOut,
+      chosenAt: new Date().toISOString(),
+    })
+  })
+  return true
+}
+
+export async function reconcileAttemptWithArchive(quizSetId, studentId) {
+  const local = getStudentArray(studentId, 'homeworkAttempts').find((a) => a.quizSetId === quizSetId)
+  if (local) return { alreadySat: true, recovered: false, attempt: local }
+
+  const archived = (await findArchivedPapers(studentId, quizSetId)).filter((r) => r.kind === 'homework')
+  if (!archived.length) return { alreadySat: false, recovered: false, attempt: null }
+
+  // Several copies means the paper was handed in more than once; the best of
+  // them is the one that counts, which is also what a teacher would choose.
+  const best = archived.reduce((a, b) => ((b.score ?? 0) > (a.score ?? 0) ? b : a))
+  const restored = restoreArchivedSubmission(best)
+  return {
+    alreadySat: true,
+    recovered: restored,
+    attempt: getStudentArray(studentId, 'homeworkAttempts').find((a) => a.quizSetId === quizSetId) || null,
+  }
+}
+
 export function submitHomeworkAttempt(quizSetId, studentId, answers, questionTimes, meta = {}) {
   const existing = getStudentArray(studentId, 'homeworkAttempts').find(a => a.quizSetId === quizSetId)
   if (existing) return null
@@ -3131,6 +3234,16 @@ export function submitHomeworkRedo(quizSetId, studentId, answers, questionTimes,
   const data = loadData()
   const set = (data.importedQuizSets || []).find((s) => s.id === quizSetId)
   if (!set) return null
+  // A revision may legitimately be sat again another day, so this is not the
+  // flat refusal an assignment gets — but the same answers arriving twice within
+  // a few seconds is one sitting being filed twice, not two sittings.
+  const recent = getStudentArray(studentId, 'homeworkRedos')
+    .filter((r) => r.quizSetId === quizSetId)
+    .slice(-1)[0]
+  if (recent && Date.now() - new Date(recent.date).getTime() < 15000
+      && JSON.stringify(recent.answers) === JSON.stringify(answers)) {
+    return recent
+  }
   // A revision sitting covers only the questions the student got wrong, so it is
   // marked out of those alone. The answers stay aligned to the whole paper, with
   // -1 where a question was not asked, so per-question analytics still line up.
