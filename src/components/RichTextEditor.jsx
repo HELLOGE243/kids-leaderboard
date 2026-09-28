@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState, useCallback, useMemo, memo } from 'react'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
 import { renderMath } from '../utils/renderMath.js'
@@ -434,11 +434,20 @@ function RichTextEditor({ value, onChange, placeholder, extended }) {
   )
 }
 
-function RichText({ html }) {
+/**
+ * Shows saved content: maths rendered, pasted styling dropped.
+ *
+ * Memoised on the html itself, and the component skipped when it has not
+ * changed. A quiz re-renders every second while its clock ticks, and rebuilding
+ * this string each time meant handing React a fresh value for innerHTML — the
+ * images inside were destroyed and fetched again, once a second, which is what
+ * made them flash on the students' screens.
+ */
+const RichText = memo(function RichText({ html }) {
+  const processed = useMemo(() => (html ? renderMathInHTML(html) : ''), [html])
   if (!html) return null
-  const processed = renderMathInHTML(html)
   return <span dangerouslySetInnerHTML={{ __html: processed }} />
-}
+})
 
 export { RichTextEditor, RichText, renderMathInHTML }
 export default RichTextEditor
