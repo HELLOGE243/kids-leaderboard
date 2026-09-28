@@ -27,14 +27,22 @@ export function renderMath(html) {
     }
   }
 
+  // Whatever sits between the delimiters is handed to KaTeX as an expression, so
+  // markup caught in the middle comes back as visible source. Prices are the way
+  // this happens: "$15 ... $30" in a word problem reads as one long expression
+  // and takes the picture between them with it.
+  const isExpression = (tex) => !/[<>]/.test(tex) && tex.length <= 200
+
   return html
     // \[ ... \] - its own line
-    .replace(/\\\[([\s\S]+?)\\\]/g, (_, tex) => render(tex, true))
+    .replace(/\\\[([\s\S]+?)\\\]/g, (_, tex) => (isExpression(tex) ? render(tex, true) : `\\[${tex}\\]`))
     // \( ... \) - inline
-    .replace(/\\\(([\s\S]+?)\\\)/g, (_, tex) => render(tex, false))
-    // $$ ... $$ and $ ... $, in case a model reaches for the older style
-    .replace(/\$\$([\s\S]+?)\$\$/g, (_, tex) => render(tex, true))
-    .replace(/(^|[^\\$])\$([^$\n]+?)\$/g, (_, before, tex) => before + render(tex, false))
+    .replace(/\\\(([\s\S]+?)\\\)/g, (_, tex) => (isExpression(tex) ? render(tex, false) : `\\(${tex}\\)`))
+    // $$ ... $$, in case a model reaches for the older style
+    .replace(/\$\$([\s\S]+?)\$\$/g, (_, tex) => (isExpression(tex) ? render(tex, true) : `$$${tex}$$`))
+    // A single $ is left alone: in these papers it is nearly always money, and
+    // maths is written \( … \) by the editor, by the prompts and by the import.
+
 }
 
 export default renderMath
