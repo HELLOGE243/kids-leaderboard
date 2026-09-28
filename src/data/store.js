@@ -3812,6 +3812,10 @@ export function getStudentFeedData(studentId) {
 // --- Revision Dojo ---
 
 export function addDojoCard(studentId, question, sourceType, sourceId, questionIndex, meta) {
+  // Only what the hall can actually ask. Everything else — cloze, matching,
+  // sentence-dragging, writing — is revised in the module's revision quiz.
+  const cardType = question?.type || 'multiple-choice'
+  if (cardType !== 'multiple-choice' && cardType !== 'multi-description') return null
   const existingCards = getStudentArray(studentId, 'dojoCards')
   const exists = existingCards.find(c => c.sourceId === sourceId && !c.archived &&
     (question?.id && c.questionId ? c.questionId === question.id : c.questionIndex === questionIndex))
@@ -3843,7 +3847,11 @@ export function addDojoCard(studentId, question, sourceType, sourceId, questionI
     quizTitle: meta?.quizTitle || '',
     topic: quizSet?.topic || meta?.topic || '',
     firstIncorrectDate: new Date().toISOString(),
-    nextReviewDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    // Due now. A question got wrong today is exactly what a student wants to put
+    // right today; the seven-day wait applied to the first attempt as well, so
+    // the hall sat empty for a week after every test. Spacing starts once the
+    // card has been answered — that is where it does its work.
+    nextReviewDate: new Date().toISOString(),
     correctStreak: 0,
     answerCount: 0,
     archived: false,
@@ -3917,8 +3925,21 @@ function questionStillExists(card) {
   return !!findLiveQuestion(card.sourceId, card.questionId, card.questionIndex)
 }
 
+// The hall practises one question at a time, on a card with options to choose
+// between. A cloze, a matching or a sentence-dragging question has no such
+// shape, and one reaching the deck took the whole screen down with it. Those are
+// revised in the module's revision quiz, which knows how to ask them.
+function dojoCanPractise(card) {
+  const type = card?.question?.type || 'multiple-choice'
+  if (type !== 'multiple-choice' && type !== 'multi-description') return false
+  return Array.isArray(card?.question?.options) && card.question.options.some(Boolean)
+}
+
 function liveDojoCards(studentId, keep) {
-  return getStudentArray(studentId, 'dojoCards').filter((c) => keep(c) && questionStillExists(c)).map(withLiveQuestion)
+  return getStudentArray(studentId, 'dojoCards')
+    .filter((c) => keep(c) && questionStillExists(c))
+    .map(withLiveQuestion)
+    .filter(dojoCanPractise)
 }
 
 // One-off per student: record the question id on cards created before ids

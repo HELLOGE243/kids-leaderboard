@@ -461,7 +461,8 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
 
   useEffect(() => {
     if (!quizStartTime || !takingQuiz) return
-    if (takingQuiz.homeworkMode) { setTimeLeft(null); return }
+    // Revision is practice, not a sitting: no clock, and nothing auto-submits.
+    if (takingQuiz.homeworkMode || isRedo) { setTimeLeft(null); return }
     const limitMs = (takingQuiz.timeLimit || 10) * 60 * 1000
     function tick() {
       const elapsed = Date.now() - quizStartTime
@@ -479,7 +480,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     tick()
     timerRef.current = setInterval(tick, 1000)
     return () => clearInterval(timerRef.current)
-  }, [quizStartTime])
+  }, [quizStartTime, isRedo])
 
   useEffect(() => {
     if (!takingQuiz) return
@@ -1081,10 +1082,21 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
         <div className="neon-popup" style={{ maxWidth: 480, padding: '40px 36px' }}>
           <p className="pixel-heading" style={{ fontSize: '1.2rem', color: 'var(--accent)', marginBottom: 12 }}>{showWarning.friendlyTitle}</p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginBottom: 20 }}>
-            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>{showWarning.questions.length} questions</span>
-            <span className={isHwMode ? 'neon-popup-heading' : ''} style={{ fontSize: '0.95rem', fontWeight: 700, color: isHwMode ? undefined : 'var(--warning)' }}>{isHwMode ? 'No time limit' : `${tl} min`}</span>
+            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text)' }}>
+              {isRedo ? `${redoIndices?.length || 0} ${(redoIndices?.length || 0) === 1 ? 'question' : 'questions'} to revise` : `${showWarning.questions.length} questions`}
+            </span>
+            <span className={(isHwMode || isRedo) ? 'neon-popup-heading' : ''} style={{ fontSize: '0.95rem', fontWeight: 700, color: (isHwMode || isRedo) ? undefined : 'var(--warning)' }}>{(isHwMode || isRedo) ? 'No time limit' : `${tl} min`}</span>
           </div>
-          {isHwMode ? (
+          {isRedo ? (
+            <>
+              <p style={{ fontSize: '1rem', color: 'var(--text)', marginBottom: 12, lineHeight: 1.6 }}>
+                This is revision — only the questions you got wrong, with no clock.
+              </p>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', marginBottom: 28, lineHeight: 1.6 }}>
+                Take as long as you need. It does not change the mark for the original test.
+              </p>
+            </>
+          ) : isHwMode ? (
             <>
               <p style={{ fontSize: '1rem', color: 'var(--text)', marginBottom: 12, lineHeight: 1.6 }}>This is a homework quiz. You can save and exit at any time.</p>
               <div className="neon-popup-save-box">
@@ -2845,7 +2857,15 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                     )}
 
                     {(() => {
-                      const revQuizzes = activeModule.quizSetIds.map(id => getImportedQuizSet(id)).filter(Boolean)
+                      // Revision waits on the results. While a trial is sealed a
+                      // student knows nothing about how they did, and a revision
+                      // made of their wrong questions would tell them — as well
+                      // as putting a shorter copy of the paper beside the one
+                      // they are still meant to be sitting.
+                      const revQuizzes = activeModule.quizSetIds
+                        .map(id => getImportedQuizSet(id))
+                        .filter(Boolean)
+                        .filter(s => quizResultsVisible(s.id, user.id))
                       if (revQuizzes.length === 0) return null
                       const hasAnyUnlocked = revQuizzes.some(s => getHomeworkAttempt(s.id, user.id))
                       if (!hasAnyUnlocked) return null

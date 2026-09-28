@@ -759,6 +759,45 @@ Return ONLY valid JSON:
 
         <div className="dojo-total-box">{allCards.length + archivedCards.length} question{allCards.length + archivedCards.length !== 1 ? 's' : ''} stored</div>
 
+        {/* Everything still to put right, whether it is due or resting. Without
+            this the hall could hold a dozen questions and show an empty room,
+            and a student who wanted to clear them had to wait out the spacing. */}
+        {tab === 'training' && allCards.length > 0 && (
+          <details className="dojo-waiting" open={dueCards.length === 0}>
+            <summary className="dojo-waiting-summary">
+              All questions waiting ({allCards.length})
+            </summary>
+            <div className="dojo-waiting-rows">
+              {allCards.map((card) => {
+                const due = !card.nextReviewDate || card.nextReviewDate <= new Date().toISOString()
+                const when = card.nextReviewDate ? new Date(card.nextReviewDate) : null
+                const days = when ? Math.max(0, Math.ceil((when - Date.now()) / (1000 * 60 * 60 * 24))) : 0
+                const label = String(card.question?.text || card.question?.prompt || '')
+                  .replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+                return (
+                  <div key={card.id} className="dojo-waiting-row">
+                    <div className="dojo-waiting-main">
+                      <span className="dojo-waiting-title">{card.quizTitle || card.topic || 'Quiz'}</span>
+                      <span className="dojo-waiting-q">{label.slice(0, 80) || `Question ${(card.questionIndex ?? 0) + 1}`}</span>
+                    </div>
+                    <span className={`dojo-waiting-when${due ? ' dojo-waiting-when-due' : ''}`}>
+                      {due ? 'ready' : `rests ${days} day${days !== 1 ? 's' : ''}`}
+                    </span>
+                    <button
+                      className="dojo-waiting-btn"
+                      onClick={() => {
+                        setDueCards([card])
+                        setCurrentIdx(0)
+                        setCardFlipped(false)
+                      }}
+                    >Practise</button>
+                  </div>
+                )
+              })}
+            </div>
+          </details>
+        )}
+
         {showKillAnim && (
           <div className="dojo-kill-flash">
             <span className="pixel-heading" style={{ fontSize: '2rem', color: '#00e676' }}>ARCHIVED!</span>

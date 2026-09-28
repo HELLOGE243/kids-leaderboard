@@ -17208,3 +17208,88 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
   gap: 8px;
   justify-content: flex-end;
 }
+
+/* --- Every question still waiting in the revision hall --- */
+.dojo-waiting {
+  max-width: 760px;
+  margin: 0 auto 18px;
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.dojo-waiting-summary {
+  cursor: pointer;
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  letter-spacing: 0.04em;
+  padding: 4px 0;
+}
+
+.dojo-waiting-rows {
+  margin-top: 8px;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+.dojo-waiting-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 4px;
+  border-top: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+.dojo-waiting-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dojo-waiting-title {
+  font-family: var(--font-pixel);
+  font-size: 0.45rem;
+  opacity: 0.7;
+}
+
+.dojo-waiting-q {
+  font-family: var(--font-content);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dojo-waiting-when {
+  font-family: var(--font-pixel);
+  font-size: 0.42rem;
+  opacity: 0.6;
+  flex-shrink: 0;
+  min-width: 82px;
+  text-align: right;
+}
+
+.dojo-waiting-when-due {
+  color: #00e676;
+  opacity: 1;
+}
+
+.dojo-waiting-btn {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent);
+  font-family: var(--font-pixel);
+  font-size: 0.42rem;
+  cursor: pointer;
+}
+
+.dojo-waiting-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
