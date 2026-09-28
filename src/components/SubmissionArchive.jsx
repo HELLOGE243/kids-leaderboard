@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import AnswerInjector from './AnswerInjector.jsx'
 import { getArchivedSubmissions, getAttemptDrafts, restoreArchivedSubmission,
   returnAttemptInProgress,
   findDuplicateSubmissions,
@@ -12,11 +13,12 @@ import { getArchivedSubmissions, getAttemptDrafts, restoreArchivedSubmission,
  * Meant for the day something goes wrong during a sitting: download the lot,
  * or put one paper back into a student's record.
  */
-export default function SubmissionArchive() {
+export default function SubmissionArchive({ teacherName }) {
   const [submissions, setSubmissions] = useState(null)
   const [drafts, setDrafts] = useState([])
   const [attempts, setAttempts] = useState([])
   const [dupes, setDupes] = useState([])
+  const [editing, setEditing] = useState(null)
   const [filter, setFilter] = useState('')
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
@@ -117,6 +119,16 @@ export default function SubmissionArchive() {
 
   return (
     <div>
+      {editing && (
+        <AnswerInjector
+          studentId={editing.studentId}
+          studentName={editing.studentName || editing.studentId}
+          quizSetId={editing.quizSetId}
+          teacherName={teacherName}
+          onClose={() => setEditing(null)}
+          onSaved={() => load()}
+        />
+      )}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
         <span className="td2-muted td2-small">
           {submissions.length} submitted {submissions.length === 1 ? 'paper' : 'papers'}
@@ -207,6 +219,13 @@ export default function SubmissionArchive() {
                   <td style={{ textAlign: 'center', fontSize: '0.75rem' }}>{a.score}/{a.total}</td>
                   <td style={{ textAlign: 'center', fontSize: '0.7rem' }}>{a.date ? new Date(a.date).toLocaleString() : '—'}</td>
                   <td style={{ textAlign: 'center' }}>
+                    <button
+                      className="btn btn-outline btn-small"
+                      style={{ fontSize: '0.45rem', padding: '3px 8px', marginRight: 4 }}
+                      disabled={busy}
+                      title="Set this student's answers and mark the paper again"
+                      onClick={() => setEditing(a)}
+                    >Set answers</button>
                     <button
                       className="btn btn-outline btn-small"
                       style={{ fontSize: '0.45rem', padding: '3px 8px', borderColor: 'var(--warning)', color: 'var(--warning)' }}

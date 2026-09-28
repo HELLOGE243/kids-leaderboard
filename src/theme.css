@@ -17070,3 +17070,141 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
   outline-offset: 2px;
   cursor: pointer;
 }
+
+/* In review, every question of the paper is shown in its own order, so each one
+   has to say whether it was right. */
+.qt-review-mark {
+  margin-left: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-family: var(--font-pixel);
+  font-size: 0.45rem;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+
+.qt-review-mark-right {
+  background: #e6f4ea;
+  color: #1e7a34;
+  border: 1px solid #1e7a34;
+}
+
+.qt-review-mark-wrong {
+  background: #fdecea;
+  color: #b3261e;
+  border: 1px solid #b3261e;
+}
+
+/* --- Setting a student's answers after the event --- */
+.ai-panel {
+  max-width: 720px;
+  width: 92vw;
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.ai-questions {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 6px;
+  margin-bottom: 12px;
+}
+
+.ai-q {
+  border-top: 1px solid rgba(128, 128, 128, 0.25);
+  padding: 10px 0;
+}
+
+.ai-q-head {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.ai-q-num {
+  font-family: var(--font-pixel);
+  font-size: 0.5rem;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.ai-q-text {
+  font-family: var(--font-content);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  opacity: 0.85;
+}
+
+.ai-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0;
+}
+
+.ai-row-label {
+  font-size: 0.75rem;
+  min-width: 170px;
+  opacity: 0.8;
+}
+
+.ai-row-choices {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.ai-choice {
+  min-width: 30px;
+  padding: 4px 8px;
+  border: 1px solid rgba(128, 128, 128, 0.5);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-pixel);
+  font-size: 0.5rem;
+  cursor: pointer;
+}
+
+.ai-choice:hover { border-color: var(--accent); }
+
+.ai-choice-on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.ai-choice-blank { opacity: 0.75; }
+
+.ai-key {
+  font-size: 0.7rem;
+  opacity: 0.6;
+  margin: 4px 0 0;
+}
+
+.ai-note {
+  font-size: 0.72rem;
+  opacity: 0.6;
+  margin: 2px 0 0;
+}
+
+.ai-history {
+  font-size: 0.72rem;
+  color: var(--warning);
+  margin-bottom: 10px;
+}
+
+.ai-status {
+  font-size: 0.78rem;
+  color: var(--accent);
+  margin: 0 0 8px;
+}
+
+.ai-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}

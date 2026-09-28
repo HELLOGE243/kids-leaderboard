@@ -2941,6 +2941,77 @@ export function useArchivedCopy(record) {
   return true
 }
 
+/**
+ * The answers a student's submitted paper holds, alongside the paper itself, so
+ * a teacher can see and correct what was recorded.
+ * @returns {{set: object, questions: Array, answers: Array, attempt: object}|null}
+ */
+export function getAttemptForEditing(quizSetId, studentId) {
+  const data = loadData()
+  const set = (data.importedQuizSets || []).find((s) => s.id === quizSetId)
+  if (!set) return null
+  const attempt = getStudentArray(studentId, 'homeworkAttempts').find((a) => a.quizSetId === quizSetId)
+  if (!attempt) return null
+  return { set, questions: set.questions || [], answers: attempt.answers || [], attempt }
+}
+
+/**
+ * Puts answers into a paper that has already been handed in, and marks it again.
+ *
+ * For the sitting that went wrong on the day: a student who wrote answers on
+ * paper while the screen misbehaved should not lose them. Every change is
+ * recorded on the attempt — which question, from what, to what, by whom and
+ * when — so an adjusted mark can always be told from a sat one.
+ *
+ * The archived copy is untouched. It stays the record of what was actually
+ * submitted, which is the whole point of keeping it.
+ *
+ * @param {string} quizSetId
+ * @param {string} studentId
+ * @param {Array} answers the full answer list, as the paper would hold it
+ * @param {string} by the teacher's name, for the record
+ * @returns {{ok: boolean, score: number, total: number, changed: number}}
+ */
+export function injectAnswersIntoAttempt(quizSetId, studentId, answers, by) {
+  const data = loadData()
+  const set = (data.importedQuizSets || []).find((s) => s.id === quizSetId)
+  if (!set) return { ok: false, score: 0, total: 0, changed: 0 }
+
+  let changed = 0
+  let score = 0
+  let total = 0
+  const changes = []
+
+  mutateStudentArray(studentId, 'homeworkAttempts', (arr) => {
+    const attempt = arr.find((a) => a.quizSetId === quizSetId)
+    if (!attempt) return
+    const before = attempt.answers || []
+    set.questions.forEach((q, i) => {
+      const was = before[i]
+      const now = answers[i]
+      if (JSON.stringify(was) !== JSON.stringify(now)) {
+        changes.push({ question: i + 1, from: was === undefined ? null : was, to: now === undefined ? null : now })
+        changed++
+      }
+      // A writing question keeps whatever mark a teacher gave it; injecting an
+      // answer elsewhere must not quietly zero it.
+      const mark = getWritingMark(attempt.id, i)
+      score += scoreOneQuestion(q, now, mark)
+      total += totalMarksForQuestion(q, mark)
+    })
+    attempt.answers = answers
+    attempt.score = score
+    attempt.total = total
+    attempt.adjustments = [...(attempt.adjustments || []), {
+      at: new Date().toISOString(),
+      by: by || 'a teacher',
+      changes,
+    }]
+  })
+
+  return { ok: true, score, total, changed }
+}
+
 export async function reconcileAttemptWithArchive(quizSetId, studentId) {
   const local = getStudentArray(studentId, 'homeworkAttempts').find((a) => a.quizSetId === quizSetId)
   if (local) return { alreadySat: true, recovered: false, attempt: local }

@@ -954,7 +954,7 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                 can be changed or deleted, by anyone. Use it to check a mark, to take a copy before a
                 sitting, or to put a paper back if one goes missing.
               </p>
-              <SubmissionArchive />
+              <SubmissionArchive teacherName={teacher?.name || 'a teacher'} />
             </details>
           </>
         )}

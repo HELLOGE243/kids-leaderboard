@@ -1343,14 +1343,19 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
           setReviewChats({})
           setReviewTokensAwarded({})
         }
-        // Every question type is reviewable. This used to admit multiple choice
-        // only, which is why cloze, matching and drag questions never appeared.
+        // The whole paper is reviewable, in the order it was sat. Reviewing only
+        // the wrong ones renumbered them 1, 2, 3 — so question 12 was headed
+        // "Question 3" and the questions in between were missing altogether.
         const wrongIdxs = questions
           .map((qq, i) => (isQuestionCorrect(qq, submittedResult.answers[i]) ? -1 : i))
           .filter((i) => i !== -1)
-        const indices = wrongIdxs.length > 0 ? wrongIdxs : questions.map((_, i) => i)
+        const indices = questions.map((_, i) => i)
         setReviewIndices(indices)
-        const actualStart = (startQ !== undefined && indices.includes(startQ)) ? startQ : indices[0]
+        // Opened without a question in mind, review starts at the first one they
+        // got wrong: that is what a student is there for.
+        const actualStart = (startQ !== undefined && indices.includes(startQ))
+          ? startQ
+          : (wrongIdxs.length > 0 ? wrongIdxs[0] : 0)
         setCurrentQ(actualStart)
         setShowStatsPopup(true)
         setShowVocabHint(!hasSeenVocabHint())
@@ -1457,7 +1462,14 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
 
             <div className="qt-center-group">
               <div className="qt-question-indicator">
-                Question <strong>{isReview ? reviewIndices.indexOf(currentQ) + 1 : currentQ + 1}</strong> of <strong>{isReview ? reviewIndices.length : total}</strong>{isReview ? ' — Review' : ''}
+                Question <strong>{currentQ + 1}</strong> of <strong>{total}</strong>{isReview ? ' — Review' : ''}
+                {/* Reviewing the whole paper means most questions are ones they
+                    got right, so each says which it is. */}
+                {isReview && submittedResult && (
+                  isQuestionCorrect(q, submittedResult.answers[currentQ])
+                    ? <span className="qt-review-mark qt-review-mark-right">Correct</span>
+                    : <span className="qt-review-mark qt-review-mark-wrong">Not correct</span>
+                )}
               </div>
               <div className="qt-grid-trigger-wrap">
                 <button className="qt-grid-trigger" onClick={(e) => { e.stopPropagation(); setShowQGrid(!showQGrid) }} title="Jump to question">
