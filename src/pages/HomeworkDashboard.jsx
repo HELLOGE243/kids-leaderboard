@@ -334,6 +334,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   const [showTrialReport, setShowTrialReport] = useState(false)
   const [sealedNotice, setSealedNotice] = useState(null)
   const [recoveredTick, setRecoveredTick] = useState(0)
+  const [interruptedNotice, setInterruptedNotice] = useState(null)
 
   // Shown once, then never again on this device: a tip a student has read is
   // just clutter on top of their work.
@@ -403,6 +404,8 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   const [studentDescTab, setStudentDescTab] = useState(0)
   const [dragShuffles, setDragShuffles] = useState({})
   const [dragSource, setDragSource] = useState(null)
+  // Where the picked-up sentence is drawn while it is being carried.
+  const [carryPos, setCarryPos] = useState({ x: 0, y: 0 })
   const dragScrollRef = useRef(null)
   // Watermark: student name plus their parent's email, so a shared screenshot
   // traces back to the family.
@@ -647,7 +650,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       // after an interrupted sitting does: that is the whole point of handing it
       // back, and the time already used comes with it.
       const progress = getHomeworkProgress(quizSet.id, user.id)
-      if (progress && (quizSet.homeworkMode || progress.returnedAt)) {
+      if (progress && (quizSet.homeworkMode || progress.returnedAt || progress.interruptedAt)) {
         resumeHomeworkQuiz(quizSet, progress)
       } else {
         openWarning(quizSet)
@@ -668,7 +671,12 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   async function resumeHomeworkQuiz(quizSet, progress) {
     submittedOnceRef.current = false
     setResumedByTeacher(!!progress.returnedAt)
-    const resolved = await prepareQuiz(quizSet)
+    setIsRedo(!!progress.isRedo)
+    setRedoIndices(progress.redoIndices || null)
+    const all = await prepareQuiz(quizSet)
+    const resolved = progress.isRedo && progress.redoIndices
+      ? progress.redoIndices.map((i) => all[i]).filter(Boolean)
+      : all
     setResolvedQuestions(resolved)
     setQuizAnswers(progress.answers || resolved.map(q => {
       const type = q.type || 'multiple-choice'
@@ -686,9 +694,17 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     if (progress.dragShuffles) setDragShuffles(progress.dragShuffles)
     setCurrentQ(progress.currentQ || 0)
     setTakingQuiz(quizSet)
-    // Picking a paper back up gives back the time that was left, not the whole
-    // limit again: the clock is started as far back as they had already sat.
-    setQuizStartTime(Date.now() - (progress.elapsedMs || 0))
+    if (progress.interruptedAt && !progress.returnedAt) {
+      setInterruptedNotice(quizSet.friendlyTitle || quizSet.rawTitle || 'your test')
+    }
+    // A paper a teacher handed back gets the time it had left; a paper the
+    // student walked away from is measured against the clock on the wall, so
+    // stepping out of the room is not a way to stop it.
+    setQuizStartTime(
+      progress.returnedAt || !progress.startedAtMs
+        ? Date.now() - (progress.elapsedMs || 0)
+        : progress.startedAtMs,
+    )
   }
 
   // Revision is for what was got wrong, so an unanswered question counts and a
@@ -864,29 +880,60 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     if (!inProgress) return
     // Back, reload or close: the browser shows its own "leave site?" dialog.
     const warn = (e) => { e.preventDefault(); e.returnValue = ''; return '' }
-    // Whatever they answer, the paper is submitted the moment the page goes.
-    // pagehide is the last event that reliably fires, and firebase.js flushes
-    // its write queue on the same event.
-    const submitOnLeave = () => { try { doSubmitRef.current?.({ lockedOut: true }) } catch { /* going anyway */ } }
+    // A tap on the home button, a notification, a mistyped address: on a tablet
+    // these fire the same events as deliberately leaving, and handing the paper
+    // in at that point cost students their sitting. The paper is saved instead,
+    // and waits for them. Handing in is left to the student, to the clock, and
+    // to the screen guard when leaving becomes a habit.
+    const keepOnLeave = () => {
+      try { saveProgressRef.current?.({ interrupted: true }) } catch { /* going anyway */ }
+    }
     // The browser's back button does not unload a single-page app, so a history
     // entry is pushed and popping it counts as leaving too.
     window.history.pushState({ quizGuard: true }, '')
     const onPop = () => {
-      if (window.confirm('Leaving now submits this quiz. Are you sure?')) {
-        submitOnLeave()
+      if (window.confirm('Leave the test? Your answers are saved and the test will be waiting where you left it.')) {
+        keepOnLeave()
+        exitQuiz()
       } else {
         window.history.pushState({ quizGuard: true }, '')
       }
     }
     window.addEventListener('beforeunload', warn)
-    window.addEventListener('pagehide', submitOnLeave)
+    window.addEventListener('pagehide', keepOnLeave)
     window.addEventListener('popstate', onPop)
     return () => {
       window.removeEventListener('beforeunload', warn)
-      window.removeEventListener('pagehide', submitOnLeave)
+      window.removeEventListener('pagehide', keepOnLeave)
       window.removeEventListener('popstate', onPop)
     }
   }, [takingQuiz, quizStartTime, submittedResult])
+
+  // While a sentence is being carried it follows the pointer, and Escape or a
+  // tap on the background puts it back. Dragging proper is gone: on a tablet it
+  // scrolled the page instead, and on a trackpad it needed a click held down
+  // across the screen.
+  useEffect(() => {
+    if (dragSource == null) return undefined
+    const move = (e) => {
+      const p = e.touches?.[0] || e
+      if (p) setCarryPos({ x: p.clientX, y: p.clientY })
+    }
+    const cancel = (e) => { if (e.key === 'Escape') setDragSource(null) }
+    // The click that picked it up must not also put it down.
+    const pickedUpAt = Date.now()
+    const drop = () => { if (Date.now() - pickedUpAt > 250) setDragSource(null) }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('touchmove', move, { passive: true })
+    window.addEventListener('keydown', cancel)
+    window.addEventListener('click', drop)
+    return () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('touchmove', move)
+      window.removeEventListener('keydown', cancel)
+      window.removeEventListener('click', drop)
+    }
+  }, [dragSource])
 
   // Leaving the screen too often submits the attempt (utils/screenGuard.js).
   useScreenGuard({
@@ -895,8 +942,10 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     onLockout: () => doSubmitRef.current?.({ lockedOut: true }),
   })
   const saveProgressRef = useRef(null)
-  saveProgressRef.current = () => {
-    if (!(takingQuiz?.homeworkMode || resumedByTeacher) || submittedResult) return
+  saveProgressRef.current = ({ interrupted = false } = {}) => {
+    // Every paper saves, not only homework. A timed paper used to save nothing,
+    // so a tablet switching away had nothing to come back to.
+    if (!takingQuiz || submittedResult) return
     const spent = Date.now() - questionEnteredAt.current
     questionTimes.current[currentQ] = (questionTimes.current[currentQ] || 0) + spent
     saveHomeworkProgress(takingQuiz.id, user.id, {
@@ -907,9 +956,15 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       visited: [...visitedQuestions],
       dragShuffles,
       screenLeaves: screenLeaves.current,
+      isRedo,
+      redoIndices: isRedo ? redoIndices : null,
       // How long they have been sitting it, so an interrupted paper resumes with
       // the time that was left rather than the whole limit over again.
       elapsedMs: quizStartTime ? Date.now() - quizStartTime : 0,
+      // When the sitting began, in wall-clock terms. A timed paper resumes
+      // against this, so stepping out of the room does not stop the clock.
+      startedAtMs: quizStartTime || null,
+      interruptedAt: interrupted ? new Date().toISOString() : undefined,
     })
   }
 
@@ -919,7 +974,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   // they write, so this costs one small write every 30s per student and never
   // contends with anyone else.
   useEffect(() => {
-    if (!(takingQuiz?.homeworkMode || resumedByTeacher) || submittedResult) return
+    if (!takingQuiz || submittedResult) return
     const id = setInterval(() => {
       if (!saveProgressRef.current) return
       saveProgressRef.current()
@@ -936,15 +991,18 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     // Saving only. Handing in on the way out is the leave guard's job, and when
     // both did it the paper was filed twice.
     function handleUnload() {
-      if (takingQuiz?.homeworkMode || resumedByTeacher) {
-        if (saveProgressRef.current) saveProgressRef.current()
-      }
+      if (saveProgressRef.current) saveProgressRef.current({ interrupted: true })
     }
+    // iOS fires visibilitychange where it will not fire pagehide, and it is the
+    // only signal when a student swipes to another app.
+    const onHidden = () => { if (document.visibilityState === 'hidden') handleUnload() }
     window.addEventListener('beforeunload', handleUnload)
     window.addEventListener('pagehide', handleUnload)
+    document.addEventListener('visibilitychange', onHidden)
     return () => {
       window.removeEventListener('beforeunload', handleUnload)
       window.removeEventListener('pagehide', handleUnload)
+      document.removeEventListener('visibilitychange', onHidden)
     }
   }, [takingQuiz, submittedResult])
 
@@ -2244,7 +2302,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                   return <>
                     {q.prompt && <div className="qt-prompt-display" dangerouslySetInnerHTML={{ __html: q.prompt }} />}
                     <p className="qt-drag-instructions">Choose from the {dragLabel === 'sentence' ? 'sentences' : 'summaries'} ({gapLabels.join(', ')}) the one which fits each gap.</p>
-                    <p className="qt-drag-instructions-sub">Drag each {dragLabel} into a gap below, or tap a {dragLabel} and then tap the gap. Tap a filled gap to clear it.</p>
+                    <p className="qt-drag-instructions-sub">Tap a {dragLabel} to pick it up, then tap the gap you want it in. Tap a filled gap to take it back out.</p>
                     {(() => {
                       const visible = shuffled.filter(i => opts[i])
                       const labelOf = (oi) => gapLabels[visible.indexOf(oi)]
@@ -2265,17 +2323,28 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                         return next
                       })
                       return <>
+                        {dragSource != null && opts[dragSource] && (
+                          <div
+                            className="qt-drag-carry"
+                            style={{ left: carryPos.x, top: carryPos.y }}
+                            aria-hidden="true"
+                          >
+                            <span className="qt-drag-letter">{labelOf(dragSource)}</span>
+                            <span>{opts[dragSource]}</span>
+                          </div>
+                        )}
                         <div className="qt-drag-sentences">
                           {visible.map((oi) => {
                             const isPlaced = answers.includes(oi)
                             return (
                               <div
                                 key={oi}
-                                draggable
                                 className={`qt-drag-sentence${dragSource === oi ? ' qt-drag-sentence-selected' : ''}${isPlaced ? ' qt-drag-sentence-used' : ''}`}
-                                onDragStart={e => { e.dataTransfer.setData('text/plain', String(oi)); e.dataTransfer.effectAllowed = 'move'; setDragSource(oi) }}
-                                onDragEnd={() => setDragSource(null)}
-                                onClick={() => setDragSource(dragSource === oi ? null : oi)}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setCarryPos({ x: e.clientX, y: e.clientY })
+                                  setDragSource(dragSource === oi ? null : oi)
+                                }}
                               >
                                 <span className="qt-drag-letter">{labelOf(oi)}</span>
                                 <span>{opts[oi]}</span>
@@ -2290,16 +2359,8 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                               <div
                                 key={si}
                                 className={`qt-drag-gap-row${dragSource != null ? ' qt-drag-gap-ready' : ''}`}
-                                onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('qt-drag-gap-over') }}
-                                onDragLeave={e => e.currentTarget.classList.remove('qt-drag-gap-over')}
-                                onDrop={e => {
-                                  e.preventDefault()
-                                  e.currentTarget.classList.remove('qt-drag-gap-over')
-                                  const oi = parseInt(e.dataTransfer.getData('text/plain'))
-                                  if (!Number.isNaN(oi)) place(si, oi)
-                                  setDragSource(null)
-                                }}
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation()
                                   if (dragSource != null) { place(si, dragSource); setDragSource(null) }
                                   else if (placed != null && placed !== -1) clear(si)
                                 }}
@@ -2308,7 +2369,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                                 <span className="qt-drag-gap-content">
                                   {placed != null && placed !== -1 && opts[placed]
                                     ? <span className="qt-drag-gap-filled"><b>{labelOf(placed)}</b> {opts[placed]} <span className="qt-drag-gap-remove">✕</span></span>
-                                    : <span className="qt-drag-gap-empty">Drop a {dragLabel} here</span>}
+                                    : <span className="qt-drag-gap-empty">{dragSource != null ? `Tap to put ${dragLabel} ${labelOf(dragSource)} here` : `Tap a ${dragLabel}, then tap here`}</span>}
                                 </span>
                               </div>
                             )
@@ -2565,6 +2626,18 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
 
     return (
       <div className="hw-page">
+        {interruptedNotice && (
+          <div className="neon-overlay" onClick={() => setInterruptedNotice(null)}>
+            <div className="neon-popup" style={{ maxWidth: 460, padding: '36px 32px' }} onClick={(e) => e.stopPropagation()}>
+              <h2 style={{ marginTop: 0 }}>Welcome back</h2>
+              <p style={{ fontSize: '1rem', lineHeight: 1.7, marginBottom: 10 }}>
+                You left <strong>{interruptedNotice}</strong> and your answers were kept. Carry on from where
+                you were — the clock has kept running, so go straight back to it.
+              </p>
+              <button className="btn" onClick={() => setInterruptedNotice(null)}>Keep going</button>
+            </div>
+          </div>
+        )}
         {sealedNotice && (
           <div className="neon-overlay" onClick={() => setSealedNotice(null)}>
             <div className="neon-popup" style={{ maxWidth: 460, padding: '36px 32px' }} onClick={(e) => e.stopPropagation()}>
@@ -2692,7 +2765,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                           // A paper handed back by a teacher shows as in progress too,
                           // so the student can see there is work of theirs waiting in it.
                           const savedProgress = hasAttempt ? null : getHomeworkProgress(s.id, user.id)
-                          const hwProgress = savedProgress && (s.homeworkMode || savedProgress.returnedAt) ? savedProgress : null
+                          const hwProgress = savedProgress && (s.homeworkMode || savedProgress.returnedAt || savedProgress.interruptedAt) ? savedProgress : null
                           const pct = hasAttempt ? Math.round((attempt.score / attempt.total) * 100) : 0
                           const cardIsTrial = !!course.trialTest
                           let cardGrade = '', cardGradeClass = ''

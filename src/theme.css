@@ -17040,3 +17040,33 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
   opacity: 0.55;
   cursor: default;
 }
+
+/* The sentence being carried between the list and a gap. It follows the pointer
+   and never takes a click, so the tap always lands on what is underneath. */
+.qt-drag-carry {
+  position: fixed;
+  z-index: 3000;
+  pointer-events: none;
+  transform: translate(12px, 12px);
+  max-width: min(60vw, 520px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #fff;
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  font-family: var(--font-content);
+  font-size: var(--size-content);
+  line-height: 1.4;
+  color: #1a1a2e;
+  opacity: 0.96;
+}
+
+/* A gap waiting to receive what is being carried. */
+.qt-drag-gap-ready {
+  outline: 2px dashed var(--accent);
+  outline-offset: 2px;
+  cursor: pointer;
+}
