@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import ShopAdmin from './ShopAdmin.jsx'
 import ReportPage from './ReportPage.jsx'
 import QuizBuilder from './QuizBuilder.jsx'
+import ClassQuizBrowser from '../components/ClassQuizBrowser.jsx'
 import CourseBuilder from './CourseBuilder.jsx'
 import WritingReview from './WritingReview.jsx'
 import NotificationsPanel from './NotificationsPanel.jsx'
@@ -169,6 +170,8 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
   const [confirmAction, setConfirmAction] = useState(null)
   const [showShopAdmin, setShowShopAdmin] = useState(false)
   const [showQuizBuilder, setShowQuizBuilder] = useState(false)
+  // Reading a class's papers, with nothing to press that changes anything.
+  const [browseClassId, setBrowseClassId] = useState(null)
   const [coursePlace, setCoursePlace] = useState(null)
   const [showCourseBuilder, setShowCourseBuilder] = useState(false)
   const [showWritingReview, setShowWritingReview] = useState(false)
@@ -356,6 +359,7 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
   // --- RENDER ---
   if (reportViewStudent) return <ReportPage studentId={reportViewStudent} onBack={() => setReportViewStudent(null)} />
   if (showCourseBuilder && org) return <CourseBuilder orgId={org.id} initialPlace={coursePlace} onBack={() => { setShowCourseBuilder(false); setCoursePlace(null) }} onEditQuiz={(quizSetId, place) => { setCoursePlace(place || null); setShowCourseBuilder(false); setEditQuizId(quizSetId); setShowQuizBuilder(true) }} />
+  if (browseClassId && org) return <ClassQuizBrowser classId={browseClassId} orgId={org.id} onBack={() => setBrowseClassId(null)} />
   if (showQuizBuilder && org) return <QuizBuilder orgId={org.id} onBack={() => { setShowQuizBuilder(false); setEditQuizId(null); if (coursePlace) setShowCourseBuilder(true) }} initialEditQuizId={editQuizId} onSave={coursePlace ? () => { setShowQuizBuilder(false); setEditQuizId(null); setShowCourseBuilder(true) } : undefined} />
   if (showWritingReview && org) return <WritingReview orgId={org.id} teacherId={teacher.id} onBack={() => setShowWritingReview(false)} />
   if (showNotifications && org) return <NotificationsPanel orgId={org.id} onBack={() => setShowNotifications(false)} />
@@ -588,6 +592,7 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                             </div>
                             <div className="td2-class-actions">
                               <button className="td2-btn td2-btn-sm" onClick={() => setShowClassDashboard(cls.id)}>Open dashboard</button>
+                              <button className="td2-btn-ghost td2-btn-sm" onClick={() => setBrowseClassId(cls.id)}>Browse papers</button>
                               <button className="td2-btn-ghost td2-btn-sm" onClick={() => { const opening = activeClass !== cls.id; setActiveClass(opening ? cls.id : null); if (opening) setTimeout(() => scrollTo('td2-class-manage'), 50) }}>{activeClass === cls.id ? 'Close' : 'Manage'}</button>
                             </div>
                           </div>
