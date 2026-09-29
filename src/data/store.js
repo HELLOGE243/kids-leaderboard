@@ -5008,10 +5008,26 @@ export function getAllStudentReports(orgId) {
 }
 
 // ===== Vocabulary Bank =====
+//
+// A word is learned once it has been answered correctly five times in the
+// flashcard trainer. Until then it is unlearned, and it is the unlearned words
+// the trainer draws its questions from.
+export const VOCAB_PASSES_TO_LEARN = 5
+
+/** How many correct answers a word has to its name. */
+export function vocabPasses(word) {
+  return Math.max(0, Number(word?.passes ?? word?.familiarity ?? 0))
+}
+
+export function vocabIsLearned(word) {
+  return vocabPasses(word) >= VOCAB_PASSES_TO_LEARN
+}
+
+/** Newest first: a bank is read like a notebook, from the last word added. */
 export function getVocabBank(studentId, includeArchived = false) {
   const all = getStudentArray(studentId, 'vocabBank')
   const filtered = includeArchived ? all : all.filter(w => !w.archived)
-  return filtered.sort((a, b) => a.word.localeCompare(b.word))
+  return [...filtered].sort((a, b) => String(b.dateAdded || '').localeCompare(String(a.dateAdded || '')))
 }
 
 export function addToVocabBank(studentId, word, context, source, definition) {
@@ -5033,15 +5049,93 @@ export function removeFromVocabBank(studentId, wordId) {
 
 }
 
-export function updateVocabWord(wordId, updates) {
-  const data = loadData()
-  const word = (data.vocabBank || []).find(v => v.id === wordId)
-  if (!word) return
-  mutateStudentArray(word.studentId, 'vocabBank', (arr) => {
+/**
+ * Changes one word in a student's bank.
+ *
+ * The student id has to be given. This used to look the word up in the shared
+ * array, which has been empty since words moved into each student's own
+ * document — so every edit, every definition and every archive quietly did
+ * nothing.
+ */
+export function updateVocabWord(studentId, wordId, updates) {
+  if (!studentId || !wordId) return
+  mutateStudentArray(studentId, 'vocabBank', (arr) => {
     const idx = arr.findIndex(v => v.id === wordId)
     if (idx >= 0) Object.assign(arr[idx], updates)
   })
+}
 
+/**
+ * Records one answer in the trainer. Five correct answers and the word is
+ * learned; a wrong one costs a pass, so a word cannot be learned by guessing
+ * through a deck twice.
+ * @returns {{passes: number, justLearned: boolean}}
+ */
+export function recordVocabAnswer(studentId, wordId, correct) {
+  let passes = 0
+  let justLearned = false
+  mutateStudentArray(studentId, 'vocabBank', (arr) => {
+    const word = arr.find(v => v.id === wordId)
+    if (!word) return
+    const before = vocabPasses(word)
+    passes = correct
+      ? Math.min(before + 1, VOCAB_PASSES_TO_LEARN)
+      : Math.max(before - 1, 0)
+    word.passes = passes
+    word.familiarity = passes          // kept for anything still reading the old name
+    word.lastPractised = new Date().toISOString()
+    if (correct && passes >= VOCAB_PASSES_TO_LEARN && before < VOCAB_PASSES_TO_LEARN) {
+      word.learnedAt = word.lastPractised
+      justLearned = true
+    }
+    if (passes < VOCAB_PASSES_TO_LEARN) word.learnedAt = null
+  })
+  return { passes, justLearned }
+}
+
+/** Puts a learned word back in the deck, at nothing learned. */
+export function relearnVocabWord(studentId, wordId) {
+  updateVocabWord(studentId, wordId, { passes: 0, familiarity: 0, learnedAt: null })
+}
+
+/**
+ * A round of the trainer: up to ten unlearned words, newest first, each asked
+ * once. A word needs a definition to be asked about, and the wrong answers are
+ * other words from the same bank, which is what makes the choice worth making.
+ * @returns {Array<{wordId, word, ask, prompt, options: string[], correctIndex}>}
+ */
+export function buildVocabQuiz(studentId, size = 10) {
+  const bank = getVocabBank(studentId)
+  const pool = bank.filter((w) => !vocabIsLearned(w) && String(w.definition || '').trim())
+  if (pool.length === 0) return []
+
+  const words = pool.slice(0, size)
+  const everyWord = bank.map((w) => w.word)
+
+  return words.map((w) => {
+    const context = String(w.context || '')
+    const canBlank = context && new RegExp(`\\b${w.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(context)
+    // Alternate between the meaning and the sentence it was met in, so a word is
+    // recognised rather than a shape on a card remembered.
+    const ask = canBlank && Math.random() < 0.5 ? 'context' : 'definition'
+
+    const distractors = everyWord
+      .filter((x) => x.toLowerCase() !== w.word.toLowerCase())
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 3)
+    const options = [w.word, ...distractors].sort(() => Math.random() - 0.5)
+
+    return {
+      wordId: w.id,
+      word: w.word,
+      ask,
+      prompt: ask === 'context'
+        ? context.replace(new RegExp(`\\b${w.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'ig'), '______')
+        : w.definition,
+      options,
+      correctIndex: options.findIndex((o) => o === w.word),
+    }
+  })
 }
 
 export function getVocabBankStats(studentId) {
@@ -5053,12 +5147,15 @@ export function getVocabBankStats(studentId) {
     total: active.length,
     archived: all.filter(w => w.archived).length,
     thisWeek: active.filter(v => new Date(v.dateAdded) >= weekAgo).length,
-    mastered: active.filter(v => v.familiarity >= 3).length,
+    learned: active.filter(vocabIsLearned).length,
+    unlearned: active.filter((v) => !vocabIsLearned(v)).length,
+    // Words that cannot be practised until someone writes down what they mean.
+    needDefinition: active.filter((v) => !vocabIsLearned(v) && !String(v.definition || '').trim()).length,
   }
 }
 
-export function archiveVocabWord(wordId) {
-  updateVocabWord(wordId, { archived: true })
+export function archiveVocabWord(studentId, wordId) {
+  updateVocabWord(studentId, wordId, { archived: true })
 }
 
 // ===== SMS Notifications =====
