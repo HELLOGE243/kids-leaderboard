@@ -352,7 +352,7 @@ function VocabularyBank({ user, onBack }) {
               onChange={(e) => setNewWord(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && newDef.trim()) addWord() }}
             />
-            <button className="vbk-act" disabled={!newWord.trim() || lookingUp} onClick={lookUpNewWord}>
+            <button className="vbk-act vbk-act-define" disabled={!newWord.trim() || lookingUp} onClick={lookUpNewWord}>
               {lookingUp ? 'Defining…' : 'Define the word'}
             </button>
           </div>
@@ -513,13 +513,13 @@ function VocabularyBank({ user, onBack }) {
                 {w.source && <p className="vbk-source">{w.source}</p>}
 
                 <footer className="vbk-card-actions">
-                  {!isEditing && (
+                  {!isEditing && w.definition && (
                     <button className="vbk-act" onClick={() => { setEditing(w.id); setDefInput(w.definition || '') }}>
-                      {w.definition ? 'Edit' : 'Add meaning'}
+                      Edit
                     </button>
                   )}
                   {!isEditing && !(w.definition && w.sentenceLow && w.sentenceHigh) && (
-                    <button className="vbk-act" disabled={defining === w.id} onClick={() => defineWord(w)}>
+                    <button className="vbk-act vbk-act-define" disabled={defining === w.id} onClick={() => defineWord(w)}>
                       {defining === w.id ? 'Defining…' : 'Define the word'}
                     </button>
                   )}

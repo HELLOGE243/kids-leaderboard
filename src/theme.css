@@ -18378,3 +18378,83 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 
 .qt-cloze-text p { margin: 0 0 12px; }
 .qt-cloze-text p:last-child { margin-bottom: 0; }
+
+/* Define the word is the one that fills a card in, so it is lit. */
+.vbk-act-define {
+  border-color: #2ecc71;
+  color: #2ecc71;
+  opacity: 1;
+  box-shadow: 0 0 0 1px rgba(46, 204, 113, 0.18), 0 0 10px rgba(46, 204, 113, 0.22);
+}
+
+.vbk-act-define:hover:not(:disabled) {
+  background: rgba(46, 204, 113, 0.12);
+  border-color: #2ecc71;
+  color: #2ecc71;
+  box-shadow: 0 0 0 1px rgba(46, 204, 113, 0.3), 0 0 14px rgba(46, 204, 113, 0.35);
+}
+
+.vbk-act-define:disabled {
+  border-color: rgba(46, 204, 113, 0.4);
+  color: rgba(46, 204, 113, 0.5);
+  box-shadow: none;
+}
+
+/* ===== The bank in daylight =====
+   The cards were drawn for a dark room: a near-transparent white fill and a
+   white hairline border. On a light background both vanish and a word sits on
+   nothing. Here they are given paper and an edge. */
+.theme-light .vbk-card {
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.14);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.theme-light .vbk-card-learned {
+  background: #f2fbf5;
+  border-color: rgba(0, 150, 60, 0.35);
+}
+
+.theme-light .vbk-check { border-color: rgba(0, 0, 0, 0.28); }
+
+.theme-light .vbk-check-on {
+  background: rgba(0, 170, 70, 0.14);
+  border-color: #00a046;
+  color: #00a046;
+}
+
+.theme-light .vbk-learned-tag { color: #00893c; border-color: #00893c; }
+
+.theme-light .vbk-context { border-left-color: rgba(0, 0, 0, 0.18); }
+
+.theme-light .vbk-sentence-tag { border-color: rgba(0, 0, 0, 0.22); }
+
+.theme-light .vbk-act { border-color: rgba(0, 0, 0, 0.22); }
+
+.theme-light .vbk-train {
+  border-color: rgba(0, 0, 0, 0.12);
+  background: linear-gradient(135deg, rgba(124, 77, 255, 0.10), rgba(0, 176, 255, 0.07));
+}
+
+.theme-light .vbk-shelf,
+.theme-light .vbk-search,
+.theme-light .vbk-sort,
+.theme-light .vbk-add,
+.theme-light .vbk-add-word,
+.theme-light .vbk-add-def,
+.theme-light .vbk-add-context,
+.theme-light .vbk-add-sentence,
+.theme-light .vbk-edit-box {
+  border-color: rgba(0, 0, 0, 0.18);
+  background: #fff;
+}
+
+.theme-light .vbk-quiz-option {
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.18);
+}
+
+.theme-light .vbk-quiz-option:hover { border-color: var(--accent); }
+
+.theme-light .vbk-hint-btn { border-color: rgba(0, 0, 0, 0.28); }
+.theme-light .vbk-hint-tag { border-color: rgba(0, 0, 0, 0.22); }
