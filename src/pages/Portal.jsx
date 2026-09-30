@@ -178,6 +178,9 @@ function Portal({ user, onLogout }) {
   const [refresh, setRefresh] = useState(0)
   const [showShop, setShowShop] = useState(false)
   // The portrait opens the collection: every sprite there is to hold, and the egg.
+  // Held back while the site is in use for testing — one flag turns it on, and
+  // everything behind it is built and tested.
+  const COLLECTION_OPEN = false
   const [showGacha, setShowGacha] = useState(false)
   // Parent message links open ?report=<courseId> (after the normal login).
   const [reportLink] = useState(() => { try { return new URLSearchParams(window.location.search).get('report') } catch { return null } })
@@ -441,7 +444,7 @@ function Portal({ user, onLogout }) {
           </div>
         </>
       )}
-      {showGacha && (
+      {COLLECTION_OPEN && showGacha && (
         <AvatarGacha
           user={student}
           onClose={() => setShowGacha(false)}
@@ -456,12 +459,12 @@ function Portal({ user, onLogout }) {
         <div className="portal-header">
           <div className="portal-header-left" data-help="profile">
             <div
-              className="portal-avatar-box"
-              role="button"
-              tabIndex={0}
-              title="Your collection"
-              onClick={() => setShowGacha(true)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowGacha(true) }}
+              className={`portal-avatar-box${COLLECTION_OPEN ? '' : ' portal-avatar-box-quiet'}`}
+              role={COLLECTION_OPEN ? 'button' : undefined}
+              tabIndex={COLLECTION_OPEN ? 0 : undefined}
+              title={COLLECTION_OPEN ? 'Your collection' : undefined}
+              onClick={COLLECTION_OPEN ? () => setShowGacha(true) : undefined}
+              onKeyDown={COLLECTION_OPEN ? (e) => { if (e.key === 'Enter' || e.key === ' ') setShowGacha(true) } : undefined}
             >
               {student?.avatar ? (<>
                 {(() => { const av = student.unlockedAvatars?.find(a => a.url === student.avatar); return av && av.stars >= 2 ? <div className={`portal-avatar-particles portal-avatar-particles-${av.rarity}`} /> : null })()}

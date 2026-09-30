@@ -18283,11 +18283,17 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
   image-rendering: pixelated;
 }
 
-/* Not collected: the shape only, and light rather than black — a black
-   silhouette on a dark card is an empty box, which invites nothing. */
+/* Not collected: the sprite's own outline. The shape is blacked out and then
+   traced on four sides, so what shows is the creature's edge — enough to know
+   what is missing, not enough to have seen it. */
 .gacha-card-img-locked {
-  filter: brightness(0) invert(0.62);
-  opacity: 0.5;
+  filter:
+    brightness(0)
+    drop-shadow(1.5px 0 0 rgba(255, 255, 255, 0.72))
+    drop-shadow(-1.5px 0 0 rgba(255, 255, 255, 0.72))
+    drop-shadow(0 1.5px 0 rgba(255, 255, 255, 0.72))
+    drop-shadow(0 -1.5px 0 rgba(255, 255, 255, 0.72));
+  opacity: 0.85;
 }
 
 .gacha-card-locked {
@@ -18336,6 +18342,9 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
   margin: 10px 0 0;
 }
 
-/* The portrait invites the click it now answers. */
+/* The portrait invites the click it now answers — unless the collection is held
+   back, when it goes back to being a portrait. */
 .portal-avatar-box { cursor: pointer; }
 .portal-avatar-box:hover { filter: brightness(1.12); }
+.portal-avatar-box-quiet { cursor: default; }
+.portal-avatar-box-quiet:hover { filter: none; }
