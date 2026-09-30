@@ -176,7 +176,9 @@ function SessionRevision({ user, onComplete }) {
   const hasPrompt = promptHtml && promptHtml.trim()
 
   return (
-    <div className="dojo-page">
+    // Revealed, the card takes the screen here too: these are the same questions
+    // from the hall, and they are read the same way.
+    <div className={`dojo-page${flipped ? ' dojo-focus' : ''}`}>
       <div className="sr-top-bar" style={{ width: '100%' }}>
         <span className="sr-top-title">Compulsory Daily Revision</span>
         <span className="sr-top-progress">Card {idx + 1} of {total}</span>

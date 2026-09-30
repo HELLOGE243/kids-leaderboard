@@ -728,7 +728,9 @@ Return ONLY valid JSON:
   }
 
   return (
-    <div className="dojo-page"
+    // A revealed card takes the whole screen: the tabs, the counts and the hall's
+    // furniture step aside so the question is read the way it was sat.
+    <div className={`dojo-page${cardFlipped && tab === 'training' ? ' dojo-focus' : ''}`}
       style={{ background: `url("${bgReady ? wallpaper.src : wallpaper.placeholder}") center / cover no-repeat` }}>
 
       <div className="dojo-inner">
