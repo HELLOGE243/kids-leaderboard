@@ -58,6 +58,7 @@ import { parseVideoUrl } from '../utils/video.js'
 import { useScreenGuard } from '../utils/screenGuard.js'
 import ReportIssueModal from '../components/ReportIssueModal.jsx'
 import ClozeGapReview from '../components/ClozeGapReview.jsx'
+import ClozeText from '../components/ClozeText.jsx'
 import TrialReport from '../components/TrialReport.jsx'
 import ReviewHelp from '../components/ReviewHelp.jsx'
 import { checkExplanation, parseExplanation, generateWordDefinition, generateExplanation } from '../utils/aiChat.js'
@@ -1571,23 +1572,22 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                   <div className="qt-cloze-instructions">Read the text below and select the correct word or phrase for each gap from the drop-down list.</div>
                   <div className="qt-cloze-passage-text">
                     {(() => {
-                      const parts = (q.text || '').split('___')
                       const blanks = q.blanks || []
                       const answers = Array.isArray(selectedAnswer) ? selectedAnswer : new Array(blanks.length).fill(-1)
-                      return parts.map((part, pi) => (
-                        <span key={pi}>
-                          <span dangerouslySetInnerHTML={{ __html: part }} />
-                          {pi < parts.length - 1 && pi < blanks.length && (
-                            <select className="qt-cloze-inline-select" value={answers[pi] ?? -1} onChange={e => {
-                              const val = parseInt(e.target.value)
-                              setQuizAnswers(prev => { const next = [...prev]; const arr = Array.isArray(next[currentQ]) ? [...next[currentQ]] : new Array(blanks.length).fill(-1); arr[pi] = val; next[currentQ] = arr; return next })
-                            }}>
-                              <option value={-1} disabled hidden></option>
-                              {blanks[pi].options.map((opt, oi) => opt ? <option key={oi} value={oi}>{opt}</option> : null)}
-                            </select>
-                          )}
-                        </span>
-                      ))
+                      return (
+                        <ClozeText
+                          html={q.text || ''}
+                          blanks={blanks}
+                          answers={answers}
+                          onPick={(gap, val) => setQuizAnswers((prev) => {
+                            const next = [...prev]
+                            const arr = Array.isArray(next[currentQ]) ? [...next[currentQ]] : new Array(blanks.length).fill(-1)
+                            arr[gap] = val
+                            next[currentQ] = arr
+                            return next
+                          })}
+                        />
+                      )
                     })()}
                   </div>
                 </div>

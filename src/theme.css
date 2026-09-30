@@ -18348,3 +18348,19 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .portal-avatar-box:hover { filter: brightness(1.12); }
 .portal-avatar-box-quiet { cursor: default; }
 .portal-avatar-box-quiet:hover { filter: none; }
+
+/* A gap in a cloze passage: an inline space in the sentence, holding its
+   dropdown, so the line reads straight through it. */
+.qt-cloze-slot {
+  display: inline-block;
+  vertical-align: baseline;
+}
+
+.qt-cloze-text {
+  font-family: var(--font-content);
+  font-size: var(--size-content);
+  line-height: var(--line-content);
+}
+
+.qt-cloze-text p { margin: 0 0 12px; }
+.qt-cloze-text p:last-child { margin-bottom: 0; }
