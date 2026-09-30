@@ -13,7 +13,8 @@ import {
   VOCAB_PASSES_TO_LEARN,
   onDataChange,
 } from '../data/store.js'
-import { generateWordEntry } from '../utils/aiChat.js'
+import { generateWordEntry, generateWordSentences } from '../utils/aiChat.js'
+import { lookUpWord } from '../utils/dictionary.js'
 
 /**
  * The words a student has collected, and the trainer that turns them into
@@ -80,9 +81,37 @@ function VocabularyBank({ user, onBack }) {
     [words],
   )
 
-  async function defineWithAi(w) {
+  /**
+   * Fills in a word's entry: the dictionary for its meaning, the AI only for the
+   * two sentences it cannot supply. A word the dictionary does not hold — a name,
+   * a very new word — falls back to the AI for the whole entry.
+   */
+  async function defineWord(w) {
     setDefining(w.id)
     try {
+      const found = await lookUpWord(w.word)
+      if (found) {
+        // The dictionary's first sense goes in at once — free, offline and
+        // immediate — and stands on its own if nothing else answers.
+        updateVocabWord(user.id, w.id, {
+          definition: found.definition,
+          partOfSpeech: found.partOfSpeech,
+          definedBy: 'dictionary',
+        })
+        const written = await generateWordSentences(w.word, found.definition, found.senses)
+        if (written) {
+          // It also says which of the dictionary's meanings it wrote for, which
+          // is the one a student is likely to meet.
+          const chosen = found.senses[(written.chose || 1) - 1] || found.senses[0]
+          updateVocabWord(user.id, w.id, {
+            definition: chosen.definition,
+            partOfSpeech: chosen.partOfSpeech,
+            sentenceLow: written.sentenceLow,
+            sentenceHigh: written.sentenceHigh,
+          })
+        }
+        return
+      }
       const entry = await generateWordEntry(w.word, w.context || '')
       if (entry) {
         updateVocabWord(user.id, w.id, {
@@ -90,6 +119,7 @@ function VocabularyBank({ user, onBack }) {
           partOfSpeech: entry.partOfSpeech || w.partOfSpeech || '',
           sentenceLow: entry.sentenceLow || '',
           sentenceHigh: entry.sentenceHigh || '',
+          definedBy: 'ai',
         })
       }
     } finally {
@@ -129,6 +159,19 @@ function VocabularyBank({ user, onBack }) {
     if (!word) return
     setLookingUp(true)
     try {
+      const found = await lookUpWord(word)
+      if (found) {
+        setNewDef(found.definition)
+        const written = await generateWordSentences(word, found.definition, found.senses)
+        const chosen = written ? (found.senses[(written.chose || 1) - 1] || found.senses[0]) : found.senses[0]
+        setNewDef(chosen.definition)
+        setNewEntry({
+          partOfSpeech: chosen.partOfSpeech,
+          sentenceLow: written?.sentenceLow || '',
+          sentenceHigh: written?.sentenceHigh || '',
+        })
+        return
+      }
       const entry = await generateWordEntry(word, newContext.trim())
       if (entry) {
         if (entry.definition) setNewDef(entry.definition)
@@ -398,7 +441,7 @@ function VocabularyBank({ user, onBack }) {
                     </button>
                   )}
                   {!isEditing && !(w.definition && w.sentenceLow && w.sentenceHigh) && (
-                    <button className="vbk-act" disabled={defining === w.id} onClick={() => defineWithAi(w)}>
+                    <button className="vbk-act" disabled={defining === w.id} onClick={() => defineWord(w)}>
                       {defining === w.id ? 'Defining…' : 'Define the word'}
                     </button>
                   )}

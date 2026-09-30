@@ -1,0 +1,6 @@
+WordNet 3.0 Copyright 2006 by Princeton University. All rights reserved.
+
+THIS SOFTWARE AND DATABASE IS PROVIDED "AS IS" AND PRINCETON UNIVERSITY MAKES
+NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR IMPLIED. Permission to use, copy,
+modify and distribute this database for any purpose and without fee is hereby
+granted, provided that this notice appears in all copies.

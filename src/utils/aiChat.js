@@ -586,6 +586,67 @@ RULES:
  * One call rather than three: the sentences have to agree with the definition.
  * @returns {Promise<{definition,partOfSpeech,sentenceLow,sentenceHigh}|null>}
  */
+/**
+ * Two sentences for a word whose meaning is already known.
+ *
+ * Used when the dictionary has the word: it gives a proper gloss but no examples,
+ * and the examples are what a student practises against.
+ * @returns {Promise<{sentenceLow,sentenceHigh}|null>}
+ */
+export async function generateWordSentences(word, definition, senses = []) {
+  try {
+    const res = await authedFetch('/api/claude/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 300,
+        messages: [{
+          role: 'user',
+          content: (senses.length > 1
+            ? `A dictionary gives these meanings for "${word}":
+`
+              + senses.map((s, i) => `${i + 1}. (${s.partOfSpeech}) ${s.definition}`).join(String.fromCharCode(10))
+              + `
+
+Choose the one a 10 to 12 year old student is most likely to meet in a book or a test.
+`
+            : `The word "${word}" means: ${definition}
+`)
+            + `
+Write two sentences for a 10 to 12 year old student, both using "${word}" exactly once.
+`
+            + (senses.length > 1
+              ? `Reply with JSON only: {"chose": <the number you picked>, "sentenceLow": "...", "sentenceHigh": "..."}
+`
+              : `Reply with JSON only: {"sentenceLow": "...", "sentenceHigh": "..."}
+`)
+            + `sentenceLow: the words around it give almost no clue to its meaning.
+`
+            + `sentenceHigh: the words around it make its meaning easy to work out.
+`
+            + `Neither sentence may define the word outright.`,
+        }],
+      }),
+    })
+    const data = await res.json()
+    const text = data.content?.[0]?.text || ''
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) return null
+    const parsed = parseJsonLoose(match[0])
+    if (!parsed) return null
+    return {
+      sentenceLow: parsed.sentenceLow || '',
+      sentenceHigh: parsed.sentenceHigh || '',
+      // Which of the dictionary's senses it wrote for, so the entry can follow.
+      chose: Number(parsed.chose) || 0,
+    }
+  } catch (e) {
+    console.error('[AI] Word sentences failed:', e)
+    return null
+  }
+}
+
 export async function generateWordEntry(word, context = '') {
   try {
     const res = await authedFetch('/api/claude/v1/messages', {
@@ -602,7 +663,7 @@ export async function generateWordEntry(word, context = '') {
 
 Reply with JSON only:
 `
-            + `{"definition": "one clear sentence, simple language",`
+            + `{"definition": "the meaning in under 12 words, as a dictionary writes it: no full stop, no 'this word means', just the sense",`
             + ` "partOfSpeech": "noun|verb|adjective|adverb",`
             + ` "sentenceLow": "a natural sentence using the word where the surrounding words give almost no clue to its meaning",`
             + ` "sentenceHigh": "a natural sentence using the word where the surrounding words make its meaning easy to work out"}`
