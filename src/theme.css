@@ -4686,12 +4686,26 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   max-height: 46vh;
   overflow-y: auto;
 }
-/* An extract is a passage, not a sentence: it needs room to be read and edited,
-   and scrolls within itself once it outgrows that. */
+/* An extract is a passage, not a sentence. It grows to whatever it holds and the
+   column around it does the scrolling — a small window inside a scrolling column
+   gives a teacher two scrollbars for one passage, and a wheel that moves
+   whichever it pleases. */
+.qe-extract-area {
+  /* Sized by the passage, not clipping it: the area was a fixed flex box with
+     its overflow hidden, so the editor inside could never be taller than the
+     window it sat in however long the extract was. */
+  overflow: visible;
+  flex: 0 0 auto;
+}
+
+.qe-extract-area .rte-wrap {
+  flex: 0 0 auto;
+}
+
 .qe-extract-area .rte-body {
   min-height: 320px;
-  max-height: 60vh;
-  overflow-y: auto;
+  max-height: none;
+  overflow-y: visible;
 }
 .qe-explain-area {
   flex-shrink: 0;
