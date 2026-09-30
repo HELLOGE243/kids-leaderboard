@@ -18220,7 +18220,29 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 }
 
 .gacha-egg:disabled { opacity: 0.45; cursor: not-allowed; }
-.gacha-egg-art { font-size: 3rem; line-height: 1; }
+/* The egg itself: pixel art, so it is never smoothed. */
+.gacha-egg-art {
+  width: 84px;
+  height: 84px;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
+}
+
+/* A held breath before it opens. */
+@keyframes gacha-egg-idle {
+  0%, 88%, 100% { transform: translateY(0) rotate(0deg); }
+  92% { transform: translateY(-2px) rotate(-3deg); }
+  96% { transform: translateY(-2px) rotate(3deg); }
+}
+
+.gacha-egg:not(:disabled) .gacha-egg-art {
+  animation: gacha-egg-idle 3.2s ease-in-out infinite;
+}
+
+.gacha-egg:not(:disabled):hover .gacha-egg-art {
+  animation-duration: 1.2s;
+}
 .gacha-egg-text { display: flex; flex-direction: column; gap: 4px; text-align: left; }
 
 .gacha-egg-label {

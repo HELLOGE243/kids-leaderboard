@@ -225,7 +225,7 @@ function Shop({ user, onBack }) {
               {/* Avatar Sprite Egg */}
               <div className="shop-item shop-item-tilt" onClick={student.tokens >= 1 ? handleMysteryEgg : undefined} onMouseMove={handleTilt} onMouseLeave={handleTiltLeave} style={{ opacity: student.tokens < 1 || getAvatarPool(user.orgId).length === 0 ? 0.4 : 1, cursor: student.tokens >= 1 && getAvatarPool(user.orgId).length > 0 ? 'pointer' : 'not-allowed' }}>
                 {eggState === 'hatching' ? (
-                  <span className="shop-item-icon egg-shake">🥚</span>
+                  <img className="shop-item-icon egg-shake" src="/sprites/egg.png" alt="" style={{ imageRendering: 'pixelated' }} />
                 ) : eggState && eggState.phase === 'reveal' ? (
                   <>
                     <div className={`egg-reveal-card rarity-glow-${eggState.avatar.rarity}`} style={{ width: 48, height: 48 }}>
@@ -235,7 +235,7 @@ function Shop({ user, onBack }) {
                     {eggState.isDuplicate && <span className="egg-star-up">⭐ Star Up! {'★'.repeat(eggState.newStars)}</span>}
                   </>
                 ) : (
-                  <span className="shop-item-icon">🥚</span>
+                  <img className="shop-item-icon" src="/sprites/egg.png" alt="" style={{ imageRendering: 'pixelated' }} />
                 )}
                 <div className="shop-item-pedestal" />
                 <span className="shop-item-name">Sprite Egg</span>
@@ -442,14 +442,14 @@ function Shop({ user, onBack }) {
             <div className="mystery-egg-row">
               {!eggState && (
                 <div className="mystery-egg" onClick={student.tokens >= 1 ? handleMysteryEgg : undefined} style={{ opacity: student.tokens < 1 ? 0.4 : 1, cursor: student.tokens >= 1 ? 'pointer' : 'not-allowed' }}>
-                  <span style={{ fontSize: '2.5rem' }}>🥚</span>
+                  <img src="/sprites/egg.png" alt="" style={{ width: 56, height: 56, imageRendering: 'pixelated' }} />
                   <span className="mystery-egg-label">Mystery Egg</span>
                   <span className="mystery-egg-cost">1 Token</span>
                 </div>
               )}
               {eggState === 'hatching' && (
                 <div className="egg-hatching">
-                  <span className="egg-shake">🥚</span>
+                  <img className="egg-shake" src="/sprites/egg.png" alt="" style={{ width: 56, height: 56, imageRendering: 'pixelated' }} />
                   <span className="mystery-egg-label" style={{ color: 'var(--tavern-glow)' }}>Hatching...</span>
                 </div>
               )}

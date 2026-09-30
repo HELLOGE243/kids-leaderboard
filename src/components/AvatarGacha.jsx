@@ -90,7 +90,7 @@ function AvatarGacha({ user, onClose, onChanged }) {
         <div className="gacha-egg-row">
           {!eggState && (
             <button className="gacha-egg" onClick={hatch} disabled={!canHatch}>
-              <span className="gacha-egg-art">🥚</span>
+              <img className="gacha-egg-art" src="/sprites/egg.png" alt="" />
               <span className="gacha-egg-text">
                 <span className="gacha-egg-label">Hatch an egg</span>
                 <span className="gacha-egg-cost">
@@ -101,7 +101,7 @@ function AvatarGacha({ user, onClose, onChanged }) {
           )}
           {eggState === 'hatching' && (
             <div className="egg-hatching">
-              <span className="egg-shake">🥚</span>
+              <img className="gacha-egg-art egg-shake" src="/sprites/egg.png" alt="" />
               <span className="mystery-egg-label" style={{ color: 'var(--tavern-glow)' }}>Hatching…</span>
             </div>
           )}
