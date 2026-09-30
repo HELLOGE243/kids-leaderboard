@@ -17591,6 +17591,45 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 
 .vbk-add-context { font-style: italic; }
 
+.vbk-add-pair {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vbk-add-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.vbk-add-label .vbk-sentence-tag {
+  flex-shrink: 0;
+  margin-right: 0;
+  min-width: 92px;
+  text-align: center;
+}
+
+.vbk-add-sentence {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  color: inherit;
+  font-family: var(--font-vocab);
+  font-size: 0.9rem;
+}
+
+.vbk-add-warn {
+  margin: 2px 0 0;
+  font-family: var(--font-vocab-ui);
+  font-size: 0.78rem;
+  color: var(--warning);
+  opacity: 0.9;
+}
+
 .vbk-add-actions {
   display: flex;
   align-items: center;
@@ -17684,18 +17723,51 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
   letter-spacing: 0.01em;
 }
 
-.vbk-pips { display: inline-flex; gap: 3px; flex-shrink: 0; }
+.vbk-checks { display: inline-flex; gap: 4px; flex-shrink: 0; }
 
-.vbk-pip {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+/* One box per correct answer still owed, ticked as they are earned. */
+.vbk-check {
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-vocab-ui);
+  font-size: 0.7rem;
+  line-height: 1;
+  color: transparent;
 }
 
-.vbk-pip-on {
-  background: var(--accent);
-  border-color: var(--accent);
+.vbk-check-on {
+  background: rgba(0, 230, 118, 0.16);
+  border-color: #00e676;
+  color: #00e676;
+}
+
+/* How the word has gone over its life in the trainer. */
+.vbk-record {
+  margin: 0;
+  font-family: var(--font-vocab-ui);
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
+.vbk-record-weak {
+  color: var(--warning);
+  opacity: 0.95;
+}
+
+.vbk-sort {
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.18);
+  color: inherit;
+  font-family: var(--font-vocab-ui);
+  font-size: 0.82rem;
+  cursor: pointer;
 }
 
 .vbk-learned-tag {

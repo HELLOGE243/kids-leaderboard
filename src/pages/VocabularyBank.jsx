@@ -10,6 +10,7 @@ import {
   buildVocabQuiz,
   vocabPasses,
   vocabIsLearned,
+  vocabAccuracy,
   VOCAB_PASSES_TO_LEARN,
   onDataChange,
 } from '../data/store.js'
@@ -28,11 +29,14 @@ import { lookUpWord } from '../utils/dictionary.js'
  */
 const QUIZ_SIZE = 10
 
-function Pips({ passes }) {
+/** Five boxes, one ticked for each correct answer the word has to its name. */
+function Checks({ passes }) {
   return (
-    <span className="vbk-pips" title={`${passes} of ${VOCAB_PASSES_TO_LEARN} correct`}>
+    <span className="vbk-checks" title={`${passes} of ${VOCAB_PASSES_TO_LEARN} correct`}>
       {Array.from({ length: VOCAB_PASSES_TO_LEARN }, (_, i) => (
-        <span key={i} className={`vbk-pip${i < passes ? ' vbk-pip-on' : ''}`} />
+        <span key={i} className={`vbk-check${i < passes ? ' vbk-check-on' : ''}`}>
+          {i < passes ? '✓' : ''}
+        </span>
       ))}
     </span>
   )
@@ -42,6 +46,7 @@ function VocabularyBank({ user, onBack }) {
   const [refresh, setRefresh] = useState(0)
   const [search, setSearch] = useState('')
   const [shelf, setShelf] = useState('unlearned')
+  const [sort, setSort] = useState('recent')
   const [editing, setEditing] = useState(null)
   const [defInput, setDefInput] = useState('')
   const [defining, setDefining] = useState(null)
@@ -52,7 +57,9 @@ function VocabularyBank({ user, onBack }) {
   const [newContext, setNewContext] = useState('')
   const [addNote, setAddNote] = useState('')
   const [lookingUp, setLookingUp] = useState(false)
-  const [newEntry, setNewEntry] = useState(null)
+  const [newPos, setNewPos] = useState('')
+  const [newLow, setNewLow] = useState('')
+  const [newHigh, setNewHigh] = useState('')
 
   // The trainer
   const [quiz, setQuiz] = useState(null)
@@ -70,11 +77,25 @@ function VocabularyBank({ user, onBack }) {
   const stats = useMemo(() => getVocabBankStats(user.id), [user.id, refresh])
 
   const shelved = useMemo(() => {
-    const onShelf = words.filter((w) => (shelf === 'learned' ? vocabIsLearned(w) : !vocabIsLearned(w)))
+    let onShelf = words.filter((w) => (shelf === 'learned' ? vocabIsLearned(w) : !vocabIsLearned(w)))
     const q = search.trim().toLowerCase()
-    if (!q) return onShelf
-    return onShelf.filter((w) => w.word.toLowerCase().includes(q) || String(w.definition || '').toLowerCase().includes(q))
-  }, [words, shelf, search])
+    if (q) {
+      onShelf = onShelf.filter((w) => w.word.toLowerCase().includes(q) || String(w.definition || '').toLowerCase().includes(q))
+    }
+    if (sort === 'missed') {
+      // Worst first, and a word never asked has nothing to say about itself, so
+      // it waits behind the ones that do.
+      return [...onShelf].sort((a, b) => {
+        const A = vocabAccuracy(a)
+        const B = vocabAccuracy(b)
+        if (!A && !B) return 0
+        if (!A) return 1
+        if (!B) return -1
+        return A.percent - B.percent || B.asked - A.asked
+      })
+    }
+    return onShelf   // getVocabBank already returns newest first
+  }, [words, shelf, search, sort])
 
   const readyToPractise = useMemo(
     () => words.filter((w) => !vocabIsLearned(w) && String(w.definition || '').trim()).length,
@@ -140,42 +161,58 @@ function VocabularyBank({ user, onBack }) {
     if (!word) return
     const already = words.some((w) => w.word.toLowerCase() === word.toLowerCase())
     const id = addToVocabBank(user.id, word, newContext.trim(), 'Added by me', newDef.trim())
-    if (newEntry && id) {
+    if (id) {
       updateVocabWord(user.id, id, {
-        partOfSpeech: newEntry.partOfSpeech || '',
-        sentenceLow: newEntry.sentenceLow || '',
-        sentenceHigh: newEntry.sentenceHigh || '',
+        partOfSpeech: newPos,
+        sentenceLow: newLow.trim(),
+        sentenceHigh: newHigh.trim(),
       })
     }
     setAddNote(already ? `“${word}” was already in your bank.` : `“${word}” added.`)
-    setNewWord(''); setNewDef(''); setNewContext(''); setNewEntry(null)
+    setNewWord(''); setNewDef(''); setNewContext('')
+    setNewPos(''); setNewLow(''); setNewHigh('')
     setShelf('unlearned')
     setRefresh((r) => r + 1)
   }
 
   /** Fills the meaning in for a word being typed, so adding one is two taps. */
+  /**
+   * Fills the form in for the word being typed: the dictionary writes the
+   * meaning, the AI writes the two sentences. Everything lands in the fields
+   * themselves, so it can be read and changed before the word is kept.
+   *
+   * A meaning already typed is respected — the sentences are written for that,
+   * and the dictionary is not allowed to overrule it.
+   */
   async function lookUpNewWord() {
     const word = newWord.trim()
     if (!word) return
     setLookingUp(true)
     try {
+      const own = newDef.trim()
+      if (own) {
+        const written = await generateWordSentences(word, own)
+        if (written) { setNewLow(written.sentenceLow || ''); setNewHigh(written.sentenceHigh || '') }
+        return
+      }
       const found = await lookUpWord(word)
       if (found) {
         setNewDef(found.definition)
+        setNewPos(found.partOfSpeech)
         const written = await generateWordSentences(word, found.definition, found.senses)
         const chosen = written ? (found.senses[(written.chose || 1) - 1] || found.senses[0]) : found.senses[0]
         setNewDef(chosen.definition)
-        setNewEntry({
-          partOfSpeech: chosen.partOfSpeech,
-          sentenceLow: written?.sentenceLow || '',
-          sentenceHigh: written?.sentenceHigh || '',
-        })
+        setNewPos(chosen.partOfSpeech)
+        setNewLow(written?.sentenceLow || '')
+        setNewHigh(written?.sentenceHigh || '')
         return
       }
       const entry = await generateWordEntry(word, newContext.trim())
       if (entry) {
         if (entry.definition) setNewDef(entry.definition)
-        setNewEntry(entry)
+        setNewPos(entry.partOfSpeech || '')
+        setNewLow(entry.sentenceLow || '')
+        setNewHigh(entry.sentenceHigh || '')
       }
     } finally {
       setLookingUp(false)
@@ -327,10 +364,37 @@ function VocabularyBank({ user, onBack }) {
           />
           <input
             className="vbk-add-context"
-            placeholder="A sentence using it (optional)"
+            placeholder="Where you met it (optional)"
             value={newContext}
             onChange={(e) => setNewContext(e.target.value)}
           />
+
+          {/* The two sentences the word will be practised against. Written by
+              Define the word, and open to correction before the word is kept. */}
+          <div className="vbk-add-pair">
+            <label className="vbk-add-label">
+              <span className="vbk-sentence-tag">few clues</span>
+              <input
+                className="vbk-add-sentence"
+                placeholder="A sentence that gives little away"
+                value={newLow}
+                onChange={(e) => setNewLow(e.target.value)}
+              />
+            </label>
+            <label className="vbk-add-label">
+              <span className="vbk-sentence-tag vbk-sentence-tag-strong">strong clues</span>
+              <input
+                className="vbk-add-sentence"
+                placeholder="A sentence that makes the meaning clear"
+                value={newHigh}
+                onChange={(e) => setNewHigh(e.target.value)}
+              />
+            </label>
+            {(newLow || newHigh) && !(newLow.toLowerCase().includes(newWord.trim().toLowerCase()) && newHigh.toLowerCase().includes(newWord.trim().toLowerCase())) && newWord.trim() && (
+              <p className="vbk-add-warn">Each sentence should use “{newWord.trim()}” — the trainer blanks it out to make the hint.</p>
+            )}
+          </div>
+
           <div className="vbk-add-actions">
             <button className="btn btn-small" disabled={!newWord.trim()} onClick={addWord}>Add to bank</button>
             {addNote && <span className="vbk-add-note">{addNote}</span>}
@@ -365,6 +429,10 @@ function VocabularyBank({ user, onBack }) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        <select className="vbk-sort" value={sort} onChange={(e) => setSort(e.target.value)}>
+          <option value="recent">Newest first</option>
+          <option value="missed">Most missed first</option>
+        </select>
       </div>
 
       {shelved.length === 0 ? (
@@ -391,7 +459,7 @@ function VocabularyBank({ user, onBack }) {
                     {w.word}
                     {w.partOfSpeech && <span className="vbk-pos">{w.partOfSpeech}</span>}
                   </h3>
-                  {learned ? <span className="vbk-learned-tag">Learned</span> : <Pips passes={passes} />}
+                  {learned ? <span className="vbk-learned-tag">Learned</span> : <Checks passes={passes} />}
                 </header>
 
                 {isEditing ? (
@@ -432,6 +500,16 @@ function VocabularyBank({ user, onBack }) {
                 )}
 
                 {w.context && <p className="vbk-context">“{w.context}”</p>}
+                {(() => {
+                  const record = vocabAccuracy(w)
+                  if (!record) return null
+                  const weak = record.percent < 60 && record.asked >= 2
+                  return (
+                    <p className={`vbk-record${weak ? ' vbk-record-weak' : ''}`}>
+                      {record.right} of {record.asked} right · {record.percent}%
+                    </p>
+                  )
+                })()}
                 {w.source && <p className="vbk-source">{w.source}</p>}
 
                 <footer className="vbk-card-actions">

@@ -5023,6 +5023,18 @@ export function vocabIsLearned(word) {
   return vocabPasses(word) >= VOCAB_PASSES_TO_LEARN
 }
 
+/**
+ * How a word has gone over its whole life in the trainer, across however many
+ * times it has been learned and put back. Null until it has been asked once.
+ * @returns {{asked: number, right: number, percent: number}|null}
+ */
+export function vocabAccuracy(word) {
+  const asked = Number(word?.asked || 0)
+  if (!asked) return null
+  const right = Number(word?.right || 0)
+  return { asked, right, percent: Math.round((right / asked) * 100) }
+}
+
 /** Newest first: a bank is read like a notebook, from the last word added. */
 export function getVocabBank(studentId, includeArchived = false) {
   const all = getStudentArray(studentId, 'vocabBank')
@@ -5083,6 +5095,10 @@ export function recordVocabAnswer(studentId, wordId, correct) {
       : Math.max(before - 1, 0)
     word.passes = passes
     word.familiarity = passes          // kept for anything still reading the old name
+    // The lifetime record, which survives a word being learned and put back:
+    // what a student keeps missing is worth knowing long after they pass it.
+    word.asked = Number(word.asked || 0) + 1
+    word.right = Number(word.right || 0) + (correct ? 1 : 0)
     word.lastPractised = new Date().toISOString()
     if (correct && passes >= VOCAB_PASSES_TO_LEARN && before < VOCAB_PASSES_TO_LEARN) {
       word.learnedAt = word.lastPractised
