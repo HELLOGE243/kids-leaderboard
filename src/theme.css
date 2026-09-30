@@ -26,6 +26,11 @@
   --danger: #ff1744;
   --warning: #ffab00;
   --font-pixel: 'Press Start 2P', monospace;
+  /* The vocabulary bank reads as a dictionary, not as the arcade the rest of the
+     portal is: a proper text serif for the words, Inter for everything around
+     them, and no pixel font anywhere in it. */
+  --font-vocab: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --font-vocab-ui: 'Inter', 'Segoe UI', Arial, sans-serif;
   --font-body: 'Inter', 'Segoe UI', Arial, sans-serif;
   --font-response: 'Arial MT Pro', 'ArialMT', Arial, Helvetica, sans-serif;
   /* Question-facing content — the passage, the statement, the options and the
@@ -17476,16 +17481,17 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 }
 
 .vbk-title {
-  font-family: var(--font-pixel);
-  font-size: 0.85rem;
-  letter-spacing: 0.06em;
+  font-family: var(--font-vocab-ui);
+  font-size: 1.2rem;
+  letter-spacing: 0.01em;
   margin: 0;
+  font-weight: 600;
 }
 
 .vbk-bar-count {
   margin-left: auto;
-  font-family: var(--font-pixel);
-  font-size: 0.5rem;
+  font-family: var(--font-vocab-ui);
+  font-size: 0.82rem;
   opacity: 0.7;
 }
 
@@ -17504,10 +17510,11 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .vbk-train-text { flex: 1; min-width: 0; }
 
 .vbk-train-title {
-  font-family: var(--font-pixel);
-  font-size: 0.62rem;
-  letter-spacing: 0.05em;
+  font-family: var(--font-vocab-ui);
+  font-size: 1rem;
+  letter-spacing: 0.01em;
   margin: 0 0 6px;
+  font-weight: 600;
 }
 
 .vbk-train-sub {
@@ -17518,6 +17525,83 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 }
 
 .vbk-train-btn { padding: 12px 30px; }
+
+/* The shared buttons carry the portal's pixel face; inside the bank they wear
+   the same text face as everything around them. */
+.vbk .btn,
+.vbk button {
+  font-family: var(--font-vocab-ui);
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+.vbk .btn { font-size: 0.86rem; }
+.vbk .btn-small { font-size: 0.8rem; }
+
+.vbk-add-btn { margin-left: auto; }
+
+/* Adding a word by hand, for what was met off the screen. */
+.vbk-add {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.vbk-add-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.vbk-add-row .vbk-act {
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 10px 14px;
+}
+
+.vbk-add-word,
+.vbk-add-def,
+.vbk-add-context {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  color: inherit;
+  font-family: var(--font-vocab-ui);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.vbk-add-word {
+  font-family: var(--font-vocab);
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.vbk-add-def {
+  min-height: 62px;
+  resize: vertical;
+}
+
+.vbk-add-context { font-style: italic; }
+
+.vbk-add-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.vbk-add-note {
+  font-family: var(--font-vocab-ui);
+  font-size: 0.82rem;
+  color: var(--accent);
+}
 
 .vbk-shelves {
   display: flex;
@@ -17536,10 +17620,11 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
   border-radius: 999px;
   background: transparent;
   color: inherit;
-  font-family: var(--font-pixel);
-  font-size: 0.52rem;
-  letter-spacing: 0.04em;
+  font-family: var(--font-vocab-ui);
+  font-size: 0.86rem;
+  letter-spacing: 0.01em;
   cursor: pointer;
+  font-weight: 600;
 }
 
 .vbk-shelf-on {
@@ -17548,7 +17633,7 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 }
 
 .vbk-shelf-n {
-  font-size: 0.5rem;
+  font-size: 0.8rem;
   opacity: 0.7;
 }
 
@@ -17593,7 +17678,7 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 
 .vbk-word {
   margin: 0;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-vocab);
   font-size: 1.5rem;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -17614,8 +17699,8 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 }
 
 .vbk-learned-tag {
-  font-family: var(--font-pixel);
-  font-size: 0.4rem;
+  font-family: var(--font-vocab-ui);
+  font-size: 0.7rem;
   color: #00e676;
   border: 1px solid #00e676;
   border-radius: 999px;
@@ -17634,7 +17719,7 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 
 .vbk-context {
   margin: 0;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-vocab);
   font-style: italic;
   font-size: 0.88rem;
   line-height: 1.5;
@@ -17645,8 +17730,8 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 
 .vbk-source {
   margin: 0;
-  font-family: var(--font-pixel);
-  font-size: 0.4rem;
+  font-family: var(--font-vocab-ui);
+  font-size: 0.72rem;
   opacity: 0.45;
 }
 
@@ -17696,9 +17781,10 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 }
 
 .vbk-empty-title {
-  font-family: var(--font-pixel);
-  font-size: 0.7rem;
+  font-family: var(--font-vocab-ui);
+  font-size: 1.05rem;
   margin-bottom: 10px;
+  font-weight: 600;
 }
 
 .vbk-empty-sub { font-size: 0.85rem; opacity: 0.6; }
@@ -17711,11 +17797,12 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 }
 
 .vbk-quiz-ask {
-  font-family: var(--font-pixel);
-  font-size: 0.55rem;
-  letter-spacing: 0.05em;
+  font-family: var(--font-vocab-ui);
+  font-size: 0.92rem;
+  letter-spacing: 0.01em;
   opacity: 0.7;
   margin-bottom: 18px;
+  font-weight: 600;
 }
 
 .vbk-quiz-prompt {
@@ -17726,7 +17813,7 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 }
 
 .vbk-quiz-prompt-sentence {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-vocab);
   font-style: italic;
 }
 
@@ -17746,7 +17833,7 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.04);
   color: inherit;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-vocab);
   font-size: 1.1rem;
   cursor: pointer;
 }
@@ -17776,8 +17863,8 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .vbk-done { text-align: center; padding: 50px 20px; }
 
 .vbk-done-score {
-  font-family: var(--font-pixel);
-  font-size: 2rem;
+  font-family: var(--font-vocab-ui);
+  font-size: 2.6rem;
   color: var(--accent);
   margin-bottom: 10px;
 }
@@ -17787,10 +17874,11 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .vbk-done-learned { margin-bottom: 26px; }
 
 .vbk-done-learned-title {
-  font-family: var(--font-pixel);
-  font-size: 0.5rem;
+  font-family: var(--font-vocab-ui);
+  font-size: 0.88rem;
   color: #00e676;
   margin-bottom: 10px;
+  font-weight: 600;
 }
 
 .vbk-done-chip {
@@ -17799,7 +17887,7 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
   padding: 6px 14px;
   border: 1px solid #00e676;
   border-radius: 999px;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-vocab);
   font-size: 1rem;
   color: #00e676;
 }

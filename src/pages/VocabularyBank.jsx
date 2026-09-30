@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import {
+  addToVocabBank,
   getVocabBank,
   getVocabBankStats,
   removeFromVocabBank,
@@ -43,6 +44,13 @@ function VocabularyBank({ user, onBack }) {
   const [editing, setEditing] = useState(null)
   const [defInput, setDefInput] = useState('')
   const [defining, setDefining] = useState(null)
+  // Adding a word by hand: from a book, a lesson, anywhere off the screen.
+  const [adding, setAdding] = useState(false)
+  const [newWord, setNewWord] = useState('')
+  const [newDef, setNewDef] = useState('')
+  const [newContext, setNewContext] = useState('')
+  const [addNote, setAddNote] = useState('')
+  const [lookingUp, setLookingUp] = useState(false)
 
   // The trainer
   const [quiz, setQuiz] = useState(null)
@@ -85,6 +93,30 @@ function VocabularyBank({ user, onBack }) {
     setEditing(null)
     setDefInput('')
     setRefresh((r) => r + 1)
+  }
+
+  function addWord() {
+    const word = newWord.trim()
+    if (!word) return
+    const already = words.some((w) => w.word.toLowerCase() === word.toLowerCase())
+    addToVocabBank(user.id, word, newContext.trim(), 'Added by me', newDef.trim())
+    setAddNote(already ? `“${word}” was already in your bank.` : `“${word}” added.`)
+    setNewWord(''); setNewDef(''); setNewContext('')
+    setShelf('unlearned')
+    setRefresh((r) => r + 1)
+  }
+
+  /** Fills the meaning in for a word being typed, so adding one is two taps. */
+  async function lookUpNewWord() {
+    const word = newWord.trim()
+    if (!word) return
+    setLookingUp(true)
+    try {
+      const result = await generateWordDefinition(word, newContext.trim())
+      if (result?.definition) setNewDef(result.definition)
+    } finally {
+      setLookingUp(false)
+    }
   }
 
   function startQuiz() {
@@ -186,7 +218,44 @@ function VocabularyBank({ user, onBack }) {
       <div className="vbk-bar">
         <button className="btn btn-outline btn-small" onClick={onBack}>← Back</button>
         <h2 className="vbk-title">Vocabulary Bank</h2>
+        <button className="btn btn-small vbk-add-btn" onClick={() => { setAdding((a) => !a); setAddNote('') }}>
+          {adding ? 'Close' : '+ Add a word'}
+        </button>
       </div>
+
+      {adding && (
+        <div className="vbk-add">
+          <div className="vbk-add-row">
+            <input
+              className="vbk-add-word"
+              placeholder="Word"
+              value={newWord}
+              autoFocus
+              onChange={(e) => setNewWord(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && newDef.trim()) addWord() }}
+            />
+            <button className="vbk-act" disabled={!newWord.trim() || lookingUp} onClick={lookUpNewWord}>
+              {lookingUp ? 'Looking…' : 'Look it up'}
+            </button>
+          </div>
+          <textarea
+            className="vbk-add-def"
+            placeholder="What does it mean?"
+            value={newDef}
+            onChange={(e) => setNewDef(e.target.value)}
+          />
+          <input
+            className="vbk-add-context"
+            placeholder="A sentence using it (optional)"
+            value={newContext}
+            onChange={(e) => setNewContext(e.target.value)}
+          />
+          <div className="vbk-add-actions">
+            <button className="btn btn-small" disabled={!newWord.trim()} onClick={addWord}>Add to bank</button>
+            {addNote && <span className="vbk-add-note">{addNote}</span>}
+          </div>
+        </div>
+      )}
 
       <div className="vbk-train">
         <div className="vbk-train-text">
@@ -225,7 +294,7 @@ function VocabularyBank({ user, onBack }) {
           <p className="vbk-empty-sub">
             {shelf === 'learned'
               ? `Answer a word correctly ${VOCAB_PASSES_TO_LEARN} times in the trainer and it moves here.`
-              : 'Double-tap any word while reviewing a quiz to keep it.'}
+              : 'Double-tap any word while reviewing a quiz to keep it, or add one yourself.'}
           </p>
         </div>
       ) : (
