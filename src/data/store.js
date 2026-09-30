@@ -3740,8 +3740,21 @@ export function getStudentFeedData(studentId) {
   const hasAttemptFor = (quizSetId) => attempts.some(a => a.quizSetId === quizSetId)
   const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000
 
+  // Who the student is still with. A student taken off a course keeps their
+  // results — those live in My Reports — but the course's papers are no longer
+  // theirs to open, and this feed was the way back into them.
+  const enrolledClassIds = Object.entries(data.classes)
+    .filter(([, cls]) => (cls.studentIds || []).includes(studentId))
+    .map(([id]) => id)
+  const enrolledCourses = (data.courses || [])
+    .filter((c) => enrolledClassIds.includes(c.classId) && courseIncludesStudent(c, studentId))
+  const enrolledSetIds = new Set(
+    enrolledCourses.flatMap((c) => (c.modules || []).flatMap((m) => m.quizSetIds || [])),
+  )
+
   const hwCompleted = [...attempts, ...redos]
     .filter(a => a.date && new Date(a.date).getTime() >= twoDaysAgo)
+    .filter(a => enrolledSetIds.has(a.quizSetId))
     .map(a => {
       const set = (data.importedQuizSets || []).find(s => s.id === a.quizSetId)
       let courseId = null, moduleId = null
@@ -3759,6 +3772,10 @@ export function getStudentFeedData(studentId) {
 
   const progressCompleted = progressAttempts
     .filter(a => a.date && new Date(a.date).getTime() >= twoDaysAgo)
+    .filter(a => {
+      const quiz = (data.quizzes || []).find(q => q.id === a.quizId)
+      return quiz ? enrolledClassIds.includes(quiz.classId) : false
+    })
     .map(a => {
       const quiz = (data.quizzes || []).find(q => q.id === a.quizId)
       const topic = quiz ? (data.topics || []).find(t => t.id === quiz.topicId) : null
@@ -3775,10 +3792,7 @@ export function getStudentFeedData(studentId) {
     return true
   }).slice(0, 5)
 
-  const studentClassIds = Object.entries(data.classes)
-    .filter(([, cls]) => cls.studentIds.includes(studentId))
-    .map(([id]) => id)
-  const courses = (data.courses || []).filter(c => studentClassIds.includes(c.classId) && courseIncludesStudent(c, studentId))
+  const courses = enrolledCourses
   const dueAssignments = []
   for (const course of courses) {
     let start = getHomeworkStart(studentId, course.id)
