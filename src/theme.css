@@ -18229,6 +18229,14 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
 }
 
+/* The hatch itself, given the room the moment deserves. */
+.gacha-egg-hatching {
+  width: 168px;
+  height: 168px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.5));
+}
+
 /* A held breath before it opens. */
 @keyframes gacha-egg-idle {
   0%, 88%, 100% { transform: translateY(0) rotate(0deg); }

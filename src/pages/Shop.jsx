@@ -83,7 +83,8 @@ function Shop({ user, onBack }) {
       if (!result) { setEggState(null); return }
       setEggState({ phase: 'reveal', avatar: result.avatar, isDuplicate: result.isDuplicate, newStars: result.newStars })
       setTimeout(() => { setEggState(null); setRefresh(r => r + 1) }, 3500)
-    }, 1800)
+      // One pass of the hatch animation, which is 4.29 seconds long.
+    }, 4290)
   }
 
   function handleLootChest() {
@@ -225,7 +226,7 @@ function Shop({ user, onBack }) {
               {/* Avatar Sprite Egg */}
               <div className="shop-item shop-item-tilt" onClick={student.tokens >= 1 ? handleMysteryEgg : undefined} onMouseMove={handleTilt} onMouseLeave={handleTiltLeave} style={{ opacity: student.tokens < 1 || getAvatarPool(user.orgId).length === 0 ? 0.4 : 1, cursor: student.tokens >= 1 && getAvatarPool(user.orgId).length > 0 ? 'pointer' : 'not-allowed' }}>
                 {eggState === 'hatching' ? (
-                  <img className="shop-item-icon egg-shake" src="/sprites/egg.png" alt="" style={{ imageRendering: 'pixelated' }} />
+                  <img className="shop-item-icon" src="/sprites/egg-hatch.gif" alt="" style={{ imageRendering: 'pixelated' }} />
                 ) : eggState && eggState.phase === 'reveal' ? (
                   <>
                     <div className={`egg-reveal-card rarity-glow-${eggState.avatar.rarity}`} style={{ width: 48, height: 48 }}>
@@ -449,7 +450,7 @@ function Shop({ user, onBack }) {
               )}
               {eggState === 'hatching' && (
                 <div className="egg-hatching">
-                  <img className="egg-shake" src="/sprites/egg.png" alt="" style={{ width: 56, height: 56, imageRendering: 'pixelated' }} />
+                  <img src="/sprites/egg-hatch.gif" alt="" style={{ width: 72, height: 72, imageRendering: 'pixelated' }} />
                   <span className="mystery-egg-label" style={{ color: 'var(--tavern-glow)' }}>Hatching...</span>
                 </div>
               )}

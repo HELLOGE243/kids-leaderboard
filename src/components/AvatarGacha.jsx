@@ -27,12 +27,17 @@ const TIER_LABEL = {
   mythic: 'Mythical',
 }
 
-const HATCH_MS = 1800
+// The hatch runs for exactly one pass of the animation, which is 33 frames long.
+const HATCH_MS = 4290
 const REVEAL_MS = 3800
 
 function AvatarGacha({ user, onClose, onChanged }) {
   const [refresh, setRefresh] = useState(0)
   const [eggState, setEggState] = useState(null)
+  // Bumped on every hatch so the animation is mounted fresh and starts at its
+  // first frame; a cached gif left in place would carry on from wherever its
+  // endless loop happened to be.
+  const [hatchNonce, setHatchNonce] = useState(0)
   const [justEquipped, setJustEquipped] = useState(null)
 
   const student = getStudentById(user.id)
@@ -54,6 +59,7 @@ function AvatarGacha({ user, onClose, onChanged }) {
 
   function hatch() {
     if (!canHatch) return
+    setHatchNonce((n) => n + 1)
     setEggState('hatching')
     setTimeout(() => {
       const result = rollEgg(user.id, user.orgId)
@@ -101,8 +107,12 @@ function AvatarGacha({ user, onClose, onChanged }) {
           )}
           {eggState === 'hatching' && (
             <div className="egg-hatching">
-              <img className="gacha-egg-art egg-shake" src="/sprites/egg.png" alt="" />
-              <span className="mystery-egg-label" style={{ color: 'var(--tavern-glow)' }}>Hatching…</span>
+              <img
+                key={hatchNonce}
+                className="gacha-egg-hatching"
+                src="/sprites/egg-hatch.gif"
+                alt="The egg hatching"
+              />
             </div>
           )}
           {eggState && eggState.phase === 'reveal' && (
