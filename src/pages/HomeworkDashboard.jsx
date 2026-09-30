@@ -50,7 +50,7 @@ import {
   clearHomeworkProgress,
   resetQuizForStudent,
 } from '../data/store.js'
-import { RichText, default as RichTextEditor } from '../components/RichTextEditor.jsx'
+import { RichText, stripPastedColours, default as RichTextEditor } from '../components/RichTextEditor.jsx'
 import { playCoinSound } from '../utils/soundManager.js'
 import { resolveImages } from '../data/imageStore.js'
 import { flushPendingWrites } from '../data/firebase.js'
@@ -605,7 +605,10 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
           ...q,
           type: q.type || 'multiple-choice',
           text: cleanText(await resolveImages(q.text || '')),
-          prompt: cleanText(q.prompt || ''),
+          // The statement is the one field shown without going through RichText,
+          // so the type a paste left on it never got dropped: a handful of
+          // papers set their statement at 14.4px against the 18.4px around it.
+          prompt: stripPastedColours(cleanText(q.prompt || '')),
           options: (q.options || []).map((o) => cleanText(o)),
         }
         if (q.descriptions) {

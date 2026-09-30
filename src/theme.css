@@ -18488,3 +18488,17 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 
 .theme-light .vbk-hint-btn { border-color: rgba(0, 0, 0, 0.28); }
 .theme-light .vbk-hint-tag { border-color: rgba(0, 0, 0, 0.22); }
+
+/* The statement is set by its container, not by whatever a paste carried in.
+   Type stated on the element itself is ignored; KaTeX keeps its own, since maths
+   is sized deliberately. */
+.qt-prompt-display [style*="font-size"],
+.qt-prompt-display [style*="font-family"] {
+  font-size: inherit;
+  font-family: inherit;
+}
+
+.qt-prompt-display .katex,
+.qt-prompt-display .katex [style*="font-size"] {
+  font-size: revert;
+}

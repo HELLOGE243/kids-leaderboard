@@ -449,5 +449,5 @@ const RichText = memo(function RichText({ html }) {
   return <span dangerouslySetInnerHTML={{ __html: processed }} />
 })
 
-export { RichTextEditor, RichText, renderMathInHTML }
+export { RichTextEditor, RichText, renderMathInHTML, stripPastedColours }
 export default RichTextEditor
