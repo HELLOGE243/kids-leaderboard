@@ -17817,6 +17817,93 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
   font-style: italic;
 }
 
+/* The word's own part of speech, as a dictionary sets it. */
+.vbk-pos {
+  margin-left: 8px;
+  font-family: var(--font-vocab);
+  font-style: italic;
+  font-size: 0.85rem;
+  font-weight: 400;
+  opacity: 0.55;
+}
+
+/* The two written sentences: one that gives little away, one that gives enough. */
+.vbk-sentences {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vbk-sentence {
+  margin: 0;
+  font-family: var(--font-vocab);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  opacity: 0.82;
+}
+
+.vbk-sentence-tag {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  font-family: var(--font-vocab-ui);
+  font-style: normal;
+  font-size: 0.65rem;
+  opacity: 0.7;
+  vertical-align: 1px;
+}
+
+.vbk-sentence-tag-strong {
+  border-color: var(--accent);
+  color: var(--accent);
+  opacity: 0.9;
+}
+
+/* Hints while training, taken one at a time. */
+.vbk-hints {
+  margin: 0 auto 22px;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.vbk-hint {
+  margin: 0;
+  font-family: var(--font-vocab);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  opacity: 0.85;
+}
+
+.vbk-hint-tag {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  font-family: var(--font-vocab-ui);
+  font-size: 0.65rem;
+  opacity: 0.7;
+}
+
+.vbk-hint-btn {
+  padding: 7px 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-vocab-ui);
+  font-size: 0.82rem;
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.vbk-hint-btn:hover { border-color: var(--accent); color: var(--accent); opacity: 1; }
+
 .vbk-quiz-options {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

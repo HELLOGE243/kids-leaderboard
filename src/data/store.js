@@ -5104,6 +5104,14 @@ export function relearnVocabWord(studentId, wordId) {
  * other words from the same bank, which is what makes the choice worth making.
  * @returns {Array<{wordId, word, ask, prompt, options: string[], correctIndex}>}
  */
+/** The word taken out of a sentence, so a hint cannot hand over the answer. */
+export function blankWordIn(sentence, word) {
+  if (!sentence || !word) return sentence || ''
+  const safe = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  // Also catches the word's endings: "deteriorated" must go the same way.
+  return String(sentence).replace(new RegExp(`\\b${safe}\\w*`, 'ig'), '______')
+}
+
 export function buildVocabQuiz(studentId, size = 10) {
   const bank = getVocabBank(studentId)
   const pool = bank.filter((w) => !vocabIsLearned(w) && String(w.definition || '').trim())
@@ -5129,9 +5137,13 @@ export function buildVocabQuiz(studentId, size = 10) {
       wordId: w.id,
       word: w.word,
       ask,
-      prompt: ask === 'context'
-        ? context.replace(new RegExp(`\\b${w.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'ig'), '______')
-        : w.definition,
+      prompt: ask === 'context' ? blankWordIn(context, w.word) : w.definition,
+      // The two written sentences, offered one at a time while answering: the
+      // first says little, the second says enough. Both have the word taken out,
+      // or a hint would simply hand over the answer.
+      hints: [w.sentenceLow, w.sentenceHigh]
+        .filter((s) => String(s || '').trim())
+        .map((s) => blankWordIn(s, w.word)),
       options,
       correctIndex: options.findIndex((o) => o === w.word),
     }

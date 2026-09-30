@@ -13,7 +13,7 @@ import {
   VOCAB_PASSES_TO_LEARN,
   onDataChange,
 } from '../data/store.js'
-import { generateWordDefinition } from '../utils/aiChat.js'
+import { generateWordEntry } from '../utils/aiChat.js'
 
 /**
  * The words a student has collected, and the trainer that turns them into
@@ -51,6 +51,7 @@ function VocabularyBank({ user, onBack }) {
   const [newContext, setNewContext] = useState('')
   const [addNote, setAddNote] = useState('')
   const [lookingUp, setLookingUp] = useState(false)
+  const [newEntry, setNewEntry] = useState(null)
 
   // The trainer
   const [quiz, setQuiz] = useState(null)
@@ -58,6 +59,8 @@ function VocabularyBank({ user, onBack }) {
   const [picked, setPicked] = useState(null)
   const [score, setScore] = useState(0)
   const [learnedThisRound, setLearnedThisRound] = useState([])
+  // How many of this question's sentences the student has asked to see.
+  const [hintsShown, setHintsShown] = useState(0)
   const [finished, setFinished] = useState(false)
 
   useEffect(() => onDataChange(() => setRefresh((r) => r + 1)), [])
@@ -80,8 +83,15 @@ function VocabularyBank({ user, onBack }) {
   async function defineWithAi(w) {
     setDefining(w.id)
     try {
-      const result = await generateWordDefinition(w.word, w.context || '')
-      if (result?.definition) updateVocabWord(user.id, w.id, { definition: result.definition })
+      const entry = await generateWordEntry(w.word, w.context || '')
+      if (entry) {
+        updateVocabWord(user.id, w.id, {
+          definition: entry.definition || w.definition || '',
+          partOfSpeech: entry.partOfSpeech || w.partOfSpeech || '',
+          sentenceLow: entry.sentenceLow || '',
+          sentenceHigh: entry.sentenceHigh || '',
+        })
+      }
     } finally {
       setDefining(null)
       setRefresh((r) => r + 1)
@@ -99,9 +109,16 @@ function VocabularyBank({ user, onBack }) {
     const word = newWord.trim()
     if (!word) return
     const already = words.some((w) => w.word.toLowerCase() === word.toLowerCase())
-    addToVocabBank(user.id, word, newContext.trim(), 'Added by me', newDef.trim())
+    const id = addToVocabBank(user.id, word, newContext.trim(), 'Added by me', newDef.trim())
+    if (newEntry && id) {
+      updateVocabWord(user.id, id, {
+        partOfSpeech: newEntry.partOfSpeech || '',
+        sentenceLow: newEntry.sentenceLow || '',
+        sentenceHigh: newEntry.sentenceHigh || '',
+      })
+    }
     setAddNote(already ? `“${word}” was already in your bank.` : `“${word}” added.`)
-    setNewWord(''); setNewDef(''); setNewContext('')
+    setNewWord(''); setNewDef(''); setNewContext(''); setNewEntry(null)
     setShelf('unlearned')
     setRefresh((r) => r + 1)
   }
@@ -112,8 +129,11 @@ function VocabularyBank({ user, onBack }) {
     if (!word) return
     setLookingUp(true)
     try {
-      const result = await generateWordDefinition(word, newContext.trim())
-      if (result?.definition) setNewDef(result.definition)
+      const entry = await generateWordEntry(word, newContext.trim())
+      if (entry) {
+        if (entry.definition) setNewDef(entry.definition)
+        setNewEntry(entry)
+      }
     } finally {
       setLookingUp(false)
     }
@@ -127,6 +147,7 @@ function VocabularyBank({ user, onBack }) {
     setPicked(null)
     setScore(0)
     setLearnedThisRound([])
+    setHintsShown(0)
     setFinished(false)
   }
 
@@ -147,6 +168,7 @@ function VocabularyBank({ user, onBack }) {
     }
     setQIdx((i) => i + 1)
     setPicked(null)
+    setHintsShown(0)
   }
 
   /* ---------- the trainer ---------- */
@@ -187,6 +209,22 @@ function VocabularyBank({ user, onBack }) {
         <div className="vbk-quiz">
           <p className="vbk-quiz-ask">{q.ask === 'context' ? 'Which word fits the sentence?' : 'Which word has this meaning?'}</p>
           <p className={`vbk-quiz-prompt${q.ask === 'context' ? ' vbk-quiz-prompt-sentence' : ''}`}>{q.prompt}</p>
+          {q.hints.length > 0 && (
+            <div className="vbk-hints">
+              {q.hints.slice(0, hintsShown).map((h, hi) => (
+                <p key={hi} className="vbk-hint">
+                  <span className="vbk-hint-tag">{hi === 0 ? 'Hint 1' : 'Hint 2'}</span>
+                  {h}
+                </p>
+              ))}
+              {picked === null && hintsShown < q.hints.length && (
+                <button className="vbk-hint-btn" onClick={() => setHintsShown((n) => n + 1)}>
+                  {hintsShown === 0 ? 'Show a sentence using it' : 'Show a clearer sentence'}
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="vbk-quiz-options">
             {q.options.map((opt, oi) => {
               let cls = 'vbk-quiz-option'
@@ -235,7 +273,7 @@ function VocabularyBank({ user, onBack }) {
               onKeyDown={(e) => { if (e.key === 'Enter' && newDef.trim()) addWord() }}
             />
             <button className="vbk-act" disabled={!newWord.trim() || lookingUp} onClick={lookUpNewWord}>
-              {lookingUp ? 'Looking…' : 'Look it up'}
+              {lookingUp ? 'Defining…' : 'Define the word'}
             </button>
           </div>
           <textarea
@@ -306,7 +344,10 @@ function VocabularyBank({ user, onBack }) {
             return (
               <article key={w.id} className={`vbk-card${learned ? ' vbk-card-learned' : ''}`}>
                 <header className="vbk-card-head">
-                  <h3 className="vbk-word">{w.word}</h3>
+                  <h3 className="vbk-word">
+                    {w.word}
+                    {w.partOfSpeech && <span className="vbk-pos">{w.partOfSpeech}</span>}
+                  </h3>
                   {learned ? <span className="vbk-learned-tag">Learned</span> : <Pips passes={passes} />}
                 </header>
 
@@ -330,6 +371,23 @@ function VocabularyBank({ user, onBack }) {
                   <p className="vbk-def vbk-def-missing">No meaning yet — add one to practise this word.</p>
                 )}
 
+                {(w.sentenceLow || w.sentenceHigh) && (
+                  <div className="vbk-sentences">
+                    {w.sentenceLow && (
+                      <p className="vbk-sentence">
+                        <span className="vbk-sentence-tag">few clues</span>
+                        {w.sentenceLow}
+                      </p>
+                    )}
+                    {w.sentenceHigh && (
+                      <p className="vbk-sentence">
+                        <span className="vbk-sentence-tag vbk-sentence-tag-strong">strong clues</span>
+                        {w.sentenceHigh}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {w.context && <p className="vbk-context">“{w.context}”</p>}
                 {w.source && <p className="vbk-source">{w.source}</p>}
 
@@ -339,9 +397,9 @@ function VocabularyBank({ user, onBack }) {
                       {w.definition ? 'Edit' : 'Add meaning'}
                     </button>
                   )}
-                  {!w.definition && !isEditing && (
+                  {!isEditing && !(w.definition && w.sentenceLow && w.sentenceHigh) && (
                     <button className="vbk-act" disabled={defining === w.id} onClick={() => defineWithAi(w)}>
-                      {defining === w.id ? 'Looking…' : 'Look it up'}
+                      {defining === w.id ? 'Defining…' : 'Define the word'}
                     </button>
                   )}
                   {learned && (

@@ -574,6 +574,62 @@ RULES:
   }
 }
 
+/**
+ * A dictionary entry for one word: what it means, what part of speech it is, and
+ * two sentences that use it.
+ *
+ * The sentences are the point of the pair. The first gives almost nothing away —
+ * the word could be many things — and the second surrounds it with enough that
+ * its meaning can be worked out. Shown in that order while training, they let a
+ * student reach for the word before being handed it.
+ *
+ * One call rather than three: the sentences have to agree with the definition.
+ * @returns {Promise<{definition,partOfSpeech,sentenceLow,sentenceHigh}|null>}
+ */
+export async function generateWordEntry(word, context = '') {
+  try {
+    const res = await authedFetch('/api/claude/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 500,
+        messages: [{
+          role: 'user',
+          content: `For the word "${word}", write a dictionary entry for a bright 10 to 12 year old student preparing for selective school tests.`
+            + (context ? ` It was met in this sentence: "${context}".` : '')
+            + `
+
+Reply with JSON only:
+`
+            + `{"definition": "one clear sentence, simple language",`
+            + ` "partOfSpeech": "noun|verb|adjective|adverb",`
+            + ` "sentenceLow": "a natural sentence using the word where the surrounding words give almost no clue to its meaning",`
+            + ` "sentenceHigh": "a natural sentence using the word where the surrounding words make its meaning easy to work out"}`
+            + `
+
+Both sentences must contain the word "${word}" exactly once, and must not define it outright.`,
+        }],
+      }),
+    })
+    const data = await res.json()
+    const text = data.content?.[0]?.text || ''
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) return null
+    const parsed = parseJsonLoose(match[0])
+    if (!parsed) return null
+    return {
+      definition: parsed.definition || '',
+      partOfSpeech: parsed.partOfSpeech || '',
+      sentenceLow: parsed.sentenceLow || '',
+      sentenceHigh: parsed.sentenceHigh || '',
+    }
+  } catch (e) {
+    console.error('[AI] Word entry failed:', e)
+    return null
+  }
+}
+
 export async function generateWordDefinition(word) {
   try {
     const res = await authedFetch('/api/claude/v1/messages', {
