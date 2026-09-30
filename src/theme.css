@@ -18127,3 +18127,215 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .dojo-page.dojo-focus .qt-split-right {
   overflow-y: auto;
 }
+
+/* ===== The collection, opened from the portrait =====
+   A sprite held is shown as it is; one not yet collected is its own silhouette,
+   which is the invitation. */
+.gacha-overlay { padding: 16px; }
+
+.gacha {
+  width: min(960px, 96vw);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel, #131a2e);
+  border: 2px solid var(--tavern-glow, #f0b429);
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+}
+
+.gacha-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.gacha-title {
+  font-family: var(--font-pixel);
+  font-size: 0.85rem;
+  color: var(--tavern-glow, #f0b429);
+  margin: 0 0 6px;
+}
+
+.gacha-count { margin: 0; font-size: 0.85rem; opacity: 0.75; }
+
+.gacha-top-right { display: flex; align-items: center; gap: 12px; }
+
+.gacha-tokens {
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  color: var(--tavern-glow, #f0b429);
+}
+
+.gacha-close {
+  padding: 7px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-pixel);
+  font-size: 0.45rem;
+  cursor: pointer;
+}
+
+.gacha-close:hover { border-color: var(--tavern-glow, #f0b429); color: var(--tavern-glow, #f0b429); }
+
+.gacha-egg-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 128px;
+  margin-bottom: 6px;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.gacha-egg {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 26px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.gacha-egg:disabled { opacity: 0.45; cursor: not-allowed; }
+.gacha-egg-art { font-size: 3rem; line-height: 1; }
+.gacha-egg-text { display: flex; flex-direction: column; gap: 4px; text-align: left; }
+
+.gacha-egg-label {
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
+  color: var(--tavern-glow, #f0b429);
+}
+
+.gacha-egg-cost { font-size: 0.8rem; opacity: 0.7; }
+
+.gacha-reveal-img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.gacha-odds {
+  text-align: center;
+  font-size: 0.72rem;
+  opacity: 0.5;
+  margin: 0 0 14px;
+}
+
+.gacha-body { flex: 1; overflow-y: auto; padding-right: 4px; }
+
+.gacha-empty { text-align: center; opacity: 0.6; padding: 30px 0; }
+
+.gacha-tier { margin-bottom: 18px; }
+
+.gacha-tier-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+}
+
+.gacha-tier-name {
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  letter-spacing: 0.04em;
+}
+
+.gacha-tier-count { font-size: 0.78rem; opacity: 0.6; }
+
+.gacha-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+  gap: 10px;
+}
+
+.gacha-card {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+
+.gacha-card:hover:not(:disabled) { transform: translateY(-2px); }
+.gacha-card:disabled { cursor: default; }
+
+.gacha-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+/* Not collected: the shape only, and light rather than black — a black
+   silhouette on a dark card is an empty box, which invites nothing. */
+.gacha-card-img-locked {
+  filter: brightness(0) invert(0.62);
+  opacity: 0.5;
+}
+
+.gacha-card-locked {
+  background: rgba(0, 0, 0, 0.25);
+  border-style: dashed;
+}
+
+.gacha-card-equipped { border-color: var(--tavern-glow, #f0b429); }
+
+.gacha-card-stars {
+  position: absolute;
+  top: 2px;
+  right: 5px;
+  font-size: 0.6rem;
+  color: #ffd54f;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.gacha-card-worn {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-pixel);
+  font-size: 0.32rem;
+  color: var(--tavern-glow, #f0b429);
+}
+
+.gacha-card-name {
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  font-size: 0.6rem;
+  opacity: 0.55;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gacha-note {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--tavern-glow, #f0b429);
+  margin: 10px 0 0;
+}
+
+/* The portrait invites the click it now answers. */
+.portal-avatar-box { cursor: pointer; }
+.portal-avatar-box:hover { filter: brightness(1.12); }

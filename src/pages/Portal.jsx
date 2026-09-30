@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, memo } from 'react'
+import AvatarGacha from '../components/AvatarGacha.jsx'
 
 import ProgressGraph from '../components/ProgressGraph.jsx'
 import Shop from './Shop.jsx'
@@ -176,6 +177,8 @@ function Portal({ user, onLogout }) {
   const [scoreError, setScoreError] = useState('')
   const [refresh, setRefresh] = useState(0)
   const [showShop, setShowShop] = useState(false)
+  // The portrait opens the collection: every sprite there is to hold, and the egg.
+  const [showGacha, setShowGacha] = useState(false)
   // Parent message links open ?report=<courseId> (after the normal login).
   const [reportLink] = useState(() => { try { return new URLSearchParams(window.location.search).get('report') } catch { return null } })
   const [showReport, setShowReport] = useState(() => !!reportLink)
@@ -438,13 +441,28 @@ function Portal({ user, onLogout }) {
           </div>
         </>
       )}
+      {showGacha && (
+        <AvatarGacha
+          user={student}
+          onClose={() => setShowGacha(false)}
+          onChanged={() => setRefresh((r) => r + 1)}
+        />
+      )}
+
       <div className="portal-inner">
         <ClockBar logo={org?.logo || '/logo.svg'} />
 
         {/* Header */}
         <div className="portal-header">
           <div className="portal-header-left" data-help="profile">
-            <div className="portal-avatar-box">
+            <div
+              className="portal-avatar-box"
+              role="button"
+              tabIndex={0}
+              title="Your collection"
+              onClick={() => setShowGacha(true)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowGacha(true) }}
+            >
               {student?.avatar ? (<>
                 {(() => { const av = student.unlockedAvatars?.find(a => a.url === student.avatar); return av && av.stars >= 2 ? <div className={`portal-avatar-particles portal-avatar-particles-${av.rarity}`} /> : null })()}
                 <img src={student.avatar} alt="" />

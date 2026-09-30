@@ -117,21 +117,21 @@ function buildData(data) {
     if (!data.lootChestPool) data.lootChestPool = []
     if (!data.voucherConfig) data.voucherConfig = {}
     if (!data.battlegroundsData) data.battlegroundsData = { wagers: [] }
-    // Migrate rarity tiers: old -> new
-    const RARITY_MAP = { uncommon: 'rare', rare: 'super-rare', ultra: 'legendary', legendary: 'mythic' }
-    if (!data._rarityMigrated) {
-      for (const av of data.avatarPool) {
-        if (RARITY_MAP[av.rarity]) av.rarity = RARITY_MAP[av.rarity]
+    // The tiers were once named differently. Only the names that no longer exist
+    // are translated, so this can run on every load without changing anything
+    // twice — which the old version did: it also mapped rare to super-rare and
+    // legendary to mythic, and its "already done" flag was never among the keys
+    // written to the cloud. Every load promoted every rare and every legendary
+    // avatar a tier, in the pool and in the collections students hold.
+    const RETIRED_RARITY = { uncommon: 'rare', ultra: 'legendary' }
+    for (const av of data.avatarPool) {
+      if (RETIRED_RARITY[av.rarity]) av.rarity = RETIRED_RARITY[av.rarity]
+    }
+    for (const id of Object.keys(data.students || {})) {
+      const s = data.students[id]
+      for (const a of (s.unlockedAvatars || [])) {
+        if (RETIRED_RARITY[a.rarity]) a.rarity = RETIRED_RARITY[a.rarity]
       }
-      for (const id of Object.keys(data.students || {})) {
-        const s = data.students[id]
-        if (s.unlockedAvatars) {
-          for (const a of s.unlockedAvatars) {
-            if (RARITY_MAP[a.rarity]) a.rarity = RARITY_MAP[a.rarity]
-          }
-        }
-      }
-      data._rarityMigrated = true
     }
     // Seed tokensEarned from current tokens
     for (const id of Object.keys(data.students || {})) {
