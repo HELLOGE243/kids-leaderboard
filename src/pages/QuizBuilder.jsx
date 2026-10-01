@@ -601,7 +601,8 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
         alert('Could not extract text from this PDF. It may be image-only.')
         return
       }
-      const sections = await processWithAI(pages, setPdfProgress)
+      const warnings = []
+      const sections = await processWithAI(pages, setPdfProgress, (msg) => warnings.push(msg))
       setPdfProgress('')
       if (!Array.isArray(sections) || sections.length === 0) {
         alert('AI could not find any questions in this PDF.')
@@ -613,13 +614,21 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
         alert('No questions found to import.')
         return
       }
+      // A booklet comes in as one quiz per section. Opening the first one and
+      // saying nothing made a 36-page import look like a five-question quiz,
+      // so the banner reports the whole batch and names every set.
       const firstSet = added[0]
       const flaggedIndices = firstSet.questions
         .map((q, i) => q.needsReview ? i : -1)
         .filter(i => i >= 0)
-      if (flaggedIndices.length > 0) {
-        setPdfReviewFlags({ count: flaggedIndices.length, indices: flaggedIndices, total: added.reduce((s, a) => s + a.questions.length, 0), sets: added.length })
-      }
+      setPdfReviewFlags({
+        count: flaggedIndices.length,
+        indices: flaggedIndices,
+        total: added.reduce((n, a) => n + a.questions.length, 0),
+        sets: added.length,
+        names: added.map(a => `${a.friendlyTitle} (${a.questions.length})`),
+        warnings,
+      })
       startEditImported(firstSet)
     } catch (err) {
       setPdfProgress('')
@@ -787,16 +796,32 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
         )}
         <div className="qt-panel" style={{ userSelect: 'auto' }}>
           {pdfReviewFlags && (
-            <div className="pdf-editor-banner">
-              <span>PDF Import: {pdfReviewFlags.total} questions across {pdfReviewFlags.sets} quiz set(s). </span>
-              <strong>{pdfReviewFlags.count} flagged for review</strong>
-              <span style={{ marginLeft: 8, fontSize: '0.55rem' }}>
-                (Q {pdfReviewFlags.indices.map(i => i + 1).join(', ')})
-              </span>
-              <button className="btn btn-small btn-outline" style={{ marginLeft: 'auto', fontSize: '0.4rem', padding: '2px 8px' }} onClick={() => {
-                if (pdfReviewFlags.indices.length > 0) setCurrentEditQ(pdfReviewFlags.indices[0])
-              }}>Jump to first</button>
-              <button className="btn btn-small btn-outline" style={{ fontSize: '0.4rem', padding: '2px 8px', opacity: 0.6 }} onClick={() => setPdfReviewFlags(null)}>Dismiss</button>
+            <div className="pdf-editor-banner" style={{ flexWrap: 'wrap' }}>
+              <span>PDF Import: <strong>{pdfReviewFlags.total}</strong> questions across <strong>{pdfReviewFlags.sets}</strong> quiz set(s). You are editing the first; the rest are in the quiz list. </span>
+              {pdfReviewFlags.count > 0 && (
+                <>
+                  <strong>{pdfReviewFlags.count} flagged for review</strong>
+                  <span style={{ marginLeft: 8, fontSize: '0.55rem' }}>
+                    (Q {pdfReviewFlags.indices.map(i => i + 1).join(', ')})
+                  </span>
+                </>
+              )}
+              {pdfReviewFlags.count > 0 && (
+                <button className="btn btn-small btn-outline" style={{ marginLeft: 'auto', fontSize: '0.4rem', padding: '2px 8px' }} onClick={() => {
+                  setCurrentEditQ(pdfReviewFlags.indices[0])
+                }}>Jump to first</button>
+              )}
+              <button className="btn btn-small btn-outline" style={{ marginLeft: pdfReviewFlags.count > 0 ? 0 : 'auto', fontSize: '0.4rem', padding: '2px 8px', opacity: 0.6 }} onClick={() => setPdfReviewFlags(null)}>Dismiss</button>
+              {pdfReviewFlags.names?.length > 1 && (
+                <div style={{ flexBasis: '100%', fontSize: '0.5rem', opacity: 0.8, marginTop: 4 }}>
+                  Sets imported: {pdfReviewFlags.names.join(' · ')}
+                </div>
+              )}
+              {pdfReviewFlags.warnings?.length > 0 && (
+                <div style={{ flexBasis: '100%', fontSize: '0.5rem', color: '#f59e0b', marginTop: 4 }}>
+                  Pages that gave trouble: {pdfReviewFlags.warnings.join(' · ')}
+                </div>
+              )}
             </div>
           )}
           {/* Top bar */}
