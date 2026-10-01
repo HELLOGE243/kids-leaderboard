@@ -18410,6 +18410,15 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .qt-cloze-text p:last-child { margin-bottom: 0; }
 
 /* Define the word is the one that fills a card in, so it is lit. */
+/* Asked before a word is taken out, since it cannot be got back. */
+.vbk-remove-ask {
+  font-family: var(--font-vocab-ui);
+  font-size: 0.78rem;
+  color: var(--danger, #e74c3c);
+  align-self: center;
+  margin-right: 2px;
+}
+
 .vbk-act-define {
   border-color: #2ecc71;
   color: #2ecc71;

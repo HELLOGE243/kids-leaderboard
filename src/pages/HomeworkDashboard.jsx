@@ -56,6 +56,7 @@ import { resolveImages } from '../data/imageStore.js'
 import { flushPendingWrites } from '../data/firebase.js'
 import { parseVideoUrl } from '../utils/video.js'
 import { useScreenGuard } from '../utils/screenGuard.js'
+import { setSittingActive } from '../utils/activeSitting.js'
 import ReportIssueModal from '../components/ReportIssueModal.jsx'
 import ClozeGapReview from '../components/ClozeGapReview.jsx'
 import ClozeText from '../components/ClozeText.jsx'
@@ -939,6 +940,14 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       window.removeEventListener('click', drop)
     }
   }, [dragSource])
+
+  // While a paper is open the daily revision cards hold off: they are decided at
+  // the top of the app and would otherwise take the screen mid-question.
+  useEffect(() => {
+    if (!takingQuiz || submittedResult) return undefined
+    setSittingActive(true)
+    return () => setSittingActive(false)
+  }, [takingQuiz, submittedResult])
 
   // Leaving the screen too often submits the attempt (utils/screenGuard.js).
   useScreenGuard({

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useSittingActive } from './utils/activeSitting.js'
 import LoginScreen from './pages/LoginScreen.jsx'
 import Portal from './pages/Portal.jsx'
 import TeacherDashboard from './pages/TeacherDashboard.jsx'
@@ -100,6 +101,8 @@ function BootLoader({ done, onHidden }) {
 
 function App() {
   const [session, setSession] = useState(loadSession)
+  // True while a student has a paper open, so nothing interrupts a sitting.
+  const sittingActive = useSittingActive()
   const [dbReady, setDbReady] = useState(false)
   // The loader stays up a moment after loading finishes, to fill and fade out.
   const [bootHidden, setBootHidden] = useState(false)
@@ -341,7 +344,9 @@ function App() {
   const revisionKey = `revisionDoneAt_${session.user.id}`
   const lastRevision = localStorage.getItem(revisionKey)
   const revisionDone = lastRevision && (Date.now() - Number(lastRevision)) < 24 * 60 * 60 * 1000
-  if (!revisionDone) {
+  // Not while a paper is open. The day can roll over mid-question, and a student
+  // should never look up from a test to find the daily cards in front of them.
+  if (!revisionDone && !sittingActive) {
     return <>{overlay}<GpuNotice /><SessionRevision user={session.user} onComplete={() => { localStorage.setItem(revisionKey, String(Date.now())); setSession({ ...session }) }} /></>
   }
 

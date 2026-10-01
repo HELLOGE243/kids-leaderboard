@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { setSittingActive } from '../utils/activeSitting.js'
 import { renderMath } from '../utils/renderMath.js'
 import { prepareMath } from '../utils/mathify.js'
 import {
@@ -271,6 +272,13 @@ function QuizDashboard({ user, onBack, initialNav }) {
       })
     }
   }
+
+  // A paper in progress keeps the daily cards away until it is finished.
+  useEffect(() => {
+    if (!activeQuiz || submitted) return undefined
+    setSittingActive(true)
+    return () => setSittingActive(false)
+  }, [activeQuiz, submitted])
 
   const doSubmitRef = useRef(null)
   doSubmitRef.current = doSubmit

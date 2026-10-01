@@ -50,6 +50,8 @@ function VocabularyBank({ user, onBack }) {
   const [editing, setEditing] = useState(null)
   const [defInput, setDefInput] = useState('')
   const [defining, setDefining] = useState(null)
+  // A word is only removed once it has been asked for twice.
+  const [removing, setRemoving] = useState(null)
   // Adding a word by hand: from a book, a lesson, anywhere off the screen.
   const [adding, setAdding] = useState(false)
   const [newWord, setNewWord] = useState('')
@@ -528,9 +530,20 @@ function VocabularyBank({ user, onBack }) {
                       Practise again
                     </button>
                   )}
-                  <button className="vbk-act vbk-act-danger" onClick={() => { removeFromVocabBank(user.id, w.id); setRefresh((r) => r + 1) }}>
-                    Remove
-                  </button>
+                  {removing === w.id ? (
+                    <>
+                      <span className="vbk-remove-ask">Remove “{w.word}”?</span>
+                      <button
+                        className="vbk-act vbk-act-danger"
+                        onClick={() => { removeFromVocabBank(user.id, w.id); setRemoving(null); setRefresh((r) => r + 1) }}
+                      >Yes, remove</button>
+                      <button className="vbk-act" onClick={() => setRemoving(null)}>Keep it</button>
+                    </>
+                  ) : (
+                    <button className="vbk-act vbk-act-danger" onClick={() => setRemoving(w.id)}>
+                      Remove
+                    </button>
+                  )}
                 </footer>
               </article>
             )

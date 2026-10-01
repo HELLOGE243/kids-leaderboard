@@ -765,7 +765,7 @@ export function updateStudent(studentId, updates) {
 export function spendCoins(studentId, amount) {
   const data = loadData()
   if (!data.students[studentId]) return false
-  data.students[studentId].coinsSpent += amount
+  data.students[studentId].coinsSpent = count(data.students[studentId].coinsSpent) + count(amount)
   saveData(data)
   return true
 }
@@ -1220,7 +1220,7 @@ export function purchaseItem(studentId, itemId) {
   const coins = totalPoints * 10 - student.coinsSpent
   if (coins < item.price) return null
 
-  student.coinsSpent += item.price
+  student.coinsSpent = count(student.coinsSpent) + count(item.price)
   const id = generateId(10)
   const purchase = { id, studentId, itemId, itemName: item.name, price: item.price, date: new Date().toISOString(), status: 'pending' }
   data.purchases.push(purchase)
@@ -1274,11 +1274,26 @@ export function unlockAvatar(studentId, avatarUrl, rarity = 'common') {
   return true
 }
 
+/**
+ * A balance as a number, whatever it is stored as.
+ *
+ * A student's tokens reached Firestore as text once, and from then on every
+ * award concatenated instead of adding: fifty tokens plus one became "501", then
+ * "5011". Reading through this makes that impossible, whatever put the text
+ * there.
+ */
+function count(value) {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : 0
+}
+
 export function spendTokens(studentId, amount) {
   const data = loadData()
   if (!data.students[studentId]) return false
-  if (data.students[studentId].tokens < amount) return false
-  data.students[studentId].tokens -= amount
+  const held = count(data.students[studentId].tokens)
+  const cost = count(amount)
+  if (held < cost) return false
+  data.students[studentId].tokens = held - cost
   saveData(data)
   return true
 }
@@ -1286,8 +1301,9 @@ export function spendTokens(studentId, amount) {
 export function addTokens(studentId, amount) {
   const data = loadData()
   if (!data.students[studentId]) return false
-  data.students[studentId].tokens += amount
-  data.students[studentId].tokensEarned = (data.students[studentId].tokensEarned || 0) + amount
+  const gain = count(amount)
+  data.students[studentId].tokens = count(data.students[studentId].tokens) + gain
+  data.students[studentId].tokensEarned = count(data.students[studentId].tokensEarned) + gain
   saveData(data)
   return true
 }
@@ -1369,7 +1385,7 @@ export function rollEgg(studentId, orgId) {
   const picked = candidates[Math.floor(Math.random() * candidates.length)]
 
   // Deduct token
-  student.tokens -= 1
+  student.tokens = count(student.tokens) - 1
 
   // Unlock (check for duplicate → star upgrade)
   if (!student.unlockedAvatars) student.unlockedAvatars = []
@@ -4117,8 +4133,8 @@ export function redeemDojoKills(studentId, count) {
   data.dojoKills[studentId] = available - redeemable
   const student = data.students[studentId]
   if (student) {
-    student.tokens = (student.tokens || 0) + redeemable * 5
-    student.tokensEarned = (student.tokensEarned || 0) + redeemable * 5
+    student.tokens = count(student.tokens) + redeemable * 5
+    student.tokensEarned = count(student.tokensEarned) + redeemable * 5
   }
   saveData(data)
   return redeemable * 5
@@ -4375,7 +4391,7 @@ export function rollLootChest(studentId, orgId) {
   if (candidates.length === 0) return null
 
   const picked = candidates[Math.floor(Math.random() * candidates.length)]
-  student.tokens -= 1
+  student.tokens = count(student.tokens) - 1
   if (!student.unlockedLoot) student.unlockedLoot = []
   const isDuplicate = student.unlockedLoot.some(a => a.url === picked.url)
   if (!isDuplicate) {
@@ -4497,7 +4513,7 @@ export function purchaseTrack(studentId, trackId, price) {
   const totalPoints = data.scores.filter(s => s.studentId === studentId).reduce((sum, s) => sum + s.value, 0)
   const coins = totalPoints * 10 - student.coinsSpent
   if (coins < price) return false
-  student.coinsSpent += price
+  student.coinsSpent = count(student.coinsSpent) + count(price)
   student.purchasedTracks.push(trackId)
   saveData(data)
   return true
@@ -4510,12 +4526,12 @@ export function purchasePoolItem(studentId, item) {
 
   if (item.currency === 'tokens') {
     if (student.tokens < item.price) return null
-    student.tokens -= item.price
+    student.tokens = count(student.tokens) - count(item.price)
   } else {
     const totalPoints = data.scores.filter(s => s.studentId === studentId).reduce((sum, s) => sum + s.value, 0)
     const coins = totalPoints * 10 - student.coinsSpent
     if (coins < item.price) return null
-    student.coinsSpent += item.price
+    student.coinsSpent = count(student.coinsSpent) + count(item.price)
   }
 
   const id = generateId(10)
@@ -4605,8 +4621,8 @@ export function completeDailyTrivia(studentId, correct, chosenIndex) {
   data.students[studentId].lastTriviaCorrect = correct
   data.students[studentId].lastTriviaChoice = chosenIndex
   if (correct) {
-    data.students[studentId].tokens = (data.students[studentId].tokens || 0) + 1
-    data.students[studentId].tokensEarned = (data.students[studentId].tokensEarned || 0) + 1
+    data.students[studentId].tokens = count(data.students[studentId].tokens) + 1
+    data.students[studentId].tokensEarned = count(data.students[studentId].tokensEarned) + 1
   }
   saveData(data)
   return correct
