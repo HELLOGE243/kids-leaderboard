@@ -3032,7 +3032,12 @@ export async function reconcileAttemptWithArchive(quizSetId, studentId) {
   const local = getStudentArray(studentId, 'homeworkAttempts').find((a) => a.quizSetId === quizSetId)
   if (local) return { alreadySat: true, recovered: false, attempt: local }
 
-  const archived = (await findArchivedPapers(studentId, quizSetId)).filter((r) => r.kind === 'homework')
+  // A paper cleared by a teacher is meant to be missing. Only a hand-in from
+  // after the reset counts; the earlier copies stay in the archive as record.
+  const clearedAt = attemptClearedAt(quizSetId, studentId)
+  const archived = (await findArchivedPapers(studentId, quizSetId))
+    .filter((r) => r.kind === 'homework')
+    .filter((r) => !clearedAt || (r.date || '') > clearedAt)
   if (!archived.length) return { alreadySat: false, recovered: false, attempt: null }
 
   // Several copies means the paper was handed in more than once; the best of
@@ -3208,7 +3213,31 @@ export function deleteHomeworkAttempt(quizSetId, studentId) {
   return true
 }
 
+/**
+ * Notes that a paper was deliberately cleared for a student.
+ *
+ * The archive is the authority on what was handed in, and a missing attempt is
+ * normally a lost write to be put back. A reset also leaves the attempt
+ * missing, on purpose - so without this note the archive restored the paper the
+ * moment the student opened it, and the reset did nothing at all.
+ */
+function markAttemptCleared(quizSetId, studentId) {
+  mutateStudentArray(studentId, 'attemptResets', (arr) => {
+    const at = new Date().toISOString()
+    const existing = arr.find((r) => r.quizSetId === quizSetId)
+    if (existing) existing.at = at
+    else arr.push({ quizSetId, at })
+  })
+}
+
+/** When this student's attempt at this paper was last cleared, if it was. */
+export function attemptClearedAt(quizSetId, studentId) {
+  const found = getStudentArray(studentId, 'attemptResets').find((r) => r.quizSetId === quizSetId)
+  return found?.at || null
+}
+
 export function resetQuizForStudent(quizSetId, studentId) {
+  markAttemptCleared(quizSetId, studentId)
   deleteQuizAttempt(quizSetId, studentId)
   deleteHomeworkAttempt(quizSetId, studentId)
   clearHomeworkProgress(quizSetId, studentId)
@@ -3260,6 +3289,7 @@ export function returnAttemptInProgress(record, draft = null) {
     elapsedMs = (source.questionTimes || []).reduce((sum, t) => sum + (Number(t) || 0), 0) * 1000
   }
 
+  markAttemptCleared(quizSetId, studentId)
   deleteQuizAttempt(quizSetId, studentId)
   deleteHomeworkAttempt(quizSetId, studentId)
   // The cards raised from marking that attempt would be about questions they are

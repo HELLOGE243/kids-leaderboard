@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import AnswerInjector from './AnswerInjector.jsx'
 import { getArchivedSubmissions, getAttemptDrafts, restoreArchivedSubmission,
   returnAttemptInProgress,
@@ -36,6 +36,29 @@ export default function SubmissionArchive({ teacherName }) {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  /**
+   * The drafts that really are unfinished.
+   *
+   * A draft is written every few seconds while a paper is open and nothing
+   * removes it on hand-in, so almost every draft belongs to a paper that was
+   * finished long ago - 215 of 218 of them, when this was measured. Listing
+   * those as abandoned put a "Return in progress" button beside a mark that was
+   * correctly earned. A draft counts as open only if that paper was never handed
+   * in, or if the student has been writing since they last handed it in.
+   */
+  const openDrafts = useMemo(() => {
+    const handedIn = new Map()
+    for (const sub of submissions || []) {
+      const key = `${sub.studentId}_${sub.quizSetId}`
+      const when = sub.date || ''
+      if (when > (handedIn.get(key) || '')) handedIn.set(key, when)
+    }
+    return drafts.filter((d) => {
+      const when = handedIn.get(`${d.studentId}_${d.quizSetId}`)
+      return !when || (d.savedAt || '') > when
+    })
+  }, [drafts, submissions])
 
   function download() {
     const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), submissions, drafts }, null, 2)], { type: 'application/json' })
@@ -290,9 +313,15 @@ export default function SubmissionArchive({ teacherName }) {
         </table>
       )}
 
-      {drafts.length > 0 && (
+      {openDrafts.length > 0 && (
         <>
           <p className="td2-h2" style={{ marginTop: 20, fontSize: '0.7rem' }}>Open or abandoned papers</p>
+          <p className="td2-muted td2-small" style={{ margin: '4px 0 8px' }}>
+            Papers a student has open, or walked away from without handing in.
+            {drafts.length > openDrafts.length
+              ? ` ${drafts.length - openDrafts.length} further saved draft(s) belong to papers that were handed in, and are not shown.`
+              : ''}
+          </p>
           <table className="table w-full">
             <thead>
               <tr>
@@ -304,7 +333,7 @@ export default function SubmissionArchive({ teacherName }) {
               </tr>
             </thead>
             <tbody>
-              {drafts.map((d) => (
+              {openDrafts.map((d) => (
                 <tr key={`${d.studentId}_${d.quizSetId}`}>
                   <td style={{ fontSize: '0.75rem' }}>{d.studentId}</td>
                   <td style={{ fontSize: '0.75rem' }}>{d.quizTitle || d.quizSetId}</td>
