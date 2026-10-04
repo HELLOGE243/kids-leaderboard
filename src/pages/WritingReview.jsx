@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
-import { getQuizSetsWithWriting, getWritingSubmissions, saveWritingMark, WRITING_RUBRIC, onDataChange } from '../data/store.js'
+import { getQuizSetsWithWriting, getWritingSubmissions, saveWritingMark, getWritingExemplars, adjustWritingMark, WRITING_RUBRIC, onDataChange } from '../data/store.js'
 import { generateWritingSuggestions, preAnalyseWriting, generateAiAnnotation, generateAiMark } from '../utils/aiChat.js'
 
 const SCORE_LABELS = ['', 'Beginning', 'Developing', 'Competent', 'Proficient', 'Advanced']
@@ -13,12 +13,23 @@ const TOOLS = [
   { key: 'correction', label: 'Correct', icon: '🔤' },
 ]
 
-const HIGHLIGHT_COLORS = [
-  { key: 'yellow', color: '#ffd600' },
-  { key: 'green', color: '#66bb6a' },
-  { key: 'blue', color: '#42a5f5' },
-  { key: 'pink', color: '#f06292' },
+// Chosen first, from the bar above the writing, and then used on the words -
+// the way a word processor works. Marking is a repetitive job: a tool stays
+// armed until it is turned off, so several strikes in a row are three clicks
+// rather than nine.
+const MARK_TOOLS = [
+  { key: 'strikethrough', label: 'Strikethrough', icon: 'S', color: '#ff1744',
+    hint: 'Select the words to strike out.' },
+  { key: 'comment', label: 'Comment', icon: '\u{1F4AC}', color: '#42a5f5',
+    hint: 'Select the words the comment is about, then write it.' },
+  { key: 'correction', label: 'Suggestion', icon: '\u270E', color: '#ff9100',
+    hint: 'Select the words, then write what they should say instead.' },
+  { key: 'insertion', label: 'Insert', icon: '+', color: '#66bb6a',
+    hint: 'Click where something is missing, then write what belongs there.' },
+  { key: 'ai', label: 'AI suggestion', icon: '\u{1F916}', color: '#b464ff',
+    hint: 'Select a sentence for the AI to look at.' },
 ]
+
 
 const OLD_ANNOTATION_TYPES = [
   { key: 'spelling', label: 'Spelling', color: '#ff1744', icon: '🔤' },
@@ -69,7 +80,15 @@ function WritingReview({ orgId, teacherId, onBack }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [popup, setPopup] = useState(null)
-  const [lastColor, setLastColor] = useState('#ffd600')
+  const [activeTool, setActiveTool] = useState(null)
+  const [editingAnnot, setEditingAnnot] = useState(null)
+  const [calibration, setCalibration] = useState(null)
+  const [inconsistencies, setInconsistencies] = useState([])
+  // Every change to the annotations goes through commit(), which keeps the
+  // previous state here. Marking is fiddly and a mis-click used to cost the
+  // annotation outright.
+  const [past, setPast] = useState([])
+  const [future, setFuture] = useState([])
   const [aiLoading, setAiLoading] = useState(false)
   const [aiPreload, setAiPreload] = useState(null)
   const [aiPreloadStatus, setAiPreloadStatus] = useState('idle')
@@ -106,6 +125,12 @@ function WritingReview({ orgId, teacherId, onBack }) {
       setOverallComment('')
     }
     setPopup(null)
+    setActiveTool(null)
+    setEditingAnnot(null)
+    setCalibration(null)
+    setInconsistencies([])
+    setPast([])
+    setFuture([])
     setAiAnnotResult(null)
     setAiPreloadStatus('loading')
     setAiPreload(null)
@@ -114,6 +139,52 @@ function WritingReview({ orgId, teacherId, onBack }) {
       setAiPreloadStatus(result ? 'ready' : 'error')
     })
   }
+
+  /** Changes the annotations and remembers what they were. */
+  function commit(nextOrFn) {
+    const next = typeof nextOrFn === 'function' ? nextOrFn(annotations) : nextOrFn
+    setPast(prev => [...prev.slice(-49), annotations])
+    setFuture([])
+    setAnnotations(next)
+    setSaved(false)
+  }
+
+  function undo() {
+    if (!past.length) return
+    setFuture(f => [annotations, ...f].slice(0, 50))
+    setAnnotations(past[past.length - 1])
+    setPast(p => p.slice(0, -1))
+    setPopup(null)
+    setSaved(false)
+  }
+
+  function redo() {
+    if (!future.length) return
+    setPast(p => [...p.slice(-49), annotations])
+    setAnnotations(future[0])
+    setFuture(f => f.slice(1))
+    setPopup(null)
+    setSaved(false)
+  }
+
+  // Ctrl+Z over the writing undoes the last mark. Inside a comment box it is
+  // left alone: there the teacher means the words they are typing, and the
+  // browser already handles that.
+  useEffect(() => {
+    if (!activeSubmission) return
+    function onKey(e) {
+      if (e.key === 'Escape') { setActiveTool(null); setPopup(null); return }
+      const el = e.target
+      if (el && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' || el.isContentEditable)) return
+      if (!(e.ctrlKey || e.metaKey)) return
+      const z = e.key === 'z' || e.key === 'Z'
+      const y = e.key === 'y' || e.key === 'Y'
+      if (z && !e.shiftKey) { e.preventDefault(); undo() }
+      else if ((z && e.shiftKey) || y) { e.preventDefault(); redo() }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  })
 
   function setScore(key, score) {
     setCategories(prev => prev.map(c => c.key === key ? { ...c, score } : c))
@@ -152,84 +223,83 @@ function WritingReview({ orgId, teacherId, onBack }) {
 
   function handleMouseUp(e) {
     if (e.target.closest('.wr-sel-popup')) return
+    // Clicking a mark's own words means "reword this", not "use the tool here".
+    if (e.target.closest('.wr-annot-editable')) return
+    // No tool chosen means no menu: selecting words is just selecting words,
+    // which is what a teacher reading the piece is usually doing.
+    if (!activeTool) return
     const sel = window.getSelection()
     if (!sel || !responseRef.current) return
     if (!responseRef.current.contains(sel.anchorNode)) return
 
     const containerRect = responseRef.current.getBoundingClientRect()
+    const range = sel.getRangeAt(0)
+    const rect = range.getBoundingClientRect()
 
-    if (sel.isCollapsed) {
-      const range = sel.getRangeAt(0)
-      const rect = range.getBoundingClientRect()
+    // Insert marks a point rather than a span, so it wants the caret.
+    if (activeTool === 'insertion') {
       const preRange = document.createRange()
       preRange.selectNodeContents(responseRef.current)
       preRange.setEnd(range.startContainer, range.startOffset)
-      const offset = preRange.toString().length
       setPopup({
         type: 'insert', step: 'input', action: 'insertion',
         x: Math.max(0, rect.left - containerRect.left),
         y: rect.top - containerRect.top - 52,
-        offset, inputValue: '',
+        offset: preRange.toString().length, inputValue: '',
       })
-    } else {
-      const offsets = getSelectionOffsets()
-      if (!offsets) return
-      const range = sel.getRangeAt(0)
-      const rect = range.getBoundingClientRect()
-      const centerX = rect.width > 2 ? rect.left + rect.width / 2 : rect.left + 4
-      const topY = rect.height > 2 ? rect.top : rect.top - 10
-      setPopup({
-        type: 'selection', step: 'choose',
-        x: Math.max(0, centerX - containerRect.left - 110),
-        y: topY - containerRect.top - 52,
-        ...offsets, action: null, inputValue: '',
-      })
+      return
     }
-  }
 
-  function applyFromPopup(action, extra = {}) {
-    if (!popup) return
-    if (action === 'highlight') {
-      const color = extra.color || lastColor
-      setAnnotations(prev => [...prev, {
-        id: nextAnnotId(), action: 'highlight',
-        startOffset: popup.startOffset, endOffset: popup.endOffset,
-        text: popup.text, color,
-        comment: '', insertionText: '', suggestion: '',
-      }])
-      if (extra.color) setLastColor(extra.color)
-    } else if (action === 'strikethrough') {
-      setAnnotations(prev => [...prev, {
+    if (sel.isCollapsed) return
+    const offsets = getSelectionOffsets()
+    if (!offsets) return
+    const centerX = rect.width > 2 ? rect.left + rect.width / 2 : rect.left + 4
+    const topY = rect.height > 2 ? rect.top : rect.top - 10
+    const x = Math.max(0, centerX - containerRect.left - 110)
+    const y = topY - containerRect.top - 52
+
+    // A strike needs nothing typed, so it lands as soon as the words are picked
+    // and the tool stays armed for the next one.
+    if (activeTool === 'strikethrough') {
+      commit(prev => [...prev, {
         id: nextAnnotId(), action: 'strikethrough',
-        startOffset: popup.startOffset, endOffset: popup.endOffset,
-        text: popup.text, color: '#ff1744',
+        startOffset: offsets.startOffset, endOffset: offsets.endOffset,
+        text: offsets.text, color: '#ff1744',
         comment: '', insertionText: '', suggestion: '',
       }])
+      window.getSelection()?.removeAllRanges()
+      return
     }
-    setSaved(false)
-    setPopup(null)
-    window.getSelection()?.removeAllRanges()
+
+    if (activeTool === 'ai') {
+      if (aiPreloadStatus !== 'ready') return
+      setPopup({ type: 'selection', step: 'ai-loading', ...offsets, x, y, action: null, inputValue: '' })
+      runAiAnnotation(offsets)
+      return
+    }
+
+    setPopup({ type: 'selection', step: 'input', action: activeTool, ...offsets, x, y, inputValue: '' })
   }
 
   function confirmPopup() {
     if (!popup || !popup.inputValue.trim()) return
     const { action } = popup
     if (action === 'comment') {
-      setAnnotations(prev => [...prev, {
+      commit(prev => [...prev, {
         id: nextAnnotId(), action: 'comment',
         startOffset: popup.startOffset, endOffset: popup.endOffset,
         text: popup.text || '', color: '#42a5f5',
         comment: popup.inputValue, insertionText: '', suggestion: '',
       }])
     } else if (action === 'correction') {
-      setAnnotations(prev => [...prev, {
+      commit(prev => [...prev, {
         id: nextAnnotId(), action: 'correction',
         startOffset: popup.startOffset, endOffset: popup.endOffset,
         text: popup.text || '', color: '#ff9100',
         comment: '', insertionText: '', suggestion: popup.inputValue,
       }])
     } else if (action === 'insertion') {
-      setAnnotations(prev => [...prev, {
+      commit(prev => [...prev, {
         id: nextAnnotId(), action: 'insertion',
         startOffset: popup.offset, endOffset: popup.offset,
         text: '', color: '#66bb6a',
@@ -242,66 +312,89 @@ function WritingReview({ orgId, teacherId, onBack }) {
   }
 
   function removeAnnotation(id) {
-    setAnnotations(prev => prev.filter(a => a.id !== id))
-    setSaved(false)
+    commit(prev => prev.filter(a => a.id !== id))
   }
 
-  async function handleAiAnnotation() {
-    if (!popup || aiAnnotLoading) return
+  /** Which field of an annotation holds the teacher's words. */
+  function wordsField(action) {
+    if (action === 'comment') return 'comment'
+    if (action === 'correction') return 'suggestion'
+    if (action === 'insertion') return 'insertionText'
+    return null
+  }
+
+  /** Opens an annotation for rewording. A strike has no words to change. */
+  function startEditAnnotation(ann) {
+    if (!ann) return
+    const field = wordsField(ann.action)
+    if (!field) return
+    setEditingAnnot({ id: ann.id, field, value: ann[field] || '' })
+  }
+
+  function saveEditAnnotation() {
+    if (!editingAnnot) return
+    const { id, field, value } = editingAnnot
+    const text = value.trim()
+    if (!text) return
+    commit(prev => prev.map(a => (a.id === id ? { ...a, [field]: text } : a)))
+    setEditingAnnot(null)
+  }
+
+  async function runAiAnnotation(sel) {
+    if (aiAnnotLoading || !sel?.text) return
     setAiAnnotLoading(true)
     setAiAnnotResult(null)
-    setPopup(p => ({ ...p, step: 'ai-loading' }))
     try {
-      const result = await generateAiAnnotation(plainTextRef.current, popup.text, aiPreload)
+      const result = await generateAiAnnotation(plainTextRef.current, sel.text, aiPreload)
       setAiAnnotResult(result)
       setPopup(p => p ? ({ ...p, step: 'ai-result' }) : null)
     } catch {
-      setPopup(p => p ? ({ ...p, step: 'choose' }) : null)
+      setPopup(null)
     }
     setAiAnnotLoading(false)
   }
 
   function acceptAiComment() {
     if (!popup || !aiAnnotResult?.comment) return
-    setAnnotations(prev => [...prev, {
+    commit(prev => [...prev, {
       id: nextAnnotId(), action: 'comment',
       startOffset: popup.startOffset, endOffset: popup.endOffset,
       text: popup.text || '', color: '#42a5f5',
       comment: aiAnnotResult.comment, insertionText: '', suggestion: '',
     }])
-    setSaved(false)
   }
 
   function acceptAiRephrase() {
     if (!popup || !aiAnnotResult?.rephrase) return
-    setAnnotations(prev => [...prev, {
+    commit(prev => [...prev, {
       id: nextAnnotId(), action: 'correction',
       startOffset: popup.startOffset, endOffset: popup.endOffset,
       text: popup.text || '', color: '#ff9100',
       comment: '', insertionText: '', suggestion: aiAnnotResult.rephrase,
     }])
-    setSaved(false)
   }
 
   function acceptAiBoth() {
     if (!popup || !aiAnnotResult) return
+    const added = []
     if (aiAnnotResult.comment) {
-      setAnnotations(prev => [...prev, {
+      added.push({
         id: nextAnnotId(), action: 'comment',
         startOffset: popup.startOffset, endOffset: popup.endOffset,
         text: popup.text || '', color: '#42a5f5',
         comment: aiAnnotResult.comment, insertionText: '', suggestion: '',
-      }])
+      })
     }
     if (aiAnnotResult.rephrase) {
-      setAnnotations(prev => [...prev, {
+      added.push({
         id: nextAnnotId(), action: 'correction',
         startOffset: popup.startOffset, endOffset: popup.endOffset,
         text: popup.text || '', color: '#ff9100',
         comment: '', insertionText: '', suggestion: aiAnnotResult.rephrase,
-      }])
+      })
     }
-    setSaved(false)
+    // One step, so one Ctrl+Z takes both back.
+    commit(prev => [...prev, ...added])
     setPopup(null)
     setAiAnnotResult(null)
     window.getSelection()?.removeAllRanges()
@@ -311,8 +404,17 @@ function WritingReview({ orgId, teacherId, onBack }) {
     if (!activeSubmission || aiLoading) return
     setAiLoading(true)
     const text = stripHtml(activeSubmission.answer)
-    const result = await generateAiMark(text, WRITING_RUBRIC, aiPreload)
+    // Marked answers to this same question are the standard this one is judged
+    // against, so a 4 means the same thing in January and in June.
+    const exemplars = getWritingExemplars(selectedSet, activeSubmission.questionIndex, {
+      excludeAttemptId: activeSubmission.attemptId,
+    })
+    const result = await generateAiMark(text, WRITING_RUBRIC, aiPreload, exemplars)
     if (result) {
+      setCalibration(exemplars.length
+        ? { note: result.calibration || '', against: exemplars.length }
+        : { note: '', against: 0 })
+      setInconsistencies(result.inconsistencies || [])
       if (result.categories) {
         setCategories(prev => prev.map(c => {
           const ai = result.categories.find(ac => ac.key === c.key)
@@ -326,6 +428,18 @@ function WritingReview({ orgId, teacherId, onBack }) {
       setSaved(false)
     }
     setAiLoading(false)
+  }
+
+  /**
+   * Rescores an earlier piece the AI reckons is out of line. The teacher's own
+   * comments on it are untouched - only the numbers move, and the change is
+   * recorded on the mark.
+   */
+  function applyAdjustment(item) {
+    const done = adjustWritingMark(
+      item.attemptId, activeSubmission.questionIndex, item.categories, item.reason, teacherId)
+    setInconsistencies(prev => prev.filter(i => i.attemptId !== item.attemptId))
+    if (done) setRefresh(r => r + 1)
   }
 
   function handleSave() {
@@ -402,8 +516,8 @@ function WritingReview({ orgId, teacherId, onBack }) {
               const cIdx = commentAnnots.findIndex(a => a.id === p.id)
               return <span key={i} className="wr-mark-comment" data-comment-idx={cIdx + 1}>{p.content}</span>
             }
-            if (p.type === 'insertion') return <span key={i} className="wr-mark-insertion-wrap">{p.content}<span className="wr-mark-insertion-bubble">{p.insertionText}</span></span>
-            if (p.type === 'correction') return <span key={i} className="wr-mark-correction"><span className="wr-mark-correction-original">{p.content}</span>{p.suggestion && <span className="wr-mark-correction-suggestion"><span className="wr-mark-suggestion-label">Suggestion:</span> {p.suggestion}</span>}</span>
+            if (p.type === 'insertion') return <span key={i} className="wr-mark-insertion-wrap">{p.content}<span className="wr-mark-insertion-bubble wr-annot-editable" title="Click to reword" onClick={() => startEditAnnotation(annotations.find(a => a.id === p.id))}>{p.insertionText}</span></span>
+            if (p.type === 'correction') return <span key={i} className="wr-mark-correction"><span className="wr-mark-correction-original">{p.content}</span>{p.suggestion && <span className="wr-mark-correction-suggestion wr-annot-editable" title="Click to reword" onClick={() => startEditAnnotation(annotations.find(a => a.id === p.id))}><span className="wr-mark-suggestion-label">Suggestion:</span> {p.suggestion}</span>}</span>
             return null
           })}
         </div>
@@ -412,7 +526,26 @@ function WritingReview({ orgId, teacherId, onBack }) {
             {commentAnnots.map((ann, i) => (
               <div key={ann.id} className="wr-margin-comment">
                 <span className="wr-margin-comment-num">{i + 1}</span>
-                <span className="wr-margin-comment-text">{ann.comment}</span>
+                {editingAnnot?.id === ann.id ? (
+                  <textarea
+                    className="wr-annot-edit-box"
+                    value={editingAnnot.value}
+                    autoFocus
+                    rows={2}
+                    onChange={e => setEditingAnnot(c => ({ ...c, value: e.target.value }))}
+                    onBlur={saveEditAnnotation}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEditAnnotation() }
+                      if (e.key === 'Escape') { e.preventDefault(); setEditingAnnot(null) }
+                    }}
+                  />
+                ) : (
+                  <span
+                    className="wr-margin-comment-text wr-annot-editable"
+                    title="Click to reword"
+                    onClick={() => startEditAnnotation(ann)}
+                  >{ann.comment}</span>
+                )}
                 <button className="wr-margin-comment-del" onClick={() => removeAnnotation(ann.id)}>✕</button>
               </div>
             ))}
@@ -545,6 +678,38 @@ function WritingReview({ orgId, teacherId, onBack }) {
             </div>
           )}
 
+          <div className="wr-toolbar">
+            <div className="wr-toolbar-tools">
+              {MARK_TOOLS.map(t => {
+                const disabled = t.key === 'ai' && aiPreloadStatus !== 'ready'
+                return (
+                  <button
+                    key={t.key}
+                    className={`wr-tool-btn ${activeTool === t.key ? 'wr-tool-btn-on' : ''}`}
+                    style={{ '--tool-color': t.color }}
+                    disabled={disabled || editMode}
+                    title={disabled ? 'The AI is still reading this piece' : t.hint}
+                    onClick={() => setActiveTool(cur => (cur === t.key ? null : t.key))}
+                  >
+                    <span className="wr-tool-icon">{t.icon}</span>
+                    <span>{t.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="wr-toolbar-history">
+              <button className="wr-tool-hist" onClick={undo} disabled={!past.length} title="Undo (Ctrl+Z)">↶ Undo</button>
+              <button className="wr-tool-hist" onClick={redo} disabled={!future.length} title="Redo (Ctrl+Shift+Z)">↷ Redo</button>
+            </div>
+          </div>
+          <div className="wr-toolbar-hint">
+            {editMode
+              ? 'Finish editing the text to go back to marking.'
+              : activeTool
+                ? MARK_TOOLS.find(t => t.key === activeTool)?.hint
+                : 'Pick a tool, then mark the words it applies to. Ctrl+Z undoes.'}
+          </div>
+
           <div className="wr-response-box">
             <div className="wr-response-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>{editMode ? 'Editing Student Response' : 'Student Response — select text to annotate, click to insert'}</span>
@@ -555,7 +720,9 @@ function WritingReview({ orgId, teacherId, onBack }) {
                 } else {
                   activeSubmission.answer = editedText
                   plainTextRef.current = editedText
-                  setAnnotations([])
+                  // The marks pointed at the words that were there. Through
+                  // commit(), so Ctrl+Z brings them back if that was a mistake.
+                  commit([])
                   setEditMode(false)
                 }
               }}>
@@ -571,18 +738,13 @@ function WritingReview({ orgId, teacherId, onBack }) {
                 style={{ userSelect: 'text', cursor: 'text', whiteSpace: 'pre-wrap' }}
               >{editedText}</div>
             ) : (
-              <div className="wr-response-text" ref={responseRef} onMouseUp={handleMouseUp} style={{ userSelect: 'text', cursor: 'text' }}>
+              <div
+                className={`wr-response-text ${activeTool ? 'wr-response-armed' : ''}`}
+                ref={responseRef}
+                onMouseUp={handleMouseUp}
+                style={{ userSelect: 'text', cursor: activeTool ? 'crosshair' : 'text' }}
+              >
                 {renderAnnotatedText(activeSubmission.answer)}
-              </div>
-            )}
-
-            {popup && popup.step === 'choose' && (
-              <div className="wr-sel-popup" style={{ left: popup.x, top: popup.y }} onMouseDown={e => { e.preventDefault(); e.stopPropagation() }}>
-                <button className="wr-sel-btn" onClick={() => applyFromPopup('strikethrough')}>Strikethrough</button>
-                <span className="wr-sel-divider" />
-                <button className="wr-sel-btn" onClick={() => setPopup(p => ({ ...p, step: 'input', action: 'comment' }))}>Comment</button>
-                <span className="wr-sel-divider" />
-                <button className={`wr-sel-btn wr-sel-ai-btn ${aiPreloadStatus !== 'ready' ? 'wr-sel-ai-disabled' : ''}`} onClick={handleAiAnnotation} disabled={aiPreloadStatus !== 'ready' || aiAnnotLoading}>{aiPreloadStatus === 'ready' ? 'AI Suggestion' : 'AI Loading...'}</button>
               </div>
             )}
 
@@ -620,7 +782,7 @@ function WritingReview({ orgId, teacherId, onBack }) {
 
             {popup && popup.step === 'input' && (
               <div className="wr-sel-popup wr-sel-popup-wide" style={{ left: Math.max(0, popup.x - 60), top: popup.y }} onMouseDown={e => { e.preventDefault(); e.stopPropagation() }}>
-                <span className="wr-sel-input-label">{popup.action === 'comment' ? 'Comment' : popup.action === 'insertion' ? 'Insert' : 'Correct'}</span>
+                <span className="wr-sel-input-label">{popup.action === 'comment' ? 'Comment' : popup.action === 'insertion' ? 'Insert' : 'Suggestion'}</span>
                 <textarea className="wr-sel-input" value={popup.inputValue} onChange={e => { setPopup(p => ({ ...p, inputValue: e.target.value })); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }}
                   placeholder={popup.action === 'comment' ? 'Add comment...' : popup.action === 'insertion' ? 'Insert text here...' : 'Correct to...'}
                   autoFocus rows={1} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && popup.inputValue.trim()) { e.preventDefault(); confirmPopup() } if (e.key === 'Escape') setPopup(null) }} />
@@ -642,11 +804,31 @@ function WritingReview({ orgId, teacherId, onBack }) {
                   <div key={ann.id} className="wr-annot-item" style={{ '--annot-color': ann.color }}>
                     <span className="wr-annot-item-type">{tool?.icon || '🔤'}</span>
                     <div className="wr-annot-item-body">
-                      <span className="wr-annot-item-text">"{ann.text}"</span>
-                      {ann.suggestion && <span className="wr-annot-item-suggestion">→ {ann.suggestion}</span>}
-                      {ann.comment && <span className="wr-annot-item-suggestion">💬 {ann.comment}</span>}
-                      {ann.insertionText && <span className="wr-annot-item-suggestion">➕ {ann.insertionText}</span>}
+                      {ann.text && <span className="wr-annot-item-text">"{ann.text}"</span>}
+                      {editingAnnot?.id === ann.id ? (
+                        <textarea
+                          className="wr-annot-edit-box"
+                          value={editingAnnot.value}
+                          autoFocus
+                          rows={2}
+                          onChange={e => setEditingAnnot(c => ({ ...c, value: e.target.value }))}
+                          onBlur={saveEditAnnotation}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEditAnnotation() }
+                            if (e.key === 'Escape') { e.preventDefault(); setEditingAnnot(null) }
+                          }}
+                        />
+                      ) : (
+                        <>
+                          {ann.suggestion && <span className="wr-annot-item-suggestion wr-annot-editable" title="Click to reword" onClick={() => startEditAnnotation(ann)}>→ {ann.suggestion}</span>}
+                          {ann.comment && <span className="wr-annot-item-suggestion wr-annot-editable" title="Click to reword" onClick={() => startEditAnnotation(ann)}>💬 {ann.comment}</span>}
+                          {ann.insertionText && <span className="wr-annot-item-suggestion wr-annot-editable" title="Click to reword" onClick={() => startEditAnnotation(ann)}>➕ {ann.insertionText}</span>}
+                        </>
+                      )}
                     </div>
+                    {wordsField(ann.action) && editingAnnot?.id !== ann.id && (
+                      <button className="wr-annot-edit" title="Reword" onClick={() => startEditAnnotation(ann)}>✎</button>
+                    )}
                     <button className="wr-annot-remove" onClick={() => removeAnnotation(ann.id)}>✕</button>
                   </div>
                 )
@@ -689,6 +871,43 @@ function WritingReview({ orgId, teacherId, onBack }) {
           <button className="wr-ai-btn" onClick={handleAiMark} disabled={aiLoading}>
             {aiLoading ? 'AI is marking...' : 'AI Mark'}
           </button>
+
+          {calibration && (
+            <div className="wr-calib">
+              <div className="wr-calib-head">
+                {calibration.against > 0
+                  ? `Marked against ${calibration.against} piece${calibration.against === 1 ? '' : 's'} already marked for this question`
+                  : 'Nothing else is marked for this question yet, so there was no standard to compare against'}
+              </div>
+              {calibration.note && <p className="wr-calib-note">{calibration.note}</p>}
+            </div>
+          )}
+
+          {inconsistencies.length > 0 && (
+            <div className="wr-calib wr-calib-warn">
+              <div className="wr-calib-head">
+                Marking this one suggests {inconsistencies.length} earlier mark
+                {inconsistencies.length === 1 ? '' : 's'} may be out of line
+              </div>
+              {inconsistencies.map(item => {
+                const sub = submissions.find(x => x.attemptId === item.attemptId)
+                return (
+                  <div key={item.attemptId} className="wr-calib-item">
+                    <div className="wr-calib-item-head">
+                      <span className="wr-calib-who">{sub?.studentName || 'Another student'}</span>
+                      <span className="wr-calib-move">{item.was}/25 → {item.suggestedTotal}/25</span>
+                    </div>
+                    <p className="wr-calib-reason">{item.reason}</p>
+                    <div className="wr-calib-actions">
+                      <button className="wr-calib-apply" onClick={() => applyAdjustment(item)}>Rescore</button>
+                      <button className="wr-calib-skip" onClick={() => setInconsistencies(prev => prev.filter(i => i.attemptId !== item.attemptId))}>Leave it</button>
+                    </div>
+                  </div>
+                )
+              })}
+              <p className="wr-calib-foot">Rescoring changes the numbers only. Your comments on that piece stay as written.</p>
+            </div>
+          )}
 
           {!saved ? (
             <button className="wr-save-btn" onClick={handleSave} disabled={saving || !allScored}>

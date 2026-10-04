@@ -41,6 +41,8 @@ import {
   getStudentPercentile,
   getAllAttemptsForQuizSet,
   getWritingMark,
+  saveWritingRewrite,
+  getWritingRewrite,
   WRITING_RUBRIC,
   reportQuestionError,
   reportExplanation,
@@ -53,6 +55,7 @@ import {
 import { RichText, stripPastedColours, default as RichTextEditor } from '../components/RichTextEditor.jsx'
 import { playCoinSound } from '../utils/soundManager.js'
 import { resolveImages } from '../data/imageStore.js'
+import { remarkWritingRewrite } from '../utils/aiChat.js'
 import { flushPendingWrites } from '../data/firebase.js'
 import { parseVideoUrl } from '../utils/video.js'
 import { useScreenGuard } from '../utils/screenGuard.js'
@@ -425,6 +428,12 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   const [clickFlash, setClickFlash] = useState(null)
   const [showVideoQ, setShowVideoQ] = useState(null)
   const [resetModal, setResetModal] = useState(null)
+  // A second go at a marked piece of writing: the words, and what came back.
+  const [rewriteOpen, setRewriteOpen] = useState(null)
+  const [rewriteText, setRewriteText] = useState('')
+  const [rewriteBusy, setRewriteBusy] = useState(false)
+  const [rewriteError, setRewriteError] = useState('')
+  const [rewriteTick, setRewriteTick] = useState(0)
   const [resetPw, setResetPw] = useState('')
   const [resetError, setResetError] = useState(false)
   const timerRef = useRef(null)
@@ -716,6 +725,42 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   // Revision is for what was got wrong, so an unanswered question counts and a
   // correct one does not. Free writing is left out: it is marked by a teacher,
   // never right or wrong here, and would land in every revision for ever.
+  /**
+   * Sends a rewrite to be marked against the first attempt.
+   *
+   * The teacher's mark on what was handed in does not move - this is the
+   * student finding out whether reading the feedback made the writing better.
+   */
+  async function submitRewrite() {
+    if (!rewriteOpen || rewriteBusy) return
+    const words = rewriteText.trim()
+    if (words.length < 20) {
+      setRewriteError('Write a little more before asking for feedback.')
+      return
+    }
+    setRewriteBusy(true)
+    setRewriteError('')
+    const result = await remarkWritingRewrite(
+      rewriteOpen.originalText, words, WRITING_RUBRIC, rewriteOpen.mark)
+    if (!result?.categories?.length) {
+      setRewriteBusy(false)
+      setRewriteError('Feedback could not be fetched just now. Your writing is safe — try again in a moment.')
+      return
+    }
+    saveWritingRewrite({
+      attemptId: rewriteOpen.attemptId,
+      questionIndex: rewriteOpen.questionIndex,
+      studentId: user.id,
+      quizSetId: rewriteOpen.quizSetId,
+      text: words,
+      mark: result,
+    })
+    setRewriteBusy(false)
+    setRewriteOpen(null)
+    setRewriteText('')
+    setRewriteTick((t) => t + 1)
+  }
+
   function wrongQuestionIndices(quizSet) {
     const attempt = getHomeworkAttempt(quizSet.id, user.id)
     if (!attempt) return []
@@ -1133,6 +1178,41 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   }
 
   // ===== QUIZ-TAKING / RESULTS / REVIEW =====
+  // Shown over whichever screen is open, so it works both from the feedback
+  // inside a paper and from the dashboard.
+  const rewritePanel = rewriteOpen ? (
+    <div className="qt-rewrite-overlay">
+      <div className="qt-rewrite-panel">
+        <div className="qt-rewrite-top">
+          <span className="qt-rewrite-heading">Write it again</span>
+          <button className="qt-rewrite-close" onClick={() => { setRewriteOpen(null); setRewriteText(''); setRewriteError('') }} disabled={rewriteBusy}>✕</button>
+        </div>
+        {rewriteOpen.prompt && (
+          <div className="qt-rewrite-prompt" dangerouslySetInnerHTML={{ __html: rewriteOpen.prompt }} />
+        )}
+        <div className="qt-rewrite-advice">
+          Your first version scored {rewriteOpen.mark.totalScore}/25. Use the feedback, change what you
+          want, and send it when you are happy with it.
+        </div>
+        <textarea
+          className="qt-rewrite-area"
+          value={rewriteText}
+          onChange={(e) => { setRewriteText(e.target.value); setRewriteError('') }}
+          placeholder="Write your new version here..."
+          disabled={rewriteBusy}
+          autoFocus
+        />
+        <div className="qt-rewrite-foot">
+          <span className="qt-rewrite-count">{rewriteText.trim() ? rewriteText.trim().split(/\s+/).length : 0} words</span>
+          {rewriteError && <span className="qt-rewrite-error">{rewriteError}</span>}
+          <button className="qt-rewrite-send" onClick={submitRewrite} disabled={rewriteBusy}>
+            {rewriteBusy ? 'Marking your rewrite...' : 'Send for feedback'}
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null
+
   if (takingQuiz && resolvedQuestions) {
     const questions = resolvedQuestions
     const total = questions.length
@@ -2187,6 +2267,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                 }
 
                 if (qType === 'free-writing') {
+                  void rewriteTick  // re-read the rewrite once one is filed
                   const writingMark = submittedResult ? getWritingMark(submittedResult.id || '', currentQ) : null
                   const SCORE_LABELS_W = ['', 'Beginning', 'Developing', 'Competent', 'Proficient', 'Advanced']
                   const SCORE_COLORS_W = ['', '#ff1744', '#ff9100', '#ffab00', '#66bb6a', '#00e5ff']
@@ -2287,6 +2368,72 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                         )}
                       </div>
                     )}
+                    {writingMark && (() => {
+                      const done = getWritingRewrite(submittedResult?.id || '', currentQ, user.id)
+                      const plainOriginal = stripHtmlStudent(rawAnswer || '')
+                      if (done) {
+                        const moved = done.totalScore - writingMark.totalScore
+                        return (
+                          <div className="qt-wr-rewrite-done">
+                            <div className="qt-wr-rewrite-head">
+                              <span className="qt-wr-rewrite-title">Your rewrite</span>
+                              <span className="qt-wr-rewrite-score" style={{ color: SCORE_COLORS_W[Math.ceil(done.totalScore / 5)] }}>
+                                {done.totalScore}/25
+                                <span className={`qt-wr-rewrite-delta ${moved > 0 ? 'is-up' : moved < 0 ? 'is-down' : ''}`}>
+                                  {moved > 0 ? `+${moved}` : moved < 0 ? moved : 'same'}
+                                </span>
+                              </span>
+                            </div>
+                            {done.improvement && <p className="qt-wr-rewrite-note">{done.improvement}</p>}
+                            {done.improved?.length > 0 && (
+                              <div className="qt-wr-rewrite-list">
+                                <span className="qt-wr-rewrite-list-label">You did better at</span>
+                                <ul>{done.improved.map((t, i) => <li key={i}>{t}</li>)}</ul>
+                              </div>
+                            )}
+                            {done.stillToWork?.length > 0 && (
+                              <div className="qt-wr-rewrite-list">
+                                <span className="qt-wr-rewrite-list-label">Next time</span>
+                                <ul>{done.stillToWork.map((t, i) => <li key={i}>{t}</li>)}</ul>
+                              </div>
+                            )}
+                            <div className="qt-wr-rewrite-text">{done.text}</div>
+                            <p className="qt-wr-rewrite-foot">Your mark for the test is still {writingMark.totalScore}/25 — the rewrite is practice.</p>
+                            <button className="qt-wr-rewrite-btn" onClick={() => {
+                              setRewriteOpen({
+                                attemptId: submittedResult?.id || '',
+                                questionIndex: currentQ,
+                                quizSetId: takingQuiz.id,
+                                originalText: plainOriginal,
+                                mark: writingMark,
+                                prompt: q.prompt || '',
+                              })
+                              setRewriteText(done.text || plainOriginal)
+                              setRewriteError('')
+                            }}>Try again</button>
+                          </div>
+                        )
+                      }
+                      return (
+                        <div className="qt-wr-rewrite-offer">
+                          <span className="qt-wr-rewrite-offer-text">
+                            Read the feedback, then write this piece again. You will find out straight away what got better.
+                          </span>
+                          <button className="qt-wr-rewrite-btn" onClick={() => {
+                            setRewriteOpen({
+                              attemptId: submittedResult?.id || '',
+                              questionIndex: currentQ,
+                              quizSetId: takingQuiz.id,
+                              originalText: plainOriginal,
+                              mark: writingMark,
+                              prompt: q.prompt || '',
+                            })
+                            setRewriteText(plainOriginal)
+                            setRewriteError('')
+                          }}>Rewrite this piece</button>
+                        </div>
+                      )
+                    })()}
                     {!writingMark && (
                       <div className="qt-wr-pending">Your writing is awaiting teacher feedback.</div>
                     )}
@@ -2632,6 +2779,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
           </>
         )}
         {/* Old vocab onboarding removed — replaced by bottom-slide hint */}
+        {rewritePanel}
         {showReportModal && (
           <ReportIssueModal
             kind={showReportModal}
@@ -3015,6 +3163,8 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
           </div>
         </div>
       )}
+
+      {rewritePanel}
 
       {resetModal && (
         <div className="neon-overlay" onClick={() => setResetModal(null)}>

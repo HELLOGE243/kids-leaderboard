@@ -4909,6 +4909,87 @@ export function getWritingSubmissions(quizSetId, orgId) {
   return submissions.sort((a, b) => new Date(b.date) - new Date(a.date))
 }
 
+/**
+ * A sample of pieces already marked for the same question, to mark the next one
+ * against.
+ *
+ * A score only means something next to the others. Marking one piece at a time
+ * with nothing to compare drifts: the same writing scores a 3 on Monday and a 4
+ * on Friday. So a handful of marked pieces come back as anchors, chosen to
+ * spread across the range of scores rather than taken in order - the top, the
+ * bottom and the middle teach the standard faster than five near-identical
+ * fours - and shuffled within that so the same few are not always the ones.
+ *
+ * @param {string} quizSetId the paper
+ * @param {number} questionIndex which writing question on it
+ * @param {object} [opts] excludeAttemptId, limit (default 5)
+ * @returns {Array<{studentText: string, totalScore: number, categories: object[]}>}
+ */
+export function getWritingExemplars(quizSetId, questionIndex, opts = {}) {
+  const { excludeAttemptId = null, limit = 5 } = opts
+  const data = loadData()
+  const marks = (data.writingMarks || []).filter((m) =>
+    m.quizSetId === quizSetId
+    && m.questionIndex === questionIndex
+    && m.attemptId !== excludeAttemptId
+    && Number(m.totalScore) > 0)
+  if (!marks.length) return []
+
+  const attempts = [
+    ...collectStudentArray('homeworkAttempts'),
+    ...collectStudentArray('homeworkRedos'),
+  ]
+  const byId = new Map(attempts.map((a) => [a.id, a]))
+
+  const withText = []
+  for (const mark of marks) {
+    const answer = byId.get(mark.attemptId)?.answers?.[questionIndex]
+    if (typeof answer !== 'string' || !answer.trim()) continue
+    withText.push({
+      attemptId: mark.attemptId,
+      studentId: mark.studentId,
+      studentText: answer,
+      totalScore: Number(mark.totalScore) || 0,
+      categories: mark.categories || [],
+      date: mark.date || '',
+    })
+  }
+  if (withText.length <= limit) return shuffle(withText)
+
+  // Bucket by total mark, then take one at random from each bucket in turn, so
+  // the sample reaches across the range however many have been marked.
+  const buckets = new Map()
+  for (const item of withText) {
+    const band = Math.min(4, Math.floor(((item.totalScore - 1) / 25) * 5))
+    if (!buckets.has(band)) buckets.set(band, [])
+    buckets.get(band).push(item)
+  }
+  const bands = [...buckets.keys()].sort((a, b) => b - a)
+  for (const band of bands) buckets.set(band, shuffle(buckets.get(band)))
+  const picked = []
+  let round = 0
+  while (picked.length < limit) {
+    let took = false
+    for (const band of bands) {
+      const list = buckets.get(band)
+      if (list.length > round) { picked.push(list[round]); took = true }
+      if (picked.length >= limit) break
+    }
+    if (!took) break
+    round += 1
+  }
+  return picked
+}
+
+function shuffle(list) {
+  const out = [...list]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
+}
+
 export function getWritingMark(attemptId, questionIndex) {
   const data = loadData()
   return data.writingMarks.find(m => m.attemptId === attemptId && m.questionIndex === questionIndex) || null
@@ -4936,6 +5017,77 @@ export function saveWritingMark({ attemptId, questionIndex, studentId, quizSetId
   // The mark is part of the student's score, not a note beside it.
   applyWritingMarkToAttempt(attemptId, studentId)
   return mark
+}
+
+/**
+ * Rescores a paper that was marked earlier, for when marking a new piece shows
+ * an older one is out of line with the standard.
+ *
+ * Only the scores and the reason move; the teacher's own comments and
+ * annotations on that piece are left exactly as they were written.
+ * @returns {boolean} whether a mark was found to adjust
+ */
+export function adjustWritingMark(attemptId, questionIndex, categoryScores, reason, teacherId) {
+  const data = loadData()
+  const idx = (data.writingMarks || []).findIndex(
+    (m) => m.attemptId === attemptId && m.questionIndex === questionIndex)
+  if (idx < 0) return false
+  const mark = data.writingMarks[idx]
+  const before = mark.totalScore
+  const categories = (mark.categories || []).map((c) => {
+    const next = categoryScores.find((s) => s.key === c.key)
+    return next && next.score > 0 ? { ...c, score: next.score } : c
+  })
+  const totalScore = categories.reduce((sum, c) => sum + (c.score || 0), 0)
+  data.writingMarks[idx] = {
+    ...mark,
+    categories,
+    totalScore,
+    adjustments: [
+      ...(mark.adjustments || []),
+      { from: before, to: totalScore, reason: reason || '', teacherId, date: new Date().toISOString() },
+    ],
+  }
+  saveData(data)
+  applyWritingMarkToAttempt(attemptId, mark.studentId)
+  return true
+}
+
+/**
+ * A student's second go at a piece of writing, kept beside the first.
+ *
+ * The teacher's mark on the original stands: it is the mark for the work that
+ * was handed in. This is practice - the student reads the feedback, writes the
+ * piece again, and finds out whether it actually got better - so it lives in
+ * the student's own document and never touches the recorded score.
+ */
+export function saveWritingRewrite({ attemptId, questionIndex, studentId, quizSetId, text, mark }) {
+  if (!attemptId || !studentId) return null
+  const entry = {
+    attemptId,
+    questionIndex,
+    studentId: String(studentId),
+    quizSetId,
+    text: text || '',
+    categories: mark?.categories || [],
+    totalScore: (mark?.categories || []).reduce((sum, c) => sum + (c.score || 0), 0),
+    overallComment: mark?.overallComment || '',
+    improvement: mark?.improvement || '',
+    improved: mark?.improved || [],
+    stillToWork: mark?.stillToWork || [],
+    date: new Date().toISOString(),
+  }
+  mutateStudentArray(studentId, 'writingRewrites', (arr) => {
+    const idx = arr.findIndex((r) => r.attemptId === attemptId && r.questionIndex === questionIndex)
+    if (idx >= 0) arr[idx] = entry
+    else arr.push(entry)
+  })
+  return entry
+}
+
+export function getWritingRewrite(attemptId, questionIndex, studentId) {
+  return getStudentArray(studentId, 'writingRewrites')
+    .find((r) => r.attemptId === attemptId && r.questionIndex === questionIndex) || null
 }
 
 export function deleteWritingMark(attemptId, questionIndex, studentId) {

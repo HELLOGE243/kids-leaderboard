@@ -13961,6 +13961,277 @@ button.hw-res-qth.active {
   padding-bottom: 10px;
   border-bottom: 1px solid #ece5d8;
 }
+/* Writing again, with the feedback in hand. */
+.qt-wr-rewrite-offer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(102,187,106,0.4);
+  background: rgba(102,187,106,0.08);
+}
+.qt-wr-rewrite-offer-text { flex: 1; min-width: 200px; font-size: var(--size-content); line-height: 1.5; color: var(--text); }
+.qt-wr-rewrite-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  background: #66bb6a;
+  color: #08210c;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.qt-wr-rewrite-btn:hover { background: #7fd083; }
+.qt-wr-rewrite-done {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border-radius: 10px;
+  border: 1px solid rgba(102,187,106,0.4);
+  background: rgba(102,187,106,0.07);
+}
+.qt-wr-rewrite-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.qt-wr-rewrite-title { font-weight: 700; font-size: 0.95rem; color: var(--text); }
+.qt-wr-rewrite-score { font-weight: 800; font-size: 1.1rem; display: inline-flex; align-items: baseline; gap: 8px; }
+.qt-wr-rewrite-delta { font-size: 0.75rem; font-weight: 700; color: var(--text-dim); }
+.qt-wr-rewrite-delta.is-up { color: #66bb6a; }
+.qt-wr-rewrite-delta.is-down { color: #ff9100; }
+.qt-wr-rewrite-note { font-size: var(--size-content); line-height: 1.6; color: var(--text); margin: 0 0 10px; }
+.qt-wr-rewrite-list { margin-bottom: 8px; }
+.qt-wr-rewrite-list-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); }
+.qt-wr-rewrite-list ul { margin: 4px 0 0; padding-left: 20px; }
+.qt-wr-rewrite-list li { font-size: var(--size-content); line-height: 1.5; color: var(--text); margin-bottom: 3px; }
+.qt-wr-rewrite-text {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.18);
+  font-size: var(--size-content);
+  line-height: 1.8;
+  white-space: pre-wrap;
+  color: var(--text);
+}
+.qt-wr-rewrite-foot { font-size: 0.68rem; color: var(--text-dim); font-style: italic; margin: 10px 0; }
+
+.qt-rewrite-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  background: rgba(8,8,18,0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.qt-rewrite-panel {
+  width: min(840px, 100%);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--bg-card);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  padding: 20px 22px;
+  overflow: auto;
+}
+.qt-rewrite-top { display: flex; justify-content: space-between; align-items: center; }
+.qt-rewrite-heading { font-size: 1.15rem; font-weight: 800; color: var(--text); }
+.qt-rewrite-close { background: none; border: none; color: var(--text-dim); font-size: 1.1rem; cursor: pointer; }
+.qt-rewrite-prompt { font-size: var(--size-content); line-height: 1.6; color: var(--text); padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.qt-rewrite-advice { font-size: var(--size-content); line-height: 1.55; color: var(--text-dim); }
+.qt-rewrite-area {
+  flex: 1;
+  min-height: 300px;
+  resize: vertical;
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(0,0,0,0.25);
+  color: var(--text);
+  font-family: var(--font-content);
+  font-size: var(--size-content);
+  line-height: 1.9;
+}
+.qt-rewrite-area:focus { outline: none; border-color: #66bb6a; }
+.qt-rewrite-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.qt-rewrite-count { font-size: 0.7rem; color: var(--text-dim); }
+.qt-rewrite-error { font-size: 0.72rem; color: var(--danger); flex: 1; }
+.qt-rewrite-send {
+  margin-left: auto;
+  padding: 12px 24px;
+  border-radius: 8px;
+  border: none;
+  background: #66bb6a;
+  color: #08210c;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.qt-rewrite-send:disabled { opacity: 0.6; cursor: default; }
+
+/* How this piece sits against the ones already marked. */
+.wr-calib {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(66,165,245,0.35);
+  background: rgba(66,165,245,0.08);
+  font-family: var(--font-body);
+}
+.wr-calib-warn {
+  border-color: rgba(255,145,0,0.45);
+  background: rgba(255,145,0,0.09);
+}
+.wr-calib-head {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+.wr-calib-note, .wr-calib-reason {
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--text-dim);
+  margin: 0 0 6px;
+}
+.wr-calib-item {
+  border-top: 1px solid rgba(140,130,110,0.25);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+.wr-calib-item-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.wr-calib-move { color: #ff9100; white-space: nowrap; }
+.wr-calib-actions { display: flex; gap: 8px; }
+.wr-calib-apply, .wr-calib-skip {
+  font-family: var(--font-body);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  border: 1px solid #ff9100;
+  background: rgba(255,145,0,0.15);
+  color: #ff9100;
+}
+.wr-calib-skip { border-color: rgba(140,130,110,0.4); background: transparent; color: var(--text-dim); }
+.wr-calib-foot { font-size: 0.62rem; color: var(--text-dim); margin: 8px 0 0; font-style: italic; }
+
+/* Marking toolbar: the tool is chosen here, then used on the words. */
+.wr-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background: var(--bg-card);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 6;
+}
+.wr-marking-mode .wr-toolbar {
+  background: #faf7f0;
+  border: 1px solid #d4c9a8;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+.wr-toolbar-tools { display: flex; gap: 6px; flex-wrap: wrap; }
+.wr-toolbar-history { display: flex; gap: 6px; }
+.wr-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(140,130,110,0.35);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.wr-marking-mode .wr-tool-btn { color: #5a5468; background: #fff; }
+.wr-tool-btn:hover:not(:disabled) { border-color: var(--tool-color); color: var(--tool-color); }
+.wr-tool-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.wr-tool-btn-on,
+.wr-marking-mode .wr-tool-btn-on {
+  background: color-mix(in srgb, var(--tool-color) 18%, transparent);
+  border-color: var(--tool-color);
+  color: var(--tool-color);
+  box-shadow: inset 0 0 0 1px var(--tool-color);
+}
+.wr-tool-icon { font-size: 0.85rem; line-height: 1; }
+.wr-tool-hist {
+  font-family: var(--font-body);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(140,130,110,0.35);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.wr-marking-mode .wr-tool-hist { background: #fff; color: #5a5468; }
+.wr-tool-hist:disabled { opacity: 0.35; cursor: default; }
+.wr-tool-hist:hover:not(:disabled) { border-color: #42a5f5; color: #42a5f5; }
+.wr-toolbar-hint {
+  font-family: var(--font-body);
+  font-size: 0.66rem;
+  color: var(--text-dim);
+  margin: 0 0 10px 2px;
+}
+.wr-marking-mode .wr-toolbar-hint { color: #8a8398; }
+/* While a tool is armed the writing itself shows it. */
+.wr-response-armed { background: rgba(66,165,245,0.04); border-radius: 4px; }
+.wr-response-armed::selection, .wr-response-armed *::selection { background: rgba(66,165,245,0.3); }
+
+/* Rewording a mark that is already there. */
+.wr-annot-editable { cursor: text; border-radius: 3px; }
+.wr-annot-editable:hover {
+  background: rgba(66,165,245,0.14);
+  box-shadow: 0 0 0 1px rgba(66,165,245,0.35);
+}
+.wr-annot-edit-box {
+  flex: 1;
+  min-width: 120px;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  padding: 6px 8px;
+  border: 1px solid #42a5f5;
+  border-radius: 5px;
+  background: #fff;
+  color: #2d2a3a;
+  resize: vertical;
+}
+.wr-annot-edit-box:focus { outline: none; border-color: #1e88e5; }
+.wr-annot-edit {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0 4px;
+}
+.wr-annot-edit:hover { color: #42a5f5; }
+
 .wr-edit-toggle { font-size: 0.65rem; padding: 4px 10px; border: 1px solid #42a5f5; border-radius: 4px; background: rgba(66,165,245,0.08); cursor: pointer; color: #42a5f5; font-weight: 600; text-transform: none; letter-spacing: 0; }
 .wr-edit-toggle:hover { background: rgba(66,165,245,0.18); }
 .wr-response-editable { font-family: var(--font-response); border: 2px solid #42a5f5; border-radius: 6px; outline: none; caret-color: #1a1a2e; }

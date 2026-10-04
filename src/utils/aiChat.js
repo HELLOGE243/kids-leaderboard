@@ -371,9 +371,53 @@ Return ONLY the JSON array, no other text.`
   }
 }
 
-export async function generateAiMark(studentText, rubricCategories, preAnalysis) {
+/** The words out of a rich-text answer, for putting in a prompt. */
+function plainWords(html) {
+  return String(html || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+/**
+ * Marks a piece of writing, against the pieces already marked for the question
+ * where there are any.
+ *
+ * @param {Array} [exemplars] previously marked pieces, from getWritingExemplars
+ */
+export async function generateAiMark(studentText, rubricCategories, preAnalysis, exemplars = []) {
   const catDescriptions = rubricCategories.map(c => `- ${c.key}: "${c.name}" — criteria: ${c.criteria.join('; ')}`).join('\n')
   const contextNote = preAnalysis ? `Your prior analysis of this writing: style="${preAnalysis.style}", level="${preAnalysis.level}", strengths="${preAnalysis.strengths}", weaknesses="${preAnalysis.weaknesses}".` : ''
+
+  // A mark means nothing on its own. Where other answers to this same question
+  // have been marked, they are the standard this one is measured against.
+  const anchors = (exemplars || []).map((ex, i) => {
+    const perCat = (ex.categories || [])
+      .map((c) => `${c.key} ${c.score}/5`).join(', ')
+    return `Reference piece ${i + 1} - awarded ${ex.totalScore}/25 (${perCat}):
+"""
+${plainWords(ex.studentText).slice(0, 2200)}
+"""`
+  }).join('\n\n')
+
+  const calibration = anchors ? `
+ALREADY MARKED FOR THIS SAME QUESTION — these are your standard:
+
+${anchors}
+
+Mark the new piece on the same scale as those. A piece clearly better written than a reference piece must score higher than it, and one clearly weaker must score lower; a piece of much the same standard gets much the same mark. Say in "calibration" how the new piece sits against them.
+
+Then check the references themselves. If reading them together shows one was marked too generously or too harshly against the others, list it under "inconsistencies" with the mark you would give it and one sentence of why. Judge only what the writing shows, and leave out any reference you consider correctly marked — an empty list is the right answer when the marking is consistent.
+` : ''
+
   const prompt = `You are a nurturing, supportive Year 5-6 writing teacher marking a student's work. Be encouraging and positive — celebrate what the student did well, and frame improvements gently as next steps.
 
 Student's writing:
@@ -383,6 +427,7 @@ ${studentText}
 
 ${contextNote}
 
+${calibration}
 Rubric categories (each scored 1-5, where 1=Beginning, 2=Developing, 3=Competent, 4=Proficient, 5=Advanced):
 ${catDescriptions}
 
@@ -399,7 +444,11 @@ Return ONLY a JSON object:
     { "key": "fluency", "score": 4, "comment": "..." },
     { "key": "mechanics", "score": 3, "comment": "..." }
   ],
-  "overallComment": "..."
+  "overallComment": "...",
+  "calibration": "One sentence on how this piece sits against the reference pieces, or \"\" if there were none.",
+  "inconsistencies": [
+    { "reference": 1, "suggestedTotal": 17, "categories": [{ "key": "content", "score": 3 }], "reason": "..." }
+  ]
 }`
 
   try {
@@ -408,7 +457,9 @@ Return ONLY a JSON object:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1500,
+        // The reference pieces are in the question, so there is more to read
+        // and a little more to say about where this one sits.
+        max_tokens: 2500,
         messages: [{ role: 'user', content: prompt }],
       }),
     })
@@ -416,8 +467,108 @@ Return ONLY a JSON object:
     const data = await res.json()
     const text = data.content?.[0]?.text || ''
     const match = text.match(/\{[\s\S]*\}/)
-    if (match) return parseJsonLoose(match[0])
+    if (!match) return null
+    const parsed = parseJsonLoose(match[0])
+    if (!parsed) return null
+    // An inconsistency is about one of the pieces we sent, so carry the
+    // attempt it belongs to back with it.
+    parsed.inconsistencies = (Array.isArray(parsed.inconsistencies) ? parsed.inconsistencies : [])
+      .map((item) => {
+        const ref = exemplars[(Number(item.reference) || 0) - 1]
+        if (!ref) return null
+        return {
+          attemptId: ref.attemptId,
+          studentId: ref.studentId,
+          was: ref.totalScore,
+          suggestedTotal: Number(item.suggestedTotal) || 0,
+          categories: Array.isArray(item.categories) ? item.categories : [],
+          reason: item.reason || '',
+        }
+      })
+      .filter(Boolean)
+      .filter((item) => item.suggestedTotal > 0 && item.suggestedTotal !== item.was)
+    return parsed
+  } catch {
     return null
+  }
+}
+
+/**
+ * Marks a student's rewrite with their first attempt in front of it.
+ *
+ * The point is not the mark on its own but the distance travelled: the model is
+ * shown both pieces and what the first scored, so the new score is on the same
+ * scale and the feedback can say what actually changed.
+ *
+ * @returns {Promise<object|null>} categories, overallComment, improvement, improved[], stillToWork[]
+ */
+export async function remarkWritingRewrite(originalText, rewriteText, rubricCategories, originalMark) {
+  const catDescriptions = rubricCategories
+    .map(c => `- ${c.key}: "${c.name}" — criteria: ${c.criteria.join('; ')}`).join('\n')
+  const firstScores = (originalMark?.categories || [])
+    .map(c => `${c.key} ${c.score}/5`).join(', ')
+  const teacherNotes = (originalMark?.categories || [])
+    .filter(c => c.comment)
+    .map(c => `- ${c.key}: ${c.comment}`).join('\n')
+
+  const prompt = `You are a nurturing Year 5-6 writing teacher. A student has read your feedback on a piece of writing and written it again. Mark the new version, and tell them what changed.
+
+THEIR FIRST VERSION — scored ${originalMark?.totalScore ?? '?'}/25 (${firstScores}):
+"""
+${plainWords(originalText)}
+"""
+
+The feedback they were given on it:
+${teacherNotes || '(none recorded)'}
+${originalMark?.overallComment ? `Overall: ${originalMark.overallComment}` : ''}
+
+THEIR REWRITE:
+"""
+${plainWords(rewriteText)}
+"""
+
+Rubric categories (each scored 1-5, where 1=Beginning, 2=Developing, 3=Competent, 4=Proficient, 5=Advanced):
+${catDescriptions}
+
+Mark the rewrite on the same scale you marked the first version on. Be honest: a category only goes up where the writing genuinely got better, it stays the same where it did not, and it goes down if something that worked before has been lost. Praise what improved, in their own words where you can quote them.
+
+Then say in one or two warm sentences what changed overall, list the things they clearly improved, and list what is still worth working on next time.
+
+Return ONLY a JSON object:
+{
+  "categories": [
+    { "key": "content", "score": 4, "comment": "..." },
+    { "key": "structure", "score": 3, "comment": "..." },
+    { "key": "vocabulary", "score": 3, "comment": "..." },
+    { "key": "fluency", "score": 4, "comment": "..." },
+    { "key": "mechanics", "score": 3, "comment": "..." }
+  ],
+  "overallComment": "...",
+  "improvement": "One or two sentences on what changed between the two versions.",
+  "improved": ["what they clearly did better", "..."],
+  "stillToWork": ["what to aim for next time", "..."]
+}`
+
+  try {
+    const res = await authedFetch('/api/claude/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 2500,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    const text = data.content?.[0]?.text || ''
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) return null
+    const parsed = parseJsonLoose(match[0])
+    if (!parsed) return null
+    parsed.improved = Array.isArray(parsed.improved) ? parsed.improved : []
+    parsed.stillToWork = Array.isArray(parsed.stillToWork) ? parsed.stillToWork : []
+    return parsed
   } catch {
     return null
   }
