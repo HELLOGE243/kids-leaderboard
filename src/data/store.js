@@ -266,8 +266,49 @@ export function studentRecordReady(studentId) {
   return isStudentDataReady(studentId) || !!_studentLocalCache[studentId]
 }
 
+// Firestore refuses a document over 1 MiB, and the refusal is quiet: the
+// hand-in never joins the student's record while the archive copy, a separate
+// small document, lands fine. The paper then reads as never sat - only the
+// first module unlocks, and opening it finds the archived copy and says they
+// have already submitted. Two students' records passed the ceiling and nine
+// hand-ins were lost that way before it was found.
+const SAFE_RECORD_BYTES = 800000
+
+/**
+ * Keeps a student's record inside what Firestore will accept.
+ *
+ * Revision cards are the weight - each carries a whole copy of its question,
+ * images and all, and one was 49 KB - and they are also the only part that
+ * comes back on its own: a card is raised again the next time that question is
+ * answered wrongly. So cards are what gets shed, heaviest first, to protect the
+ * part that cannot be regenerated.
+ */
+function shedToFit(sData) {
+  let size = JSON.stringify(sData).length
+  if (size <= SAFE_RECORD_BYTES) return
+  const cards = Array.isArray(sData.dojoCards) ? sData.dojoCards : []
+  if (!cards.length) return
+  const heaviest = cards
+    .map((card, i) => [JSON.stringify(card).length, i])
+    .sort((a, b) => b[0] - a[0])
+  const drop = new Set()
+  for (const [bytes, i] of heaviest) {
+    if (size <= SAFE_RECORD_BYTES) break
+    drop.add(i)
+    size -= bytes
+  }
+  if (!drop.size) return
+  console.warn(`store: shedding ${drop.size} revision card(s) to keep ${studentIdOf(sData)}'s record writable`)
+  sData.dojoCards = cards.filter((_, i) => !drop.has(i))
+}
+
+function studentIdOf(sData) {
+  return sData?.studentId || sData?.profile?.id || 'this student'
+}
+
 function saveStudentData(studentId, sData) {
   if (!studentId) return
+  shedToFit(sData)
   sData._savedAt = Date.now()
   _studentLocalCache[studentId] = sData
   if (isDataReady()) saveStudentFirestore(studentId, sData)
