@@ -965,6 +965,77 @@ exports.authAdmin = functions
           return sendJson(res, 200, { ok: true, written })
         }
 
+        if (action === 'backfillArchive') {
+          // Rebuilds the archive copies that never landed.
+          //
+          // A hand-in writes two places: the student's own record, and the
+          // archive. The archive write used to be started and forgotten, so a
+          // tab closed in the same breath as submitting left the paper with no
+          // archived copy - four of one student's were missing, including a
+          // 44/46. The rules make the archive immutable and let only the
+          // student create their own copy, which is as it should be, so this
+          // side is the only one that can put a lost one back.
+          //
+          // An existing copy is never touched. Answers are copied across
+          // verbatim: both collections store them in the same wrapped form, so
+          // nothing needs unwrapping and nothing can be mangled on the way.
+          const dry = req.body?.dry !== false
+          const [people, filed, app, quizMeta] = await Promise.all([
+            db.collection('studentData').get(),
+            db.collection('submissions').select().get(),
+            getAppData(),
+            getQuizMeta(),
+          ])
+          const have = new Set(filed.docs.map((d) => d.id))
+          const found = []
+          let batch = db.batch()
+          let inBatch = 0
+          for (const d of people.docs) {
+            const studentId = d.id
+            const data = d.data() || {}
+            const student = (app.students || {})[studentId]
+            for (const [key, kind] of [['homeworkAttempts', 'homework'], ['homeworkRedos', 'redo']]) {
+              for (const a of (Array.isArray(data[key]) ? data[key] : [])) {
+                if (!a || !a.id || have.has(a.id)) continue
+                const record = {
+                  id: a.id,
+                  kind,
+                  studentId: String(studentId),
+                  studentName: student?.name || '',
+                  quizSetId: a.quizSetId || '',
+                  quizTitle: quizMeta.get(a.quizSetId)?.title || '',
+                  answers: a.answers || [],
+                  questionTimes: a.questionTimes || [],
+                  score: Number(a.score) || 0,
+                  total: Number(a.total) || 0,
+                  date: a.date || '',
+                  term: a.term || null,
+                  orgId: a.orgId || null,
+                  screenLeaves: Number(a.screenLeaves) || 0,
+                  lockedOut: !!a.lockedOut,
+                  archivedAt: a.date || '',
+                  // Said on the record, because this copy was rebuilt rather
+                  // than filed at the time: the answer key the paper was
+                  // marked against is not recoverable from the student's own
+                  // record, so it is not here either.
+                  backfilled: true,
+                  backfillNote: 'Rebuilt from the student record; the original archive write was lost.',
+                }
+                found.push({
+                  id: a.id, studentName: record.studentName, quizSetId: record.quizSetId,
+                  score: record.score, total: record.total, date: record.date, kind,
+                })
+                if (!dry) {
+                  batch.set(db.collection('submissions').doc(a.id), record)
+                  if (++inBatch === 300) { await batch.commit(); batch = db.batch(); inBatch = 0 }
+                }
+              }
+            }
+          }
+          if (!dry && inBatch) await batch.commit()
+          return sendJson(res, 200, { ok: true, dry, alreadyFiled: have.size, count: found.length, papers: found })
+        }
+
         if (action === 'migrateContacts') {
           // Moves parent phone/email off the shared student records into the
           // teacher-only studentContacts store, and masks phone numbers in the
