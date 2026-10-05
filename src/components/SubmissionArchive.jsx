@@ -47,6 +47,22 @@ export default function SubmissionArchive({ teacherName }) {
    * correctly earned. A draft counts as open only if that paper was never handed
    * in, or if the student has been writing since they last handed it in.
    */
+  /**
+   * The archived papers on show.
+   *
+   * This table used to render the newest 200 and ignore the search box
+   * entirely, so with 365 papers filed, 165 of them could not be reached from
+   * the UI at all - a teacher looking for one of those saw an archive that
+   * simply did not contain it.
+   */
+  const shownSubmissions = useMemo(() => {
+    const needle = filter.trim().toLowerCase()
+    const all = submissions || []
+    if (!needle) return all
+    return all.filter((s) => `${s.studentName || s.studentId} ${s.quizTitle || s.quizSetId}`
+      .toLowerCase().includes(needle))
+  }, [submissions, filter])
+
   const openDrafts = useMemo(() => {
     const handedIn = new Map()
     for (const sub of submissions || []) {
@@ -262,9 +278,20 @@ export default function SubmissionArchive({ teacherName }) {
         </table>
       )}
 
-      <p className="td2-h2" style={{ fontSize: '0.7rem' }}>Archived papers</p>
+      <p className="td2-h2" style={{ fontSize: '0.7rem' }}>
+        Archived papers
+        {submissions?.length > 0 && (
+          <span style={{ fontWeight: 400, opacity: 0.7, marginLeft: 8, fontSize: '0.9em' }}>
+            {filter.trim()
+              ? `${shownSubmissions.length} of ${submissions.length} match "${filter.trim()}"`
+              : `all ${submissions.length}`}
+          </span>
+        )}
+      </p>
 
-      {submissions.length === 0 ? (
+      {shownSubmissions.length === 0 && submissions.length > 0 ? (
+        <p className="text-dim" style={{ fontSize: '0.8rem' }}>No archived paper matches "{filter}".</p>
+      ) : submissions.length === 0 ? (
         <p className="text-dim" style={{ fontSize: '0.8rem' }}>Nothing archived yet. Every paper handed in from now on is recorded here.</p>
       ) : (
         <table className="table w-full">
@@ -278,7 +305,7 @@ export default function SubmissionArchive({ teacherName }) {
             </tr>
           </thead>
           <tbody>
-            {submissions.slice(0, 200).map((s) => (
+            {shownSubmissions.map((s) => (
               <tr key={s.id}>
                 <td style={{ fontSize: '0.75rem' }}>{s.studentName || s.studentId}</td>
                 <td style={{ fontSize: '0.75rem' }}>{s.quizTitle || s.quizSetId}</td>

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { renderMath } from '../utils/renderMath.js'
 import { prepareMath } from '../utils/mathify.js'
 import { getDojoCardsForStudent, recordCompulsoryRevisionAnswer, markDojoAskTeacher, reportQuestionError } from '../data/store.js'
@@ -26,6 +26,9 @@ function SessionRevision({ user, onComplete }) {
   const [resolvedHtml, setResolvedHtml] = useState({})
   const [feedbackMsg, setFeedbackMsg] = useState(null)
   const [showBurst, setShowBurst] = useState(false)
+  // The burst clears itself after a moment, but a student who presses Next
+  // straight away used to carry the green celebration onto the next card.
+  const burstTimer = useRef(null)
   const [particles, setParticles] = useState([])
   const [reportOpen, setReportOpen] = useState(false)
   const [reportType, setReportType] = useState('')
@@ -98,6 +101,24 @@ function SessionRevision({ user, onComplete }) {
     return question.options?.[question.correctIndex] || ''
   }
 
+  function startBurst() {
+    setShowBurst(true)
+    spawnParticles()
+    playCorrectChime()
+    clearTimeout(burstTimer.current)
+    burstTimer.current = setTimeout(() => setShowBurst(false), 1800)
+  }
+
+  /** Takes the celebration off the screen, whatever is left of it. */
+  function endBurst() {
+    clearTimeout(burstTimer.current)
+    burstTimer.current = null
+    setShowBurst(false)
+    setParticles([])
+  }
+
+  useEffect(() => () => clearTimeout(burstTimer.current), [])
+
   function handleSelfMark(knewIt) {
     if (answered) return
     setAnswered(true)
@@ -105,10 +126,7 @@ function SessionRevision({ user, onComplete }) {
     if (knewIt) {
       setScore(s => s + 1)
       setFeedbackMsg('Returned successfully')
-      setShowBurst(true)
-      spawnParticles()
-      playCorrectChime()
-      setTimeout(() => setShowBurst(false), 1800)
+      startBurst()
     } else {
       setFeedbackMsg('Kept in your revision deck')
     }
@@ -123,10 +141,7 @@ function SessionRevision({ user, onComplete }) {
     if (correct) {
       setScore(s => s + 1)
       setFeedbackMsg('Returned successfully')
-      setShowBurst(true)
-      spawnParticles()
-      playCorrectChime()
-      setTimeout(() => setShowBurst(false), 1800)
+      startBurst()
     } else {
       setFeedbackMsg('Kept in your revision deck')
     }
@@ -135,9 +150,11 @@ function SessionRevision({ user, onComplete }) {
 
   function handleNext() {
     if (idx + 1 >= total) {
+      endBurst()
       setDone(true)
       return
     }
+    endBurst()
     setIdx(i => i + 1)
     setSelected(-1)
     setAnswered(false)

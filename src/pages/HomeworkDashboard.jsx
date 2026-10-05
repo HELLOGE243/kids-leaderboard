@@ -57,6 +57,8 @@ import { playCoinSound } from '../utils/soundManager.js'
 import { resolveImages } from '../data/imageStore.js'
 import { remarkWritingRewrite } from '../utils/aiChat.js'
 import { flushPendingWrites } from '../data/firebase.js'
+import { pendingArchiveWrites, studentRecordReady } from '../data/store.js'
+import { onDataChange } from '../data/firebase.js'
 import { parseVideoUrl } from '../utils/video.js'
 import { useScreenGuard } from '../utils/screenGuard.js'
 import { setSittingActive } from '../utils/activeSitting.js'
@@ -434,6 +436,12 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   const [rewriteBusy, setRewriteBusy] = useState(false)
   const [rewriteError, setRewriteError] = useState('')
   const [rewriteTick, setRewriteTick] = useState(0)
+  // This screen had nothing listening, so the student's own record could land
+  // after the first paint and nothing redrew: the papers stayed as they were
+  // drawn, which was before their results existed.
+  const [, bumpDataTick] = useState(0)
+  useEffect(() => onDataChange(() => bumpDataTick((t) => t + 1)), [])
+  const recordReady = studentRecordReady(user.id)
   const [resetPw, setResetPw] = useState('')
   const [resetError, setResetError] = useState(false)
   const timerRef = useRef(null)
@@ -634,6 +642,10 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   }
 
   function handleQuizCardClick(quizSet, hasAttempt) {
+    // Opening a paper decides whether it has been sat. Deciding that from a
+    // record that has not arrived is how a finished paper offered to start and
+    // then declared itself sealed a moment later.
+    if (!studentRecordReady(user.id)) return
     if (hasAttempt && !quizResultsVisible(quizSet.id, user.id)) {
       // A trial paper closes on submission and stays closed. Opening it would
       // show the questions and the answers given, which is most of the paper.
@@ -886,8 +898,10 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       sendBroadcast(`${user.name} finished ${label}`)
     }
     // Push the hand-in out now rather than on the coalescing timer: the moment
-    // after submitting is exactly when a student closes the tab.
-    flushPendingWrites().catch(() => {})
+    // after submitting is exactly when a student closes the tab. The archived
+    // copy is part of that — it used to be started and forgotten, and a tab
+    // closed in the same breath left the paper with no archive copy at all.
+    Promise.all([flushPendingWrites(), pendingArchiveWrites()]).catch(() => {})
     if (!isRedo && result && resolvedQuestions) {
       const dojoCourse = activeCourse ? getCourseById(activeCourse) : null
       const dojoCourseName = dojoCourse?.name || ''
@@ -2948,7 +2962,9 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                       )}
                     </div>
                     <p className="hw-section-label">Assignments</p>
-                    {quizSets.length === 0 ? (
+                    {!recordReady ? (
+                      <p className="hw-cards-loading">Fetching your results…</p>
+                    ) : quizSets.length === 0 ? (
                       <p className="text-dim" style={{ fontSize: '0.8rem' }}>No assignments for this module yet.</p>
                     ) : (
                       <div className="hw-quiz-grid">

@@ -14785,17 +14785,42 @@ button.hw-res-qth.active {
   justify-content: center;
   line-height: 1;
 }
-.wr-mark-insertion-wrap { position: relative; }
-.wr-mark-insertion-bubble {
+.wr-mark-insertion-wrap { position: relative; display: inline; }
+/* Where the words go. Separate from the bubble so the sentence either side
+   keeps its own spacing. */
+.wr-mark-insertion-caret {
   display: inline-block;
+  width: 0;
+  overflow: visible;
+  color: #66bb6a;
+  font-weight: 700;
+  transform: translateY(2px);
+}
+.wr-marking-mode .wr-mark-insertion-caret { color: #4a7c59; }
+.hw-cards-loading {
+  padding: 18px 4px;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+.wr-mark-insertion-bubble {
+  /* Out of the flow, above the caret, the way a word processor shows inserted
+     text. In the flow it widened the line and pushed every mark after it out
+     of place; out of it, it cannot move anything. The marking view runs at
+     line-height 2.6, so there is room above the words for it to sit. */
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  transform: translate(-50%, 4px);
+  white-space: nowrap;
   background: rgba(102,187,106,0.15);
   border: 1px solid #66bb6a;
   border-radius: 4px;
-  padding: 1px 6px;
-  font-size: 0.78rem;
+  padding: 0 5px;
+  font-size: 0.7rem;
+  line-height: 1.5;
   color: #66bb6a;
-  margin: 0 2px;
-  vertical-align: baseline;
+  pointer-events: auto;
+  z-index: 3;
 }
 .wr-marking-mode .wr-mark-insertion-bubble {
   background: rgba(74,124,89,0.1);

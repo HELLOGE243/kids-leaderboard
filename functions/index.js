@@ -291,6 +291,22 @@ exports.onStudentDataWrite = functions
       ? [...(Array.isArray(before.homeworkAttempts) ? before.homeworkAttempts : []), ...(Array.isArray(before.quizAttempts) ? before.quizAttempts : []).map((a) => ({ ...a, quizSetId: a.quizId }))]
       : []
     const beforeById = new Map(beforeAttempts.map((a) => [a.id, JSON.stringify(a)]))
+
+    // An attempt that has gone - a teacher clearing a paper so a student can
+    // sit it again, or voiding a sitting - must leave the figures too. This
+    // only ever added and updated, so a cleared paper kept its entry here and
+    // the student went on counting towards that paper's average, its ranks and
+    // every percentile drawn from it. The student's record is the authority on
+    // what they have sat; anything here without a matching attempt is stale.
+    const liveQuizIds = new Set([...attempts, ...checkpointAttempts]
+      .filter((a) => a && a.quizSetId).map((a) => a.quizSetId))
+    for (const quizSetId of new Set(beforeAttempts.filter((a) => a && a.quizSetId).map((a) => a.quizSetId))) {
+      if (liveQuizIds.has(quizSetId)) continue
+      writes.push(
+        db.collection('quizStats').doc(quizSetId).collection('attempts').doc(studentId)
+          .delete().catch(() => {})
+      )
+    }
     for (const a of [...attempts, ...checkpointAttempts]) {
       if (!a || !a.quizSetId) continue
       if (beforeById.get(a.id) === JSON.stringify(a)) continue

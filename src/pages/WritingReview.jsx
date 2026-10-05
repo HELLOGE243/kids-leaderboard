@@ -473,12 +473,20 @@ function WritingReview({ orgId, teacherId, onBack }) {
     const all = pending ? [...annotations, pending] : annotations
     if (!all.length) return <div className="wr-annotated-text">{plain}</div>
 
-    const sorted = [...all].sort((a, b) => a.startOffset - b.startOffset)
+    // An insert marks a point between two words, so it has no width. At the
+    // same offset it must come before a mark that does have width, or the
+    // widthless one is stepped over and silently disappears - which is what
+    // used to shunt every mark after it out of place.
+    const width = (a) => a.endOffset - a.startOffset
+    const sorted = [...all].sort((a, b) =>
+      (a.startOffset - b.startOffset) || (width(a) - width(b)))
     const parts = []
     let cursor = 0
 
     for (const ann of sorted) {
-      if (ann.startOffset < cursor) continue
+      // An insert whose point has already been passed - it sat inside another
+      // mark's words - is placed here rather than dropped.
+      if (ann.startOffset < cursor && width(ann) > 0) continue
       if (ann.startOffset > cursor) {
         parts.push({ type: 'text', content: plain.slice(cursor, ann.startOffset) })
       }
@@ -496,7 +504,7 @@ function WritingReview({ orgId, teacherId, onBack }) {
       } else if (ann.action === 'correction') {
         parts.push({ type: 'correction', content: plain.slice(ann.startOffset, ann.endOffset), suggestion: ann.suggestion, color: ann.color || '#ff9100', id: ann.id })
       }
-      cursor = ann.endOffset
+      cursor = Math.max(cursor, ann.endOffset)
     }
     if (cursor < plain.length) {
       parts.push({ type: 'text', content: plain.slice(cursor) })
@@ -516,7 +524,8 @@ function WritingReview({ orgId, teacherId, onBack }) {
               const cIdx = commentAnnots.findIndex(a => a.id === p.id)
               return <span key={i} className="wr-mark-comment" data-comment-idx={cIdx + 1}>{p.content}</span>
             }
-            if (p.type === 'insertion') return <span key={i} className="wr-mark-insertion-wrap">{p.content}<span className="wr-mark-insertion-bubble wr-annot-editable" title="Click to reword" onClick={() => startEditAnnotation(annotations.find(a => a.id === p.id))}>{p.insertionText}</span></span>
+            // A caret, then the words, so the surrounding text keeps its spacing.
+            if (p.type === 'insertion') return <span key={i} className="wr-mark-insertion-wrap">{p.content}<span className="wr-mark-insertion-caret">⌃</span><span className="wr-mark-insertion-bubble wr-annot-editable" title="Click to reword" onClick={() => startEditAnnotation(annotations.find(a => a.id === p.id))}>{p.insertionText}</span></span>
             if (p.type === 'correction') return <span key={i} className="wr-mark-correction"><span className="wr-mark-correction-original">{p.content}</span>{p.suggestion && <span className="wr-mark-correction-suggestion wr-annot-editable" title="Click to reword" onClick={() => startEditAnnotation(annotations.find(a => a.id === p.id))}><span className="wr-mark-suggestion-label">Suggestion:</span> {p.suggestion}</span>}</span>
             return null
           })}

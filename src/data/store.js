@@ -251,6 +251,21 @@ function loadStudentData(studentId) {
   return null
 }
 
+/**
+ * Whether this student's own record has actually arrived on this device.
+ *
+ * It matters because of what happens when it has not. getStudentArray falls
+ * back to the old shared array, which is empty for every migrated student, so
+ * an unloaded record and a student who has done nothing look exactly alike. A
+ * screen drawn in that moment told students they had not started papers they
+ * had finished - and clicking one then found the attempt a moment later and
+ * called the paper sealed.
+ */
+export function studentRecordReady(studentId) {
+  if (!studentId) return false
+  return isStudentDataReady(studentId) || !!_studentLocalCache[studentId]
+}
+
 function saveStudentData(studentId, sData) {
   if (!studentId) return
   sData._savedAt = Date.now()
@@ -2758,9 +2773,31 @@ function screenMeta(meta) {
  * checkable in a month, after the quiz has been edited. Fire and forget - a
  * student is never held up by it.
  */
+/**
+ * Keeps hold of the archive writes still in flight.
+ *
+ * The archive copy used to be started and forgotten, so a student who handed in
+ * and closed the tab in the same breath left no archived paper - four of
+ * Belmin's were missing this way, including a 44/46. flushPendingWrites now
+ * waits for these too, and that is what a hand-in already waits on.
+ */
+const _archiveWrites = new Set()
+
+function trackArchiveWrite(promise) {
+  if (!promise || typeof promise.then !== 'function') return promise
+  _archiveWrites.add(promise)
+  promise.catch(() => {}).then(() => _archiveWrites.delete(promise))
+  return promise
+}
+
+/** Every archive write still in flight, for flushPendingWrites to wait on. */
+export function pendingArchiveWrites() {
+  return Promise.all([..._archiveWrites].map((p) => p.catch(() => {})))
+}
+
 function archiveAttempt(attempt, set, kind) {
   try {
-    archiveSubmission({
+    trackArchiveWrite(archiveSubmission({
       id: attempt.id,
       kind,
       studentId: String(attempt.studentId),
@@ -2785,7 +2822,7 @@ function archiveAttempt(attempt, set, kind) {
         correctOrder: q.correctOrder || null,
         match: (q.matchQuestions || []).map((m) => m.correctExtract),
       })),
-    })
+    }))
   } catch (e) {
     console.warn('store: could not archive the submission:', e)
   }
