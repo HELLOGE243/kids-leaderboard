@@ -271,44 +271,51 @@ export function studentRecordReady(studentId) {
 // small document, lands fine. The paper then reads as never sat - only the
 // first module unlocks, and opening it finds the archived copy and says they
 // have already submitted. Two students' records passed the ceiling and nine
-// hand-ins were lost that way before it was found.
+// hand-ins were lost that way.
+//
+// Revision cards were 84% of the weight, because each one stored a whole copy
+// of its question - a reading passage of 53 KB, copied again into every card
+// from that paper. And the copy was never read: withLiveQuestion replaces it
+// with the question as it stands in the quiz set, on every path that serves a
+// card. So the copy is dropped, which costs nothing and no card is ever lost.
 const SAFE_RECORD_BYTES = 800000
 
 /**
- * Keeps a student's record inside what Firestore will accept.
+ * Drops the stored copy of each card's question, keeping the card.
  *
- * Revision cards are the weight - each carries a whole copy of its question,
- * images and all, and one was 49 KB - and they are also the only part that
- * comes back on its own: a card is raised again the next time that question is
- * answered wrongly. So cards are what gets shed, heaviest first, to protect the
- * part that cannot be regenerated.
+ * A card carries its paper and its question's id, which is how the hall finds
+ * the question to ask - the stored copy is only ever overwritten by it. A
+ * custom card has no paper to find it in, so that copy stays.
  */
-function shedToFit(sData) {
-  let size = JSON.stringify(sData).length
-  if (size <= SAFE_RECORD_BYTES) return
+function compactStoredCards(sData) {
   const cards = Array.isArray(sData.dojoCards) ? sData.dojoCards : []
-  if (!cards.length) return
-  const heaviest = cards
-    .map((card, i) => [JSON.stringify(card).length, i])
-    .sort((a, b) => b[0] - a[0])
-  const drop = new Set()
-  for (const [bytes, i] of heaviest) {
-    if (size <= SAFE_RECORD_BYTES) break
-    drop.add(i)
-    size -= bytes
+  let dropped = 0
+  for (const card of cards) {
+    if (!card || !card.question || isCustomCard(card)) continue
+    if (!card.questionId && !(card.questionIndex >= 0)) continue
+    // A word of the question is kept so a card can still be listed and searched
+    // if its paper is ever withdrawn.
+    if (!card.questionSnippet) {
+      const text = String(card.question.text || card.question.prompt || '')
+      card.questionSnippet = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180)
+    }
+    delete card.question
+    dropped += 1
   }
-  if (!drop.size) return
-  console.warn(`store: shedding ${drop.size} revision card(s) to keep ${studentIdOf(sData)}'s record writable`)
-  sData.dojoCards = cards.filter((_, i) => !drop.has(i))
-}
-
-function studentIdOf(sData) {
-  return sData?.studentId || sData?.profile?.id || 'this student'
+  if (dropped) {
+    console.info(`store: ${dropped} revision card(s) now point at their question instead of copying it`)
+  }
 }
 
 function saveStudentData(studentId, sData) {
   if (!studentId) return
-  shedToFit(sData)
+  compactStoredCards(sData)
+  if (JSON.stringify(sData).length > SAFE_RECORD_BYTES) {
+    // Compacting is the whole of the remedy. If a record is still too big,
+    // say so loudly rather than quietly dropping any part of a student's work.
+    console.error(`store: ${studentId}'s record is ${JSON.stringify(sData).length} bytes, `
+      + `over the ${SAFE_RECORD_BYTES} it should stay inside. Nothing has been removed.`)
+  }
   sData._savedAt = Date.now()
   _studentLocalCache[studentId] = sData
   if (isDataReady()) saveStudentFirestore(studentId, sData)
@@ -3980,10 +3987,16 @@ export function addDojoCard(studentId, question, sourceType, sourceId, questionI
   }
   const data = loadData()
   const quizSet = (data.importedQuizSets || []).find(s => s.id === sourceId)
+  // The question is not stored: the hall reads it from the quiz set through
+  // withLiveQuestion, so a copy here is never looked at and was most of what
+  // pushed two records past the size Firestore accepts. A custom card has no
+  // quiz set to read from, so that one keeps its question.
+  const snippet = String(question?.text || question?.prompt || '')
+    .replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180)
   const card = {
     id: 'dojo_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
     studentId,
-    question,
+    questionSnippet: snippet,
     sourceType,
     sourceId,
     questionIndex,
