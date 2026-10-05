@@ -502,7 +502,7 @@ function Portal({ user, onLogout }) {
                 {t('shop')}
                 <span className="portal-locked-tag">🔒</span>
               </button>
-              <button className="btn-logout" onClick={() => setShowLogoutConfirm(true)}>{t('logOut')}</button>
+              <button className="btn-logout btn-signout" onClick={() => setShowLogoutConfirm(true)}>{t('logOut')}</button>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <div className={`theme-switch ${lightMode ? 'theme-switch-light' : ''}`} onClick={() => {

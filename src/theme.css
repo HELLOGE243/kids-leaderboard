@@ -14797,6 +14797,18 @@ button.hw-res-qth.active {
   transform: translateY(2px);
 }
 .wr-marking-mode .wr-mark-insertion-caret { color: #4a7c59; }
+/* Signing out is the one button here you cannot undo by pressing Back, so it
+   is the only one that reads as a warning. The class is separate because
+   .btn-logout is worn by ordinary Back buttons too. */
+.btn-signout {
+  border-color: var(--danger, #ff1744) !important;
+  color: var(--danger, #ff1744) !important;
+  background: rgba(255, 23, 68, 0.1) !important;
+}
+.btn-signout:hover {
+  background: rgba(255, 23, 68, 0.2) !important;
+  border-color: var(--danger, #ff1744) !important;
+}
 .hw-cards-loading {
   padding: 18px 4px;
   font-size: 0.8rem;

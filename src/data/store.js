@@ -711,11 +711,14 @@ export function getStudentById(studentId) {
   const totalPoints = data.scores
     .filter((s) => s.studentId === studentId)
     .reduce((sum, s) => sum + s.value, 0)
-  const totalEarned = totalPoints * 10 + (student.bonusCoins || 0)
+  // Every term through count(): one text field used to turn the whole sum into
+  // string concatenation, and what the student saw on their results card was
+  // the digits of their awards run together rather than a number of coins.
+  const totalEarned = count(totalPoints) * 10 + count(student.bonusCoins)
   return {
     id: studentId,
     ...student,
-    coins: totalEarned - student.coinsSpent,
+    coins: totalEarned - count(student.coinsSpent),
     totalEarned,
     totalPoints,
   }
@@ -876,7 +879,7 @@ export function getStudentsInOrg(orgId) {
         .filter((sc) => sc.studentId === id)
         .reduce((sum, sc) => sum + sc.value, 0)
       const totalEarned = totalPoints * 10
-      return { id, ...s, coins: totalEarned - s.coinsSpent, totalEarned, totalPoints }
+      return { id, ...s, coins: totalEarned - count(s.coinsSpent), totalEarned, totalPoints }
     })
 }
 
@@ -1326,7 +1329,12 @@ export function addTokens(studentId, amount) {
 export function addCoins(studentId, amount) {
   const data = loadData()
   if (!data.students[studentId]) return false
-  data.students[studentId].bonusCoins = (data.students[studentId].bonusCoins || 0) + amount
+  // Through count(), because a balance that reaches the database as text stops
+  // adding and starts appending: 1240 coins plus an award of 180 became
+  // "1240180". The token balances were put through this; coins were missed, and
+  // fourteen students' balances grew into nonsense before it was spotted.
+  const earned = count(data.students[studentId].bonusCoins) + count(amount)
+  data.students[studentId].bonusCoins = earned
   saveData(data)
   return true
 }
@@ -4094,12 +4102,12 @@ function incrementDojoKills(studentId) {
   const sData = loadStudentData(studentId)
   if (sData && sData._migrated) {
     if (!sData.dojoKills) sData.dojoKills = {}
-    sData.dojoKills[studentId] = (sData.dojoKills[studentId] || 0) + 1
+    sData.dojoKills[studentId] = count(sData.dojoKills[studentId]) + 1
     saveStudentData(studentId, sData)
   }
   const data = loadData()
   if (!data.dojoKills) data.dojoKills = {}
-  data.dojoKills[studentId] = (data.dojoKills[studentId] || 0) + 1
+  data.dojoKills[studentId] = count(data.dojoKills[studentId]) + 1
   saveData(data)
 }
 
@@ -4110,9 +4118,9 @@ export function recordDojoAnswer(cardId, correct) {
   mutateStudentArray(studentId, 'dojoCards', (arr) => {
     const card = arr.find(c => c.id === cardId)
     if (!card) return
-    card.answerCount = (card.answerCount || 0) + 1
+    card.answerCount = count(card.answerCount) + 1
     if (correct) {
-      card.correctStreak = (card.correctStreak || 0) + 1
+      card.correctStreak = count(card.correctStreak) + 1
       if (card.correctStreak >= 3) {
         card.archived = true
         card.archivedDate = new Date().toISOString()
@@ -4136,9 +4144,9 @@ export function recordCompulsoryRevisionAnswer(cardId, correct) {
   mutateStudentArray(studentId, 'dojoCards', (arr) => {
     const card = arr.find(c => c.id === cardId)
     if (!card) return
-    card.answerCount = (card.answerCount || 0) + 1
+    card.answerCount = count(card.answerCount) + 1
     if (correct) {
-      card.correctStreak = (card.correctStreak || 0) + 1
+      card.correctStreak = count(card.correctStreak) + 1
       if (card.correctStreak >= 3) {
         card.archived = true
         card.archivedDate = new Date().toISOString()
@@ -4743,7 +4751,7 @@ export function awardDailyGameCoins(studentId, gameId, amount) {
   if (!data.students[studentId].dailyGames[key]) data.students[studentId].dailyGames[key] = {}
   if (!data.students[studentId].dailyGames[key][gameId]) data.students[studentId].dailyGames[key][gameId] = {}
   data.students[studentId].dailyGames[key][gameId].coinsAwarded = true
-  data.students[studentId].coinsSpent = (data.students[studentId].coinsSpent || 0) - amount
+  data.students[studentId].coinsSpent = count(data.students[studentId].coinsSpent) - count(amount)
   saveData(data)
   return true
 }
