@@ -247,10 +247,17 @@ exports.onStudentDataWrite = functions
     const studentId = context.params.studentId
     const after = change.after.exists ? change.after.data() : null
 
-    // Student document deleted - clear their entries.
+    // The record is gone, however it went. Everything drawn from it goes too,
+    // by path: the collection-group query this used needs an index that does
+    // not exist, so it threw, and the figures stayed behind.
     if (!after) {
-      const stale = await db.collectionGroup('entries').where('studentId', '==', studentId).get()
-      await Promise.all(stale.docs.map((d) => d.ref.delete()))
+      const core = (await db.collection('appData').doc('core').get()).data() || {}
+      try {
+        const removed = await purgeStudentFigures(studentId, Object.keys(core.classes || {}))
+        console.info(`onStudentDataWrite: ${studentId} removed from`, removed)
+      } catch (e) {
+        console.error(`onStudentDataWrite: could not clear figures for ${studentId}:`, e)
+      }
       return null
     }
 
@@ -1655,6 +1662,57 @@ async function createStudentAccount(req, res) {
   return sendJson(res, 200, { ok: true, id: created.id, name })
 }
 
+/**
+ * Takes a student out of every figure drawn from their marks.
+ *
+ * By path, not by query. This was a collection-group query on studentId, which
+ * needs an index that was never configured, so it failed every time - and the
+ * failure was swallowed, so the account went, the marks stayed in every
+ * average, rank and percentile, and the roll still promised the results had
+ * stopped counting. Deleting a document that is not there costs nothing, so
+ * these paths are simply visited.
+ *
+ * @returns {Promise<{leaderboards: number, quizStats: number, parts: number}>}
+ */
+async function purgeStudentFigures(studentId, classIds) {
+  const removed = { leaderboards: 0, quizStats: 0, parts: 0 }
+
+  for (const classId of classIds) {
+    const ref = db.collection('leaderboards').doc(classId).collection('entries').doc(studentId)
+    const snap = await ref.get()
+    if (snap.exists) {
+      await ref.delete()
+      removed.leaderboards += 1
+    }
+  }
+
+  // One entry per paper they sat, under that paper's figures.
+  const papers = (await db.collection('quizSets').select().get()).docs.map((d) => d.id)
+  const refs = papers.map((id) => db.collection('quizStats').doc(id).collection('attempts').doc(studentId))
+  for (let i = 0; i < refs.length; i += 300) {
+    const slice = refs.slice(i, i + 300)
+    const snaps = await db.getAll(...slice)
+    const present = snaps.filter((s) => s.exists)
+    if (!present.length) continue
+    const batch = db.batch()
+    for (const s of present) batch.delete(s.ref)
+    await batch.commit()
+    removed.quizStats += present.length
+  }
+
+  // A record that outgrew one document keeps the rest in a subcollection, and
+  // Firestore does not delete a subcollection with its parent.
+  const parts = await db.collection('studentData').doc(studentId).collection('parts').get()
+  if (!parts.empty) {
+    const batch = db.batch()
+    for (const d of parts.docs) batch.delete(d.ref)
+    await batch.commit()
+    removed.parts = parts.docs.length
+  }
+
+  return removed
+}
+
 async function deleteStudentAccount(req, res) {
   const studentId = String(req.body?.studentId || '')
   if (!studentId) return sendJson(res, 400, { error: 'Missing studentId' })
@@ -1677,11 +1735,10 @@ async function deleteStudentAccount(req, res) {
   await credentialRef('student', studentId).delete().catch(() => {})
   await admin.auth().deleteUser(studentId).catch(() => {})
 
-  // Their results are part of other students' percentiles, so those go too.
-  for (const group of ['entries', 'attempts']) {
-    const snap = await db.collectionGroup(group).where('studentId', '==', studentId).get().catch(() => ({ docs: [] }))
-    await Promise.all(snap.docs.map((d) => d.ref.delete()))
-    removed[group] = snap.docs.length
-  }
+  // Their marks are part of every other student's average, rank and
+  // percentile, so those go too. Not caught and ignored: if this fails the
+  // teacher is told, because an account that is gone while its marks still
+  // count is worse than a delete that reports a problem.
+  Object.assign(removed, await purgeStudentFigures(studentId, Object.keys(classes)))
   return sendJson(res, 200, { ok: true, removed })
 }
