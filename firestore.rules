@@ -113,6 +113,15 @@ service cloud.firestore {
       allow read: if isSelf(studentId) || isTeacher();
       allow create, update: if isSelf(studentId) || isTeacher();
       allow delete: if isTeacher();
+
+      // Where a record goes when it outgrows one document. Firestore refuses a
+      // document over 1 MiB, and a student here may be sitting papers for
+      // years, so the weight of a record - the answers to each paper, the
+      // revision deck, the vocabulary - overflows into these. Same owner, same
+      // reach: a student's own, and their teachers'.
+      match /parts/{part} {
+        allow read, write: if isSelf(studentId) || isTeacher();
+      }
     }
 
     // --- Derived aggregates ----------------------------------------------

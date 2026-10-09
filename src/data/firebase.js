@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction, updateDoc, arrayUnion, deleteField } from 'firebase/firestore'
+import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction, updateDoc, arrayUnion, deleteField, writeBatch } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
 
 const firebaseConfig = {
@@ -1174,7 +1174,7 @@ export async function preloadStudents(studentIds, force = false) {
       try {
         const snap = await getDoc(doc(db, 'studentData', id))
         if (snap.exists()) {
-          _studentCache[id] = unpackNested(snap.data())
+          _studentCache[id] = await joinRecord(id, unpackNested(snap.data()))
           _studentLastWritten[id] = JSON.stringify(_studentCache[id])
           loaded++
         } else {
@@ -1195,13 +1195,159 @@ export function getAllStudentCaches() {
   return _studentCache
 }
 
+
+// ------------------------------------------------------------
+// A student's record, when it outgrows one document
+//
+// Firestore refuses a document over 1 MiB, and a refused write is quiet: the
+// hand-in never joins the record while the archived copy lands, so the paper
+// reads as never sat. Two students hit that ceiling and nine hand-ins were
+// lost before it was found. Compacting the revision cards bought years, not
+// forever - a student here may be sitting papers for five of them.
+//
+// So the record overflows instead. What the app holds in memory is unchanged:
+// one object with the same fields and the same arrays, assembled on the way in
+// and taken apart on the way out. Nothing above this layer knows.
+//
+// What stays in the parent document is what something other than this app
+// reads: the onStudentDataWrite trigger builds leaderboards and per-quiz
+// figures from homeworkAttempts and quizAttempts, so every attempt stays
+// there, as a summary. What moves out is the weight nobody else reads - the
+// answers and timings of each attempt, the revision deck, the vocabulary.
+//
+// Parent and parts are written in one batch, so they are never half-written,
+// and a part no longer needed is deleted in the same batch.
+// ------------------------------------------------------------
+// Well under the 1 MiB ceiling, because Firestore measures a document its own
+// way - field names, type tags and index entries all count - and this layer
+// measures JSON. The margin is the point: a record that overflows early costs
+// one extra small read, and a record that overflows too late is lost work.
+const PARENT_BUDGET = 400000
+const PART_BYTES = 400000
+const PARTS = 'parts'
+const MANIFEST = '_overflow'
+
+/** The heavy things, in the order they should leave the parent document. */
+function overflowCandidates(record) {
+  const out = []
+  const push = (path, value) => {
+    if (value === undefined) return
+    out.push({ path, bytes: JSON.stringify(value).length })
+  }
+  for (const key of ['homeworkAttempts', 'homeworkRedos', 'quizAttempts']) {
+    const arr = record[key]
+    if (!Array.isArray(arr)) continue
+    arr.forEach((item, i) => {
+      if (!item || typeof item !== 'object') return
+      push(`${key}.${i}.answers`, item.answers)
+      push(`${key}.${i}.questionTimes`, item.questionTimes)
+    })
+  }
+  for (const key of ['dojoCards', 'vocabBank', 'writingRewrites', 'homeworkProgress',
+                     'dojoClones', 'dojoCustomReview', 'arenaHistory']) {
+    push(key, record[key])
+  }
+  return out.sort((a, b) => b.bytes - a.bytes)
+}
+
+function readPath(obj, path) {
+  let cur = obj
+  for (const step of path.split('.')) {
+    if (cur == null) return undefined
+    cur = cur[step]
+  }
+  return cur
+}
+
+function dropPath(obj, path) {
+  const steps = path.split('.')
+  let cur = obj
+  for (let i = 0; i < steps.length - 1; i++) {
+    if (cur == null) return
+    cur = cur[steps[i]]
+  }
+  if (cur != null) delete cur[steps[steps.length - 1]]
+}
+
+function writePath(obj, path, value) {
+  const steps = path.split('.')
+  let cur = obj
+  for (let i = 0; i < steps.length - 1; i++) {
+    if (cur == null) return
+    const step = steps[i]
+    if (cur[step] == null) cur[step] = /^\d+$/.test(steps[i + 1]) ? [] : {}
+    cur = cur[step]
+  }
+  if (cur != null) cur[steps[steps.length - 1]] = value
+}
+
+/**
+ * Splits a record into the parent document and the parts it overflows into.
+ *
+ * The parent is filled first and only the heaviest things leave it, so a small
+ * record is still one document and reads exactly as it always did.
+ *
+ * @returns {{parent: object, parts: string[], moved: number}}
+ */
+function splitRecord(record) {
+  const parent = JSON.parse(JSON.stringify(record))
+  delete parent[MANIFEST]
+  if (JSON.stringify(parent).length <= PARENT_BUDGET) {
+    return { parent, parts: [], moved: 0 }
+  }
+  const moved = {}
+  let size = JSON.stringify(parent).length
+  for (const { path, bytes } of overflowCandidates(parent)) {
+    if (size <= PARENT_BUDGET) break
+    const value = readPath(parent, path)
+    if (value === undefined) continue
+    moved[path] = value
+    dropPath(parent, path)
+    size -= bytes
+  }
+  const blob = JSON.stringify(moved)
+  const parts = []
+  for (let i = 0; i < blob.length; i += PART_BYTES) parts.push(blob.slice(i, i + PART_BYTES))
+  parent[MANIFEST] = { parts: parts.length, bytes: blob.length }
+  return { parent, parts, moved: Object.keys(moved).length }
+}
+
+/** Puts a record back together from its parent document and its parts. */
+async function joinRecord(studentId, parent) {
+  const manifest = parent?.[MANIFEST]
+  if (!manifest?.parts) {
+    if (parent) delete parent[MANIFEST]
+    return parent
+  }
+  const snap = await getDocs(collection(db, 'studentData', studentId, PARTS))
+  const byIndex = new Map(snap.docs.map((d) => [Number(d.id.replace('p', '')), d.get('chunk') || '']))
+  let blob = ''
+  for (let i = 0; i < manifest.parts; i++) {
+    const chunk = byIndex.get(i)
+    if (chunk == null) {
+      // Refusing to serve half a record: a missing part would read as a
+      // student who had never answered anything, and something would then
+      // write that back over the rest.
+      throw new Error(`student ${studentId}: overflow part ${i} of ${manifest.parts} is missing`)
+    }
+    blob += chunk
+  }
+  if (blob.length !== manifest.bytes) {
+    throw new Error(`student ${studentId}: overflow is ${blob.length} bytes, expected ${manifest.bytes}`)
+  }
+  const moved = JSON.parse(blob)
+  for (const [path, value] of Object.entries(moved)) writePath(parent, path, value)
+  delete parent[MANIFEST]
+  return parent
+}
+
 export async function loadStudentFirestore(studentId) {
   if (_studentCache[studentId]) return _studentCache[studentId]
   try {
     const ref = doc(db, 'studentData', studentId)
     const snap = await getDoc(ref)
     if (snap.exists()) {
-      _studentCache[studentId] = unpackNested(snap.data())
+      _studentCache[studentId] = await joinRecord(studentId, unpackNested(snap.data()))
     } else {
       _studentCache[studentId] = {}
     }
@@ -1215,6 +1361,29 @@ export async function loadStudentFirestore(studentId) {
   }
 }
 
+/**
+ * Writes a record, overflowing into parts when it no longer fits one document.
+ *
+ * Parent and parts go in one batch so the record is never half-written, and
+ * parts left over from a larger version are deleted in the same batch.
+ */
+async function writeRecord(studentId, snapshot) {
+  const { parent, parts } = splitRecord(snapshot)
+  const ref = doc(db, 'studentData', studentId)
+  const existing = await getDocs(collection(db, 'studentData', studentId, PARTS))
+  const batch = writeBatch(db)
+  batch.set(ref, packNested(parent))
+  parts.forEach((chunk, i) => batch.set(doc(db, 'studentData', studentId, PARTS, `p${i}`), { chunk }))
+  for (const d of existing.docs) {
+    const i = Number(d.id.replace('p', ''))
+    if (!(i >= 0 && i < parts.length)) batch.delete(d.ref)
+  }
+  await batch.commit()
+  if (parts.length) {
+    console.info(`Firestore: ${studentId}'s record written as 1 + ${parts.length} documents`)
+  }
+}
+
 export function saveStudentFirestore(studentId, studentData) {
   _studentCache[studentId] = studentData
   const snapshot = JSON.parse(JSON.stringify(studentData))
@@ -1225,7 +1394,7 @@ export function saveStudentFirestore(studentId, studentData) {
     const ref = doc(db, 'studentData', studentId)
     try {
       _studentWriteInFlight.add(studentId)
-      await setDoc(ref, packNested(snapshot))
+      await writeRecord(studentId, snapshot)
       _studentLastWritten[studentId] = payloadStr
       _studentWriteInFlight.delete(studentId)
     } catch (e) {
@@ -1234,7 +1403,7 @@ export function saveStudentFirestore(studentId, studentData) {
       // a dropped write is invisible until they reload and find it gone.
       try {
         await new Promise((r) => setTimeout(r, 1200))
-        await setDoc(ref, packNested(snapshot))
+        await writeRecord(studentId, snapshot)
         _studentLastWritten[studentId] = payloadStr
         console.warn(`Firestore: student "${studentId}" write succeeded on retry`)
       } catch (e2) {
@@ -1254,9 +1423,19 @@ function startStudentListener(studentId) {
     if (!snap.exists()) return
     if (snap.metadata.hasPendingWrites) return
     if (_studentWriteInFlight.has(studentId)) return
-    _studentCache[studentId] = unpackNested(snap.data())
-    _studentLastWritten[studentId] = JSON.stringify(_studentCache[studentId])
-    notifyChange()
+    const parent = unpackNested(snap.data())
+    // A record that overflows needs its parts before it means anything, and
+    // fetching them is asynchronous. Until they arrive the cache keeps the
+    // record it already had, rather than briefly showing a student a record
+    // with no answers in it - which something would then write back.
+    joinRecord(studentId, parent).then((record) => {
+      if (_studentWriteInFlight.has(studentId)) return
+      _studentCache[studentId] = record
+      _studentLastWritten[studentId] = JSON.stringify(record)
+      notifyChange()
+    }).catch((e) => {
+      console.error(`Firestore: could not assemble ${studentId}'s record:`, e)
+    })
   }, (err) => {
     console.warn(`Firestore: student listener for "${studentId}" failed:`, err)
   })
