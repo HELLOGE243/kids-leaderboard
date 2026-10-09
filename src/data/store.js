@@ -2766,6 +2766,15 @@ function scoreOneQuestion(q, answer, writingMark) {
   // A writing question is worth nothing until a teacher marks it, and its mark
   // once given, so a marked paper's score is the whole paper.
   if (type === 'free-writing') return writingMark ? (writingMark.totalScore || 0) : 0
+  // A short written answer is marked by the AI against the answer the teacher
+  // wrote, at the moment the paper is handed in, and the mark it gave travels
+  // with the answer. Scoring stays arithmetic, which is what everything that
+  // re-scores a paper - a re-mark, a revision, a report - depends on.
+  if (type === 'free-response') {
+    const given = Number(answer?.score)
+    if (!Number.isFinite(given)) return 0
+    return Math.max(0, Math.min(given, freeResponseMarks(q)))
+  }
   if (type === 'multiple-choice' || type === 'multi-description') return answer === q.correctIndex ? 1 : 0
   if (type === 'dropdown-cloze') {
     if (!Array.isArray(answer) || !q.blanks) return 0
@@ -2790,7 +2799,14 @@ function totalMarksForQuestion(q, writingMark) {
   // Out of nothing until marked: an unmarked writing question must not drag a
   // student's percentage down while it waits on a teacher.
   if (type === 'free-writing') return writingMark ? WRITING_MAX : 0
+  if (type === 'free-response') return freeResponseMarks(q)
   return 1
+}
+
+/** What a short written answer is worth. One mark unless the teacher says more. */
+export function freeResponseMarks(q) {
+  const n = Number(q?.marks)
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : 1
 }
 
 /**

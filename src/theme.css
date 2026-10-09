@@ -13961,6 +13961,99 @@ button.hw-res-qth.active {
   padding-bottom: 10px;
   border-bottom: 1px solid #ece5d8;
 }
+/* A short written answer: typed by the student, marked on hand-in against the
+   answer the teacher wrote. */
+.qt-shortanswer-wrap { padding: 4px 0 8px; }
+.qt-shortanswer-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+.qt-shortanswer-label span { font-weight: 400; text-transform: none; letter-spacing: 0; }
+.qt-shortanswer-box {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(0,0,0,0.22);
+  color: var(--text);
+  font-family: var(--font-content);
+  font-size: var(--size-content);
+  line-height: 1.8;
+  resize: vertical;
+}
+.qt-shortanswer-box:focus { outline: none; border-color: var(--accent); }
+.qt-shortanswer-review { padding: 4px 0 16px; }
+.qt-shortanswer-given {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(0,0,0,0.2);
+  font-size: var(--size-content);
+  line-height: 1.8;
+  white-space: pre-wrap;
+  margin-bottom: 12px;
+}
+.qt-shortanswer-mark {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border-left: 4px solid var(--text-dim);
+  background: rgba(255,255,255,0.04);
+  font-size: var(--size-content);
+}
+.qt-shortanswer-mark.is-full { border-left-color: #66bb6a; background: rgba(102,187,106,0.1); }
+.qt-shortanswer-mark.is-part { border-left-color: #ffab00; background: rgba(255,171,0,0.1); }
+.qt-shortanswer-mark.is-none { border-left-color: #ff1744; background: rgba(255,23,68,0.08); }
+.qt-shortanswer-comment { color: var(--text-dim); line-height: 1.6; }
+.qt-shortanswer-waiting {
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: rgba(255,171,0,0.1);
+  border-left: 4px solid #ffab00;
+  font-size: var(--size-content);
+}
+.qt-shortanswer-model {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.qt-marking-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: rgba(8,8,18,0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.qt-marking-note {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 26px;
+  border-radius: 12px;
+  background: var(--bg-card);
+  border: 1px solid rgba(255,255,255,0.14);
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.qt-marking-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.25);
+  border-top-color: var(--accent);
+  animation: qt-marking-spin 0.8s linear infinite;
+}
+@keyframes qt-marking-spin { to { transform: rotate(360deg); } }
+
 /* Writing again, with the feedback in hand. */
 .qt-wr-rewrite-offer {
   display: flex;

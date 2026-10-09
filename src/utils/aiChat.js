@@ -574,6 +574,78 @@ Return ONLY a JSON object:
   }
 }
 
+/**
+ * Marks short written answers against the answers the teacher wrote.
+ *
+ * Every question on the paper goes in one request, because a paper is handed in
+ * all at once and a student should not wait on a round trip per question. The
+ * marking is generous about wording and strict about substance: a short answer
+ * is testing whether they know the thing, not whether they phrased it the way
+ * the teacher did.
+ *
+ * @param {Array<{index:number, question:string, modelAnswer:string, marks:number, answer:string}>} items
+ * @returns {Promise<Record<number, {score:number, comment:string}>>} by question index
+ */
+export async function markShortAnswers(items) {
+  const asked = (items || []).filter((it) => String(it.answer || '').trim())
+  if (!asked.length) return {}
+
+  const body = asked.map((it) => `Question ${it.index + 1} (worth ${it.marks} mark${it.marks === 1 ? '' : 's'}):
+${plainWords(it.question)}
+
+The answer it should contain:
+${plainWords(it.modelAnswer)}
+
+What the student wrote:
+${String(it.answer).slice(0, 1500)}`).join('\n\n---\n\n')
+
+  const prompt = `You are marking short written answers on a Year 5-6 test. For each one, compare what the student wrote against the answer the teacher gave, and award the marks.
+
+Mark on substance, not on wording. A student who has the right idea in their own words, or with a spelling slip, or more briefly than the teacher's answer, has earned the marks. A student who contradicts the answer, misses the part that was being tested, or writes something that only sounds similar has not. Where a question carries more than one mark, award part of them for an answer that gets part of the way.
+
+Then write one short sentence to the student about it - warm, specific, and about their answer rather than about the marking.
+
+${body}
+
+Return ONLY a JSON object keyed by question number as written above:
+{
+  "1": { "score": 1, "comment": "..." },
+  "2": { "score": 0, "comment": "..." }
+}`
+
+  try {
+    const res = await authedFetch('/api/claude/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    })
+    if (!res.ok) return {}
+    const data = await res.json()
+    const text = data.content?.[0]?.text || ''
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) return {}
+    const parsed = parseJsonLoose(match[0])
+    if (!parsed) return {}
+    const out = {}
+    for (const it of asked) {
+      const got = parsed[String(it.index + 1)]
+      if (!got) continue
+      const score = Number(got.score)
+      out[it.index] = {
+        score: Number.isFinite(score) ? Math.max(0, Math.min(Math.round(score), it.marks)) : 0,
+        comment: String(got.comment || ''),
+      }
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
 export async function preAnalyseWriting(studentText) {
   const prompt = `You are an experienced Year 5-6 writing teacher. Read this student's writing carefully and prepare a brief internal analysis that will help you provide targeted feedback.
 

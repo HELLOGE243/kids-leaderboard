@@ -55,7 +55,7 @@ import {
 import { RichText, stripPastedColours, default as RichTextEditor } from '../components/RichTextEditor.jsx'
 import { playCoinSound } from '../utils/soundManager.js'
 import { resolveImages } from '../data/imageStore.js'
-import { remarkWritingRewrite } from '../utils/aiChat.js'
+import { remarkWritingRewrite, markShortAnswers } from '../utils/aiChat.js'
 import { flushPendingWrites } from '../data/firebase.js'
 import { pendingArchiveWrites, studentRecordReady } from '../data/store.js'
 import { onDataChange } from '../data/firebase.js'
@@ -320,6 +320,7 @@ function isQuestionCorrect(q, answer) {
 
 function isAnswered(answer, type) {
   if (type === 'free-writing') return typeof answer === 'string' && answer.trim().length > 0
+  if (type === 'free-response') return !!String(answer?.text || '').trim()
   if (Array.isArray(answer)) return answer.some(x => x !== -1)
   return answer !== -1
 }
@@ -436,6 +437,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   const [rewriteBusy, setRewriteBusy] = useState(false)
   const [rewriteError, setRewriteError] = useState('')
   const [rewriteTick, setRewriteTick] = useState(0)
+  const [markingShort, setMarkingShort] = useState(false)
   // This screen had nothing listening, so the student's own record could land
   // after the first paint and nothing redrew: the papers stayed as they were
   // drawn, which was before their results existed.
@@ -816,6 +818,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       if (type === 'drag-drop' || type === 'drag-sentence' || type === 'drag-summary') return new Array(q.correctOrder?.length || 6).fill(-1)
       if (type === 'multi-matching') return new Array(q.matchQuestions?.length || 1).fill(-1)
       if (type === 'free-writing') return ''
+      if (type === 'free-response') return { text: '' }
       return -1
     }))
     setCurrentQ(0)
@@ -851,7 +854,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     setQuizStartTime(Date.now())
   }
 
-  function doSubmit({ lockedOut = false } = {}) {
+  async function doSubmit({ lockedOut = false } = {}) {
     if (!takingQuiz) return
     if (submittedOnceRef.current) return
     submittedOnceRef.current = true
@@ -863,6 +866,41 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     const finalAnswers = quizAnswers.map((a) => (a === -1 ? -1 : a))
     const times = questionTimes.current.map((t) => Math.round((t || 0) / 1000))
     const meta = { screenLeaves: screenLeaves.current, lockedOut }
+
+    // A short written answer is marked now, against the answer the teacher
+    // wrote for it. The paper is filed either way: a hand-in must never wait on
+    // a network call, so if the marking has not come back in twelve seconds the
+    // answers are filed as written and a teacher can mark them from the
+    // archive. Losing a mark is a nuisance; losing a paper is not.
+    const shortOnes = (resolvedQuestions || [])
+      .map((q, i) => ({ q, i }))
+      .filter(({ q }) => (q.type || 'multiple-choice') === 'free-response')
+    if (shortOnes.length) {
+      setMarkingShort(true)
+      const items = shortOnes.map(({ q, i }) => ({
+        index: isRedo && redoIndices ? redoIndices[i] : i,
+        question: q.text || q.prompt || '',
+        modelAnswer: q.modelAnswer || '',
+        marks: q.marks || 1,
+        answer: String(finalAnswers[i]?.text || ''),
+      }))
+      let given = null
+      try {
+        given = await Promise.race([
+          markShortAnswers(items),
+          new Promise((resolve) => setTimeout(() => resolve(null), 12000)),
+        ])
+      } catch { given = null }
+      shortOnes.forEach(({ i }, n) => {
+        const text = String(finalAnswers[i]?.text || '')
+        const mark = given?.[items[n].index]
+        finalAnswers[i] = mark
+          ? { text, score: mark.score, comment: mark.comment }
+          : { text, score: 0, needsMarking: !!text }
+      })
+      setMarkingShort(false)
+    }
+
     let result
     if (isRedo) {
       // The student saw only their wrong questions, so their answers are spread
@@ -2280,6 +2318,39 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                   </>
                 }
 
+                if (qType === 'free-response') {
+                  const given = submittedResult?.answers?.[currentQ]
+                  const written = String(given?.text || '')
+                  const worth = q.marks && q.marks > 1 ? q.marks : 1
+                  const awarded = Number(given?.score)
+                  const waiting = !!given?.needsMarking
+                  const resultsOut = quizResultsVisible(takingQuiz.id, user.id)
+                  return (
+                    <div className="qt-review-scroll">
+                      <div className="qt-shortanswer-review">
+                        <div className="qt-shortanswer-label">Your answer</div>
+                        <div className="qt-shortanswer-given">{written || <em>(nothing written)</em>}</div>
+                        {waiting ? (
+                          <div className="qt-shortanswer-waiting">
+                            This one is waiting to be marked by your teacher.
+                          </div>
+                        ) : written ? (
+                          <div className={`qt-shortanswer-mark ${awarded >= worth ? 'is-full' : awarded > 0 ? 'is-part' : 'is-none'}`}>
+                            <strong>{Number.isFinite(awarded) ? awarded : 0} out of {worth}</strong>
+                            {given?.comment && <span className="qt-shortanswer-comment">{given.comment}</span>}
+                          </div>
+                        ) : null}
+                        {resultsOut && q.modelAnswer && (
+                          <div className="qt-shortanswer-model">
+                            <div className="qt-shortanswer-label">What it was looking for</div>
+                            <RichText html={q.modelAnswer} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                }
+
                 if (qType === 'free-writing') {
                   void rewriteTick  // re-read the rewrite once one is filed
                   const writingMark = submittedResult ? getWritingMark(submittedResult.id || '', currentQ) : null
@@ -2626,6 +2697,32 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                   </div>
                 }
 
+                if (qType === 'free-response') {
+                  // The answer carries its mark once the paper is handed in, so
+                  // what the student types lives on .text rather than being the
+                  // whole value.
+                  const written = typeof selectedAnswer === 'object' && selectedAnswer
+                    ? (selectedAnswer.text || '') : ''
+                  const worth = q.marks && q.marks > 1 ? `${q.marks} marks` : '1 mark'
+                  return <div className="qt-shortanswer-wrap">
+                    <div className="qt-shortanswer-label">Your answer <span>· {worth}</span></div>
+                    <textarea
+                      className="qt-shortanswer-box"
+                      value={written}
+                      rows={4}
+                      placeholder="Write your answer in a sentence or two..."
+                      onChange={(e) => {
+                        const text = e.target.value
+                        setQuizAnswers(prev => {
+                          const next = [...prev]
+                          next[currentQ] = { text }
+                          return next
+                        })
+                      }}
+                    />
+                  </div>
+                }
+
                 return null
               })()}
             </div>
@@ -2793,6 +2890,14 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
           </>
         )}
         {/* Old vocab onboarding removed — replaced by bottom-slide hint */}
+        {markingShort && (
+        <div className="qt-marking-overlay">
+          <div className="qt-marking-note">
+            <span className="qt-marking-spinner" />
+            Marking your written answers…
+          </div>
+          </div>
+        )}
         {rewritePanel}
         {showReportModal && (
           <ReportIssueModal

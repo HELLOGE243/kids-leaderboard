@@ -65,6 +65,7 @@ const QUESTION_TYPES = [
   { value: 'drag-summary', label: 'Drag Summaries' },
   { value: 'multi-matching', label: 'Matching' },
   { value: 'free-writing', label: 'Free Write' },
+  { value: 'free-response', label: 'Free Response' },
 ]
 
 // A sensible default for sets that have never had a limit set: about a minute
@@ -591,7 +592,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
     }
   }
 
-  async function runPDFImport(file, pageRange) {
+  async function runPDFImport(file, pageRange, opts = {}) {
     const meta = parseBookletMeta(file.name)
     setPdfProgress('Reading PDF...')
     try {
@@ -608,7 +609,16 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
         alert('AI could not find any questions in this PDF.')
         return
       }
-      const added = importQuizSetsFromPDF(sections, meta)
+      // A booklet is read section by section, so it arrives as a list of them.
+      // Asked for as one quiz, they are run together in the order they were
+      // read - which is the order of the pages.
+      const toImport = opts.asOne
+        ? [{
+            sectionTitle: meta.subject || 'Imported paper',
+            questions: sections.flatMap((sec) => sec.questions || []),
+          }]
+        : sections
+      const added = importQuizSetsFromPDF(toImport, meta)
       forceRefresh()
       if (added.length === 0) {
         alert('No questions found to import.')
@@ -956,7 +966,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
               )}
 
               {/* --- MC / Drag-Drop / Free-Writing: single text editor --- */}
-              {(qType === 'multiple-choice' || qType === 'drag-sentence' || qType === 'drag-summary' || qType === 'free-writing') && (
+              {(qType === 'multiple-choice' || qType === 'drag-sentence' || qType === 'drag-summary' || qType === 'free-writing' || qType === 'free-response') && (
                 <div className="qe-question-area">
                   <RichTextEditor
                     key={`text-${currentEditQ}`}
@@ -1403,6 +1413,39 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                 </div>
               )}
 
+              {/* --- Free Response: the question, and the answer it wants --- */}
+              {qType === 'free-response' && (
+                <div style={{ padding: '0 4px' }}>
+                  <p style={{ fontSize: '0.7rem', color: '#888', marginBottom: 8 }}>
+                    The answer this question is looking for
+                  </p>
+                  <RichTextEditor
+                    value={q.modelAnswer || ''}
+                    onChange={(html) => updateQuestion(currentEditQ, 'modelAnswer', html)}
+                    placeholder="Write the answer a student should give, as you would write it in a marking guide..."
+                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
+                    <span style={{ fontSize: '0.7rem', color: '#888' }}>Worth</span>
+                    <input
+                      type="number"
+                      className="input"
+                      min={1}
+                      max={10}
+                      value={q.marks ?? 1}
+                      onChange={(e) => updateQuestion(currentEditQ, 'marks', Math.max(1, Math.min(10, parseInt(e.target.value, 10) || 1)))}
+                      style={{ width: 70, textAlign: 'center' }}
+                    />
+                    <span style={{ fontSize: '0.7rem', color: '#888' }}>mark(s)</span>
+                  </div>
+                  <p style={{ fontSize: '0.6rem', color: '#666', marginTop: 12, lineHeight: 1.6 }}>
+                    The student types a short answer. It is marked when they hand the paper in, against
+                    the answer above — on substance rather than wording, so their own words still earn
+                    the marks. Where it is worth more than one mark, part marks can be awarded. You can
+                    change any mark afterwards from the submission archive.
+                  </p>
+                </div>
+              )}
+
             </div>
           </div>
 
@@ -1756,16 +1799,32 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                       style={{ width: 60, textAlign: 'center', fontSize: '0.75rem', padding: '4px 6px' }}
                     />
                   </div>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: '0.68rem', lineHeight: 1.5, textAlign: 'left', marginBottom: 14, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={!!pdfPagePrompt.asOne}
+                      onChange={e => setPdfPagePrompt(p => ({ ...p, asOne: e.target.checked }))}
+                      style={{ marginTop: 2 }}
+                    />
+                    <span>
+                      Bring it in as <strong>one quiz</strong>.
+                      <br />
+                      <span style={{ opacity: 0.7 }}>
+                        Left unticked, each section of the booklet becomes its own quiz, in the order
+                        they appear.
+                      </span>
+                    </span>
+                  </label>
                   <div className="neon-popup-actions">
                     <button className="btn" onClick={() => {
-                      const { file, from, to } = pdfPagePrompt
+                      const { file, from, to, asOne } = pdfPagePrompt
                       setPdfPagePrompt(null)
-                      runPDFImport(file, { from, to })
+                      runPDFImport(file, { from, to }, { asOne: !!asOne })
                     }}>Extract</button>
                     <button className="btn" style={{ background: '#7c3aed' }} onClick={() => {
-                      const { file, totalPages } = pdfPagePrompt
+                      const { file, totalPages, asOne } = pdfPagePrompt
                       setPdfPagePrompt(null)
-                      runPDFImport(file, { from: 1, to: totalPages })
+                      runPDFImport(file, { from: 1, to: totalPages }, { asOne: !!asOne })
                     }}>All Pages</button>
                     <button className="btn btn-outline" onClick={() => setPdfPagePrompt(null)}>Cancel</button>
                   </div>
@@ -2267,7 +2326,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                 <div className="import-type-counts" style={{ marginTop: 8 }}>
                   <div style={{ fontSize: '0.55rem', color: 'var(--text-dim)', marginBottom: 4 }}>Question types created</div>
                   {Object.entries(importReport.typeCounts).map(([type, n]) => (
-                    <span key={type} className="import-type-chip">{({ 'multiple-choice': 'Multiple choice', 'multi-description': 'Multiple extracts', 'multi-matching': 'Matching', 'drag-sentence': 'Drag sentences', 'drag-summary': 'Drag summaries', 'free-writing': 'Free write', 'dropdown-cloze': 'Cloze' })[type] || type}: <b>{n}</b></span>
+                    <span key={type} className="import-type-chip">{({ 'multiple-choice': 'Multiple choice', 'multi-description': 'Multiple extracts', 'multi-matching': 'Matching', 'drag-sentence': 'Drag sentences', 'drag-summary': 'Drag summaries', 'free-writing': 'Free write', 'free-response': 'Free response', 'dropdown-cloze': 'Cloze' })[type] || type}: <b>{n}</b></span>
                   ))}
                 </div>
               )}
