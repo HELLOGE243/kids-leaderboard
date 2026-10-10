@@ -9062,25 +9062,6 @@ button.hw-res-qth.active {
 }
 
 /* --- Session Revision (uses dojo card classes) --- */
-/* The daily cards take the whole screen, which left nothing on it to say
-   whose site this is. */
-.sr-logo {
-  display: block;
-  height: 38px;
-  width: auto;
-  margin: 4px auto 14px;
-  opacity: 0.92;
-}
-/* Revealed, the card wants the room back. */
-.dojo-page.dojo-focus .sr-logo {
-  height: 26px;
-  margin: 0 auto 8px;
-  opacity: 0.75;
-}
-@media (max-width: 600px) {
-  .sr-logo { height: 28px; margin: 2px auto 10px; }
-}
-
 .sr-top-bar {
   display: flex; justify-content: space-between; align-items: center;
   width: 100%; margin-bottom: 12px; padding: 0 16px; box-sizing: border-box;
