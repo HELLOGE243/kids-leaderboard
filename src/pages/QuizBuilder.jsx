@@ -39,6 +39,7 @@ import {
   deleteUnassignedQuestion,
   clearUnassignedQuestions,
   createQuizFromUnassigned,
+  createBlankQuizSet,
   getQuestionReports,
   resolveQuestionReport,
   getExplanationReports,
@@ -133,6 +134,8 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
   const [dragOverFolder, setDragOverFolder] = useState(null)
   const [mergeTarget, setMergeTarget] = useState(null)
   const [importProgress, setImportProgress] = useState(null)
+  const [showNewQuiz, setShowNewQuiz] = useState(false)
+  const [newQuizName, setNewQuizName] = useState('')
   const [syncingLibrary, setSyncingLibrary] = useState(false)
   const [renamingSet, setRenamingSet] = useState(null)
   const [renamingSetText, setRenamingSetText] = useState('')
@@ -1729,6 +1732,12 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                     }
                   }}
                 >{syncingLibrary ? 'Syncing...' : 'Sync library'}</button>
+                <button
+                  className="btn btn-small"
+                  style={{ fontSize: '0.45rem', padding: '4px 8px', background: '#2e7d32' }}
+                  disabled={!!importProgress || !!pdfProgress}
+                  onClick={() => { setNewQuizName(''); setShowNewQuiz(true) }}
+                >+ New Quiz</button>
                 <button className="btn btn-small" style={{ fontSize: '0.45rem', padding: '4px 8px' }} onClick={() => fileInputRef.current?.click()} disabled={!!importProgress}>{importProgress ? 'Importing...' : 'Import JSON'}</button>
                 <button className="btn btn-small" style={{ fontSize: '0.45rem', padding: '4px 8px' }} onClick={() => setShowBulkTag(true)}>{'✨'} Tag all with AI</button>
                 <button className="btn btn-small" style={{ fontSize: '0.45rem', padding: '4px 8px', background: '#7c3aed' }} onClick={() => pdfInputRef.current?.click()} disabled={!!pdfProgress}>
@@ -1766,6 +1775,41 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span className="pdf-spinner" />
                   <span>{pdfProgress}</span>
+                </div>
+              </div>
+            )}
+
+            {showNewQuiz && (
+              <div className="neon-overlay" onClick={() => setShowNewQuiz(false)}>
+                <div className="neon-popup" onClick={e => e.stopPropagation()} style={{ minWidth: 300 }}>
+                  <p className="neon-popup-text" style={{ marginBottom: 12 }}>What is this paper called?</p>
+                  <form onSubmit={(e) => {
+                    e.preventDefault()
+                    const title = newQuizName.trim()
+                    if (!title) return
+                    const set = createBlankQuizSet(title, currentFolderId || null)
+                    setShowNewQuiz(false)
+                    setNewQuizName('')
+                    forceRefresh()
+                    startEditImported(set)
+                  }}>
+                    <input
+                      className="input"
+                      value={newQuizName}
+                      onChange={(e) => setNewQuizName(e.target.value)}
+                      placeholder="e.g. Week 3 Reading"
+                      autoFocus
+                      style={{ width: '100%', boxSizing: 'border-box', marginBottom: 14 }}
+                    />
+                    <p style={{ fontSize: '0.55rem', color: '#888', marginBottom: 14, lineHeight: 1.6 }}>
+                      It opens with one blank question. Add the rest as you go, and set the time limit
+                      from the editor.
+                    </p>
+                    <div className="neon-popup-actions">
+                      <button type="submit" className="btn" disabled={!newQuizName.trim()}>Create</button>
+                      <button type="button" className="btn btn-outline" onClick={() => setShowNewQuiz(false)}>Cancel</button>
+                    </div>
+                  </form>
                 </div>
               </div>
             )}

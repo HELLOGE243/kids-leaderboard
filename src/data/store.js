@@ -2319,6 +2319,45 @@ export function createQuizFromUnassigned(questionIds, title) {
   return set
 }
 
+/**
+ * An empty paper, to be written rather than imported.
+ *
+ * Everything in the library arrived from a PDF or a JSON file, so a teacher
+ * who simply wanted to write four questions had to import something first and
+ * delete it. This makes the paper and one blank question to start on; it lands
+ * in whichever folder is open, like an imported one would.
+ *
+ * @param {string} title what to call it
+ * @param {string|null} folderId the folder to put it in, or null for the top
+ * @returns {object} the new set
+ */
+export function createBlankQuizSet(title, folderId = null) {
+  const data = loadData()
+  if (!data.importedQuizSets) data.importedQuizSets = []
+  const set = {
+    id: 'imp-' + generateId(6),
+    batchId: 'manual-' + Date.now(),
+    rawTitle: title,
+    friendlyTitle: title,
+    term: '',
+    year: '',
+    week: '',
+    folderId: folderId || null,
+    questions: [{
+      number: 1,
+      type: 'multiple-choice',
+      text: '',
+      prompt: '',
+      options: ['', '', '', ''],
+      correctIndex: 0,
+      explanation: '',
+    }],
+  }
+  data.importedQuizSets.push(set)
+  saveData(data)
+  return set
+}
+
 // --- Quiz Folders ---
 
 export function getQuizFolders(orgId) {
