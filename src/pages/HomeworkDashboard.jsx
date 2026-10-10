@@ -2329,6 +2329,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                   return (
                     <div className="qt-review-scroll">
                       <div className="qt-shortanswer-review">
+                        {q.prompt && <div className="qt-prompt-display" dangerouslySetInnerHTML={{ __html: q.prompt }} />}
                         <div className="qt-shortanswer-label">Your answer</div>
                         <div className="qt-shortanswer-given">{written || <em>(nothing written)</em>}</div>
                         {waiting ? (
@@ -2705,7 +2706,10 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                   const written = typeof selectedAnswer === 'object' && selectedAnswer
                     ? (selectedAnswer.text || '') : ''
                   const worth = q.marks && q.marks > 1 ? `${q.marks} marks` : '1 mark'
-                  return <div className="qt-shortanswer-wrap">
+                  return <>
+                  {/* The statement, as every other type shows it. */}
+                  {q.prompt && <div className="qt-prompt-display" dangerouslySetInnerHTML={{ __html: q.prompt }} />}
+                  <div className="qt-shortanswer-wrap">
                     <div className="qt-shortanswer-label">Your answer <span>· {worth}</span></div>
                     <textarea
                       className="qt-shortanswer-box"
@@ -2722,6 +2726,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                       }}
                     />
                   </div>
+                  </>
                 }
 
                 return null
