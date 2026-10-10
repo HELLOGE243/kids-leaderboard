@@ -3107,8 +3107,8 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                               style={{ position: 'relative' }}
                               onClick={() => { setHighlightQuizId(null); handleQuizCardClick(s, hasAttempt) }}
                             >
-                              {!hasAttempt && !hwProgress && <span className={moduleOverdue ? 'hw-badge-overdue' : 'hw-badge-warn'} style={{ position: 'absolute', top: -6, right: -6 }}>{moduleOverdue ? '⏰' : '!'}</span>}
-                              {hwProgress && <span className="hw-badge-progress" style={{ position: 'absolute', top: -6, right: -6 }}>▶</span>}
+                              {!hasAttempt && !hwProgress && <span className={moduleOverdue ? 'hw-badge-overdue' : 'hw-badge-warn'} style={{ position: 'absolute', top: -6, left: -6, right: 'auto' }}>{moduleOverdue ? '⏰' : '!'}</span>}
+                              {hwProgress && <span className="hw-badge-progress" style={{ position: 'absolute', top: -6, left: -6, right: 'auto' }}>▶</span>}
                               <div className="hw-quiz-paper" />
                               <div className="hw-quiz-title-row">
                                 <span className="hw-quiz-title">{s.friendlyTitle}</span>
@@ -3235,7 +3235,9 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
             const hasBadge = courseOverdue > 0 || coursePending > 0
             return (
               <div key={c.id} style={{ position: 'relative' }}>
-                {hasBadge && <span className={courseOverdue > 0 ? 'hw-badge-overdue' : 'hw-badge-warn'} style={{ position: 'absolute', top: -6, right: -6, zIndex: 2 }}>{courseOverdue > 0 ? '⏰' : coursePending}</span>}
+                {/* Top left: the term chip has the right corner, and the two
+                    were sitting on top of each other. */}
+                {hasBadge && <span className={courseOverdue > 0 ? 'hw-badge-overdue' : 'hw-badge-warn'} style={{ position: 'absolute', top: -6, left: -6, right: 'auto', zIndex: 2 }}>{courseOverdue > 0 ? '⏰' : coursePending}</span>}
                 <div className="hw-course-card" onClick={() => {
                   const started = getHomeworkStart(user.id, c.id)
                   if (started) { setActiveCourse(c.id); setActiveModuleId(null) }

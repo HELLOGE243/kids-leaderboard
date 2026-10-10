@@ -23,6 +23,10 @@ const REASONS = [
   'I understood it but didn’t know the strategy',
   'Silly mistake',
   'I ran out of time or guessed',
+  // Four boxes cannot hold every way of getting something wrong, and a student
+  // made to pick the nearest one tells their teacher something that is not
+  // true. This one says so honestly.
+  'Something else',
 ]
 
 function ReviewHelp({
