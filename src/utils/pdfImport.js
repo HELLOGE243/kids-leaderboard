@@ -113,26 +113,51 @@ export function salvageSections(reply) {
   return { sections, truncated: true }
 }
 
-function buildPrompt(pdfText, chunkInfo) {
+/**
+ * What a question may be, and how to tell, for each kind of booklet.
+ *
+ * A maths booklet and a reading booklet look the same to a parser - a question
+ * followed by ruled lines - and mean different things by it. In maths the lines
+ * are for working towards one right answer; in reading they are for an answer
+ * in the student's own words. Asking which kind of booklet it is, once, at
+ * import, settles every question on every page.
+ */
+const SUBJECT_RULES = {
+  maths: `THIS IS A MATHS BOOKLET. Every question has one right answer.
+
+- Nearly everything here is "mcq". A question with printed options keeps them. A question with none - "find the value of x", "calculate the total", "write the ratio", "simplify", a worded problem, fill in the blank, true or false - is still "mcq": solve it, then give it the correct answer plus three or four plausible wrong ones. The best wrong answers are the mistakes students actually make: forgetting to simplify, the wrong operation, off by one, the right number in the wrong units.
+- "free-response" only where the question asks for reasoning in words rather than an answer - "explain why", "justify your answer", "describe the pattern you notice". These cannot be marked by a single value. Give each one a modelAnswer saying what the reasoning must contain.
+- There is no "writing" question in a maths booklet. Never return one.
+- Solve every problem carefully before choosing correctIndex, and check the arithmetic on ratios, fractions and percentages twice.
+- The parser mangles maths notation. Reconstruct it from context: "37" in a fractions section is likely "3/7", "x2" is likely "x²".`,
+
+  english: `THIS IS AN ENGLISH, READING OR VOCABULARY BOOKLET.
+
+- "mcq" where the question prints options to choose between: a) b) c) d), (1)(2)(3)(4), or A B C D. Keep the printed options and work out which is right.
+- "free-response" where a question is followed by ruled lines or blank space and prints no options - under headings like "Write your response", "Answer the questions", "Explain", or simply a numbered question with lines beneath it. This is the common shape in these booklets and must not be given invented options. Give each one a modelAnswer, drawn from the passage, saying what a correct answer has to contain.
+- "writing" for one long task: an essay, a story, a letter, a composition, a whole page or most of one. There is usually one at most.
+- A passage with numbered gaps and a list of words or letters to choose from: one "mcq" per gap, the listed words as its options.
+- For vocabulary, synonym, antonym and word-meaning questions: name the word in the question text so it stands alone, and make the wrong options real words of the same part of speech.
+- A question asking the student to rewrite a sentence using a given word is "free-response": the modelAnswer is the rewritten sentence.`,
+
+  mixed: `THIS BOOKLET MIXES SUBJECTS. Decide question by question.
+
+- "mcq" where options are printed, and for any question whose answer is a single number, value or word even if no options are printed - solve it and supply the correct answer with three or four plausible wrong ones.
+- "free-response" where the answer is in sentences, in the student's own words, with ruled lines and no options.
+- "writing" for one long task taking a whole page or most of one.
+- A passage with numbered gaps and a word list: one "mcq" per gap.`,
+}
+
+function buildPrompt(pdfText, chunkInfo, subject) {
   const chunkNote = chunkInfo
     ? `\nYou are processing pages ${chunkInfo.from}-${chunkInfo.to} of ${chunkInfo.total}. Extract ALL questions from these pages — do not summarise or skip any.\n`
     : ''
 
-  return `You are analyzing a tutoring booklet PDF for primary/high school students. It may be maths, English, vocabulary, comprehension, science, or a mix. The text was extracted by a PDF parser, so it may be garbled, incomplete, or poorly formatted. Your job is to reconstruct and complete every question, then organize them into sections.
+  return `You are analyzing a tutoring booklet PDF for primary/high school students. The text was extracted by a PDF parser, so it may be garbled, incomplete, or poorly formatted. Your job is to reconstruct and complete every question, then organize them into sections.
 ${chunkNote}
 CRITICAL: Extract EVERY SINGLE question you find. Do NOT skip questions, do NOT summarise, do NOT abbreviate. If there are 35 questions in a section, return all 35.
 
-DECIDE WHAT EACH QUESTION IS. A booklet mixes them, and turning them all into multiple choice loses what was being asked.
-
-- "mcq" — the question offers options to choose between: a), b), c), d), or (1)(2)(3)(4), or A B C D. Keep its options and work out which is right.
-- "free-response" — the question asks for an answer in the student's own words and offers no options. On the page it is a question followed by ruled lines or blank space to write on, often under a heading like "Write your response", "Answer the questions", or a numbered question with nothing but lines beneath it. A few words to a few sentences.
-- "writing" — one long task: an essay, a story, a letter, a composition. A whole page or most of one, with a title or a scenario and a lot of space. There is usually only one of these in a booklet, if any.
-A question with no options is NOT a broken multiple-choice question and must not be given invented options. Short ones are "free-response"; the long single task is "writing".
-
-TWO THINGS STAY MULTIPLE CHOICE, as they always have:
-
-- A question whose answer is a number, a value, a word or a short phrase with one right answer - "find the value of x", "calculate the total", "write the ratio", "what is 2020 divided by 20", fill in the blank, true or false. Solve it, then give it the correct answer plus three or four plausible wrong ones, the way a student would get them wrong. These are not free-response: free-response is for an answer in sentences, in the student's own words, where more than one wording is right.
-- A passage with numbered gaps and a list of words to choose from. Make one multiple-choice question per gap, with the listed words as its options.
+${SUBJECT_RULES[subject] || SUBJECT_RULES.mixed}
 
 FOR A FREE-RESPONSE QUESTION, also write "modelAnswer": the answer you would put in a marking guide, in one or two sentences, drawn from the passage or the question itself. It is what the student's answer is marked against, so it must say what a correct answer has to contain. Set "marks" to 1, or 2 where the question plainly asks for two things ("give two reasons").
 
@@ -156,14 +181,6 @@ FOR EACH QUESTION:
 7. If the question references an image, diagram, figure, shape drawing, coordinate grid, or any visual element you cannot see in the text, set needsReview to true and set reviewReason to "References an image/diagram not available in text". Do NOT add any labels like "[Image]" to the question text — keep the text clean.
 8. For True/False questions: options should be ["True", "False"].
 9. For fill-in-the-blank questions: rephrase as a clear question with MCQ options.
-
-IMPORTANT SUBJECT RULES:
-- For vocabulary, synonym/antonym, word-meaning and comprehension questions: name the word or passage in the question text so the question stands alone, and make distractors real words of the same part of speech.
-
-FOR MATHS QUESTIONS:
-- Solve each problem carefully, showing your work mentally before choosing correctIndex.
-- For ratios, fractions, percentages: double-check your arithmetic.
-- Generate plausible distractors — common mistakes students make (e.g. forgetting to simplify, wrong operation, off-by-one).
 
 Return ONLY a JSON array of sections, no other text:
 [
@@ -268,7 +285,7 @@ function chunkText(chunk) {
  * off. Whatever survived the cut is kept either way, so a retry can only add
  * questions, never lose them.
  */
-async function analyseChunk(chunk, total, onProgress, warn, depth = 0) {
+async function analyseChunk(chunk, total, onProgress, warn, subject, depth = 0) {
   const from = chunk[0].pageNum
   const to = chunk[chunk.length - 1].pageNum
   const label = from === to ? `page ${from}` : `pages ${from}-${to}`
@@ -277,13 +294,30 @@ async function analyseChunk(chunk, total, onProgress, warn, depth = 0) {
   let sections = []
   let truncated = false
   try {
-    const res = await callAI(buildPrompt(chunkText(chunk), { from, to, total }))
+    const res = await callAI(buildPrompt(chunkText(chunk), { from, to, total }, subject))
     sections = res.sections
     truncated = res.truncated
   } catch (err) {
     warn(`${label}: ${err.message}`)
     if (chunk.length === 1) return []
     truncated = true
+  }
+
+  // A maths booklet has no long written task in it, and the rules say so - but
+  // a page of prose questions picked up by mistake is read as one anyway, and a
+  // writing question is marked by a teacher and worth nothing until they do.
+  // So it is held to the rule here rather than only asked to follow it.
+  if (subject === 'maths') {
+    for (const sec of sections) {
+      for (const q of sec.questions || []) {
+        if (q?.type === 'writing') {
+          q.type = 'free-response'
+          q.needsReview = true
+          q.reviewReason = q.reviewReason
+            || 'Imported as a written answer: it reads as prose, which is unusual in a maths booklet.'
+        }
+      }
+    }
   }
 
   const found = sections.reduce((n, sec) => n + (sec.questions?.length || 0), 0)
@@ -294,7 +328,7 @@ async function analyseChunk(chunk, total, onProgress, warn, depth = 0) {
     const halves = []
     const mid = Math.ceil(chunk.length / 2)
     for (const half of [chunk.slice(0, mid), chunk.slice(mid)]) {
-      halves.push(...await analyseChunk(half, total, onProgress, warn, depth + 1))
+      halves.push(...await analyseChunk(half, total, onProgress, warn, subject, depth + 1))
     }
     const retried = halves.reduce((n, sec) => n + (sec.questions?.length || 0), 0)
     return retried >= found ? halves : sections
@@ -307,8 +341,9 @@ async function analyseChunk(chunk, total, onProgress, warn, depth = 0) {
 
 /**
  * @param {(msg: string) => void} [onWarn] told about any page that gave trouble
+ * @param {'maths'|'english'|'mixed'} [subject] which kind of booklet this is
  */
-export async function processWithAI(pages, onProgress, onWarn) {
+export async function processWithAI(pages, onProgress, onWarn, subject = 'mixed') {
   const warn = (msg) => { console.warn('[pdfImport]', msg); onWarn?.(msg) }
 
   const chunks = []
@@ -319,7 +354,7 @@ export async function processWithAI(pages, onProgress, onWarn) {
   const allResults = []
   for (let i = 0; i < chunks.length; i++) {
     onProgress?.(`Analysing chunk ${i + 1} of ${chunks.length}...`)
-    allResults.push(await analyseChunk(chunks[i], pages.length, onProgress, warn))
+    allResults.push(await analyseChunk(chunks[i], pages.length, onProgress, warn, subject))
   }
 
   const merged = mergeSections(allResults)

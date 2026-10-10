@@ -607,7 +607,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
         return
       }
       const warnings = []
-      const sections = await processWithAI(pages, setPdfProgress, (msg) => warnings.push(msg))
+      const sections = await processWithAI(pages, setPdfProgress, (msg) => warnings.push(msg), opts.subject || 'mixed')
       setPdfProgress('')
       if (!Array.isArray(sections) || sections.length === 0) {
         alert('AI could not find any questions in this PDF.')
@@ -1844,6 +1844,25 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                       style={{ width: 60, textAlign: 'center', fontSize: '0.75rem', padding: '4px 6px' }}
                     />
                   </div>
+                  <div style={{ textAlign: 'left', marginBottom: 14 }}>
+                    <p style={{ fontSize: '0.68rem', marginBottom: 6 }}>What kind of booklet is this?</p>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {[['english', 'English / Reading'], ['maths', 'Maths'], ['mixed', 'A mix']].map(([key, label]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          className={`btn btn-small${(pdfPagePrompt.subject || 'english') === key ? '' : ' btn-outline'}`}
+                          style={{ fontSize: '0.5rem', padding: '5px 10px', flex: 1 }}
+                          onClick={() => setPdfPagePrompt(p => ({ ...p, subject: key }))}
+                        >{label}</button>
+                      ))}
+                    </div>
+                    <p style={{ fontSize: '0.55rem', color: '#888', marginTop: 6, lineHeight: 1.5 }}>
+                      A question over ruled lines means different things in each. In maths it is working
+                      towards one answer, so it is imported as multiple choice; in English it is an answer
+                      in the student's own words, so it is imported as a written answer.
+                    </p>
+                  </div>
                   <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: '0.68rem', lineHeight: 1.5, textAlign: 'left', marginBottom: 14, cursor: 'pointer' }}>
                     <input
                       type="checkbox"
@@ -1862,14 +1881,14 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                   </label>
                   <div className="neon-popup-actions">
                     <button className="btn" onClick={() => {
-                      const { file, from, to, asOne } = pdfPagePrompt
+                      const { file, from, to, asOne, subject } = pdfPagePrompt
                       setPdfPagePrompt(null)
-                      runPDFImport(file, { from, to }, { asOne: !!asOne })
+                      runPDFImport(file, { from, to }, { asOne: !!asOne, subject: subject || 'english' })
                     }}>Extract</button>
                     <button className="btn" style={{ background: '#7c3aed' }} onClick={() => {
-                      const { file, totalPages, asOne } = pdfPagePrompt
+                      const { file, totalPages, asOne, subject } = pdfPagePrompt
                       setPdfPagePrompt(null)
-                      runPDFImport(file, { from: 1, to: totalPages }, { asOne: !!asOne })
+                      runPDFImport(file, { from: 1, to: totalPages }, { asOne: !!asOne, subject: subject || 'english' })
                     }}>All Pages</button>
                     <button className="btn btn-outline" onClick={() => setPdfPagePrompt(null)}>Cancel</button>
                   </div>
