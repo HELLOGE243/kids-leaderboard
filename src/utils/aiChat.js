@@ -322,7 +322,7 @@ Return ONLY a JSON array. Make questions age-appropriate. Distractors should be 
 
 export async function generateWritingSuggestions(studentText, rubricCategories) {
   const catDescriptions = rubricCategories.map(c => `${c.name}: ${c.criteria.join('; ')}`).join('\n')
-  const prompt = `You are a Year 5-6 writing teacher reviewing a student's free-writing response. Analyse the writing and suggest specific improvements.
+  const prompt = `You are a Year 5-6 writing teacher reviewing a student's writing response. Analyse the writing and suggest specific improvements.
 
 Student's writing:
 """

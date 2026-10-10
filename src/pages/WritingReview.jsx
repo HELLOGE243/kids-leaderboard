@@ -575,7 +575,7 @@ function WritingReview({ orgId, teacherId, onBack }) {
         {quizSets.length === 0 ? (
           <div className="wr-empty">
             <span className="wr-empty-icon">📝</span>
-            <p>No quiz sets with free-writing questions found.</p>
+            <p>No quiz sets with writing questions found.</p>
             <p style={{ fontSize: '0.85rem', opacity: 0.6 }}>Create a quiz with a "Free Write" question in the Quiz Builder.</p>
           </div>
         ) : (

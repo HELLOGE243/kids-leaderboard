@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { getClassById, getCoursesForOrg, getImportedQuizSet } from '../data/store.js'
+import { getClassById, getCoursesForOrg, getImportedQuizSet, isWritingType } from '../data/store.js'
 import { RichText } from './RichTextEditor.jsx'
 import { renderMath } from '../utils/renderMath.js'
 import { prepareMath } from '../utils/mathify.js'
@@ -74,7 +74,7 @@ function QuestionView({ q }) {
         </div>
       )
     }
-    if (type === 'free-writing') {
+    if (isWritingType(type)) {
       return <p className="cqb-note">Writing — marked against the rubric in the writing screen.</p>
     }
     return <p className="cqb-note">No answer key for this question type.</p>

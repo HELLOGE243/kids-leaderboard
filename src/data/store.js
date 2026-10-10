@@ -1956,16 +1956,38 @@ export function importQuizSetsFromPDF(sections, meta) {
 
   for (const section of sections) {
     const rawTitle = (meta.subject + meta.term + meta.year + meta.week + '_' + section.sectionTitle).replace(/\s+/g, '')
-    const questions = (section.questions || []).map(q => ({
-      text: q.text || '',
-      prompt: '',
-      options: q.options || [],
-      correctIndex: typeof q.correctIndex === 'number' ? q.correctIndex : 0,
-      explanation: '',
-      needsReview: !!q.needsReview,
-      reviewReason: q.reviewReason || '',
-      originalType: q.originalType || 'mcq',
-    }))
+    // A booklet is not all multiple choice. What the reader decided each
+    // question is comes through here, so a question asked over ruled lines
+    // stays a question asked over ruled lines.
+    const questions = (section.questions || []).map((q) => {
+      const kind = q.type === 'free-response' || q.type === 'writing' ? q.type : 'multiple-choice'
+      const base = {
+        type: kind,
+        text: q.text || '',
+        prompt: '',
+        explanation: '',
+        needsReview: !!q.needsReview,
+        reviewReason: q.reviewReason || '',
+        originalType: q.originalType || 'mcq',
+      }
+      if (kind === 'writing') return { ...base, prompt: q.text || '' }
+      if (kind === 'free-response') {
+        return {
+          ...base,
+          modelAnswer: q.modelAnswer || '',
+          marks: Number(q.marks) > 0 ? Math.round(Number(q.marks)) : 1,
+          // Without the answer it is marked against, nobody can mark it.
+          needsReview: !!q.needsReview || !String(q.modelAnswer || '').trim(),
+          reviewReason: q.reviewReason
+            || (String(q.modelAnswer || '').trim() ? '' : 'No model answer was found for this written answer.'),
+        }
+      }
+      return {
+        ...base,
+        options: q.options || [],
+        correctIndex: typeof q.correctIndex === 'number' ? q.correctIndex : 0,
+      }
+    })
 
     if (questions.length === 0) continue
 
@@ -2800,11 +2822,24 @@ export function getNewCourseCount(studentId) {
 // The most a writing question can score: every rubric category out of 5.
 export const WRITING_MAX = 25
 
+/**
+ * Whether a question is the long written one a teacher marks.
+ *
+ * It is tagged "writing". It was tagged "free-writing", and both are accepted
+ * for good: the archive keeps a copy of each paper's answer key as it stood
+ * when it was sat, and those documents cannot be changed by anyone - so papers
+ * handed in before the rename will say "free-writing" for as long as they are
+ * kept, which is for ever.
+ */
+export function isWritingType(type) {
+  return type === 'writing' || type === 'free-writing'
+}
+
 function scoreOneQuestion(q, answer, writingMark) {
   const type = q.type || 'multiple-choice'
   // A writing question is worth nothing until a teacher marks it, and its mark
   // once given, so a marked paper's score is the whole paper.
-  if (type === 'free-writing') return writingMark ? (writingMark.totalScore || 0) : 0
+  if (isWritingType(type)) return writingMark ? (writingMark.totalScore || 0) : 0
   // A short written answer is marked by the AI against the answer the teacher
   // wrote, at the moment the paper is handed in, and the mark it gave travels
   // with the answer. Scoring stays arithmetic, which is what everything that
@@ -2837,7 +2872,7 @@ function totalMarksForQuestion(q, writingMark) {
   if (type === 'multi-matching') return q.matchQuestions?.length || 1
   // Out of nothing until marked: an unmarked writing question must not drag a
   // student's percentage down while it waits on a teacher.
-  if (type === 'free-writing') return writingMark ? WRITING_MAX : 0
+  if (isWritingType(type)) return writingMark ? WRITING_MAX : 0
   if (type === 'free-response') return freeResponseMarks(q)
   return 1
 }
@@ -2858,7 +2893,7 @@ export function freeResponseMarks(q) {
 function countWritingPending(set, attempt) {
   if (!set || !attempt) return 0
   return set.questions.filter((q, i) => {
-    if ((q.type || 'multiple-choice') !== 'free-writing') return false
+    if (!isWritingType(q.type || 'multiple-choice')) return false
     const answer = attempt.answers?.[i]
     if (typeof answer !== 'string' || !answer.trim()) return false
     return !writingMarkFor(attempt.id, i)
@@ -3215,7 +3250,7 @@ export function submitHomeworkAttempt(quizSetId, studentId, answers, questionTim
   const student = data.students[studentId]
   const orgId = student?.orgId || null
   const term = orgId ? (data.organisations[orgId]?.activeTerm || null) : null
-  const writingPending = set.questions.filter((q) => (q.type || 'multiple-choice') === 'free-writing').length
+  const writingPending = set.questions.filter((q) => isWritingType(q.type || 'multiple-choice')).length
   const attempt = { id, quizSetId, studentId, answers, score, total, writingPending, questionTimes: questionTimes || [], date: new Date().toISOString(), term, orgId, ...screenMeta(meta) }
   mutateStudentArray(studentId, 'homeworkAttempts', (arr) => arr.push(attempt))
   archiveAttempt(attempt, set, 'homework')
@@ -5033,7 +5068,7 @@ export function getWritingSubmissions(quizSetId, orgId) {
   const data = loadData()
   const set = data.importedQuizSets.find(s => s.id === quizSetId)
   if (!set) return []
-  const writingIndices = set.questions.map((q, i) => q.type === 'free-writing' ? i : -1).filter(i => i >= 0)
+  const writingIndices = set.questions.map((q, i) => isWritingType(q.type) ? i : -1).filter(i => i >= 0)
   if (writingIndices.length === 0) return []
   const attempts = collectStudentArray('homeworkAttempts').filter(a => a.quizSetId === quizSetId && (!orgId || !a.orgId || a.orgId === orgId))
   const redos = collectStudentArray('homeworkRedos').filter(a => a.quizSetId === quizSetId && (!orgId || !a.orgId || a.orgId === orgId))
@@ -5265,9 +5300,9 @@ export function getQuizSetsWithWriting(orgId) {
   const data = loadData()
   return data.importedQuizSets.filter(s => {
     if (orgId && s.orgId && s.orgId !== orgId) return false
-    return s.questions.some(q => q.type === 'free-writing')
+    return s.questions.some(q => isWritingType(q.type))
   }).map(s => {
-    const writingCount = s.questions.filter(q => q.type === 'free-writing').length
+    const writingCount = s.questions.filter(q => isWritingType(q.type)).length
     const submissions = getWritingSubmissions(s.id, orgId)
     const marked = submissions.filter(sub => sub.mark).length
     const loc = findQuizSetLocation(s.id)
@@ -6064,7 +6099,7 @@ function rescoreAttempt(set, attempt) {
   let score = 0
   let total = 0
   set.questions.forEach((q, i) => {
-    const mark = (q.type || 'multiple-choice') === 'free-writing' ? writingMarkFor(attempt.id, i) : null
+    const mark = isWritingType(q.type || 'multiple-choice') ? writingMarkFor(attempt.id, i) : null
     score += scoreOneQuestion(q, attempt.answers?.[i], mark)
     total += totalMarksForQuestion(q, mark)
   })

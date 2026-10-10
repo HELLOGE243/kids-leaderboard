@@ -58,13 +58,13 @@ const DRAG_SUMMARY = /summari[sz]/i
 const DRAG_GAP = /(removed|gap|missing sentence|fits?\s+(in|each|\d)|best fits|replaces?|summari[sz]es? each paragraph|paragraph summary)/i
 
 /**
- * @returns {'free-writing'|'drag-sentence'|'drag-summary'|'multi-matching'|'multi-description'|'multiple-choice'}
+ * @returns {'writing'|'drag-sentence'|'drag-summary'|'multi-matching'|'multi-description'|'multiple-choice'}
  * Composite kinds ('drag-*', 'multi-matching') are per-part here; groupQuizSet
  * merges the parts.
  */
 export function classify(q) {
   const text = htmlToText(q.description)
-  if (q.answersType === 'FREE_WRITE' || /^Writing\b/i.test(q.subcategory || '')) return 'free-writing'
+  if (q.answersType === 'FREE_WRITE' || /^Writing\b/i.test(q.subcategory || '')) return 'writing'
 
   // Two bodies of text -> multi-description; three or more -> matching.
   const extracts = (q.multiDescriptions || []).filter((d) => htmlToText(d.description))
@@ -328,7 +328,7 @@ function buildSingle(kind, part) {
     number: part.meta.number,
     flags,
   }
-  if (kind === 'free-writing') return { ...base, type: 'free-writing' }
+  if (kind === 'writing') return { ...base, type: 'writing' }
   const options = answerTexts(q)
   const ci = correctIndex(q)
   if (ci < 0) flags.push('No correct answer marked in CleverSpace.')

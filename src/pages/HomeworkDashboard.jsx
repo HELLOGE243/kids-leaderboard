@@ -41,6 +41,7 @@ import {
   getStudentPercentile,
   getAllAttemptsForQuizSet,
   getWritingMark,
+  isWritingType,
   saveWritingRewrite,
   getWritingRewrite,
   WRITING_RUBRIC,
@@ -319,7 +320,7 @@ function isQuestionCorrect(q, answer) {
 }
 
 function isAnswered(answer, type) {
-  if (type === 'free-writing') return typeof answer === 'string' && answer.trim().length > 0
+  if (isWritingType(type)) return typeof answer === 'string' && answer.trim().length > 0
   if (type === 'free-response') return !!String(answer?.text || '').trim()
   if (Array.isArray(answer)) return answer.some(x => x !== -1)
   return answer !== -1
@@ -536,7 +537,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     if (!q) return
     const isCorrectR = isQuestionCorrect(q, submittedResult.answers[currentQ])
     const chat = reviewChats[currentQ] || {}
-    setReviewNudge(!isCorrectR && chat.step !== 'done' && (q.type || 'multiple-choice') !== 'free-writing')
+    setReviewNudge(!isCorrectR && chat.step !== 'done' && !isWritingType(q.type || 'multiple-choice'))
   }, [currentQ, reviewMode, submittedResult, reviewChats])
 
   useEffect(() => {
@@ -712,7 +713,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       if (type === 'dropdown-cloze') return new Array(q.blanks?.length || 1).fill(-1)
       if (type === 'drag-drop' || type === 'drag-sentence' || type === 'drag-summary') return new Array(q.correctOrder?.length || 6).fill(-1)
       if (type === 'multi-matching') return new Array(q.matchQuestions?.length || 1).fill(-1)
-      if (type === 'free-writing') return ''
+      if (isWritingType(type)) return ''
       return -1
     }))
     setCurrentQ(0)
@@ -779,7 +780,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     const attempt = getHomeworkAttempt(quizSet.id, user.id)
     if (!attempt) return []
     return (quizSet.questions || []).reduce((acc, q, i) => {
-      if ((q.type || 'multiple-choice') === 'free-writing') return acc
+      if (isWritingType(q.type || 'multiple-choice')) return acc
       if (!isQuestionCorrect(q, attempt.answers?.[i])) acc.push(i)
       return acc
     }, [])
@@ -817,7 +818,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       if (type === 'dropdown-cloze') return new Array(q.blanks?.length || 1).fill(-1)
       if (type === 'drag-drop' || type === 'drag-sentence' || type === 'drag-summary') return new Array(q.correctOrder?.length || 6).fill(-1)
       if (type === 'multi-matching') return new Array(q.matchQuestions?.length || 1).fill(-1)
-      if (type === 'free-writing') return ''
+      if (isWritingType(type)) return ''
       if (type === 'free-response') return { text: '' }
       return -1
     }))
@@ -1537,7 +1538,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
         )
       }
 
-      // A free-writing answer is marked by a teacher, so nothing about this
+      // A writing answer is marked by a teacher, so nothing about this
       // paper's score, rank or class figures means anything until they have.
       // Once the mark is in, it is part of the score like any other question.
       const awaitingMarking = attemptAwaitsMarking(takingQuiz.id, user.id)
@@ -1808,7 +1809,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
               {!hasExtracts && (
                 <div className="qt-question-text">
                   <RichText html={q.text} />
-                  {qType === 'free-writing' && !isReview && q.prompt && (
+                  {isWritingType(qType) && !isReview && q.prompt && (
                     <div className="qt-prompt-display" style={{ marginTop: 20 }} dangerouslySetInnerHTML={{ __html: q.prompt }} />
                   )}
                 </div>
@@ -1828,7 +1829,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                 const picked = submittedResult.answers[currentQ]
                 const qType = q.type || 'multiple-choice'
                 const isCorrectQ = isQuestionCorrect(q, picked)
-                const skipped = qType === 'free-writing' ? (typeof picked !== 'string' || !picked.trim()) : (Array.isArray(picked) ? picked.every(x => x === -1) : picked === -1)
+                const skipped = isWritingType(qType) ? (typeof picked !== 'string' || !picked.trim()) : (Array.isArray(picked) ? picked.every(x => x === -1) : picked === -1)
                 const allAttempts = getHomeworkAttemptsForQuiz(takingQuiz.id)
                 const totalStudents = allAttempts.length
                 // Attempts served from the quizStats aggregate carry a score but
@@ -1851,7 +1852,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                       <div className="qt-stats-strip-body">
                         <div className={`qt-review-stat-cell ${isCorrectQ ? 'qt-review-stat-correct' : 'qt-review-stat-wrong'}`}>
                           <span className="qt-review-stat-icon">{isCorrectQ ? '✓' : '✗'}</span>
-                          <span className="qt-review-stat-label">{qType === 'free-writing' ? 'Written' : isCorrectQ ? 'Correct' : (Array.isArray(submittedResult.answers[currentQ]) ? submittedResult.answers[currentQ].every(x => x === -1) : submittedResult.answers[currentQ] === -1) ? 'Skipped' : 'Incorrect'}</span>
+                          <span className="qt-review-stat-label">{isWritingType(qType) ? 'Written' : isCorrectQ ? 'Correct' : (Array.isArray(submittedResult.answers[currentQ]) ? submittedResult.answers[currentQ].every(x => x === -1) : submittedResult.answers[currentQ] === -1) ? 'Skipped' : 'Incorrect'}</span>
                         </div>
                         <div className="qt-review-stat-cell">
                           {classPct == null ? (
@@ -1895,7 +1896,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                   const exp = parseExplanation(q.explanation)
                   return <>
                     <div className="qt-review-scroll">
-                    {!isCorrectQ && qType !== 'free-writing' && (() => {
+                    {!isCorrectQ && !isWritingType(qType) && (() => {
                       const chat = reviewChats[currentQ] || { step: 'ask', messages: [] }
                       const qIdx = currentQ
                       function updateChat(next) { setReviewChats(prev => ({ ...prev, [qIdx]: next })) }
@@ -2351,7 +2352,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                   )
                 }
 
-                if (qType === 'free-writing') {
+                if (isWritingType(qType)) {
                   void rewriteTick  // re-read the rewrite once one is filed
                   const writingMark = submittedResult ? getWritingMark(submittedResult.id || '', currentQ) : null
                   const SCORE_LABELS_W = ['', 'Beginning', 'Developing', 'Competent', 'Proficient', 'Advanced']
@@ -2686,7 +2687,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                   </>
                 }
 
-                if (qType === 'free-writing') {
+                if (isWritingType(qType)) {
                   return <div className="qt-freewrite-editor-wrap">
                     <RichTextEditor
                       extended
@@ -3096,7 +3097,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                           }
                           const hwProgressPct = hwProgress ? Math.round(((hwProgress.answers || []).filter((a, ai) => {
                             const qt = s.questions[ai]?.type || 'multiple-choice'
-                            if (qt === 'free-writing') return typeof a === 'string' && a.trim().length > 0
+                            if (qt === 'writing') return typeof a === 'string' && a.trim().length > 0
                             if (Array.isArray(a)) return a.some(v => v !== -1 && v !== '')
                             return a !== -1 && a !== null && a !== undefined
                           }).length / s.questions.length) * 100) : 0

@@ -40,6 +40,7 @@ import {
   clearUnassignedQuestions,
   createQuizFromUnassigned,
   createBlankQuizSet,
+  isWritingType,
   getQuestionReports,
   resolveQuestionReport,
   getExplanationReports,
@@ -65,7 +66,7 @@ const QUESTION_TYPES = [
   { value: 'drag-sentence', label: 'Drag Sentences' },
   { value: 'drag-summary', label: 'Drag Summaries' },
   { value: 'multi-matching', label: 'Matching' },
-  { value: 'free-writing', label: 'Free Write' },
+  { value: 'writing', label: 'Writing' },
   { value: 'free-response', label: 'Free Response' },
 ]
 
@@ -420,7 +421,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
         if (t === 'dropdown-cloze') return stripHtml(q.text) && q.blanks?.length > 0
         if (t === 'drag-sentence' || t === 'drag-summary') return stripHtml(q.text) && q.summaryOptions?.some((o) => o.trim())
         if (t === 'multi-matching') return q.descriptions?.some((d) => stripHtml(d.content)) && q.matchQuestions?.some((m) => m.question.trim())
-        if (t === 'free-writing') return stripHtml(q.text) || stripHtml(q.prompt)
+        if (t === 'writing') return stripHtml(q.text) || stripHtml(q.prompt)
         return stripHtml(q.text)
       })
 
@@ -969,13 +970,13 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
               )}
 
               {/* --- MC / Drag-Drop / Free-Writing: single text editor --- */}
-              {(qType === 'multiple-choice' || qType === 'drag-sentence' || qType === 'drag-summary' || qType === 'free-writing' || qType === 'free-response') && (
+              {(qType === 'multiple-choice' || qType === 'drag-sentence' || qType === 'drag-summary' || isWritingType(qType) || qType === 'free-response') && (
                 <div className="qe-question-area">
                   <RichTextEditor
                     key={`text-${currentEditQ}`}
                     value={q.text}
                     onChange={(html) => updateQuestion(currentEditQ, 'text', html)}
-                    placeholder={qType === 'free-writing' ? 'Stimulus / passage for the student...' : `Type question ${currentEditQ + 1} here...`}
+                    placeholder={isWritingType(qType) ? 'Stimulus / passage for the student...' : `Type question ${currentEditQ + 1} here...`}
                   />
                 </div>
               )}
@@ -1404,7 +1405,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
               )}
 
               {/* --- Free Writing: prompt only --- */}
-              {qType === 'free-writing' && (
+              {isWritingType(qType) && (
                 <div style={{ padding: '0 4px' }}>
                   <p style={{ fontSize: '0.7rem', color: '#888', marginBottom: 8 }}>Writing prompt (shown to student)</p>
                   <RichTextEditor
@@ -2370,7 +2371,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                 <div className="import-type-counts" style={{ marginTop: 8 }}>
                   <div style={{ fontSize: '0.55rem', color: 'var(--text-dim)', marginBottom: 4 }}>Question types created</div>
                   {Object.entries(importReport.typeCounts).map(([type, n]) => (
-                    <span key={type} className="import-type-chip">{({ 'multiple-choice': 'Multiple choice', 'multi-description': 'Multiple extracts', 'multi-matching': 'Matching', 'drag-sentence': 'Drag sentences', 'drag-summary': 'Drag summaries', 'free-writing': 'Free write', 'free-response': 'Free response', 'dropdown-cloze': 'Cloze' })[type] || type}: <b>{n}</b></span>
+                    <span key={type} className="import-type-chip">{({ 'multiple-choice': 'Multiple choice', 'multi-description': 'Multiple extracts', 'multi-matching': 'Matching', 'drag-sentence': 'Drag sentences', 'drag-summary': 'Drag summaries', 'writing': 'Writing', 'free-writing': 'Writing', 'free-response': 'Free response', 'dropdown-cloze': 'Cloze' })[type] || type}: <b>{n}</b></span>
                   ))}
                 </div>
               )}

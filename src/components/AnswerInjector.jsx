@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { getAttemptForEditing, injectAnswersIntoAttempt, preloadAllStudents } from '../data/store.js'
+import { getAttemptForEditing, injectAnswersIntoAttempt, preloadAllStudents, isWritingType } from '../data/store.js'
 import { RichText } from './RichTextEditor.jsx'
 
 /**
@@ -128,7 +128,7 @@ function AnswerInjector({ studentId, studentName, quizSetId, teacherName, onClos
               </div>
             )
 
-            if (type === 'free-writing') {
+            if (isWritingType(type)) {
               return (
                 <div key={qi} className="ai-q">
                   {header}

@@ -122,7 +122,16 @@ function buildPrompt(pdfText, chunkInfo) {
 ${chunkNote}
 CRITICAL: Extract EVERY SINGLE question you find. Do NOT skip questions, do NOT summarise, do NOT abbreviate. If there are 35 questions in a section, return all 35.
 
-EVERY question must end up as multiple-choice with options and a correctIndex — regardless of whether the original had MCQ options or not. Open-ended questions, short answer, fill-in-blank, "find the value", "calculate", "write the ratio" — ALL of these must be converted to MCQ by generating plausible options.
+DECIDE WHAT EACH QUESTION IS. A booklet mixes them, and turning them all into multiple choice loses what was being asked.
+
+- "mcq" — the question offers options to choose between: a), b), c), d), or (1)(2)(3)(4), or A B C D. Keep its options and work out which is right.
+- "free-response" — the question asks for an answer in the student's own words and offers no options. On the page it is a question followed by ruled lines or blank space to write on, often under a heading like "Write your response", "Answer the questions", or a numbered question with nothing but lines beneath it. A few words to a few sentences.
+- "writing" — one long task: an essay, a story, a letter, a composition. A whole page or most of one, with a title or a scenario and a lot of space. There is usually only one of these in a booklet, if any.
+- "cloze" — a passage with numbered gaps and a list of words or letters to put in them.
+
+A question with no options is NOT a broken multiple-choice question and must not be given invented options. Short ones are "free-response"; the long single task is "writing".
+
+FOR A FREE-RESPONSE QUESTION, also write "modelAnswer": the answer you would put in a marking guide, in one or two sentences, drawn from the passage or the question itself. It is what the student's answer is marked against, so it must say what a correct answer has to contain. Set "marks" to 1, or 2 where the question plainly asks for two things ("give two reasons").
 
 RULES:
 1. SKIP all teaching content, instructional text, worked examples, and explanations. Only extract actual questions students must answer.
@@ -140,7 +149,7 @@ QUESTION QUALITY — THIS IS CRITICAL:
 
 FOR EACH QUESTION:
 5. If the question has listed options (A/B/C/D/E or a/b/c/d): solve the problem first, then check the options are valid. If the correct answer is missing from the options or options don't make sense, generate new correct options. Set correctIndex (0-based).
-6. If the question is free-response (no options given): solve the problem, generate 4 plausible wrong answers plus the correct answer (4-5 options total). Place the correct answer at a varied position. Common student mistakes make the best wrong answers.
+6. If the question offers no options, it is a "free-response" question. Keep it as one and write its modelAnswer. Do not invent options for it.
 7. If the question references an image, diagram, figure, shape drawing, coordinate grid, or any visual element you cannot see in the text, set needsReview to true and set reviewReason to "References an image/diagram not available in text". Do NOT add any labels like "[Image]" to the question text — keep the text clean.
 8. For True/False questions: options should be ["True", "False"].
 9. For fill-in-the-blank questions: rephrase as a clear question with MCQ options.
@@ -160,18 +169,31 @@ Return ONLY a JSON array of sections, no other text:
     "questions": [
       {
         "number": 1,
+        "type": "mcq",
         "text": "The question text here (clean, complete, student-readable — NO labels like [Rewritten] or [Image])",
         "options": ["Option A", "Option B", "Option C", "Option D"],
         "correctIndex": 2,
         "needsReview": false,
         "reviewReason": "",
         "originalType": "mcq"
+      },
+      {
+        "number": 2,
+        "type": "free-response",
+        "text": "Why do pitchers like to throw breaking balls?",
+        "modelAnswer": "Because they are difficult for batters to follow.",
+        "marks": 1,
+        "needsReview": false,
+        "reviewReason": "",
+        "originalType": "free-response"
       }
     ]
   }
 ]
 
-originalType values: "mcq", "free-response", "fill-in-blank", "true-false"
+type values: "mcq", "free-response", "writing", "cloze". A "writing" question needs only its text; it is marked by a teacher. Only an "mcq" carries options and correctIndex. Only a "free-response" carries modelAnswer and marks.
+
+originalType values: "mcq", "free-response", "fill-in-blank", "true-false", "writing"
 
 Here is the extracted PDF text:
 

@@ -97,7 +97,7 @@ function SessionRevision({ user, onComplete }) {
         .map((m, i) => `${i + 1}. Extract ${String.fromCharCode(65 + (m.correctExtract ?? 0))}`)
         .join('   ')
     }
-    if (t === 'free-writing') return ''
+    if (t === 'writing') return ''
     return question.options?.[question.correctIndex] || ''
   }
 
