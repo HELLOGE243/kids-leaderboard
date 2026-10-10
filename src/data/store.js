@@ -1974,6 +1974,12 @@ export function importQuizSetsFromPDF(sections, meta) {
       if (kind === 'free-response') {
         return {
           ...base,
+          // The question goes in the statement box beside the answer box, where
+          // a student answering looks for it. What the reader returns for one of
+          // these is the question alone - any passage is on the page around it,
+          // and the teacher puts that in the content area.
+          text: '',
+          prompt: q.text || '',
           modelAnswer: q.modelAnswer || '',
           marks: Number(q.marks) > 0 ? Math.round(Number(q.marks)) : 1,
           // Without the answer it is marked against, nobody can mark it.

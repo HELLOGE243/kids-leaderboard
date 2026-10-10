@@ -1420,7 +1420,19 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
               {/* --- Free Response: the question, and the answer it wants --- */}
               {qType === 'free-response' && (
                 <div style={{ padding: '0 4px' }}>
-                  <p style={{ fontSize: '0.7rem', color: '#888', marginBottom: 8 }}>
+                  {/* The question itself, in the same box multiple choice puts
+                      it in. Without this there was nowhere to write it, so the
+                      student saw the passage and somewhere to answer, and no
+                      question between them. */}
+                  <div className="qt-prompt-area">
+                    <RichTextEditor
+                      key={`prompt-${currentEditQ}`}
+                      value={q.prompt || ''}
+                      onChange={(html) => updateQuestion(currentEditQ, 'prompt', html)}
+                      placeholder="Question statement (shown above the answer box)..."
+                    />
+                  </div>
+                  <p style={{ fontSize: '0.7rem', color: '#888', margin: '16px 0 8px' }}>
                     The answer this question is looking for
                   </p>
                   <RichTextEditor
