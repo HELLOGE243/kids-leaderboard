@@ -1961,10 +1961,17 @@ export function importQuizSetsFromPDF(sections, meta) {
     // stays a question asked over ruled lines.
     const questions = (section.questions || []).map((q) => {
       const kind = q.type === 'free-response' || q.type === 'writing' ? q.type : 'multiple-choice'
+      // A comprehension set is one passage and several questions about it. The
+      // student reads the passage on the left and answers on the right, so the
+      // passage is the question's content and the question itself is its
+      // statement. Where there is nothing to read, the question stays in the
+      // content area on its own, as it always has.
+      const passage = String(q.passage || '').trim()
+      const asked = String(q.text || '').trim()
       const base = {
         type: kind,
-        text: q.text || '',
-        prompt: '',
+        text: passage || asked,
+        prompt: passage ? asked : '',
         explanation: '',
         needsReview: !!q.needsReview,
         reviewReason: q.reviewReason || '',
@@ -1974,12 +1981,10 @@ export function importQuizSetsFromPDF(sections, meta) {
       if (kind === 'free-response') {
         return {
           ...base,
-          // The question goes in the statement box beside the answer box, where
-          // a student answering looks for it. What the reader returns for one of
-          // these is the question alone - any passage is on the page around it,
-          // and the teacher puts that in the content area.
-          text: '',
-          prompt: q.text || '',
+          // The statement belongs beside the answer box, where a student
+          // answering looks for it, whether or not there is a passage to read.
+          text: passage,
+          prompt: asked,
           modelAnswer: q.modelAnswer || '',
           marks: Number(q.marks) > 0 ? Math.round(Number(q.marks)) : 1,
           // Without the answer it is marked against, nobody can mark it.

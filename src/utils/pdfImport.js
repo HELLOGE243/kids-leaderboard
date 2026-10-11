@@ -138,7 +138,13 @@ const SUBJECT_RULES = {
 - "writing" for one long task: an essay, a story, a letter, a composition, a whole page or most of one. There is usually one at most.
 - A passage with numbered gaps and a list of words or letters to choose from: one "mcq" per gap, the listed words as its options.
 - For vocabulary, synonym, antonym and word-meaning questions: name the word in the question text so it stands alone, and make the wrong options real words of the same part of speech.
-- A question asking the student to rewrite a sentence using a given word is "free-response": the modelAnswer is the rewritten sentence.`,
+- A question asking the student to rewrite a sentence using a given word is "free-response": the modelAnswer is the rewritten sentence.
+
+A WEEK'S BOOKLET IS FIVE DAYS OF WORK, and the pages say which day they are: a corner marker reading "DAY 1", "Day 2", "WEEK 11 DAY 3" or similar. That marker starts a day and everything after it belongs to that day until the next marker appears, however many pages later.
+
+Where a booklet is marked out in days, the day IS the section: give every question from a marker the sectionTitle "Day 1", "Day 2" and so on, exactly in that form, so the pages of one day come together as one quiz however they were read. Do not invent a different title for a page in the middle of a day, and do not split a day into smaller sections.
+
+Where a booklet carries no day markers at all, title the sections by their printed headings as usual.`,
 
   mixed: `THIS BOOKLET MIXES SUBJECTS. Decide question by question.
 
@@ -149,8 +155,15 @@ const SUBJECT_RULES = {
 }
 
 function buildPrompt(pdfText, chunkInfo, subject) {
+  // A day runs over several pages and the pages are read a few at a time, so a
+  // batch can begin in the middle of one with no marker on it. The day the last
+  // batch ended in is carried over, or its questions would be filed under a
+  // heading invented for whichever page happened to come first.
+  const carried = chunkInfo?.carryDay
+    ? `The pages before this batch were ${chunkInfo.carryDay}. Any question here that comes before the next day marker belongs to ${chunkInfo.carryDay}.\n`
+    : ''
   const chunkNote = chunkInfo
-    ? `\nYou are processing pages ${chunkInfo.from}-${chunkInfo.to} of ${chunkInfo.total}. Extract ALL questions from these pages — do not summarise or skip any.\n`
+    ? `\nYou are processing pages ${chunkInfo.from}-${chunkInfo.to} of ${chunkInfo.total}. Extract ALL questions from these pages — do not summarise or skip any.\n${carried}`
     : ''
 
   return `You are analyzing a tutoring booklet PDF for primary/high school students. The text was extracted by a PDF parser, so it may be garbled, incomplete, or poorly formatted. Your job is to reconstruct and complete every question, then organize them into sections.
@@ -158,6 +171,13 @@ ${chunkNote}
 CRITICAL: Extract EVERY SINGLE question you find. Do NOT skip questions, do NOT summarise, do NOT abbreviate. If there are 35 questions in a section, return all 35.
 
 ${SUBJECT_RULES[subject] || SUBJECT_RULES.mixed}
+
+SEPARATE THE PASSAGE FROM THE QUESTION. A booklet asks several questions about one passage, poem, extract, poster or diagram. The student reads that on one side of the screen and answers on the other, so the two must come back apart:
+
+- "passage" — the text the question is about, in full, exactly as printed. The same passage is repeated on every question that asks about it, so each question stands on its own. Leave it out for a question that needs nothing to read: a grammar item, a standalone sum, a vocabulary item with its own sentence.
+- "text" — the question itself and nothing else. "Why does the writer say his siblings did not have a real childhood?" — not the passage, and not the instruction line that introduced the set ("Read the text below and answer questions 1 to 8").
+
+The instruction line that introduces a set of questions is not a question. Do not return it as one, and do not put it in "text".
 
 FOR A FREE-RESPONSE QUESTION, also write "modelAnswer": the answer you would put in a marking guide, in one or two sentences, drawn from the passage or the question itself. It is what the student's answer is marked against, so it must say what a correct answer has to contain. Set "marks" to 1, or 2 where the question plainly asks for two things ("give two reasons").
 
@@ -190,7 +210,8 @@ Return ONLY a JSON array of sections, no other text:
       {
         "number": 1,
         "type": "mcq",
-        "text": "The question text here (clean, complete, student-readable — NO labels like [Rewritten] or [Image])",
+        "passage": "The full text the question is about, repeated on each question about it. Omitted when the question needs nothing to read.",
+        "text": "The question itself, and nothing else (clean, complete, student-readable — NO labels like [Rewritten] or [Image])",
         "options": ["Option A", "Option B", "Option C", "Option D"],
         "correctIndex": 2,
         "needsReview": false,
@@ -276,6 +297,16 @@ function mergeSections(allChunks) {
   return [...map.values()]
 }
 
+/** The last day a batch was filing questions under, to carry to the next. */
+function lastDaySeen(sections) {
+  let found = null
+  for (const section of sections || []) {
+    const match = /\bday\s*(\d+)\b/i.exec(section?.sectionTitle || '')
+    if (match) found = `Day ${match[1]}`
+  }
+  return found
+}
+
 function chunkText(chunk) {
   return chunk.map(p => `--- Page ${p.pageNum} ---\n${p.text}`).join('\n\n')
 }
@@ -285,7 +316,7 @@ function chunkText(chunk) {
  * off. Whatever survived the cut is kept either way, so a retry can only add
  * questions, never lose them.
  */
-async function analyseChunk(chunk, total, onProgress, warn, subject, depth = 0) {
+async function analyseChunk(chunk, total, onProgress, warn, subject, carryDay, depth = 0) {
   const from = chunk[0].pageNum
   const to = chunk[chunk.length - 1].pageNum
   const label = from === to ? `page ${from}` : `pages ${from}-${to}`
@@ -294,7 +325,7 @@ async function analyseChunk(chunk, total, onProgress, warn, subject, depth = 0) 
   let sections = []
   let truncated = false
   try {
-    const res = await callAI(buildPrompt(chunkText(chunk), { from, to, total }, subject))
+    const res = await callAI(buildPrompt(chunkText(chunk), { from, to, total, carryDay }, subject))
     sections = res.sections
     truncated = res.truncated
   } catch (err) {
@@ -328,7 +359,7 @@ async function analyseChunk(chunk, total, onProgress, warn, subject, depth = 0) 
     const halves = []
     const mid = Math.ceil(chunk.length / 2)
     for (const half of [chunk.slice(0, mid), chunk.slice(mid)]) {
-      halves.push(...await analyseChunk(half, total, onProgress, warn, subject, depth + 1))
+      halves.push(...await analyseChunk(half, total, onProgress, warn, subject, carryDay, depth + 1))
     }
     const retried = halves.reduce((n, sec) => n + (sec.questions?.length || 0), 0)
     return retried >= found ? halves : sections
@@ -352,9 +383,12 @@ export async function processWithAI(pages, onProgress, onWarn, subject = 'mixed'
   }
 
   const allResults = []
+  let carryDay = null
   for (let i = 0; i < chunks.length; i++) {
     onProgress?.(`Analysing chunk ${i + 1} of ${chunks.length}...`)
-    allResults.push(await analyseChunk(chunks[i], pages.length, onProgress, warn, subject))
+    const sections = await analyseChunk(chunks[i], pages.length, onProgress, warn, subject, carryDay)
+    allResults.push(sections)
+    carryDay = lastDaySeen(sections) || carryDay
   }
 
   const merged = mergeSections(allResults)
