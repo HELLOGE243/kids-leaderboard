@@ -381,6 +381,31 @@ export async function archiveSubmission(record) {
   }
 }
 
+/**
+ * One student's papers as they were handed in, newest first.
+ *
+ * The archive carries the title, the mark and the date on each record, so this
+ * answers "what has my child done" in one query - no quiz sets to load, and no
+ * reading their working record to find out. Readable by that student, their
+ * teachers, and their parents.
+ */
+export async function loadSubmissionsForStudent(studentId) {
+  if (!studentId) return []
+  try {
+    const { query, where } = await import('firebase/firestore')
+    const snap = await getDocs(query(
+      collection(db, SUBMISSIONS_COLLECTION),
+      where('studentId', '==', String(studentId)),
+    ))
+    return snap.docs
+      .map((d) => unpackNested(d.data()))
+      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+  } catch (e) {
+    console.warn(`Firestore: could not read submissions for ${studentId}:`, e)
+    return []
+  }
+}
+
 /** Every archived submission, newest first. Teachers only, by the rules. */
 export async function loadArchivedSubmissions() {
   try {

@@ -790,6 +790,79 @@ async function consumeEmailToken(rawEmail, token) {
   return true
 }
 
+/**
+ * Signs a parent in with a code sent to their email.
+ *
+ * There is no parent account to create and no password to keep. Every student
+ * already carries a parent email, so proving control of that address is the
+ * whole of it: the children are the students whose contact record names it.
+ *
+ * That also verifies the one thing the weekly report depends on - that the
+ * address on file reaches somebody - which nothing had checked until now.
+ *
+ * The code itself is the existing one: phoneVerify emails it, hashes it, and
+ * expires it in ten minutes, having been built for the same address at signup.
+ * This takes the token that proves it was entered correctly.
+ */
+exports.authParent = functions
+  .region('australia-southeast1')
+  .https.onRequest((req, res) => {
+    cors(req, res, async () => {
+      if (req.method !== 'POST') return sendJson(res, 405, { error: 'Method not allowed' })
+      try {
+        const email = normaliseEmail(req.body?.email)
+        const token = String(req.body?.token || '')
+        if (!email || !token) return sendJson(res, 400, { error: 'Missing details' })
+
+        // One use, and only if the code was entered in the last few minutes.
+        if (!(await consumeEmailToken(email, token))) {
+          return sendJson(res, 401, { error: 'That code has expired. Send a new one.' })
+        }
+
+        const contacts = await db.collection('studentContacts').get()
+        const childIds = contacts.docs
+          .filter((d) => normaliseEmail(d.get('parentEmail')) === email)
+          .map((d) => d.id)
+
+        const core = await getCore(true)
+        const children = childIds
+          .map((id) => ({ id, student: (core.students || {})[id] }))
+          .filter(({ student }) => student && !student.archived)
+          .map(({ id, student }) => ({
+            id,
+            name: student.name || '',
+            firstName: student.firstName || '',
+            lastName: student.lastName || '',
+            yearGroup: student.yearGroup || '',
+          }))
+
+        if (!children.length) {
+          // Said plainly rather than hinting at which addresses are on file.
+          return sendJson(res, 404, {
+            error: 'No student is registered to this email address. Please check with your teacher.',
+          })
+        }
+
+        // The uid is the address, so a parent is the same account on every
+        // device and no record has to be created to hold one.
+        const uid = `parent_${sha256(email).slice(0, 32)}`
+        const sessionId = await startSession(uid, 'parent')
+        const authToken = await admin.auth().createCustomToken(uid, {
+          role: 'parent',
+          // The children travel in the token, so the rules can check a parent
+          // against a child without reading a document to do it.
+          children: children.map((c) => c.id),
+          orgId: children.map(({ id }) => (core.students || {})[id]?.orgId).find(Boolean) || null,
+          admin: false,
+        })
+        return sendJson(res, 200, { ok: true, token: authToken, sessionId, email, children })
+      } catch (e) {
+        console.error('authParent failed:', e)
+        return sendJson(res, 500, { error: 'Could not sign in. Try again.' })
+      }
+    })
+  })
+
 exports.authSignup = functions
   .region('australia-southeast1')
   .https.onRequest((req, res) => {

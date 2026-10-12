@@ -26,6 +26,21 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
+    // A parent reads their own children's work and nothing else, ever.
+    //
+    // The children are in the token, put there when the parent proved control
+    // of the email address those students are registered to. Reading them from
+    // the token rather than from a document means no extra read on every rule
+    // evaluation, and means a parent cannot widen their own access by writing
+    // somewhere - there is nothing to write.
+    function isParent() {
+      return signedIn() && request.auth.token.role == 'parent';
+    }
+
+    function isParentOf(studentId) {
+      return isParent() && studentId in request.auth.token.children;
+    }
+
     // --- Shared app structure -------------------------------------------
     // Everyone signed in reads it (courses, classes, quizzes, shop config).
     // Teachers may change anything. Students may change only the specific
@@ -92,7 +107,9 @@ service cloud.firestore {
     // cannot take the answers with it. A student writes their own and nobody -
     // teacher included - may change or remove one afterwards.
     match /submissions/{submissionId} {
-      allow read: if isTeacher() || (signedIn() && resource.data.studentId == request.auth.uid);
+      allow read: if isTeacher()
+        || (signedIn() && resource.data.studentId == request.auth.uid)
+        || isParentOf(resource.data.studentId);
       allow create: if signedIn() && request.resource.data.studentId == request.auth.uid;
       allow update, delete: if false;
     }
@@ -110,7 +127,7 @@ service cloud.firestore {
     // and update any student's (awarding tokens, clearing attempts when a quiz
     // is deleted, marking work).
     match /studentData/{studentId} {
-      allow read: if isSelf(studentId) || isTeacher();
+      allow read: if isSelf(studentId) || isTeacher() || isParentOf(studentId);
       allow create, update: if isSelf(studentId) || isTeacher();
       allow delete: if isTeacher();
 
@@ -120,7 +137,8 @@ service cloud.firestore {
       // revision deck, the vocabulary - overflows into these. Same owner, same
       // reach: a student's own, and their teachers'.
       match /parts/{part} {
-        allow read, write: if isSelf(studentId) || isTeacher();
+        allow read: if isSelf(studentId) || isTeacher() || isParentOf(studentId);
+        allow write: if isSelf(studentId) || isTeacher();
       }
     }
 
@@ -154,6 +172,8 @@ service cloud.firestore {
     // --- Parent contact details --------------------------------------------
     // Phone numbers and emails of students' parents. Teachers only: these were
     // previously on the shared student records every signed-in user can read.
+    // A parent is never given these: the address they signed in with is the
+    // only one they need, and the rest belongs to the school.
     match /studentContacts/{studentId} {
       allow read, write: if isTeacher();
       // A student reads only their own family's contact (quiz watermark).

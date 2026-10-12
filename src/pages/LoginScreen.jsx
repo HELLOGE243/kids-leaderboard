@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo, useEffect } from 'react'
 import SYDNEY_SCHOOLS from '../data/sydneySchools.js'
-import { lookupUser, loginUser, resetPassword, signupUser, phoneVerification } from '../data/auth.js'
+import { lookupUser, loginUser, resetPassword, signupUser, phoneVerification, loginParent } from '../data/auth.js'
 
 // Password field with an eye button to show or hide what was typed.
 function PasswordInput(props) {
@@ -66,6 +66,11 @@ function LoginScreen({ onLogin }) {
   const schoolRef = useRef(null)
   // Label shown on the submit button while a server call is in flight.
   const [busy, setBusy] = useState('')
+  // A parent signs in with an address and the code sent to it. Its own state,
+  // not the one the student signup flow fills in with a parent's address -
+  // sharing it would carry a half-typed value between two different jobs.
+  const [parentLoginEmail, setParentLoginEmail] = useState('')
+  const [parentLoginCode, setParentLoginCode] = useState('')
   // Runs fn with the busy label shown; returns its result, or null if a call is already running.
   async function withResult(label, fn) {
     if (busy) return null
@@ -323,6 +328,89 @@ function LoginScreen({ onLogin }) {
     )
   }
 
+  // ---- Parent: an email, then the code sent to it -------------------------
+  //
+  // No account and no password. Every student carries the email their parent
+  // was registered with, so proving the address is theirs is the whole of
+  // signing in - and it checks the address the weekly report is sent to, which
+  // nothing had ever confirmed.
+  if (role === 'parent') {
+    const askCode = step === 'parent-code'
+    return (
+      <div className="page-center landing-page">
+        <img src="/avant-logo.png" alt="AVANT OC &amp; Selective" className="landing-logo" />
+        <h1 className="landing-title">{askCode ? 'Check your email' : 'Parent sign in'}</h1>
+        <p className="landing-text" style={{ maxWidth: 340, textAlign: 'center', lineHeight: 1.55, marginBottom: 18 }}>
+          {askCode
+            ? `We sent a 6-digit code to ${parentLoginEmail}. It expires in ten minutes.`
+            : 'Enter the email address your child is registered with. We will send you a code — there is no password to remember.'}
+        </p>
+        <form
+          className="login-form"
+          onSubmit={async (e) => {
+            e.preventDefault()
+            setError('')
+            if (!askCode) {
+              const address = parentLoginEmail.trim()
+              if (!address) return setError('Enter your email address.')
+              setBusy(true)
+              const sent = await phoneVerification('send', address)
+              setBusy(false)
+              if (!sent.ok) return setError(sent.error)
+              setStep('parent-code')
+              return
+            }
+            setBusy(true)
+            const checked = await phoneVerification('check', parentLoginEmail.trim(), parentLoginCode.trim())
+            if (!checked.ok) { setBusy(false); return setError(checked.error) }
+            const signedIn = await loginParent(parentLoginEmail.trim(), checked.token)
+            setBusy(false)
+            if (!signedIn.ok) return setError(signedIn.error)
+            onLogin({
+              role: 'parent',
+              email: signedIn.email,
+              children: signedIn.children,
+              sessionId: signedIn.sessionId,
+            })
+          }}
+        >
+          {askCode ? (
+            <input
+              className="input"
+              value={parentLoginCode}
+              onChange={(e) => { setParentLoginCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6)) }}
+              placeholder="6-digit code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+            />
+          ) : (
+            <input
+              className="input"
+              value={parentLoginEmail}
+              onChange={(e) => setParentEmail(e.target.value)}
+              placeholder="you@example.com"
+              type="email"
+              autoComplete="email"
+              autoFocus
+            />
+          )}
+          {error && <p className="login-error">{error}</p>}
+          <button className="btn landing-btn" type="submit" disabled={busy}>
+            {busy ? 'Please wait…' : askCode ? 'Sign in' : 'Email me a code'}
+          </button>
+        </form>
+        <button
+          className="btn btn-outline landing-btn"
+          onClick={() => {
+            if (askCode) { setStep('parent-email'); setParentLoginCode(''); setError('') }
+            else { setRole(null); setStep('nickname'); setParentEmail(''); setError('') }
+          }}
+        >Back</button>
+      </div>
+    )
+  }
+
   // Role selection
   if (!role) {
     return (
@@ -332,6 +420,9 @@ function LoginScreen({ onLogin }) {
         <div className="role-row" style={{ marginTop: 32 }}>
           <button className="role-btn" onClick={() => setRole('student')}>
             I am a Student
+          </button>
+          <button className="role-btn role-btn-parent" onClick={() => { setRole('parent'); setStep('parent-email'); setError('') }}>
+            I am a Parent
           </button>
           <button className="role-btn role-btn-alt" onClick={() => setRole('teacher')}>
             I am a Teacher

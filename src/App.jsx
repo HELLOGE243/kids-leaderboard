@@ -4,6 +4,7 @@ import LoginScreen from './pages/LoginScreen.jsx'
 import Portal from './pages/Portal.jsx'
 import TeacherDashboard from './pages/TeacherDashboard.jsx'
 import SessionRevision from './pages/SessionRevision.jsx'
+import ParentPortal from './pages/ParentPortal.jsx'
 import GpuNotice from './components/GpuNotice.jsx'
 import ScreenLeaveNotice from './components/ScreenLeaveNotice.jsx'
 import PolicyNotice from './components/PolicyNotice.jsx'
@@ -335,6 +336,12 @@ function App() {
         <BootLoader done={dbReady} onHidden={() => setBootHidden(true)} />
       </>
     )
+  }
+
+  // A parent has no student record of their own, so none of what follows -
+  // the daily cards, the leave notice, the policy notice - applies to them.
+  if (session.role === 'parent') {
+    return <>{overlay}<ParentPortal session={session} onLogout={handleLogout} /></>
   }
 
   if (session.role === 'teacher') {

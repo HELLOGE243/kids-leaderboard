@@ -88,6 +88,28 @@ export async function phoneVerification(action, email, code) {
 }
 
 /**
+ * Signs a parent in with a code sent to the email their child is registered to.
+ *
+ * There is no parent account and no password: the address is the identity, and
+ * the code proves it is theirs. The children come back with the session.
+ *
+ * @param {string} email the address the code was sent to
+ * @param {string} token what phoneVerification('check') returned
+ * @returns {Promise<{ok:boolean, children?:object[], email?:string, error?:string}>}
+ */
+export async function loginParent(email, token) {
+  try {
+    const { ok, data } = await postJson('authParent', { email, token })
+    if (!ok || !data?.token) return { ok: false, error: data?.error || 'Could not sign in.' }
+    await establishSession(data.token)
+    return { ok: true, children: data.children || [], email: data.email, sessionId: data.sessionId || null }
+  } catch (e) {
+    console.error('loginParent failed:', e)
+    return { ok: false, error: 'Could not reach the server.' }
+  }
+}
+
+/**
  * Resets a password after the server verifies the parent email on file.
  * @returns {Promise<{ok:boolean, user?:object, error?:string}>}
  */

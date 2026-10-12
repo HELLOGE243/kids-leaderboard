@@ -13961,6 +13961,51 @@ button.hw-res-qth.active {
   padding-bottom: 10px;
   border-bottom: 1px solid #ece5d8;
 }
+/* The parent portal. Deliberately plain: a parent opens it to answer one
+   question - how is my child doing - and closes it again. */
+.pp-page { min-height: 100vh; background: var(--bg); color: var(--text); padding: 0 0 48px; }
+.pp-header {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 16px 24px; border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.pp-logo { height: 34px; width: auto; }
+.pp-header-mid { flex: 1; min-width: 160px; }
+.pp-signed-in { font-family: var(--font-body); font-size: 0.72rem; color: var(--text-dim); }
+.pp-children { display: flex; gap: 8px; flex-wrap: wrap; padding: 16px 24px 0; }
+.pp-child {
+  display: inline-flex; align-items: baseline; gap: 8px;
+  font-family: var(--font-body); font-size: 0.82rem; font-weight: 600;
+  padding: 8px 16px; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(140,130,110,0.4); background: transparent; color: var(--text-dim);
+}
+.pp-child.is-active { border-color: var(--accent); color: var(--accent); background: rgba(100,200,255,0.1); }
+.pp-child-year { font-size: 0.65rem; font-weight: 400; opacity: 0.75; }
+.pp-main { max-width: 820px; margin: 0 auto; padding: 24px; }
+.pp-title {
+  font-family: var(--font-body); font-size: 1.5rem; font-weight: 800;
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 0 0 18px;
+}
+.pp-title-sub { font-size: 0.78rem; font-weight: 400; color: var(--text-dim); }
+.pp-empty { font-family: var(--font-body); font-size: 0.85rem; color: var(--text-dim); }
+.pp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.pp-row {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 14px 18px; border-radius: 10px;
+  background: var(--bg-card); border: 1px solid rgba(255,255,255,0.07);
+}
+.pp-row-main { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 3px; }
+.pp-row-title { font-family: var(--font-body); font-size: 0.92rem; font-weight: 600; }
+.pp-row-meta { font-family: var(--font-body); font-size: 0.68rem; color: var(--text-dim); }
+.pp-row-score { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.pp-row-pct { font-family: var(--font-body); font-size: 1.15rem; font-weight: 800; }
+.pp-row-raw { font-family: var(--font-body); font-size: 0.68rem; color: var(--text-dim); }
+.pp-row-flag {
+  font-family: var(--font-body); font-size: 0.62rem; font-weight: 700;
+  padding: 4px 10px; border-radius: 999px;
+  background: rgba(255,171,0,0.14); color: #ffab00; white-space: nowrap;
+}
+.role-btn-parent { }
+
 /* A short written answer: typed by the student, marked on hand-in against the
    answer the teacher wrote. */
 .qt-shortanswer-wrap { padding: 4px 0 8px; }
