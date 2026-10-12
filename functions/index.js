@@ -861,6 +861,25 @@ exports.authParent = functions
           }, { merge: true })
         }
 
+        // A pairing is checked again every time, not just when it is made.
+        // The address on the child's record is the live permission: a teacher
+        // correcting a typo, or a family changing address, takes the old one
+        // away at the next sign-in. Without this a pairing once made could
+        // never be undone by anybody.
+        if (paired.length) {
+          const stillOurs = []
+          for (const id of paired) {
+            const contact = (await contactRef(id).get()).data()
+            if (normaliseEmail(contact?.parentEmail) === email) stillOurs.push(id)
+          }
+          if (stillOurs.length !== paired.length) {
+            const dropped = paired.filter((id) => !stillOurs.includes(id))
+            console.info(`authParent: ${dropped.length} pairing(s) no longer match their record`, dropped)
+            paired = stillOurs
+            await ref.set({ email, children: paired, updatedAt: Date.now() }, { merge: true })
+          }
+        }
+
         if (!paired.length) {
           return sendJson(res, 403, {
             error: 'needs-pairing',
