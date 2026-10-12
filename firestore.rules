@@ -183,6 +183,13 @@ service cloud.firestore {
     // --- Credentials ------------------------------------------------------
     // Password hashes. No client may read or write these under any
     // circumstance; only the auth functions touch them.
+    // Which parent has paired with which child. Written only by authParent,
+    // after it has checked the code and the student id together; no client
+    // reads it, because a parent's children are in their token already.
+    match /parentPairings/{emailHash} {
+      allow read, write: if false;
+    }
+
     match /credentials/{docId} {
       allow read, write: if false;
     }

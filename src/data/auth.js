@@ -95,12 +95,20 @@ export async function phoneVerification(action, email, code) {
  *
  * @param {string} email the address the code was sent to
  * @param {string} token what phoneVerification('check') returned
- * @returns {Promise<{ok:boolean, children?:object[], email?:string, error?:string}>}
+ * @param {string} [studentId] the child's id, needed the first time and to add another
+ * @returns {Promise<{ok:boolean, children?:object[], needsPairing?:boolean, error?:string}>}
  */
-export async function loginParent(email, token) {
+export async function loginParent(email, token, studentId) {
   try {
-    const { ok, data } = await postJson('authParent', { email, token })
-    if (!ok || !data?.token) return { ok: false, error: data?.error || 'Could not sign in.' }
+    const { ok, data } = await postJson('authParent', { email, token, studentId })
+    if (!ok || !data?.token) {
+      // Not a failure so much as a step not done yet: this email has never
+      // been paired with a child, so the sign-in needs the student id too.
+      if (data?.error === 'needs-pairing') {
+        return { ok: false, needsPairing: true, error: data.message }
+      }
+      return { ok: false, error: data?.error || 'Could not sign in.' }
+    }
     await establishSession(data.token)
     return { ok: true, children: data.children || [], email: data.email, sessionId: data.sessionId || null }
   } catch (e) {

@@ -791,19 +791,23 @@ async function consumeEmailToken(rawEmail, token) {
 }
 
 /**
- * Signs a parent in with a code sent to their email.
+ * Signs a parent in with a code sent to their email, once they have paired.
  *
- * There is no parent account to create and no password to keep. Every student
- * already carries a parent email, so proving control of that address is the
- * whole of it: the children are the students whose contact record names it.
+ * An email address on its own is not enough to see a child's work. Some of
+ * these addresses were typed in by a teacher, some are shared, and anyone who
+ * reaches the inbox would otherwise be in. So the first time, a parent also
+ * gives the student id their child was issued, and that pairing is what is
+ * remembered: the address proves who they are, the id proves whose parent they
+ * are, and neither alone opens anything.
  *
- * That also verifies the one thing the weekly report depends on - that the
- * address on file reaches somebody - which nothing had checked until now.
+ * Pairing also requires the address to be the one on that child's record, so a
+ * student id learned or guessed is no use without the inbox it belongs to.
  *
- * The code itself is the existing one: phoneVerify emails it, hashes it, and
- * expires it in ten minutes, having been built for the same address at signup.
- * This takes the token that proves it was entered correctly.
+ * Afterwards the code alone signs them in, because the pairing is on file.
+ * Giving another id at any time adds another child to the same parent.
  */
+const pairingRef = (email) => db.collection('parentPairings').doc(sha256(normaliseEmail(email)))
+
 exports.authParent = functions
   .region('australia-southeast1')
   .https.onRequest((req, res) => {
@@ -812,6 +816,7 @@ exports.authParent = functions
       try {
         const email = normaliseEmail(req.body?.email)
         const token = String(req.body?.token || '')
+        const offeredId = String(req.body?.studentId || '').trim()
         if (!email || !token) return sendJson(res, 400, { error: 'Missing details' })
 
         // One use, and only if the code was entered in the last few minutes.
@@ -819,13 +824,38 @@ exports.authParent = functions
           return sendJson(res, 401, { error: 'That code has expired. Send a new one.' })
         }
 
-        const contacts = await db.collection('studentContacts').get()
-        const childIds = contacts.docs
-          .filter((d) => normaliseEmail(d.get('parentEmail')) === email)
-          .map((d) => d.id)
+        const ref = pairingRef(email)
+        const existing = (await ref.get()).data() || {}
+        let paired = Array.isArray(existing.children) ? existing.children.slice() : []
+
+        if (offeredId && !paired.includes(offeredId)) {
+          const contact = (await contactRef(offeredId).get()).data()
+          const onFile = normaliseEmail(contact?.parentEmail)
+          // Both must agree. The same answer either way, so this cannot be used
+          // to find out which ids exist or which address belongs to one.
+          if (!onFile || onFile !== email) {
+            return sendJson(res, 403, {
+              error: 'That student ID and email do not match our records. Please check both with your teacher.',
+            })
+          }
+          paired.push(offeredId)
+          await ref.set({
+            email,
+            children: paired,
+            pairedAt: existing.pairedAt || Date.now(),
+            updatedAt: Date.now(),
+          }, { merge: true })
+        }
+
+        if (!paired.length) {
+          return sendJson(res, 403, {
+            error: 'needs-pairing',
+            message: "To set up your account, enter your child's student ID as well. Your teacher can give it to you.",
+          })
+        }
 
         const core = await getCore(true)
-        const children = childIds
+        const children = paired
           .map((id) => ({ id, student: (core.students || {})[id] }))
           .filter(({ student }) => student && !student.archived)
           .map(({ id, student }) => ({
@@ -837,10 +867,7 @@ exports.authParent = functions
           }))
 
         if (!children.length) {
-          // Said plainly rather than hinting at which addresses are on file.
-          return sendJson(res, 404, {
-            error: 'No student is registered to this email address. Please check with your teacher.',
-          })
+          return sendJson(res, 404, { error: 'No active student is paired with this email address.' })
         }
 
         // The uid is the address, so a parent is the same account on every

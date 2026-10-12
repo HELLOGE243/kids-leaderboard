@@ -71,6 +71,10 @@ function LoginScreen({ onLogin }) {
   // sharing it would carry a half-typed value between two different jobs.
   const [parentLoginEmail, setParentLoginEmail] = useState('')
   const [parentLoginCode, setParentLoginCode] = useState('')
+  // Asked for once, the first time this address is used: an inbox alone does
+  // not say whose parent somebody is.
+  const [parentStudentId, setParentStudentId] = useState('')
+  const [parentNeedsPairing, setParentNeedsPairing] = useState(false)
   // Runs fn with the busy label shown; returns its result, or null if a call is already running.
   async function withResult(label, fn) {
     if (busy) return null
@@ -343,7 +347,9 @@ function LoginScreen({ onLogin }) {
         <p className="landing-text" style={{ maxWidth: 340, textAlign: 'center', lineHeight: 1.55, marginBottom: 18 }}>
           {askCode
             ? `We sent a 6-digit code to ${parentLoginEmail}. It expires in ten minutes.`
-            : 'Enter the email address your child is registered with. We will send you a code — there is no password to remember.'}
+            : parentNeedsPairing
+              ? "Setting up for the first time: enter your child's student ID as well. Your teacher can give it to you."
+              : 'Enter the email address your child is registered with. We will send you a code — there is no password to remember.'}
         </p>
         <form
           className="login-form"
@@ -363,9 +369,19 @@ function LoginScreen({ onLogin }) {
             setBusy(true)
             const checked = await phoneVerification('check', parentLoginEmail.trim(), parentLoginCode.trim())
             if (!checked.ok) { setBusy(false); return setError(checked.error) }
-            const signedIn = await loginParent(parentLoginEmail.trim(), checked.token)
+            const signedIn = await loginParent(
+              parentLoginEmail.trim(), checked.token, parentStudentId.trim() || undefined)
             setBusy(false)
-            if (!signedIn.ok) return setError(signedIn.error)
+            if (!signedIn.ok) {
+              // The code is spent either way, so they start again from the
+              // address - with the student id field now in front of them.
+              if (signedIn.needsPairing) {
+                setParentNeedsPairing(true)
+                setStep('parent-email')
+                setParentLoginCode('')
+              }
+              return setError(signedIn.error)
+            }
             onLogin({
               role: 'parent',
               email: signedIn.email,
