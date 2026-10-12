@@ -1406,6 +1406,113 @@ async function queueAttemptAlerts(studentId, after, before) {
 }
 
 /** Deadlines that passed recently and the Friday weekly summary. */
+/**
+ * A student's record, including whatever overflowed out of it.
+ *
+ * A record too big for one document keeps the rest in a parts subcollection.
+ * The attempts stay in the parent - this function reads them - but the
+ * revision deck does not, so a question flagged for a teacher by the busiest
+ * students would be invisible here, which is exactly backwards.
+ */
+async function wholeRecord(doc) {
+  const data = doc.data() || {}
+  const manifest = data._overflow
+  if (!manifest?.parts) return data
+  try {
+    const parts = await doc.ref.collection('parts').get()
+    const byIndex = new Map(parts.docs.map((d) => [Number(d.id.replace('p', '')), d.get('chunk') || '']))
+    let blob = ''
+    for (let i = 0; i < manifest.parts; i++) blob += byIndex.get(i) || ''
+    if (blob.length !== manifest.bytes) return data
+    for (const [path, value] of Object.entries(JSON.parse(blob))) {
+      const steps = path.split('.')
+      let cur = data
+      for (let i = 0; i < steps.length - 1; i++) {
+        if (cur[steps[i]] == null) cur[steps[i]] = /^\d+$/.test(steps[i + 1]) ? [] : {}
+        cur = cur[steps[i]]
+      }
+      cur[steps[steps.length - 1]] = value
+    }
+  } catch (e) {
+    console.warn(`wholeRecord: could not assemble ${doc.id}:`, e)
+  }
+  return data
+}
+
+/**
+ * What a parent is told at the end of the week.
+ *
+ * Every paper their child sat, what it was marked, how that sits against the
+ * class, and then the things a parent can act on: a paper that ended because
+ * the screen was left, a mark still waiting on a teacher, the paper worth going
+ * back over first, and anything the child flagged for their teacher.
+ *
+ * @returns {Promise<{rows: object[], flags: string[], review: object|null, asked: string[]}>}
+ */
+async function weeklyDigest(studentId, record, content, quizMeta, sinceMs) {
+  const sat = []
+  for (const [key, kind] of [['homeworkAttempts', 'paper'], ['homeworkRedos', 'revision']]) {
+    for (const a of (record[key] || [])) {
+      if (!a?.quizSetId || !a.date) continue
+      if (new Date(a.date).getTime() < sinceMs) continue
+      sat.push({ ...a, kind })
+    }
+  }
+  sat.sort((a, b) => String(a.date).localeCompare(String(b.date)))
+
+  const rows = []
+  for (const a of sat) {
+    const total = Number(a.total) || 0
+    const score = Number(a.score) || 0
+    const stats = (await db.collection('quizStats').doc(a.quizSetId).collection('attempts').get())
+      .docs.map((d) => d.data())
+    const classAvg = stats.length
+      ? Math.round(stats.reduce((n, r) => n + (Number(r.pct) || 0), 0) / stats.length)
+      : null
+    rows.push({
+      title: quizMeta.get(a.quizSetId)?.title || 'Quiz',
+      kind: a.kind,
+      score,
+      total,
+      pct: total > 0 ? Math.round((score / total) * 100) : null,
+      classAvg,
+      percentile: await percentileOf(a.quizSetId, studentId),
+      lockedOut: !!a.lockedOut,
+      screenLeaves: Number(a.screenLeaves) || 0,
+      awaiting: Number(a.writingPending) > 0
+        || (a.answers || []).some((x) => x && typeof x === 'object' && x.needsMarking),
+    })
+  }
+
+  // Things to do something about, said plainly.
+  const flags = []
+  for (const r of rows) {
+    if (r.lockedOut) flags.push(`<b>${esc(r.title)}</b> was handed in automatically because the quiz screen was left three times.`)
+    else if (r.screenLeaves >= 2) flags.push(`<b>${esc(r.title)}</b> — the quiz screen was left ${r.screenLeaves} times.`)
+    if (r.awaiting) flags.push(`<b>${esc(r.title)}</b> has writing still to be marked by a teacher.`)
+  }
+
+  // The one to go back over first: the lowest they sat, by where it put them.
+  const ranked = rows.filter((r) => r.pct != null)
+  const review = ranked.length
+    ? ranked.reduce((lowest, r) => (r.percentile ?? r.pct) < (lowest.percentile ?? lowest.pct) ? r : lowest)
+    : null
+
+  // Anything they flagged for their teacher this week.
+  const asked = []
+  for (const report of (content.questionReports || [])) {
+    if (String(report.studentId) !== String(studentId)) continue
+    if (report.date && new Date(report.date).getTime() < sinceMs) continue
+    asked.push(quizMeta.get(report.quizSetId)?.title || 'a question')
+  }
+  for (const card of (record.dojoCards || [])) {
+    if (!card?.askTeacher || card.archived) continue
+    asked.push(card.quizTitle || 'a revision card')
+  }
+
+  return { rows, flags, review, asked: [...new Set(asked)] }
+}
+
 async function queueScheduledAlerts(now) {
   const core = await getCore(true)
   const content = (await db.collection('appData').doc('content').get()).data() || {}
@@ -1419,7 +1526,7 @@ async function queueScheduledAlerts(now) {
     const studentId = doc.id
     const student = (core.students || {})[studentId]
     if (!student || student.archived || student.approved === false) continue
-    const data = doc.data() || {}
+    const data = await wholeRecord(doc)
     const attempts = data.homeworkAttempts || []
     const starts = data.homeworkStarts || []
     const classIds = Object.entries(core.classes || {}).filter(([, c]) => (c.studentIds || []).includes(studentId)).map(([id]) => id)
@@ -1477,15 +1584,49 @@ async function queueScheduledAlerts(now) {
     }
 
     await Promise.all(queued)
-    if (weeklyDue && weekly.length) {
-      const lines = weekly.map((w) => `${w.course.name}: ${w.done}/${w.assigned} done${w.avg != null ? `, avg ${w.avg}%` : ''}${w.missing ? `, ${w.missing} missing` : ''}`)
-      await enqueueParentMessage(`weekly_${studentId}_${syd.date}`, {
-        studentId, orgId: student.orgId || null, kind: 'weekly',
-        subject: `${name}'s week at Avant`,
-        text: `This week for ${name}:\n${lines.join('\n')}\nFull report: ${APP_URL}/?report=all`,
-        sms: `Avant weekly - ${name}: ${weekly.map((w) => `${w.course.name} ${w.done}/${w.assigned}${w.avg != null ? ` ${w.avg}%` : ''}`).join('; ')}. ${APP_URL}/?report=all`,
-        html: emailHtml(`${name}'s week at Avant`, weekly.map((w) => `<b>${esc(w.course.name)}</b>: ${w.done}/${w.assigned} quizzes done${w.avg != null ? `, average <b>${w.avg}%</b>` : ''}${w.missing ? ` - <b style="color:#b91c1c">${w.missing} missing</b>` : ''}`), `${APP_URL}/?report=all`, logo),
-      })
+    if (weeklyDue) {
+      const since = now - 7 * 24 * 60 * 60 * 1000
+      const digest = await weeklyDigest(studentId, data, content, quizMeta, since)
+      // Nothing sat and nothing outstanding is not news; a parent who hears
+      // from us every Friday regardless stops reading on the third Friday.
+      if (digest.rows.length || weekly.some((w) => w.missing)) {
+        const lines = []
+
+        if (digest.rows.length) {
+          lines.push('<b>What they sat this week</b>')
+          for (const r of digest.rows) {
+            const mark = r.total > 0 ? `${r.score}/${r.total} (${r.pct}%)` : 'awaiting marking'
+            const against = r.classAvg != null ? ` · class average ${r.classAvg}%` : ''
+            const place = r.percentile != null ? ` · ${ordinal(r.percentile)} percentile` : ''
+            lines.push(`${esc(r.title)}${r.kind === 'revision' ? ' (revision)' : ''} — <b>${esc(mark)}</b>${against}${place}`)
+          }
+        } else {
+          lines.push('<b>Nothing was sat this week.</b>')
+        }
+
+        for (const w of weekly.filter((x) => x.missing)) {
+          lines.push(`<b style="color:#b91c1c">${esc(w.course.name)}: ${w.missing} not yet done.</b>`)
+        }
+        if (digest.flags.length) {
+          lines.push('<b>Worth a word</b>')
+          lines.push(...digest.flags)
+        }
+        if (digest.review) {
+          lines.push(`<b>Worth going back over first:</b> ${esc(digest.review.title)}${digest.review.pct != null ? ` (${digest.review.pct}%)` : ''}.`)
+        }
+        if (digest.asked.length) {
+          lines.push(`<b>Asked their teacher about:</b> ${digest.asked.map(esc).join(', ')}.`)
+        }
+
+        const plain = digest.rows.map((r) => `${r.title}: ${r.total > 0 ? `${r.score}/${r.total} (${r.pct}%)` : 'awaiting marking'}`)
+        await enqueueParentMessage(`weekly_${studentId}_${syd.date}`, {
+          studentId, orgId: student.orgId || null, kind: 'weekly',
+          subject: `${name}'s week at Avant`,
+          text: `This week for ${name}:\n${plain.join('\n')}\nFull report: ${APP_URL}/?report=all`,
+          sms: `Avant weekly - ${name}: ${digest.rows.length} sat this week. ${APP_URL}/?report=all`,
+          html: emailHtml(`${name}'s week at Avant`, lines, `${APP_URL}/?report=all`, logo),
+        })
+      }
     }
   }
 }
