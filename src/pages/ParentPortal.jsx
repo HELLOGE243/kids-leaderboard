@@ -3,6 +3,7 @@ import { loadSubmissionsForStudent, loadStudentFirestore } from '../data/firebas
 import { refreshQuizSetFromCloud } from '../data/store.js'
 import ReviewedQuestion from '../components/ReviewedQuestion.jsx'
 import ReportPage from './ReportPage.jsx'
+import { linkChild } from '../data/auth.js'
 
 /**
  * What a parent sees.
@@ -17,8 +18,13 @@ import ReportPage from './ReportPage.jsx'
  * @param {() => void} props.onLogout
  */
 function ParentPortal({ session, onLogout }) {
-  const children = session.children || []
-  const [activeId, setActiveId] = useState(children[0]?.id || null)
+  // Children arrive with the session and are added to in place, because
+  // linking one issues a new token and signs in again underneath us.
+  const [children, setChildren] = useState(session.children || [])
+  const [linking, setLinking] = useState('')
+  const [linkError, setLinkError] = useState('')
+  const [linkBusy, setLinkBusy] = useState(false)
+  const [activeId, setActiveId] = useState((session.children || [])[0]?.id || null)
   const [papers, setPapers] = useState({})
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('papers')
@@ -67,12 +73,57 @@ function ParentPortal({ session, onLogout }) {
     setOpenSet(set || { questions: [] })
   }
 
+
+  async function submitLink(e) {
+    e.preventDefault()
+    const id = linking.trim()
+    if (!id) return setLinkError('Enter the student ID.')
+    setLinkBusy(true)
+    setLinkError('')
+    const res = await linkChild(id)
+    setLinkBusy(false)
+    if (!res.ok) return setLinkError(res.error)
+    setChildren(res.children)
+    setLinking('')
+    if (!activeId) setActiveId(res.children[0]?.id || null)
+  }
+
+  const addChildForm = (
+    <form className="pp-link" onSubmit={submitLink}>
+      <label className="pp-link-label" htmlFor="pp-link-id">Add a child</label>
+      <p className="pp-link-help">
+        Their student ID is on their own home screen, under their name.
+      </p>
+      <div className="pp-link-row">
+        <input
+          id="pp-link-id"
+          className="input"
+          value={linking}
+          onChange={(e) => { setLinking(e.target.value.replace(/[^0-9]/g, '').slice(0, 12)); setLinkError('') }}
+          placeholder="e.g. 61864531"
+          inputMode="numeric"
+        />
+        <button className="btn" type="submit" disabled={linkBusy}>{linkBusy ? 'Linking…' : 'Link'}</button>
+      </div>
+      {linkError && <p className="pp-link-error">{linkError}</p>}
+    </form>
+  )
+
   if (!children.length) {
     return (
-      <div className="page-center landing-page">
-        <h1 className="landing-title">No students found</h1>
-        <p className="landing-text">No student is paired with {session.email}.</p>
-        <button className="btn landing-btn" onClick={onLogout}>Sign out</button>
+      <div className="pp-page">
+        <header className="pp-header">
+          <img src="/avant-logo.png" alt="AVANT OC &amp; Selective" className="pp-logo" />
+          <div className="pp-header-mid"><span className="pp-signed-in">Signed in as {session.email}</span></div>
+          <button className="btn-logout btn-signout" onClick={onLogout}>Sign out</button>
+        </header>
+        <main className="pp-main">
+          <h1 className="pp-title">Link your child</h1>
+          <p className="pp-empty" style={{ marginBottom: 18 }}>
+            Enter the student ID shown on your child&rsquo;s home screen and their results will appear here.
+          </p>
+          {addChildForm}
+        </main>
       </div>
     )
   }
@@ -190,6 +241,7 @@ function ParentPortal({ session, onLogout }) {
               })}
             </ul>
           )}
+          {addChildForm}
         </main>
       )}
     </div>

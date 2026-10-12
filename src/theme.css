@@ -13969,6 +13969,16 @@ button.hw-res-qth.active {
   margin: 2px 0 0;
 }
 
+.pp-link {
+  margin-top: 26px; padding: 18px 20px; border-radius: 12px;
+  background: var(--bg-card); border: 1px dashed rgba(255,255,255,0.14);
+}
+.pp-link-label { font-family: var(--font-body); font-size: 0.9rem; font-weight: 700; display: block; }
+.pp-link-help { font-family: var(--font-body); font-size: 0.72rem; color: var(--text-dim); margin: 4px 0 12px; }
+.pp-link-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.pp-link-row .input { flex: 1; min-width: 160px; }
+.pp-link-error { font-family: var(--font-body); font-size: 0.74rem; color: var(--danger, #ff5577); margin: 10px 0 0; line-height: 1.5; }
+
 /* A question of a paper that has been sat, with what the child answered. */
 .rq {
   background: var(--bg-card);

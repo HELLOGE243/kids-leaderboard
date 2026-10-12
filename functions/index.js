@@ -795,22 +795,54 @@ async function consumeEmailToken(rawEmail, token) {
 }
 
 /**
- * Signs a parent in with a code sent to their email, once they have paired.
+ * Signs a parent in with a code sent to whatever email they gave.
  *
- * An email address on its own is not enough to see a child's work. Some of
- * these addresses were typed in by a teacher, some are shared, and anyone who
- * reaches the inbox would otherwise be in. So the first time, a parent also
- * gives the student id their child was issued, and that pairing is what is
- * remembered: the address proves who they are, the id proves whose parent they
- * are, and neither alone opens anything.
+ * There is no parent account to create and no password to keep: the address is
+ * the identity and the code proves it is theirs. It need not be an address the
+ * school holds - a parent may use their own, or their child's - because it is
+ * not what grants access to anything. Linking a child does that, and is done
+ * from the portal afterwards.
  *
- * Pairing also requires the address to be the one on that child's record, so a
- * student id learned or guessed is no use without the inbox it belongs to.
- *
- * Afterwards the code alone signs them in, because the pairing is on file.
- * Giving another id at any time adds another child to the same parent.
+ * A parent with no children linked yet still gets a session, so the portal has
+ * somebody to ask.
  */
 const pairingRef = (email) => db.collection('parentPairings').doc(sha256(normaliseEmail(email)))
+
+/** At most this many parent accounts may hold one student. */
+const MAX_PARENTS_PER_STUDENT = 2
+
+/** The children of a parent, as the token and the portal need them. */
+async function describeChildren(ids, core) {
+  return ids
+    .map((id) => ({ id, student: (core.students || {})[id] }))
+    .filter(({ student }) => student && !student.archived)
+    .map(({ id, student }) => ({
+      id,
+      name: student.name || '',
+      firstName: student.firstName || '',
+      lastName: student.lastName || '',
+      yearGroup: student.yearGroup || '',
+    }))
+}
+
+async function parentToken(email, childIds, core) {
+  const uid = `parent_${sha256(email).slice(0, 32)}`
+  const sessionId = await startSession(uid, 'parent')
+  const token = await admin.auth().createCustomToken(uid, {
+    role: 'parent',
+    // The address is in the token because linking a child writes to the record
+    // kept under it. Taking it from the request instead would let a signed-in
+    // parent name somebody else's and write to theirs. Not called `email`,
+    // which Firebase reserves.
+    parentEmail: email,
+    // The children travel in the token, so a rule can check a parent against a
+    // child without reading a document to do it.
+    children: childIds,
+    orgId: childIds.map((id) => (core.students || {})[id]?.orgId).find(Boolean) || null,
+    admin: false,
+  })
+  return { token, sessionId }
+}
 
 exports.authParent = functions
   .region('australia-southeast1')
@@ -820,12 +852,6 @@ exports.authParent = functions
       try {
         const email = normaliseEmail(req.body?.email)
         const token = String(req.body?.token || '')
-        // One field, however many children: a parent with three of them types
-        // three ids rather than signing in three times.
-        const offered = String(req.body?.studentId || '')
-          .split(/[^0-9]+/)
-          .map((id) => id.trim())
-          .filter(Boolean)
         if (!email || !token) return sendJson(res, 400, { error: 'Missing details' })
 
         // One use, and only if the code was entered in the last few minutes.
@@ -833,92 +859,74 @@ exports.authParent = functions
           return sendJson(res, 401, { error: 'That code has expired. Send a new one.' })
         }
 
-        const ref = pairingRef(email)
-        const existing = (await ref.get()).data() || {}
-        let paired = Array.isArray(existing.children) ? existing.children.slice() : []
-
-        const added = []
-        for (const id of offered) {
-          if (paired.includes(id)) continue
-          const contact = (await contactRef(id).get()).data()
-          const onFile = normaliseEmail(contact?.parentEmail)
-          // Both must agree. The same answer either way, so this cannot be used
-          // to find out which ids exist or which address belongs to one.
-          if (!onFile || onFile !== email) {
-            return sendJson(res, 403, {
-              error: `Student ID ${id} is not registered to this email address. Please check both with your teacher.`,
-            })
-          }
-          paired.push(id)
-          added.push(id)
-        }
-        if (added.length) {
-          await ref.set({
-            email,
-            children: paired,
-            pairedAt: existing.pairedAt || Date.now(),
-            updatedAt: Date.now(),
-          }, { merge: true })
-        }
-
-        // A pairing is checked again every time, not just when it is made.
-        // The address on the child's record is the live permission: a teacher
-        // correcting a typo, or a family changing address, takes the old one
-        // away at the next sign-in. Without this a pairing once made could
-        // never be undone by anybody.
-        if (paired.length) {
-          const stillOurs = []
-          for (const id of paired) {
-            const contact = (await contactRef(id).get()).data()
-            if (normaliseEmail(contact?.parentEmail) === email) stillOurs.push(id)
-          }
-          if (stillOurs.length !== paired.length) {
-            const dropped = paired.filter((id) => !stillOurs.includes(id))
-            console.info(`authParent: ${dropped.length} pairing(s) no longer match their record`, dropped)
-            paired = stillOurs
-            await ref.set({ email, children: paired, updatedAt: Date.now() }, { merge: true })
-          }
-        }
-
-        if (!paired.length) {
-          return sendJson(res, 403, {
-            error: 'needs-pairing',
-            message: "To set up your account, enter your child's student ID as well. Your teacher can give it to you.",
-          })
-        }
-
+        const existing = (await pairingRef(email).get()).data() || {}
         const core = await getCore(true)
-        const children = paired
-          .map((id) => ({ id, student: (core.students || {})[id] }))
-          .filter(({ student }) => student && !student.archived)
-          .map(({ id, student }) => ({
-            id,
-            name: student.name || '',
-            firstName: student.firstName || '',
-            lastName: student.lastName || '',
-            yearGroup: student.yearGroup || '',
-          }))
-
-        if (!children.length) {
-          return sendJson(res, 404, { error: 'No active student is paired with this email address.' })
-        }
-
-        // The uid is the address, so a parent is the same account on every
-        // device and no record has to be created to hold one.
-        const uid = `parent_${sha256(email).slice(0, 32)}`
-        const sessionId = await startSession(uid, 'parent')
-        const authToken = await admin.auth().createCustomToken(uid, {
-          role: 'parent',
-          // The children travel in the token, so the rules can check a parent
-          // against a child without reading a document to do it.
-          children: children.map((c) => c.id),
-          orgId: children.map(({ id }) => (core.students || {})[id]?.orgId).find(Boolean) || null,
-          admin: false,
-        })
-        return sendJson(res, 200, { ok: true, token: authToken, sessionId, email, children })
+        const children = await describeChildren(
+          Array.isArray(existing.children) ? existing.children : [], core)
+        const session = await parentToken(email, children.map((c) => c.id), core)
+        return sendJson(res, 200, { ok: true, ...session, email, children })
       } catch (e) {
         console.error('authParent failed:', e)
         return sendJson(res, 500, { error: 'Could not sign in. Try again.' })
+      }
+    })
+  })
+
+/**
+ * Links a child to the parent asking, by the id on the student's profile.
+ *
+ * The id is the whole of it, so it is worth saying what stops it being handed
+ * around: a student may be held by two parent accounts and no more. Two covers
+ * a family, including one living apart; a third is refused, so an id that gets
+ * out opens nothing once the people it belongs to have used it.
+ *
+ * The token carries the children, so a new one is issued and the browser signs
+ * in again with it - there is no way to add a claim to a token already made.
+ */
+exports.parentLink = functions
+  .region('australia-southeast1')
+  .https.onRequest((req, res) => {
+    cors(req, res, async () => {
+      if (req.method !== 'POST') return sendJson(res, 405, { error: 'Method not allowed' })
+      const caller = await verifyCaller(req)
+      if (!caller || caller.role !== 'parent') return sendJson(res, 403, { error: 'Parent sign-in required' })
+      try {
+        // From the token only. What the browser says it is does not come into it.
+        const email = normaliseEmail(caller.parentEmail)
+        if (!email) return sendJson(res, 401, { error: 'Sign in again to link a student.' })
+        const studentId = String(req.body?.studentId || '').replace(/[^0-9]/g, '')
+        if (!email || !studentId) return sendJson(res, 400, { error: 'Enter the student ID.' })
+
+        const core = await getCore(true)
+        const student = (core.students || {})[studentId]
+        if (!student || student.archived) {
+          return sendJson(res, 404, { error: 'No student has that ID. Check it on their profile and try again.' })
+        }
+
+        const ref = pairingRef(email)
+        const mine = (await ref.get()).data() || {}
+        const children = Array.isArray(mine.children) ? mine.children.slice() : []
+        if (children.includes(studentId)) {
+          const already = await describeChildren(children, core)
+          return sendJson(res, 200, { ok: true, children: already, ...(await parentToken(email, children, core)) })
+        }
+
+        // How many parent accounts already hold this student.
+        const holders = await db.collection('parentPairings')
+          .where('children', 'array-contains', studentId).get()
+        if (holders.size >= MAX_PARENTS_PER_STUDENT) {
+          return sendJson(res, 409, {
+            error: `${student.name || 'This student'} is already linked to ${MAX_PARENTS_PER_STUDENT} parent accounts. Ask their teacher if you need this changed.`,
+          })
+        }
+
+        children.push(studentId)
+        await ref.set({ email, children, updatedAt: Date.now(), pairedAt: mine.pairedAt || Date.now() }, { merge: true })
+        const described = await describeChildren(children, core)
+        return sendJson(res, 200, { ok: true, children: described, ...(await parentToken(email, children, core)) })
+      } catch (e) {
+        console.error('parentLink failed:', e)
+        return sendJson(res, 500, { error: 'Could not link that student. Try again.' })
       }
     })
   })

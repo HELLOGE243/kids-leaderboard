@@ -95,24 +95,41 @@ export async function phoneVerification(action, email, code) {
  *
  * @param {string} email the address the code was sent to
  * @param {string} token what phoneVerification('check') returned
- * @param {string} [studentId] the child's id, needed the first time and to add another
- * @returns {Promise<{ok:boolean, children?:object[], needsPairing?:boolean, error?:string}>}
+ * @returns {Promise<{ok:boolean, children?:object[], error?:string}>}
  */
-export async function loginParent(email, token, studentId) {
+export async function loginParent(email, token) {
   try {
-    const { ok, data } = await postJson('authParent', { email, token, studentId })
-    if (!ok || !data?.token) {
-      // Not a failure so much as a step not done yet: this email has never
-      // been paired with a child, so the sign-in needs the student id too.
-      if (data?.error === 'needs-pairing') {
-        return { ok: false, needsPairing: true, error: data.message }
-      }
-      return { ok: false, error: data?.error || 'Could not sign in.' }
-    }
+    const { ok, data } = await postJson('authParent', { email, token })
+    if (!ok || !data?.token) return { ok: false, error: data?.error || 'Could not sign in.' }
     await establishSession(data.token)
     return { ok: true, children: data.children || [], email: data.email, sessionId: data.sessionId || null }
   } catch (e) {
     console.error('loginParent failed:', e)
+    return { ok: false, error: 'Could not reach the server.' }
+  }
+}
+
+/**
+ * Links a child to the signed-in parent, by the id on the student's profile.
+ *
+ * The children are in the session token and a token cannot be added to, so the
+ * server issues a new one and the browser signs in again with it.
+ *
+ * @returns {Promise<{ok:boolean, children?:object[], error?:string}>}
+ */
+export async function linkChild(studentId) {
+  try {
+    const res = await authedFetch(`${FUNCTIONS_BASE}/parentLink`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ studentId }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || !data?.token) return { ok: false, error: data?.error || 'Could not link that student.' }
+    await establishSession(data.token)
+    return { ok: true, children: data.children || [] }
+  } catch (e) {
+    console.error('linkChild failed:', e)
     return { ok: false, error: 'Could not reach the server.' }
   }
 }
