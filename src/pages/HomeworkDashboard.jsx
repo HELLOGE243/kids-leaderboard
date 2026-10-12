@@ -1476,7 +1476,12 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       const fmtTime = (s) => { const m = Math.floor(s / 60); return m > 0 ? `${m}m ${s % 60}s` : `${s}s` }
       const timeTaken = fmtTime(totalSec)
 
-      const allTimeTotals = allAttempts.map(a => (a.questionTimes || []).reduce((s, t) => s + (t || 0), 0)).filter(t => t > 0)
+      // The cohort figures come from the per-quiz aggregate, which keeps one
+      // number for how long a sitting took rather than the per-question list.
+      // Reading the list here is why the average time never once appeared.
+      const allTimeTotals = allAttempts
+        .map((a) => Number(a.seconds) || (a.questionTimes || []).reduce((n, t) => n + (t || 0), 0))
+        .filter((t) => t > 0)
       const avgTimeTaken = allTimeTotals.length > 0 ? fmtTime(Math.round(allTimeTotals.reduce((a, b) => a + b, 0) / allTimeTotals.length)) : null
 
       const questionsCorrect = score

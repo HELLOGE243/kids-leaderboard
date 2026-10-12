@@ -474,6 +474,9 @@ function Portal({ user, onLogout }) {
             </div>
             <div>
               <h1 className="portal-greeting">{t('greeting')}, {student.name}!</h1>
+              {/* A parent signs in with this and their email, so it has to be
+                  somewhere the student can read it out. */}
+              <p className="portal-student-id">ID: {student.id}</p>
               <div className="portal-quote-inline">
                 <p className="portal-quote-text">{dailyQuote.text}</p>
                 <p className="portal-quote-author">— {dailyQuote.author}</p>

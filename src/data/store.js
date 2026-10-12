@@ -3386,6 +3386,9 @@ export function getHomeworkAttemptsForQuiz(quizSetId) {
       studentId: s.studentId,
       score: s.score,
       total: s.total,
+      // One number rather than the per-question list: it is all the cohort
+      // figures need, and the list is not in the aggregate.
+      seconds: s.seconds || 0,
       date: s.date,
       term: s.term,
       orgId: s.orgId,

@@ -13961,6 +13961,14 @@ button.hw-res-qth.active {
   padding-bottom: 10px;
   border-bottom: 1px solid #ece5d8;
 }
+.portal-student-id {
+  font-family: var(--font-body);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  margin: 2px 0 0;
+}
+
 /* The parent portal. Deliberately plain: a parent opens it to answer one
    question - how is my child doing - and closes it again. */
 .pp-page { min-height: 100vh; background: var(--bg); color: var(--text); padding: 0 0 48px; }

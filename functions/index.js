@@ -325,6 +325,10 @@ exports.onStudentDataWrite = functions
           score,
           total,
           pct: total > 0 ? (score / total) * 100 : 0,
+          // How long the paper took. Without it the results card could not say
+          // what the average sitting was - it had only its own figure to go on,
+          // so the line never appeared at all.
+          seconds: Math.round((a.questionTimes || []).reduce((n, t) => n + (Number(t) || 0), 0)),
           date: a.date || null,
           term: a.term || null,
           orgId: a.orgId || null,
@@ -816,7 +820,12 @@ exports.authParent = functions
       try {
         const email = normaliseEmail(req.body?.email)
         const token = String(req.body?.token || '')
-        const offeredId = String(req.body?.studentId || '').trim()
+        // One field, however many children: a parent with three of them types
+        // three ids rather than signing in three times.
+        const offered = String(req.body?.studentId || '')
+          .split(/[^0-9]+/)
+          .map((id) => id.trim())
+          .filter(Boolean)
         if (!email || !token) return sendJson(res, 400, { error: 'Missing details' })
 
         // One use, and only if the code was entered in the last few minutes.
@@ -828,17 +837,22 @@ exports.authParent = functions
         const existing = (await ref.get()).data() || {}
         let paired = Array.isArray(existing.children) ? existing.children.slice() : []
 
-        if (offeredId && !paired.includes(offeredId)) {
-          const contact = (await contactRef(offeredId).get()).data()
+        const added = []
+        for (const id of offered) {
+          if (paired.includes(id)) continue
+          const contact = (await contactRef(id).get()).data()
           const onFile = normaliseEmail(contact?.parentEmail)
           // Both must agree. The same answer either way, so this cannot be used
           // to find out which ids exist or which address belongs to one.
           if (!onFile || onFile !== email) {
             return sendJson(res, 403, {
-              error: 'That student ID and email do not match our records. Please check both with your teacher.',
+              error: `Student ID ${id} is not registered to this email address. Please check both with your teacher.`,
             })
           }
-          paired.push(offeredId)
+          paired.push(id)
+          added.push(id)
+        }
+        if (added.length) {
           await ref.set({
             email,
             children: paired,
@@ -1062,6 +1076,7 @@ exports.authAdmin = functions
               const score = Number(a.score) || 0
               batch.set(db.collection('quizStats').doc(a.quizSetId).collection('attempts').doc(d.id), {
                 studentId: d.id, score, total, pct: total > 0 ? (score / total) * 100 : 0,
+                seconds: Math.round((a.questionTimes || []).reduce((n, t) => n + (Number(t) || 0), 0)),
                 date: a.date || null, term: a.term || null, orgId: a.orgId || null,
               })
               written++

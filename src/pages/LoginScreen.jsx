@@ -401,15 +401,28 @@ function LoginScreen({ onLogin }) {
               autoFocus
             />
           ) : (
-            <input
-              className="input"
-              value={parentLoginEmail}
-              onChange={(e) => setParentEmail(e.target.value)}
-              placeholder="you@example.com"
-              type="email"
-              autoComplete="email"
-              autoFocus
-            />
+            <>
+              <input
+                className="input"
+                value={parentLoginEmail}
+                onChange={(e) => setParentLoginEmail(e.target.value)}
+                placeholder="you@example.com"
+                type="email"
+                autoComplete="email"
+                autoFocus
+              />
+              {/* One field however many children: a parent with three of them
+                  types three ids rather than signing in three times. Only the
+                  first time — after that the pairing is on file. */}
+              <input
+                className="input"
+                value={parentStudentId}
+                onChange={(e) => setParentStudentId(e.target.value.replace(/[^0-9, ]/g, '').slice(0, 80))}
+                placeholder={parentNeedsPairing ? 'Student ID (or several, separated by commas)' : 'Student ID — first time only'}
+                inputMode="numeric"
+                style={{ marginTop: 8 }}
+              />
+            </>
           )}
           {error && <p className="login-error">{error}</p>}
           <button className="btn landing-btn" type="submit" disabled={busy}>
