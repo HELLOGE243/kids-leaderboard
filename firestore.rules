@@ -22,6 +22,17 @@ service cloud.firestore {
       return signedIn() && request.auth.token.role == 'teacher';
     }
 
+    // Who runs the platform, as opposed to who teaches on it.
+    //
+    // Both sign in as teachers; only an admin may change what the platform is
+    // made of - the quizzes, the courses, the classes, the shop, the terms and
+    // the accounts. A teacher marks, reads their students and answers them.
+    // Until now this line existed only in the admin UI hiding its own buttons,
+    // which stopped nobody who opened the console.
+    function isAdmin() {
+      return isTeacher() && request.auth.token.admin == true;
+    }
+
     function isSelf(userId) {
       return signedIn() && request.auth.uid == userId;
     }
@@ -77,10 +88,22 @@ service cloud.firestore {
           || docId == 'broadcasts';
     }
 
+    // What a teacher writes here is only ever their marking: the marks and
+    // annotations on a piece of writing, the reports they have dealt with, and
+    // the teaching groups inside their own class. Everything else in these
+    // documents - courses, quizzes, classes, students, the shop, the term - is
+    // the platform itself, and belongs to an admin.
+    function teacherMayUpdate(docId) {
+      return docId == 'content'
+        && changedKeys().hasOnly(['writingMarks', 'questionReports',
+                                  'explanationReports', 'classGroups']);
+    }
+
     match /appData/{docId} {
       allow read: if signedIn();
-      allow write: if isTeacher();
-      allow update: if isStudent() && studentMayUpdate(docId);
+      allow write: if isAdmin();
+      allow update: if (isStudent() && studentMayUpdate(docId))
+                    || (isTeacher() && teacherMayUpdate(docId));
       // "Finished a quiz" messages; the document may not exist yet.
       allow create: if isStudent() && docId == 'broadcasts';
     }
@@ -88,7 +111,7 @@ service cloud.firestore {
     // --- Quiz content ----------------------------------------------------
     match /quizSets/{setId} {
       allow read: if signedIn();
-      allow write: if isTeacher();
+      allow write: if isAdmin();
     }
 
     // AI explanations generated during review, cached once and then shared:
@@ -98,7 +121,7 @@ service cloud.firestore {
     match /aiExplanations/{setId} {
       allow read: if signedIn();
       allow create, update: if signedIn();
-      allow delete: if isTeacher();
+      allow delete: if isAdmin();
     }
 
     // --- The submission archive -------------------------------------------
@@ -107,7 +130,10 @@ service cloud.firestore {
     // cannot take the answers with it. A student writes their own and nobody -
     // teacher included - may change or remove one afterwards.
     match /submissions/{submissionId} {
-      allow read: if isTeacher()
+      // Read by the student it belongs to, their parents, and admins. A
+      // teacher reads a paper through the student's own record; the archive is
+      // the recovery copy, and keeping it to admins keeps it that way.
+      allow read: if isAdmin()
         || (signedIn() && resource.data.studentId == request.auth.uid)
         || isParentOf(resource.data.studentId);
       allow create: if signedIn() && request.resource.data.studentId == request.auth.uid;
@@ -117,9 +143,9 @@ service cloud.firestore {
     // Work in progress, rewritten every few seconds while a paper is open, so
     // a closed tab or a flat battery does not cost a student their answers.
     match /attemptDrafts/{draftId} {
-      allow read: if isTeacher() || (signedIn() && resource.data.studentId == request.auth.uid);
+      allow read: if isAdmin() || (signedIn() && resource.data.studentId == request.auth.uid);
       allow create, update: if signedIn() && request.resource.data.studentId == request.auth.uid;
-      allow delete: if isTeacher();
+      allow delete: if isAdmin();
     }
 
     // --- Per-student work ------------------------------------------------
@@ -129,7 +155,8 @@ service cloud.firestore {
     match /studentData/{studentId} {
       allow read: if isSelf(studentId) || isTeacher() || isParentOf(studentId);
       allow create, update: if isSelf(studentId) || isTeacher();
-      allow delete: if isTeacher();
+      // Deleting a record takes a child's whole history with it.
+      allow delete: if isAdmin();
 
       // Where a record goes when it outgrows one document. Firestore refuses a
       // document over 1 MiB, and a student here may be sitting papers for
@@ -160,13 +187,13 @@ service cloud.firestore {
     // Written only by the auth functions; a user may read their own so their
     // device knows when a newer sign-in has replaced it.
     match /sessions/{userId} {
-      allow get: if isSelf(userId) || isTeacher();
+      allow get: if isSelf(userId) || isAdmin();
       allow write: if false;
     }
 
     // --- Parent notification queue (written only by Cloud Functions) ---------
     match /parentNotifications/{id} {
-      allow read: if isTeacher();
+      allow read: if isAdmin();
     }
 
     // --- Parent contact details --------------------------------------------
@@ -175,7 +202,7 @@ service cloud.firestore {
     // A parent is never given these: the address they signed in with is the
     // only one they need, and the rest belongs to the school.
     match /studentContacts/{studentId} {
-      allow read, write: if isTeacher();
+      allow read, write: if isAdmin();
       // A student reads only their own family's contact (quiz watermark).
       allow get: if isSelf(studentId);
     }

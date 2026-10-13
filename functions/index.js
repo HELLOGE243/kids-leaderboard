@@ -599,10 +599,17 @@ exports.authLogin = functions
 
         const isAdmin = role === 'teacher' && isAdminTeacher(user)
         const sessionId = await startSession(user.id, role)
+        // A teacher's classes ride in the token, the way a parent's children
+        // do, so a rule can place a student without reading a document to do
+        // it. An admin needs none: they are not limited to a class.
+        const classIds = role === 'teacher' && !isAdmin
+          ? classesForTeacher(await getCore(true), user.id)
+          : []
         const token = await admin.auth().createCustomToken(String(user.id), {
           role,
           orgId: user.orgId || null,
           admin: isAdmin,
+          classIds,
         })
         return sendJson(res, 200, { ok: true, token, isAdmin, sessionId, user: publicUser(user) })
       } catch (e) {
@@ -623,8 +630,40 @@ exports.authLogin = functions
 // ============================================================
 const ADMIN_TEACHER_NAMES = ['rob']
 
+/**
+ * Whether a teacher runs the platform, rather than teaches on it.
+ *
+ * It is a flag on the account now, not a name. A name is not an identity: the
+ * founder renaming their account used to lose them the platform, and a teacher
+ * who happened to be called Rob used to be handed it. The name list stays only
+ * as the bootstrap for an account that predates the flag.
+ */
 function isAdminTeacher(user) {
+  if (typeof user?.admin === 'boolean') return user.admin
   return ADMIN_TEACHER_NAMES.includes(String(user?.name || '').trim().toLowerCase())
+}
+
+/**
+ * The classes a teacher holds, for their token.
+ *
+ * A class names its teachers, rather than a teacher naming their classes, so
+ * there is one place to change and nothing to keep in step. The legacy
+ * `teacherId` field is not counted: it records who created the class, which on
+ * every existing class is an admin.
+ */
+function classesForTeacher(core, teacherId) {
+  const id = String(teacherId)
+  return Object.entries(core.classes || {})
+    .filter(([, cls]) => (cls.teacherIds || []).map(String).includes(id))
+    .map(([classId]) => classId)
+}
+
+/** Six characters, with the ones people misread left out. */
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+function newClassCode() {
+  let out = ''
+  for (let i = 0; i < 6; i++) out += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)]
+  return out
 }
 
 /** Resolves the caller from an `Authorization: Bearer <idToken>` header. */
@@ -962,6 +1001,107 @@ exports.parentRefresh = functions
     })
   })
 
+/**
+ * A teacher takes on a class by typing the code an admin gave them.
+ *
+ * The code is the whole of it, so it is worth saying what it opens: one class,
+ * and a class holds the students an admin put in it. A teacher who has the code
+ * for a class they do not teach can see that class - which is why an admin can
+ * see who holds each class, take one back, and change the code.
+ *
+ * The classes ride in the token, so a new one is issued and the browser signs
+ * in again with it; there is no adding a claim to a token already made.
+ */
+exports.teacherJoinClass = functions
+  .region('australia-southeast1')
+  .https.onRequest((req, res) => {
+    cors(req, res, async () => {
+      if (req.method !== 'POST') return sendJson(res, 405, { error: 'Method not allowed' })
+      const caller = await verifyCaller(req)
+      if (!caller || caller.role !== 'teacher') return sendJson(res, 403, { error: 'Teacher sign-in required' })
+      try {
+        const code = String(req.body?.code || '').trim().toUpperCase()
+        if (!code) return sendJson(res, 400, { error: 'Enter the class code.' })
+
+        const coreRef = db.collection('appData').doc('core')
+        const joined = await db.runTransaction(async (tx) => {
+          const core = (await tx.get(coreRef)).data() || {}
+          const entry = Object.entries(core.classes || {})
+            .find(([, cls]) => String(cls.code || '').toUpperCase() === code)
+          if (!entry) return { error: 'No class has that code. Check it with your administrator.' }
+          const [classId, cls] = entry
+          const holders = (cls.teacherIds || []).map(String)
+          if (holders.includes(String(caller.uid))) return { classId, name: cls.name || '', already: true }
+          tx.update(coreRef, new admin.firestore.FieldPath('classes', classId, 'teacherIds'),
+            [...holders, String(caller.uid)])
+          return { classId, name: cls.name || '' }
+        })
+        if (joined.error) return sendJson(res, 404, { error: joined.error })
+        _core = null
+
+        const core = await getCore(true)
+        const teacher = (core.teachers || {})[String(caller.uid)] || {}
+        const classIds = classesForTeacher(core, caller.uid)
+        const sessionId = await startSession(String(caller.uid), 'teacher')
+        const token = await admin.auth().createCustomToken(String(caller.uid), {
+          role: 'teacher',
+          orgId: teacher.orgId || null,
+          admin: isAdminTeacher(teacher),
+          classIds,
+        })
+        console.info(`teacherJoinClass: ${caller.uid} took on ${joined.classId}`)
+        return sendJson(res, 200, {
+          ok: true, token, sessionId, classIds,
+          classId: joined.classId, className: joined.name, already: !!joined.already,
+        })
+      } catch (e) {
+        console.error('teacherJoinClass failed:', e)
+        return sendJson(res, 500, { error: 'Could not join that class. Try again.' })
+      }
+    })
+  })
+
+/**
+ * Which classes the signed-in teacher holds, now.
+ *
+ * Same reason the parent portal asks: the classes are in the token, so a
+ * dashboard left open since Monday is reading Monday's list. A class taken
+ * away disappears on the next load, and a token that is no longer valid signs
+ * the teacher out rather than leaving somebody else's class on screen.
+ */
+exports.teacherRefresh = functions
+  .region('australia-southeast1')
+  .https.onRequest((req, res) => {
+    cors(req, res, async () => {
+      if (req.method !== 'POST') return sendJson(res, 405, { error: 'Method not allowed' })
+      const caller = await verifyCaller(req)
+      if (!caller || caller.role !== 'teacher') return sendJson(res, 403, { error: 'Teacher sign-in required' })
+      try {
+        const core = await getCore(true)
+        const teacher = (core.teachers || {})[String(caller.uid)]
+        if (!teacher || teacher.approved === false) {
+          return sendJson(res, 403, { error: 'This account is no longer active.' })
+        }
+        const isAdmin = isAdminTeacher(teacher)
+        const classIds = isAdmin ? [] : classesForTeacher(core, caller.uid)
+        const sessionId = await startSession(String(caller.uid), 'teacher')
+        const token = await admin.auth().createCustomToken(String(caller.uid), {
+          role: 'teacher',
+          orgId: teacher.orgId || null,
+          admin: isAdmin,
+          classIds,
+        })
+        return sendJson(res, 200, {
+          ok: true, token, sessionId, classIds, isAdmin,
+          classes: classIds.map((id) => ({ id, name: (core.classes || {})[id]?.name || '' })),
+        })
+      } catch (e) {
+        console.error('teacherRefresh failed:', e)
+        return sendJson(res, 500, { error: 'Could not refresh. Try again.' })
+      }
+    })
+  })
+
 exports.authSignup = functions
   .region('australia-southeast1')
   .https.onRequest((req, res) => {
@@ -971,6 +1111,12 @@ exports.authSignup = functions
         const { role, name, password, profile } = req.body || {}
         const cleanName = String(name || '').trim()
         if (!['student', 'teacher'].includes(role)) return sendJson(res, 400, { error: 'Invalid role' })
+        // A teacher account reaches every student's work, so it is issued, not
+        // requested: an admin creates it and hands over the password. Leaving
+        // this open meant anyone could queue an approval against the school.
+        if (role === 'teacher') {
+          return sendJson(res, 403, { error: 'Teacher accounts are created by your administrator.' })
+        }
         if (cleanName.length < 1 || cleanName.length > 40) return sendJson(res, 400, { error: 'Please enter a nickname.' })
         if (!password || String(password).length < 1) return sendJson(res, 400, { error: 'Enter a password.' })
 
@@ -1033,7 +1179,7 @@ exports.authSignup = functions
               do { orgId = randomDigits(6) } while (orgs[orgId])
               updates.push(new admin.firestore.FieldPath('organisations', orgId), { name: 'My Organisation', teacherId: id })
             }
-            updates.push(new admin.firestore.FieldPath('teachers', id), { name: cleanName, orgId, approved: false })
+            updates.push(new admin.firestore.FieldPath('teachers', id), { name: cleanName, orgId, approved: false, admin: false })
           }
 
           tx.update(coreRef, ...updates)
@@ -1214,6 +1360,172 @@ exports.authAdmin = functions
           }
           if (!dry && inBatch) await batch.commit()
           return sendJson(res, 200, { ok: true, dry, alreadyFiled: have.size, count: found.length, papers: found })
+        }
+
+        if (action === 'classHolders') {
+          // Who can see this class, so "why is she in my dashboard" has an
+          // answer that is looked up rather than guessed at.
+          const core = await getCore(true)
+          const out = Object.entries(core.classes || {}).map(([id, cls]) => ({
+            id,
+            name: cls.name || '',
+            code: cls.code || null,
+            students: (cls.studentIds || []).length,
+            teachers: (cls.teacherIds || []).map((tid) => ({
+              id: tid, name: (core.teachers || {})[tid]?.name || '(deleted)',
+            })),
+          }))
+          return sendJson(res, 200, { ok: true, classes: out })
+        }
+
+        if (action === 'setClassCode') {
+          // Gives a class a code, or a new one. Changing it does not turn out
+          // the teachers already holding the class - `removeTeacherFromClass`
+          // does that - it only stops the old code letting anybody else in.
+          const classId = String(req.body?.classId || '')
+          if (!classId) return sendJson(res, 400, { error: 'classId required' })
+          const core = await getCore(true)
+          if (!(core.classes || {})[classId]) return sendJson(res, 404, { error: 'No such class.' })
+          const taken = new Set(Object.values(core.classes || {})
+            .map((c) => String(c.code || '').toUpperCase()).filter(Boolean))
+          let code
+          do { code = newClassCode() } while (taken.has(code))
+          await coreRef.update(new admin.firestore.FieldPath('classes', classId, 'code'), code)
+          _core = null
+          return sendJson(res, 200, { ok: true, classId, code })
+        }
+
+        if (action === 'backfillClassCodes') {
+          // Every class that has no code gets one, and the single creator in
+          // `teacherId` becomes the first entry of `teacherIds`.
+          const core = await getCore(true)
+          const classes = core.classes || {}
+          const taken = new Set(Object.values(classes)
+            .map((c) => String(c.code || '').toUpperCase()).filter(Boolean))
+          const updates = []
+          const report = []
+          for (const [id, cls] of Object.entries(classes)) {
+            if (!cls.code) {
+              let code
+              do { code = newClassCode() } while (taken.has(code))
+              taken.add(code)
+              updates.push(new admin.firestore.FieldPath('classes', id, 'code'), code)
+              report.push({ id, name: cls.name || '', code })
+            }
+            if (!Array.isArray(cls.teacherIds)) {
+              updates.push(new admin.firestore.FieldPath('classes', id, 'teacherIds'), [])
+            }
+          }
+          if (updates.length) await coreRef.update(...updates)
+          _core = null
+          return sendJson(res, 200, { ok: true, coded: report })
+        }
+
+        if (action === 'removeTeacherFromClass') {
+          // Takes a class back. Their token names it until it expires, so the
+          // sign-in behind it goes: the dashboard asks who holds what on its
+          // next load and is told this class is not theirs.
+          const classId = String(req.body?.classId || '')
+          if (!classId || !teacherId) return sendJson(res, 400, { error: 'classId and teacherId required' })
+          const core = await getCore(true)
+          const cls = (core.classes || {})[classId]
+          if (!cls) return sendJson(res, 404, { error: 'No such class.' })
+          const left = (cls.teacherIds || []).map(String).filter((id) => id !== String(teacherId))
+          await coreRef.update(new admin.firestore.FieldPath('classes', classId, 'teacherIds'), left)
+          _core = null
+          await db.collection('sessions').doc(String(teacherId)).delete().catch(() => {})
+          await admin.auth().revokeRefreshTokens(String(teacherId)).catch(() => {})
+          return sendJson(res, 200, { ok: true, remaining: left.length })
+        }
+
+        if (action === 'createTeacher') {
+          // The whole account, made in one go: a name, a password to hand over,
+          // and no approval queue. The password is set here rather than left
+          // empty because an account with no credential is claimed by whoever
+          // signs in with that name first.
+          const teacherName = String(req.body?.teacherName || '').trim()
+          const password = String(req.body?.password || '')
+          if (!teacherName) return sendJson(res, 400, { error: 'Enter a name for the teacher.' })
+          if (password.length < 6) return sendJson(res, 400, { error: 'The password needs at least 6 characters.' })
+
+          const made = await db.runTransaction(async (tx) => {
+            const core = (await tx.get(coreRef)).data() || {}
+            const teachers = core.teachers || {}
+            const lower = teacherName.toLowerCase()
+            if (Object.values(teachers).some((t) => String(t.name || '').toLowerCase() === lower)) {
+              return { error: 'A teacher with that name already exists.' }
+            }
+            if (Object.values(core.students || {}).some((u) => String(u.name || '').toLowerCase() === lower)) {
+              return { error: 'A student already signs in with that name.' }
+            }
+            let id
+            do { id = randomDigits(8) } while (teachers[id])
+            const orgs = core.organisations || {}
+            const orgId = Object.entries(orgs)
+              .find(([, org]) => org.teacherId && teachers[org.teacherId])?.[0]
+              || Object.keys(orgs)[0] || null
+            tx.update(coreRef, new admin.firestore.FieldPath('teachers', id), {
+              name: teacherName,
+              orgId,
+              approved: true,
+              admin: false,
+              createdAt: Date.now(),
+              createdBy: caller.uid,
+            })
+            return { id, orgId }
+          })
+          if (made.error) return sendJson(res, 409, { error: made.error })
+          _core = null
+          await credentialRef('teacher', made.id).set({ password: hashPassword(password), updatedAt: Date.now() })
+          console.info(`createTeacher: ${caller.uid} created ${made.id} (${teacherName})`)
+          return sendJson(res, 200, { ok: true, teacher: { id: made.id, name: teacherName, orgId: made.orgId } })
+        }
+
+        if (action === 'setTeacherPassword') {
+          // Replaces the password outright. The old reset deleted the record
+          // instead, which left the account to be claimed by the next person
+          // to type that name.
+          const password = String(req.body?.password || '')
+          if (!teacherId) return sendJson(res, 400, { error: 'teacherId required' })
+          if (password.length < 6) return sendJson(res, 400, { error: 'The password needs at least 6 characters.' })
+          await credentialRef('teacher', teacherId).set({ password: hashPassword(password), updatedAt: Date.now() })
+          await db.collection('sessions').doc(String(teacherId)).delete().catch(() => {})
+          await admin.auth().revokeRefreshTokens(String(teacherId)).catch(() => {})
+          return sendJson(res, 200, { ok: true })
+        }
+
+        if (action === 'setTeacherAdmin') {
+          // Promotes or demotes. Demoting takes effect on their next sign-in
+          // unless the sign-in behind the open session goes with it.
+          const makeAdmin = req.body?.admin === true
+          if (!teacherId) return sendJson(res, 400, { error: 'teacherId required' })
+          if (!makeAdmin && String(teacherId) === String(caller.uid)) {
+            return sendJson(res, 400, { error: 'You cannot take admin away from yourself.' })
+          }
+          await coreRef.update(new admin.firestore.FieldPath('teachers', String(teacherId), 'admin'), makeAdmin)
+          _core = null
+          await db.collection('sessions').doc(String(teacherId)).delete().catch(() => {})
+          await admin.auth().revokeRefreshTokens(String(teacherId)).catch(() => {})
+          console.info(`setTeacherAdmin: ${caller.uid} set ${teacherId} admin=${makeAdmin}`)
+          return sendJson(res, 200, { ok: true })
+        }
+
+        if (action === 'backfillTeacherAdmin') {
+          // One-off: writes the flag every account is judged by from here on,
+          // so nobody's standing rests on their name any more.
+          const core = await getCore(true)
+          const teachers = core.teachers || {}
+          const updates = []
+          const report = []
+          for (const [id, t] of Object.entries(teachers)) {
+            if (typeof t.admin === 'boolean') continue
+            const flag = ADMIN_TEACHER_NAMES.includes(String(t.name || '').trim().toLowerCase())
+            updates.push(new admin.firestore.FieldPath('teachers', id, 'admin'), flag)
+            report.push({ id, name: t.name || '', admin: flag })
+          }
+          if (updates.length) await coreRef.update(...updates)
+          _core = null
+          return sendJson(res, 200, { ok: true, updated: report })
         }
 
         if (action === 'parentsOf') {
