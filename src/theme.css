@@ -13969,6 +13969,26 @@ button.hw-res-qth.active {
   margin: 2px 0 0;
 }
 
+.pp-profiles { display: flex; gap: 14px; flex-wrap: wrap; }
+.pp-profile {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  width: 220px; padding: 20px; cursor: pointer; text-align: left;
+  font: inherit; color: inherit;
+  background: var(--bg-card); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.pp-profile:hover { border-color: var(--accent); transform: translateY(-2px); }
+.pp-profile-face {
+  width: 52px; height: 52px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-body); font-size: 1.4rem; font-weight: 800;
+  background: rgba(100,200,255,0.16); color: var(--accent); margin-bottom: 8px;
+}
+.pp-profile-name { font-family: var(--font-body); font-size: 1.05rem; font-weight: 700; }
+.pp-profile-year { font-family: var(--font-body); font-size: 0.68rem; color: var(--text-dim); }
+.pp-profile-stat { font-family: var(--font-body); font-size: 0.74rem; color: var(--text); margin-top: 6px; }
+.pp-profile-last { font-family: var(--font-body); font-size: 0.66rem; color: var(--text-dim); }
+
 .pp-link {
   margin-top: 26px; padding: 18px 20px; border-radius: 12px;
   background: var(--bg-card); border: 1px dashed rgba(255,255,255,0.14);
@@ -19023,3 +19043,46 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .qt-prompt-display .katex [style*="font-size"] {
   font-size: revert;
 }
+
+/* A sat question, read by a parent. The split is the student's own, but the
+   panes grow with the page instead of scrolling inside a fixed quiz panel. */
+.rq-split { padding: 0; overflow: visible; border-radius: 10px; }
+.rq-split > .qt-split-left,
+.rq-split > .qt-split-right {
+  overflow-y: auto;
+  max-height: 62vh;
+  padding: 20px 24px;
+}
+.rq-split > .qt-split-left { flex: 1.15; border-radius: 10px 0 0 10px; }
+.rq-split > .qt-split-right { border-radius: 0 10px 10px 0; }
+.rq-split > .qt-split-divider { cursor: default; }
+.rq-split > .qt-split-divider::after { display: none; }
+.rq-head-right { display: flex; align-items: center; gap: 10px; }
+.rq-time {
+  font-family: var(--font-body); font-size: 0.66rem; font-weight: 700;
+  color: var(--text-dim); background: rgba(255,255,255,0.06);
+  padding: 4px 10px; border-radius: 999px;
+}
+@media (max-width: 900px) {
+  .rq-split { flex-direction: column; }
+  .rq-split > .qt-split-divider { display: none; }
+  .rq-split > .qt-split-left,
+  .rq-split > .qt-split-right { max-height: 46vh; border-radius: 10px; }
+}
+.pp-standing {
+  display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px;
+}
+.pp-standing-cell {
+  flex: 1; min-width: 150px; display: flex; flex-direction: column; gap: 2px;
+  padding: 12px 16px; border-radius: 10px; background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+.pp-standing-big { font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; }
+.pp-standing-label {
+  font-family: var(--font-body); font-size: 0.66rem; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+/* A question with nothing to put beside it, and a marked piece of writing,
+   which needs the whole width for the teacher's marks to sit beside the text. */
+.rq-single { background: #fafafa; border-radius: 10px; padding: 20px 24px; }
+.rq-single .qt-question-text { margin-bottom: 14px; }

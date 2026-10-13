@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { loadSubmissionsForStudent, loadStudentFirestore } from '../data/firebase.js'
+import { loadSubmissionsForStudent, loadStudentFirestore, loadQuizStats } from '../data/firebase.js'
 import { refreshQuizSetFromCloud } from '../data/store.js'
 import ReviewedQuestion from '../components/ReviewedQuestion.jsx'
 import ReportPage from './ReportPage.jsx'
@@ -24,12 +24,19 @@ function ParentPortal({ session, onLogout }) {
   const [linking, setLinking] = useState('')
   const [linkError, setLinkError] = useState('')
   const [linkBusy, setLinkBusy] = useState(false)
-  const [activeId, setActiveId] = useState((session.children || [])[0]?.id || null)
+  // Nobody is open to begin with: a parent lands on their children and
+  // chooses one, rather than being dropped into whichever came first.
+  const [activeId, setActiveId] = useState(null)
   const [papers, setPapers] = useState({})
+  // Marks that landed after the paper was filed - writing marked by a teacher
+  // days later, say. The archive is written once and never altered, so without
+  // this a marked piece of writing still reads "awaiting marking".
+  const [later, setLater] = useState({})
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('papers')
   const [open, setOpen] = useState(null)       // the paper being read
   const [openSet, setOpenSet] = useState(null) // its questions
+  const [openStats, setOpenStats] = useState(null) // how the class did on it
 
   // Each child's filed papers, for the list, and their own record, which is
   // what the report is built from. A parent reads; nothing here writes.
@@ -40,10 +47,16 @@ function ParentPortal({ session, onLogout }) {
       Promise.all([
         loadSubmissionsForStudent(child.id),
         loadStudentFirestore(child.id).catch(() => null),
-      ]).then(([filed]) => [child.id, filed])))
-      .then((pairs) => {
+      ]).then(([filed, record]) => [child.id, filed, record])))
+      .then((rows) => {
         if (!alive) return
-        setPapers(Object.fromEntries(pairs))
+        setPapers(Object.fromEntries(rows.map(([id, filed]) => [id, filed])))
+        setLater(Object.fromEntries(rows.map(([id, , record]) => [
+          id,
+          Object.fromEntries((record?.homeworkAttempts || [])
+            .filter((a) => a && a.id)
+            .map((a) => [a.id, a])),
+        ])))
         setLoading(false)
       })
     return () => { alive = false }
@@ -51,26 +64,54 @@ function ParentPortal({ session, onLogout }) {
 
   const active = children.find((c) => c.id === activeId) || children[0]
 
-  const sittings = useMemo(() => (papers[activeId] || []).map((paper) => ({
+  const sittings = useMemo(() => (papers[activeId] || []).map((paper) => {
+    const now = (later[activeId] || {})[paper.id]
+    // The paper as it was handed in, with the mark as it stands today.
+    const marked = Number(paper.total) > 0 ? paper : (Number(now?.total) > 0 ? now : paper)
+    return {
     id: paper.id,
     kind: paper.kind === 'redo' ? 'Revision' : 'Paper',
     title: paper.quizTitle || paper.quizSetId,
     quizSetId: paper.quizSetId,
     answers: paper.answers || [],
-    score: Number(paper.score) || 0,
-    total: Number(paper.total) || 0,
+    questionTimes: paper.questionTimes || [],
+    score: Number(marked.score) || 0,
+    total: Number(marked.total) || 0,
     date: paper.date || '',
     screenLeaves: Number(paper.screenLeaves) || 0,
     lockedOut: !!paper.lockedOut,
-  })), [papers, activeId])
+    }
+  }), [papers, later, activeId])
 
   // Opening a paper needs its questions, which are not on the filed copy - that
   // keeps the answers, not the paper. One read, the first time it is asked for.
   async function openPaper(row) {
     setOpen(row)
     setOpenSet(null)
-    const set = await refreshQuizSetFromCloud(row.quizSetId)
+    setOpenStats(null)
+    const [set, stats] = await Promise.all([
+      refreshQuizSetFromCloud(row.quizSetId),
+      loadQuizStats(row.quizSetId),
+    ])
     setOpenSet(set || { questions: [] })
+    setOpenStats(stats)
+  }
+
+  /** Where this sitting stands against everyone else who sat the same paper. */
+  function classStanding(row, rows) {
+    const marked = (rows || []).filter((r) => Number(r.total) > 0)
+    if (marked.length < 2) return null
+    const mine = marked.find((r) => String(r.studentId) === String(row && activeId))
+    const avg = Math.round(marked.reduce((n, r) => n + (Number(r.pct) || 0), 0) / marked.length)
+    const times = marked.map((r) => Number(r.seconds) || 0).filter((n) => n > 0)
+    const avgTime = times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : null
+    let percentile = null
+    if (mine && marked.length >= 5) {
+      const below = marked.filter((r) => (r.pct || 0) < (mine.pct || 0)).length
+      const equal = marked.filter((r) => (r.pct || 0) === (mine.pct || 0)).length - 1
+      percentile = Math.round(((below + equal / 2) / (marked.length - 1)) * 100)
+    }
+    return { avg, avgTime, percentile, sat: marked.length }
   }
 
 
@@ -128,13 +169,68 @@ function ParentPortal({ session, onLogout }) {
     )
   }
 
-  // ---- one paper, read right through ---------------------------------------
-  if (open) {
-    const pct = open.total > 0 ? Math.round((open.score / open.total) * 100) : null
+  // ---- the children, as profiles ------------------------------------------
+  if (!activeId) {
     return (
       <div className="pp-page">
         <header className="pp-header">
-          <button className="btn btn-outline" onClick={() => { setOpen(null); setOpenSet(null) }}>← Back</button>
+          <img src="/avant-logo.png" alt="AVANT OC &amp; Selective" className="pp-logo" />
+          <div className="pp-header-mid"><span className="pp-signed-in">Signed in as {session.email}</span></div>
+          <button className="btn-logout btn-signout" onClick={onLogout}>Sign out</button>
+        </header>
+        <main className="pp-main">
+          <h1 className="pp-title">{children.length > 1 ? 'Your children' : 'Your child'}</h1>
+          <div className="pp-profiles">
+            {children.map((child) => {
+              const theirs = papers[child.id] || []
+              // Counted off the mark as it stands, not as it was filed, so a
+              // piece of writing marked later still counts towards the average.
+              const scored = theirs.map((t) => {
+                if (Number(t.total) > 0) return t
+                const now = (later[child.id] || {})[t.id]
+                return Number(now?.total) > 0 ? now : t
+              })
+              const marked = scored.filter((t) => Number(t.total) > 0)
+              const avg = marked.length
+                ? Math.round(marked.reduce((n, t) => n + (t.score / t.total) * 100, 0) / marked.length)
+                : null
+              const last = theirs[0]?.date
+              return (
+                <button key={child.id} className="pp-profile" onClick={() => setActiveId(child.id)}>
+                  <span className="pp-profile-face">{(child.firstName || child.name || '?').slice(0, 1).toUpperCase()}</span>
+                  <span className="pp-profile-name">{child.firstName || child.name}</span>
+                  {child.yearGroup && (
+                    <span className="pp-profile-year">
+                      {/* some are stored as "Year 5" and some as "5" */}
+                      {/^year\b/i.test(String(child.yearGroup)) ? child.yearGroup : `Year ${child.yearGroup}`}
+                    </span>
+                  )}
+                  <span className="pp-profile-stat">
+                    {loading ? 'Loading…'
+                      : theirs.length === 0 ? 'Nothing completed yet'
+                      : `${theirs.length} completed${avg != null ? ` · ${avg}% average` : ''}`}
+                  </span>
+                  {last && <span className="pp-profile-last">Last sat {new Date(last).toLocaleDateString()}</span>}
+                </button>
+              )
+            })}
+          </div>
+          {addChildForm}
+        </main>
+      </div>
+    )
+  }
+
+  // ---- one paper, read right through ---------------------------------------
+  if (open) {
+    const pct = open.total > 0 ? Math.round((open.score / open.total) * 100) : null
+    const standing = classStanding(open, openStats)
+    const mins = (n) => (n < 60 ? `${n}s` : `${Math.floor(n / 60)}m ${n % 60}s`)
+    const theirTime = (open.questionTimes || []).reduce((n, t) => n + (Number(t) || 0), 0)
+    return (
+      <div className="pp-page">
+        <header className="pp-header">
+          <button className="btn btn-outline" onClick={() => { setOpen(null); setOpenSet(null); setOpenStats(null) }}>← Back</button>
           <div className="pp-header-mid">
             <span className="pp-row-title">{open.title}</span>
             <span className="pp-signed-in">
@@ -147,13 +243,42 @@ function ParentPortal({ session, onLogout }) {
           )}
         </header>
         <main className="pp-main">
+          {standing && (
+            <div className="pp-standing">
+              <div className="pp-standing-cell">
+                <span className="pp-standing-big">{standing.avg}%</span>
+                <span className="pp-standing-label">class average · {standing.sat} sat it</span>
+              </div>
+              {standing.percentile != null && (
+                <div className="pp-standing-cell">
+                  <span className="pp-standing-big">{standing.percentile}<sup>th</sup></span>
+                  <span className="pp-standing-label">percentile</span>
+                </div>
+              )}
+              {theirTime > 0 && (
+                <div className="pp-standing-cell">
+                  <span className="pp-standing-big">{mins(theirTime)}</span>
+                  <span className="pp-standing-label">
+                    their time{standing.avgTime ? ` · class ${mins(standing.avgTime)}` : ''}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
           {!openSet ? (
             <p className="pp-empty">Fetching the paper…</p>
           ) : !(openSet.questions || []).length ? (
             <p className="pp-empty">This paper is no longer available.</p>
           ) : (
             openSet.questions.map((q, i) => (
-              <ReviewedQuestion key={q.id || i} question={q} answer={open.answers[i]} index={i} />
+              <ReviewedQuestion
+                key={q.id || i}
+                question={q}
+                answer={open.answers[i]}
+                index={i}
+                seconds={Number(open.questionTimes?.[i]) || 0}
+                attemptId={open.id}
+              />
             ))
           )}
         </main>
@@ -164,27 +289,16 @@ function ParentPortal({ session, onLogout }) {
   return (
     <div className="pp-page">
       <header className="pp-header">
-        <img src="/avant-logo.png" alt="AVANT OC &amp; Selective" className="pp-logo" />
+        <button className="btn btn-outline" onClick={() => { setActiveId(null); setTab('papers') }}>
+          {children.length > 1 ? '← All children' : '← Back'}
+        </button>
         <div className="pp-header-mid">
+          <span className="pp-row-title">{active?.firstName || active?.name}</span>
           <span className="pp-signed-in">Signed in as {session.email}</span>
         </div>
         <button className="btn-logout btn-signout" onClick={onLogout}>Sign out</button>
       </header>
 
-      {children.length > 1 && (
-        <div className="pp-children">
-          {children.map((child) => (
-            <button
-              key={child.id}
-              className={`pp-child${child.id === activeId ? ' is-active' : ''}`}
-              onClick={() => { setActiveId(child.id); setOpen(null) }}
-            >
-              {child.firstName || child.name}
-              {child.yearGroup ? <span className="pp-child-year">Year {child.yearGroup}</span> : null}
-            </button>
-          ))}
-        </div>
-      )}
 
       <div className="pp-tabs">
         <button className={`pp-tab${tab === 'papers' ? ' is-active' : ''}`} onClick={() => setTab('papers')}>Papers</button>

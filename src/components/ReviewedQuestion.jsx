@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { RichText } from './RichTextEditor.jsx'
 import { renderMath } from '../utils/renderMath.js'
 import { prepareMath } from '../utils/mathify.js'
-import { isWritingType } from '../data/store.js'
+import { isWritingType, getWritingMark } from '../data/store.js'
+import MarkedWriting from './MarkedWriting.jsx'
+import { parseExplanation } from '../utils/aiChat.js'
 
 /**
  * One question of a paper that has been sat, with what the student answered.
@@ -17,6 +19,11 @@ import { isWritingType } from '../data/store.js'
  * @param {*} props.answer what the student put, in whatever shape the type uses
  * @param {number} props.index its place in the paper, counting from zero
  */
+/** Seconds, as the student's own review screen writes them. */
+function formatTime(s) {
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`
+}
+
 function letterOf(i) {
   return String.fromCharCode(65 + i)
 }
@@ -62,12 +69,16 @@ const VERDICT_LABEL = {
   pending: 'Waiting to be marked',
 }
 
-function ReviewedQuestion({ question, answer, index }) {
+function ReviewedQuestion({ question, answer, index, seconds, attemptId }) {
   const type = question.type || 'multiple-choice'
   const [tab, setTab] = useState(0)
   const hasExtracts = (type === 'multi-description' || type === 'multi-matching')
     && (question.descriptions || []).length > 0
   const mark = verdict(question, answer)
+  // Stored as JSON - a general explanation and one per option - so it has to be
+  // read the same way the student's review reads it, not printed as it stands.
+  const explain = parseExplanation(question.explanation)
+  const wide = isWritingType(type) || type === 'free-response'
 
   // A row saying what the key is and what they put, for the types answered by
   // ordering or matching rather than by choosing.
@@ -92,11 +103,15 @@ function ReviewedQuestion({ question, answer, index }) {
             let cls = 'qt-option qt-option-review'
             if (oi === question.correctIndex) cls += ' qt-option-correct'
             if (oi === answer && oi !== question.correctIndex) cls += ' qt-option-wrong'
+            const why = explain.options?.[letterOf(oi)]
             return (
-              <div key={oi} className={cls} style={{ cursor: 'default' }}>
+              <div key={oi}>
+              <div className={cls} style={{ cursor: 'default' }}>
                 <span className={`qt-option-radio ${oi === question.correctIndex ? 'qt-radio-correct' : oi === answer ? 'qt-radio-wrong' : ''}`} />
                 <span className="qt-option-text" dangerouslySetInnerHTML={{ __html: renderMath(prepareMath(opt)) }} />
                 {oi === answer && <span className="rq-chose">their answer</span>}
+              </div>
+              {why && <div className="qt-option-explanation" dangerouslySetInnerHTML={{ __html: why }} />}
               </div>
             )
           })}
@@ -153,15 +168,14 @@ function ReviewedQuestion({ question, answer, index }) {
     }
 
     if (isWritingType(type)) {
+      // The teacher's marking is the paper, for writing - the piece on its own
+      // tells a parent nothing about how it was judged.
       return (
         <div className="rq-written">
-          <div className="rq-written-label">What they wrote</div>
-          <div className="rq-written-body">
-            {String(answer || '').trim()
-              ? <RichText html={String(answer)} />
-              : <em>Nothing written</em>}
-          </div>
-          <div className="rq-written-note">Marked by a teacher. Their marks and comments are on the report.</div>
+          <MarkedWriting
+            html={String(answer || '')}
+            mark={attemptId ? getWritingMark(attemptId, index) : null}
+          />
         </div>
       )
     }
@@ -169,40 +183,62 @@ function ReviewedQuestion({ question, answer, index }) {
     return null
   }
 
+  // The passage on the left and the question on the right, as the student sat
+  // it and as they review it. Stacking them would repeat a whole reading
+  // passage above all thirty-eight questions, which no parent would read.
+  const passage = hasExtracts ? (
+    <>
+      <div className="qt-desc-tabs">
+        {question.descriptions.map((d, di) => (
+          <button
+            key={di}
+            className={`qt-desc-tab${tab === di ? ' qt-desc-tab-active' : ''}`}
+            onClick={() => setTab(di)}
+          >{d.title || letterOf(di)}</button>
+        ))}
+      </div>
+      <div className="qt-desc-content">
+        <RichText html={question.descriptions[tab]?.content || ''} />
+      </div>
+    </>
+  ) : question.text ? (
+    <div className="qt-question-text"><RichText html={question.text} /></div>
+  ) : null
+
+  const asked = (
+    <>
+      {hasExtracts && !question.prompt && question.text && (
+        <div className="qt-question-text"><RichText html={question.text} /></div>
+      )}
+      {question.prompt && <div className="qt-prompt-display" dangerouslySetInnerHTML={{ __html: question.prompt }} />}
+      {answerBlock()}
+      {explain.general && (
+        <div className="rq-explanation">
+          <div className="rq-written-label">Explanation</div>
+          <RichText html={explain.general} />
+        </div>
+      )}
+    </>
+  )
+
   return (
     <article className="rq">
       <header className="rq-head">
         <span className="rq-num">Question {index + 1}</span>
-        <span className={`rq-verdict is-${mark}`}>{VERDICT_LABEL[mark]}</span>
+        <div className="rq-head-right">
+          {seconds > 0 && <span className="rq-time">{formatTime(seconds)}</span>}
+          <span className={`rq-verdict is-${mark}`}>{VERDICT_LABEL[mark]}</span>
+        </div>
       </header>
 
-      {hasExtracts && (
-        <>
-          <div className="qt-desc-tabs">
-            {question.descriptions.map((d, di) => (
-              <button
-                key={di}
-                className={`qt-desc-tab${tab === di ? ' qt-desc-tab-active' : ''}`}
-                onClick={() => setTab(di)}
-              >{d.title || letterOf(di)}</button>
-            ))}
-          </div>
-          <div className="qt-desc-content">
-            <RichText html={question.descriptions[tab]?.content || ''} />
-          </div>
-        </>
-      )}
-
-      {question.text && <div className="qt-question-text"><RichText html={question.text} /></div>}
-      {question.prompt && <div className="qt-prompt-display" dangerouslySetInnerHTML={{ __html: question.prompt }} />}
-
-      {answerBlock()}
-
-      {question.explanation && (
-        <div className="rq-explanation">
-          <div className="rq-written-label">Explanation</div>
-          <RichText html={question.explanation} />
+      {passage && !wide ? (
+        <div className="qt-split rq-split">
+          <div className="qt-split-left">{passage}</div>
+          <div className="qt-split-divider" />
+          <div className="qt-split-right">{asked}</div>
         </div>
+      ) : (
+        <div className="rq-single">{passage}{asked}</div>
       )}
     </article>
   )

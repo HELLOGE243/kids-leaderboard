@@ -1611,6 +1611,24 @@ export function getQuizStatsCache(quizSetId) {
   return _qsCache[quizSetId] || null
 }
 
+/**
+ * Every filed attempt at one quiz, read once.
+ *
+ * The rows carry a mark and a time and no answers, so this says how a class
+ * did without saying what anybody put - which is what lets a parent read it.
+ * @returns {Promise<Array<{studentId: string, score: number, total: number, pct: number, seconds: number}>>}
+ */
+export async function loadQuizStats(quizSetId) {
+  if (!quizSetId) return []
+  try {
+    const snap = await getDocs(collection(db, 'quizStats', quizSetId, 'attempts'))
+    return snap.docs.map((d) => d.data())
+  } catch (e) {
+    console.warn(`Firestore: could not read stats for ${quizSetId}:`, e)
+    return []
+  }
+}
+
 /** Drops all aggregate subscriptions (called on sign-out). */
 export function unsubscribeAggregates() {
   for (const k of Object.keys(_lbUnsub)) {
