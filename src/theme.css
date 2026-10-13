@@ -19110,15 +19110,16 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .td2-class-code-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .td2-class-code-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.6; }
 .td2-class-code-value {
-  font-family: monospace; font-size: 0.9rem; font-weight: 700; letter-spacing: 0.18em;
-  padding: 2px 8px; border-radius: 6px; border: 1px dashed rgba(0,0,0,0.25);
-  background: rgba(0,0,0,0.04); cursor: pointer;
+  font-family: monospace; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.18em;
+  padding: 4px 10px; border-radius: 6px; border: 1px dashed rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.1); color: inherit; cursor: pointer;
 }
+.td2-class-code-value:hover { background: rgba(255,255,255,0.18); }
 .td2-class-code-value.is-none { font-family: inherit; letter-spacing: 0; opacity: 0.5; cursor: default; }
 .td2-class-code-holders { display: flex; flex-wrap: wrap; gap: 6px; }
 .td2-class-holder {
   display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem;
-  padding: 2px 6px; border-radius: 999px; background: rgba(0,0,0,0.06);
+  padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,0.1);
 }
 .td2-class-holder-x { border: none; background: none; cursor: pointer; font-size: 0.9rem; line-height: 1; opacity: 0.55; }
 .td2-class-holder-x:hover { opacity: 1; color: #e53935; }
@@ -19182,7 +19183,7 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .cs-group-codes { margin: 14px 0 6px; padding-top: 12px; border-top: 1px solid rgba(0,0,0,0.08); }
 .cs-group-codes-title { margin: 0 0 2px; font-size: 0.82rem; }
 .gc-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
-.gc-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 8px 10px; border-radius: 8px; background: rgba(0,0,0,0.04); }
+.gc-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,0.05); }
 .gc-main { display: flex; flex-direction: column; min-width: 130px; }
 .gc-name { font-weight: 700; font-size: 0.82rem; }
 .gc-meta { font-size: 0.66rem; opacity: 0.6; }
