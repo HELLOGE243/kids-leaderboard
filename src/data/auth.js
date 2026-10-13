@@ -102,7 +102,16 @@ export async function loginParent(email, token) {
     const { ok, data } = await postJson('authParent', { email, token })
     if (!ok || !data?.token) return { ok: false, error: data?.error || 'Could not sign in.' }
     await establishSession(data.token)
-    return { ok: true, children: data.children || [], email: data.email, sessionId: data.sessionId || null }
+    // Who the session belongs to, so restoring it on the next page load can
+    // check it against the signed-in user. A parent has no record to take an
+    // id from.
+    return {
+      ok: true,
+      uid: getAuth(app).currentUser?.uid || null,
+      children: data.children || [],
+      email: data.email,
+      sessionId: data.sessionId || null,
+    }
   } catch (e) {
     console.error('loginParent failed:', e)
     return { ok: false, error: 'Could not reach the server.' }

@@ -368,6 +368,7 @@ function LoginScreen({ onLogin }) {
             if (!signedIn.ok) return setError(signedIn.error)
             onLogin({
               role: 'parent',
+              uid: signedIn.uid,
               email: signedIn.email,
               children: signedIn.children,
               sessionId: signedIn.sessionId,

@@ -157,7 +157,11 @@ function App() {
       const existing = loadSession()
       const authed = auth.currentUser
       if (!existing) return
-      if (!authed || String(authed.uid) !== String(existing.user?.id)) {
+      // A parent has no student or teacher record, so their session carries
+      // the uid directly. Comparing only against user.id signed every parent
+      // out on the next page load, which is every page load.
+      const owner = existing.user?.id ?? existing.uid
+      if (!authed || String(authed.uid) !== String(owner)) {
         // A saved session from before server-side sign-in (or for another
         // account) carries no valid auth token - ask the user to sign in again
         // rather than let every request be refused.
