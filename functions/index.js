@@ -1185,6 +1185,76 @@ exports.authAdmin = functions
           return sendJson(res, 200, { ok: true, dry, alreadyFiled: have.size, count: found.length, papers: found })
         }
 
+        if (action === 'parentsOf') {
+          // Who can see this student's work, so a teacher can answer "why can
+          // my ex-husband see this" without guessing.
+          const studentId = String(req.body?.studentId || '')
+          if (!studentId) return sendJson(res, 400, { error: 'studentId required' })
+          const holders = await db.collection('parentPairings')
+            .where('children', 'array-contains', studentId).get()
+          return sendJson(res, 200, {
+            ok: true,
+            parents: holders.docs.map((d) => ({ email: d.get('email') || '', since: d.get('pairedAt') || null })),
+          })
+        }
+
+        if (action === 'linkParent') {
+          // A teacher setting a parent up, for the ones who will not manage it
+          // themselves. Same cap as a parent linking themselves - two accounts
+          // to a student - so this is a convenience, not a way round it.
+          const studentId = String(req.body?.studentId || '')
+          const parentEmail = normaliseEmail(req.body?.parentEmail)
+          if (!studentId || !parentEmail) return sendJson(res, 400, { error: 'studentId and parentEmail required' })
+          const core = await getCore(true)
+          const student = (core.students || {})[studentId]
+          if (!student || student.archived) return sendJson(res, 404, { error: 'No student has that ID.' })
+          const holders = await db.collection('parentPairings')
+            .where('children', 'array-contains', studentId).get()
+          const alreadyMine = holders.docs.some((d) => normaliseEmail(d.get('email')) === parentEmail)
+          if (!alreadyMine && holders.size >= MAX_PARENTS_PER_STUDENT) {
+            return sendJson(res, 409, { error: `Already linked to ${MAX_PARENTS_PER_STUDENT} parent accounts.` })
+          }
+          const ref = pairingRef(parentEmail)
+          const cur = (await ref.get()).data() || {}
+          const children = Array.isArray(cur.children) ? cur.children.slice() : []
+          if (!children.includes(studentId)) children.push(studentId)
+          await ref.set({ email: parentEmail, children, updatedAt: Date.now(), pairedAt: cur.pairedAt || Date.now() }, { merge: true })
+          return sendJson(res, 200, { ok: true, children })
+        }
+
+        if (action === 'unlinkParent') {
+          // Takes a student away from one parent account. The cap is two, so
+          // without this a wrong link could never be undone by anybody.
+          const studentId = String(req.body?.studentId || '')
+          const parentEmail = normaliseEmail(req.body?.parentEmail)
+          if (!studentId || !parentEmail) return sendJson(res, 400, { error: 'studentId and parentEmail required' })
+          const ref = pairingRef(parentEmail)
+          const cur = (await ref.get()).data()
+          if (!cur) return sendJson(res, 404, { error: 'No parent account for that address.' })
+          const left = (cur.children || []).filter((id) => id !== studentId)
+          await ref.set({ children: left, updatedAt: Date.now() }, { merge: true })
+          // Their token still names the child until it expires, so the session
+          // is ended: the next thing they do signs them in again, without it.
+          await db.collection('sessions').doc(`parent_${sha256(parentEmail).slice(0, 32)}`).delete().catch(() => {})
+          return sendJson(res, 200, { ok: true, remaining: left.length })
+        }
+
+        if (action === 'viewAsParent') {
+          // A token for an existing parent account, so a teacher can see what
+          // that parent sees when they ring up about it. Only for an address
+          // that has already linked a child, and it grants strictly less than
+          // the admin asking for it already has.
+          const parentEmail = normaliseEmail(req.body?.parentEmail)
+          if (!parentEmail) return sendJson(res, 400, { error: 'parentEmail required' })
+          const cur = (await pairingRef(parentEmail).get()).data()
+          if (!cur?.children?.length) return sendJson(res, 404, { error: 'That address has no children linked.' })
+          const core = await getCore(true)
+          const children = await describeChildren(cur.children, core)
+          const session = await parentToken(parentEmail, children.map((c) => c.id), core)
+          console.info(`viewAsParent: ${caller.uid} opened ${parentEmail}`)
+          return sendJson(res, 200, { ok: true, ...session, email: parentEmail, children })
+        }
+
         if (action === 'migrateContacts') {
           // Moves parent phone/email off the shared student records into the
           // teacher-only studentContacts store, and masks phone numbers in the
