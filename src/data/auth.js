@@ -144,6 +144,37 @@ export async function linkChild(studentId) {
 }
 
 /**
+ * Re-reads who the signed-in parent's children are.
+ *
+ * The children are in the token, so a portal that has been open since Monday
+ * is showing Monday's list. Asking on load keeps it honest in both directions:
+ * a child a teacher has since linked appears, and one unlinked goes.
+ *
+ * @returns {Promise<{ok:boolean, children?:object[], error?:string}>}
+ */
+export async function refreshParentChildren() {
+  try {
+    const res = await authedFetch(`${FUNCTIONS_BASE}/parentRefresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    })
+    const data = await res.json().catch(() => ({}))
+    // Refused, rather than unreachable: the sign-in behind this portal is no
+    // longer one - revoked when a pairing was taken away, or simply expired.
+    // The portal is holding somebody else's child on screen until it goes.
+    if (res.status === 401 || res.status === 403) return { ok: false, expired: true, error: data?.error || 'Signed out.' }
+    if (!res.ok || !data?.token) return { ok: false, error: data?.error || 'Could not refresh.' }
+    await establishSession(data.token)
+    return { ok: true, children: data.children || [] }
+  } catch (e) {
+    // Offline is not the same as refused: leave the portal as it stands.
+    console.warn('refreshParentChildren failed:', e)
+    return { ok: false, error: 'Could not reach the server.' }
+  }
+}
+
+/**
  * Resets a password after the server verifies the parent email on file.
  * @returns {Promise<{ok:boolean, user?:object, error?:string}>}
  */

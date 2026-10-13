@@ -931,6 +931,37 @@ exports.parentLink = functions
     })
   })
 
+/**
+ * Who the signed-in parent's children are, now.
+ *
+ * The children ride in the token, so a portal left open all week is reading a
+ * list that was true when it signed in. This re-reads the pairing and hands
+ * back a fresh token: a child linked by a teacher appears, and one unlinked
+ * disappears, without the parent signing in again.
+ */
+exports.parentRefresh = functions
+  .region('australia-southeast1')
+  .https.onRequest((req, res) => {
+    cors(req, res, async () => {
+      if (req.method !== 'POST') return sendJson(res, 405, { error: 'Method not allowed' })
+      const caller = await verifyCaller(req)
+      if (!caller || caller.role !== 'parent') return sendJson(res, 403, { error: 'Parent sign-in required' })
+      try {
+        const email = normaliseEmail(caller.parentEmail)
+        if (!email) return sendJson(res, 403, { error: 'Parent sign-in required' })
+        const cur = (await pairingRef(email).get()).data() || {}
+        const core = await getCore(true)
+        const children = await describeChildren(
+          Array.isArray(cur.children) ? cur.children : [], core)
+        const session = await parentToken(email, children.map((c) => c.id), core)
+        return sendJson(res, 200, { ok: true, ...session, email, children })
+      } catch (e) {
+        console.error('parentRefresh failed:', e)
+        return sendJson(res, 500, { error: 'Could not read your children. Try again.' })
+      }
+    })
+  })
+
 exports.authSignup = functions
   .region('australia-southeast1')
   .https.onRequest((req, res) => {
@@ -1233,9 +1264,15 @@ exports.authAdmin = functions
           if (!cur) return sendJson(res, 404, { error: 'No parent account for that address.' })
           const left = (cur.children || []).filter((id) => id !== studentId)
           await ref.set({ children: left, updatedAt: Date.now() }, { merge: true })
-          // Their token still names the child until it expires, so the session
-          // is ended: the next thing they do signs them in again, without it.
-          await db.collection('sessions').doc(`parent_${sha256(parentEmail).slice(0, 32)}`).delete().catch(() => {})
+          // A token already issued names the child until it expires, so the
+          // sign-in behind it is revoked: the browser cannot renew, the portal
+          // asks the server for its children and is told there are none, and
+          // the hour an unexpired token has left is the whole of the window.
+          const parentUid = `parent_${sha256(parentEmail).slice(0, 32)}`
+          await db.collection('sessions').doc(parentUid).delete().catch(() => {})
+          await admin.auth().revokeRefreshTokens(parentUid).catch((e) => {
+            console.warn(`unlinkParent: could not revoke ${parentUid}:`, e?.message || e)
+          })
           return sendJson(res, 200, { ok: true, remaining: left.length })
         }
 

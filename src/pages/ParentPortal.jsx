@@ -3,7 +3,7 @@ import { loadSubmissionsForStudent, loadStudentFirestore, loadQuizStats } from '
 import { refreshQuizSetFromCloud } from '../data/store.js'
 import ReviewedQuestion from '../components/ReviewedQuestion.jsx'
 import ReportPage from './ReportPage.jsx'
-import { linkChild } from '../data/auth.js'
+import { linkChild, refreshParentChildren } from '../data/auth.js'
 
 /**
  * What a parent sees.
@@ -28,6 +28,11 @@ function ParentPortal({ session, onLogout }) {
   // chooses one, rather than being dropped into whichever came first.
   const [activeId, setActiveId] = useState(null)
   const [papers, setPapers] = useState({})
+  // Nothing is read until the server has said who the children are and the
+  // browser is holding the token it said it with. Reading before that uses
+  // whatever token the last visit left behind, and a refused read is not
+  // retried - the child's papers would simply never appear.
+  const [ready, setReady] = useState(false)
   // Marks that landed after the paper was filed - writing marked by a teacher
   // days later, say. The archive is written once and never altered, so without
   // this a marked piece of writing still reads "awaiting marking".
@@ -38,9 +43,31 @@ function ParentPortal({ session, onLogout }) {
   const [openSet, setOpenSet] = useState(null) // its questions
   const [openStats, setOpenStats] = useState(null) // how the class did on it
 
+  // Who the children are now, rather than who they were when this browser
+  // signed in - a pairing can be taken away while a portal sits open.
+  useEffect(() => {
+    let alive = true
+    refreshParentChildren().then((res) => {
+      if (!alive) return
+      if (res.expired) return onLogout()
+      if (res.ok) {
+        const same = res.children.length === children.length
+          && res.children.every((c, i) => c.id === children[i]?.id)
+        if (!same) {
+          setChildren(res.children)
+          setActiveId((id) => (res.children.some((c) => c.id === id) ? id : null))
+        }
+      }
+      // Unreachable is not refused: fall back to the list this browser has.
+      setReady(true)
+    })
+    return () => { alive = false }
+  }, [])
+
   // Each child's filed papers, for the list, and their own record, which is
   // what the report is built from. A parent reads; nothing here writes.
   useEffect(() => {
+    if (!ready) return undefined
     let alive = true
     setLoading(true)
     Promise.all(children.map((child) =>
@@ -60,7 +87,9 @@ function ParentPortal({ session, onLogout }) {
         setLoading(false)
       })
     return () => { alive = false }
-  }, [session.email])
+    // Keyed on the children themselves: linking one has to fetch their papers,
+    // or the child who was just added reads "nothing completed yet".
+  }, [ready, children.map((c) => c.id).join(',')])
 
   const active = children.find((c) => c.id === activeId) || children[0]
 
