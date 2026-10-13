@@ -3,6 +3,7 @@ import { useSittingActive } from './utils/activeSitting.js'
 import LoginScreen from './pages/LoginScreen.jsx'
 import Portal from './pages/Portal.jsx'
 import TeacherDashboard from './pages/TeacherDashboard.jsx'
+import TeacherHome from './pages/TeacherHome.jsx'
 import SessionRevision from './pages/SessionRevision.jsx'
 import ParentPortal from './pages/ParentPortal.jsx'
 import GpuNotice from './components/GpuNotice.jsx'
@@ -349,7 +350,13 @@ function App() {
   }
 
   if (session.role === 'teacher') {
-    return <>{overlay}<GpuNotice /><div className="teacher-app"><TeacherDashboard teacher={session.user} isAdmin={!!session.isAdmin} onLogout={handleLogout} /></div></>
+    // Two different jobs behind one sign-in: an admin runs the platform, a
+    // teacher teaches on it. The rules enforce the difference; this decides
+    // which of the two screens they are looking at.
+    if (!session.isAdmin) {
+      return <>{overlay}<GpuNotice /><div className="teacher-app"><TeacherHome teacher={session.user} onLogout={handleLogout} /></div></>
+    }
+    return <>{overlay}<GpuNotice /><div className="teacher-app"><TeacherDashboard teacher={session.user} isAdmin onLogout={handleLogout} /></div></>
   }
 
   const revisionKey = `revisionDoneAt_${session.user.id}`

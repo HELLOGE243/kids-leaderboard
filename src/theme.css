@@ -19086,3 +19086,39 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
    which needs the whole width for the teacher's marks to sit beside the text. */
 .rq-single { background: #fafafa; border-radius: 10px; padding: 20px 24px; }
 .rq-single .qt-question-text { margin-bottom: 14px; }
+
+/* --- A teacher's own screen ------------------------------------------------
+   Not the admin console: the classes they hold, and the work waiting in them. */
+.th-page { min-height: 100vh; }
+.th-logo { height: 30px; width: auto; }
+.th-classes { display: flex; flex-wrap: wrap; gap: 12px; }
+.th-class {
+  display: flex; flex-direction: column; gap: 4px; align-items: flex-start;
+  min-width: 190px; padding: 16px 18px; border-radius: 12px; cursor: pointer;
+  background: var(--td2-surface, #fff); border: 1px solid rgba(0,0,0,0.08);
+  text-align: left; transition: transform 0.12s ease, border-color 0.12s ease;
+}
+.th-class:hover { transform: translateY(-2px); border-color: var(--accent); }
+.th-class-name { font-weight: 700; font-size: 1rem; }
+.th-class-meta { font-size: 0.72rem; opacity: 0.65; }
+.th-join { display: flex; gap: 8px; align-items: center; }
+.th-code { width: 150px; text-transform: uppercase; letter-spacing: 0.22em; font-weight: 700; }
+.th-join-error { color: #e53935; font-size: 0.78rem; margin-top: 8px; }
+.th-join-ok { color: #43a047; font-size: 0.78rem; margin-top: 8px; }
+/* The code a teacher types to take a class on, shown with the class. */
+.td2-class-code { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.td2-class-code-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.td2-class-code-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.6; }
+.td2-class-code-value {
+  font-family: monospace; font-size: 0.9rem; font-weight: 700; letter-spacing: 0.18em;
+  padding: 2px 8px; border-radius: 6px; border: 1px dashed rgba(0,0,0,0.25);
+  background: rgba(0,0,0,0.04); cursor: pointer;
+}
+.td2-class-code-value.is-none { font-family: inherit; letter-spacing: 0; opacity: 0.5; cursor: default; }
+.td2-class-code-holders { display: flex; flex-wrap: wrap; gap: 6px; }
+.td2-class-holder {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem;
+  padding: 2px 6px; border-radius: 999px; background: rgba(0,0,0,0.06);
+}
+.td2-class-holder-x { border: none; background: none; cursor: pointer; font-size: 0.9rem; line-height: 1; opacity: 0.55; }
+.td2-class-holder-x:hover { opacity: 1; color: #e53935; }

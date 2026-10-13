@@ -26,7 +26,7 @@ import { pickSolutionVideo } from '../utils/video.js'
 import { planImport, applyAiSplit, mergeCloze, describeCoverage } from '../utils/cleverspaceImport.js'
 import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, deleteStudentFirestore, ensureQuizSetsLoaded, refreshQuizSet, loadAiExplanations, saveAiExplanation, deleteAiExplanations, clearAiExplanationCache, archiveSubmission, saveAttemptDraft, findArchivedPapers, loadArchivedSubmissions, loadAttemptDrafts, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
 
-export { onDataChange, onBroadcast, sendBroadcast, loadContacts }
+export { onDataChange, onBroadcast, sendBroadcast, loadContacts, isDataReady }
 
 const STORAGE_KEY = 'leaderboard_data'
 
@@ -851,12 +851,44 @@ export function setCoinsBalance(studentId, newBalance) {
 
 // --- Class Actions ---
 
+/** Six characters, with the ones people misread left out. Mirrors newClassCode() in functions/index.js. */
+const CLASS_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+
+function freshClassCode(classes) {
+  const taken = new Set(Object.values(classes || {}).map((c) => String(c.code || '').toUpperCase()))
+  let code
+  do {
+    code = Array.from({ length: 6 }, () =>
+      CLASS_CODE_ALPHABET[Math.floor(Math.random() * CLASS_CODE_ALPHABET.length)]).join('')
+  } while (taken.has(code))
+  return code
+}
+
+/**
+ * A class, and the code a teacher types to take it on.
+ *
+ * `teacherId` records who created it - an admin - and `teacherIds` is who
+ * teaches it. The two are not the same thing and the second is what grants
+ * anybody anything.
+ */
 export function createClass(name, orgId, teacherId, yearGroup = '') {
   const data = loadData()
   const classId = generateId(6)
-  data.classes[classId] = { name, orgId, teacherId, studentIds: [], yearGroup }
+  data.classes[classId] = {
+    name, orgId, teacherId, studentIds: [], yearGroup,
+    code: freshClassCode(data.classes), teacherIds: [],
+  }
   saveData(data)
   return { id: classId, ...data.classes[classId] }
+}
+
+/** The classes a teacher has taken on, by code. */
+export function getClassesForTeacher(teacherId) {
+  const data = loadData()
+  const id = String(teacherId)
+  return Object.entries(data.classes || {})
+    .filter(([, cls]) => (cls.teacherIds || []).map(String).includes(id))
+    .map(([classId, cls]) => ({ id: classId, ...cls }))
 }
 
 export function updateClass(classId, updates) {

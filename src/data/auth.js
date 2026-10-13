@@ -144,6 +144,60 @@ export async function linkChild(studentId) {
 }
 
 /**
+ * Takes on a class with the code an admin handed over.
+ *
+ * The classes are in the token, so the server issues a new one and the browser
+ * signs in again with it - the same dance the parent portal does when a child
+ * is linked.
+ *
+ * @returns {Promise<{ok:boolean, classId?:string, className?:string, already?:boolean, error?:string}>}
+ */
+export async function joinClassByCode(code) {
+  try {
+    const res = await authedFetch(`${FUNCTIONS_BASE}/teacherJoinClass`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || !data?.token) return { ok: false, error: data?.error || 'Could not join that class.' }
+    await establishSession(data.token)
+    return { ok: true, classId: data.classId, className: data.className, already: !!data.already, classIds: data.classIds || [] }
+  } catch (e) {
+    console.error('joinClassByCode failed:', e)
+    return { ok: false, error: 'Could not reach the server.' }
+  }
+}
+
+/**
+ * Re-reads which classes the signed-in teacher holds.
+ *
+ * A dashboard open since Monday is showing Monday's classes. Refused means the
+ * account is no longer one we will serve - taken away, or signed in somewhere
+ * that has since been revoked - and the screen should not keep somebody's class
+ * on it; unreachable means the network, and the screen stands.
+ *
+ * @returns {Promise<{ok:boolean, expired?:boolean, classes?:object[], error?:string}>}
+ */
+export async function refreshTeacherClasses() {
+  try {
+    const res = await authedFetch(`${FUNCTIONS_BASE}/teacherRefresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    })
+    const data = await res.json().catch(() => ({}))
+    if (res.status === 401 || res.status === 403) return { ok: false, expired: true, error: data?.error || 'Signed out.' }
+    if (!res.ok || !data?.token) return { ok: false, error: data?.error || 'Could not refresh.' }
+    await establishSession(data.token)
+    return { ok: true, classes: data.classes || [], classIds: data.classIds || [], isAdmin: !!data.isAdmin }
+  } catch (e) {
+    console.warn('refreshTeacherClasses failed:', e)
+    return { ok: false, error: 'Could not reach the server.' }
+  }
+}
+
+/**
  * Re-reads who the signed-in parent's children are.
  *
  * The children are in the token, so a portal that has been open since Monday
