@@ -119,18 +119,19 @@ function ClassDashboard({ classId, orgId, groupId = null, canEditGroups = false,
       </div>
 
       {/* How the class is actually taught comes first. */}
-      <div className="cd-section">
-        <ClassGroupsPanel
-          classId={classId}
-          students={students}
-          canEdit={canEditGroups}
-          fixedGroupId={groupId}
-          onOpenStudent={(id) => { setSelectedStudentId(id); setView('student') }}
-        />
-      </div>
+      {!groupId && (
+        <div className="cd-section">
+          <ClassGroupsPanel
+            classId={classId}
+            students={students}
+            canEdit={canEditGroups}
+            onOpenStudent={(id) => { setSelectedStudentId(id); setView('student') }}
+          />
+        </div>
+      )}
 
       <div className="cd-section">
-        <h3 className="cd-section-title">Every student</h3>
+        <h3 className="cd-section-title">{groupId ? 'Every student in this group' : 'Every student'}</h3>
         <div className="cd-table">
           <div className="cd-table-header">
             <span className="cd-th cd-th-name" onClick={() => toggleSort('name')}>Name {sort.key === 'name' ? (sort.asc ? '▲' : '▼') : ''}</span>
