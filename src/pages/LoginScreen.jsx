@@ -337,7 +337,7 @@ function LoginScreen({ onLogin }) {
   if (role === 'parent') {
     const askCode = step === 'parent-code'
     return (
-      <div className="page-center landing-page">
+      <div className="page-center landing-page parent-login">
         <img src="/avant-logo.png" alt="AVANT OC &amp; Selective" className="landing-logo" />
         <h1 className="landing-title">{askCode ? 'Check your email' : 'Parent sign in'}</h1>
         <p className="landing-text" style={{ maxWidth: 340, textAlign: 'center', lineHeight: 1.55, marginBottom: 18 }}>
@@ -386,17 +386,15 @@ function LoginScreen({ onLogin }) {
               autoFocus
             />
           ) : (
-            <>
-              <input
-                className="input"
-                value={parentLoginEmail}
-                onChange={(e) => setParentLoginEmail(e.target.value)}
-                placeholder="you@example.com"
-                type="email"
-                autoComplete="email"
-                autoFocus
-              />
-            </>
+            <input
+              className="input"
+              value={parentLoginEmail}
+              onChange={(e) => setParentLoginEmail(e.target.value)}
+              placeholder="you@example.com"
+              type="email"
+              autoComplete="email"
+              autoFocus
+            />
           )}
           {error && <p className="login-error">{error}</p>}
           <button className="btn landing-btn" type="submit" disabled={busy}>
