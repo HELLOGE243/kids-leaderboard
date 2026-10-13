@@ -33,6 +33,25 @@ service cloud.firestore {
       return isTeacher() && request.auth.token.admin == true;
     }
 
+    // A teacher reaches the students in the classes they hold, and no others.
+    //
+    // The classes are in their token; which class a student is in is read from
+    // a document of its own rather than from the student's record. That record
+    // is written whole by the student's own browser every time they answer a
+    // question, so a field living there would be wiped by an older tab - and a
+    // student who worked out what it was for could drop their own class and
+    // disappear from their teacher's dashboard. Nobody but an admin writes the
+    // mapping, and nothing a student does touches it.
+    function classesOf(studentId) {
+      return get(/databases/$(database)/documents/studentClasses/$(studentId)).data.classIds;
+    }
+
+    function teaches(studentId) {
+      return isTeacher()
+        && exists(/databases/$(database)/documents/studentClasses/$(studentId))
+        && request.auth.token.classIds.hasAny(classesOf(studentId));
+    }
+
     function isSelf(userId) {
       return signedIn() && request.auth.uid == userId;
     }
@@ -153,8 +172,8 @@ service cloud.firestore {
     // and update any student's (awarding tokens, clearing attempts when a quiz
     // is deleted, marking work).
     match /studentData/{studentId} {
-      allow read: if isSelf(studentId) || isTeacher() || isParentOf(studentId);
-      allow create, update: if isSelf(studentId) || isTeacher();
+      allow read: if isSelf(studentId) || isAdmin() || teaches(studentId) || isParentOf(studentId);
+      allow create, update: if isSelf(studentId) || isAdmin() || teaches(studentId);
       // Deleting a record takes a child's whole history with it.
       allow delete: if isAdmin();
 
@@ -164,9 +183,44 @@ service cloud.firestore {
       // revision deck, the vocabulary - overflows into these. Same owner, same
       // reach: a student's own, and their teachers'.
       match /parts/{part} {
-        allow read: if isSelf(studentId) || isTeacher() || isParentOf(studentId);
-        allow write: if isSelf(studentId) || isTeacher();
+        allow read: if isSelf(studentId) || isAdmin() || teaches(studentId) || isParentOf(studentId);
+        allow write: if isSelf(studentId) || isAdmin() || teaches(studentId);
       }
+    }
+
+    // --- Questions a student has asked their teacher ------------------------
+    // "Ask my teacher" used to flag a card inside the student's own record,
+    // where no teacher ever saw it. A question lives here instead, so the
+    // teacher who teaches that child can find it without reading three hundred
+    // records, and the answer comes back to the child's dashboard.
+    //
+    // The classes are written on the question when it is asked, by the student
+    // asking: it decides only who can see their own question, so the worst a
+    // forged one does is show their work to a teacher who does not teach them.
+    match /askedQuestions/{askId} {
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.studentId == request.auth.uid)
+        || (isTeacher() && request.auth.token.classIds.hasAny(resource.data.classIds));
+      allow create: if isStudent()
+        && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.status == 'open'
+        && !('answer' in request.resource.data);
+      // A teacher answers; the student may only say they have read it.
+      allow update: if (isTeacher()
+                        && request.auth.token.classIds.hasAny(resource.data.classIds)
+                        && changedKeys().hasOnly(['answer', 'status', 'answeredAt']))
+                    || (isSelf(resource.data.studentId)
+                        && changedKeys().hasOnly(['seenByStudent']));
+      allow delete: if isAdmin();
+    }
+
+    // --- Which classes a student is in ------------------------------------
+    // Written by admins only, and read by the rules above to decide whether a
+    // teacher may open a student's work. Kept apart from the student's record
+    // precisely so that nothing the student does can change it.
+    match /studentClasses/{studentId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
     }
 
     // --- Derived aggregates ----------------------------------------------

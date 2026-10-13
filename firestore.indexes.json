@@ -1,0 +1,30 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "askedQuestions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "studentId", "order": "ASCENDING" },
+        { "fieldPath": "askedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "askedQuestions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "classIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "askedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "askedQuestions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "classIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "askedAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

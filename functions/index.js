@@ -109,7 +109,7 @@ exports.sendSMS = functions.https.onRequest((req, res) => {
     }
     // Only teachers send parent notifications.
     const caller = await verifyCaller(req)
-    if (!caller || caller.role !== 'teacher') {
+    if (!caller || caller.role !== 'teacher' || caller.admin !== true) {
       return res.status(403).json({ success: false, error: 'Teacher sign-in required' })
     }
 
@@ -658,6 +658,60 @@ function classesForTeacher(core, teacherId) {
     .map(([classId]) => classId)
 }
 
+/**
+ * Which classes each student is in, as the rules read it.
+ *
+ * One document per student, written here and by admins, never by the student.
+ * It is what decides whether a teacher may open a child's work, so it lives
+ * apart from the record that child's own browser rewrites all day.
+ *
+ * @param {object} core the shared core document
+ * @returns {Map<string, string[]>} student id -> class ids
+ */
+function rosterFromCore(core) {
+  const out = new Map()
+  for (const [classId, cls] of Object.entries(core.classes || {})) {
+    for (const studentId of cls.studentIds || []) {
+      const key = String(studentId)
+      if (!out.has(key)) out.set(key, [])
+      out.get(key).push(classId)
+    }
+  }
+  return out
+}
+
+/**
+ * Writes the mapping for every student, and clears it for those in no class.
+ * @returns {Promise<{written: number, cleared: number, unchanged: number}>}
+ */
+async function syncStudentClasses(core) {
+  const wanted = rosterFromCore(core)
+  const existing = await db.collection('studentClasses').get()
+  const have = new Map(existing.docs.map((d) => [d.id, (d.get('classIds') || []).map(String)]))
+  const report = { written: 0, cleared: 0, unchanged: 0 }
+  const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i])
+
+  let batch = db.batch()
+  let queued = 0
+  const flush = async () => { if (queued) { await batch.commit(); batch = db.batch(); queued = 0 } }
+
+  for (const [studentId, classIds] of wanted) {
+    const sorted = [...classIds].sort()
+    if (same(sorted, [...(have.get(studentId) || [])].sort())) { report.unchanged++; continue }
+    batch.set(db.collection('studentClasses').doc(studentId), { classIds: sorted, updatedAt: Date.now() })
+    report.written++
+    if (++queued >= 400) await flush()
+  }
+  for (const [studentId, classIds] of have) {
+    if (wanted.has(studentId) || classIds.length === 0) continue
+    batch.set(db.collection('studentClasses').doc(studentId), { classIds: [], updatedAt: Date.now() })
+    report.cleared++
+    if (++queued >= 400) await flush()
+  }
+  await flush()
+  return report
+}
+
 /** Six characters, with the ones people misread left out. */
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 function newClassCode() {
@@ -1102,6 +1156,75 @@ exports.teacherRefresh = functions
     })
   })
 
+/**
+ * Puts the class mapping back in step once a night.
+ *
+ * Admins keep it in step as they move students about; this is the safety net
+ * for a write that failed, a browser closed mid-change, or a record edited
+ * somewhere that did not know to update it. A teacher losing sight of a student
+ * - or keeping sight of one who has left - should last hours at worst.
+ */
+exports.classRosterTick = functions
+  .region('australia-southeast1')
+  .pubsub.schedule('30 3 * * *')
+  .timeZone('Australia/Sydney')
+  .onRun(async () => {
+    try {
+      const report = await syncStudentClasses(await getCore(true))
+      if (report.written || report.cleared) {
+        console.info(`classRosterTick: ${report.written} written, ${report.cleared} cleared, ${report.unchanged} unchanged`)
+      }
+    } catch (e) {
+      console.error('classRosterTick failed:', e)
+    }
+    return null
+  })
+
+/**
+ * The questions waiting on the signed-in teacher.
+ *
+ * This is a list rather than a document, and a rule cannot decide a list: to
+ * serve a query, Firestore has to satisfy itself from the query's own filters
+ * that every document it could return is allowed, and "the classes on this
+ * question overlap the classes in your token" is not something it can prove
+ * that way. Reading one question still goes straight to Firestore, and so does
+ * answering it - a rule can decide those, because there is a document in hand.
+ */
+exports.teacherQuestions = functions
+  .region('australia-southeast1')
+  .https.onRequest((req, res) => {
+    cors(req, res, async () => {
+      if (req.method !== 'POST') return sendJson(res, 405, { error: 'Method not allowed' })
+      const caller = await verifyCaller(req)
+      if (!caller || caller.role !== 'teacher') return sendJson(res, 403, { error: 'Teacher sign-in required' })
+      try {
+        const core = await getCore(true)
+        const classIds = caller.admin === true
+          ? Object.keys(core.classes || {})
+          : classesForTeacher(core, caller.uid)
+        if (!classIds.length) return sendJson(res, 200, { ok: true, questions: [] })
+
+        // array-contains-any takes ten values, and a teacher may hold more.
+        const found = new Map()
+        for (let i = 0; i < classIds.length; i += 10) {
+          const snap = await db.collection('askedQuestions')
+            .where('classIds', 'array-contains-any', classIds.slice(i, i + 10))
+            .orderBy('askedAt', 'desc')
+            .limit(300)
+            .get()
+          for (const d of snap.docs) found.set(d.id, { id: d.id, ...d.data() })
+        }
+        const questions = [...found.values()]
+          .sort((a, b) => String(b.askedAt || '').localeCompare(String(a.askedAt || '')))
+          .slice(0, 300)
+        return sendJson(res, 200, { ok: true, questions })
+      } catch (e) {
+        console.error('teacherQuestions failed:', e)
+        return sendJson(res, 500, { error: 'Could not read your questions. Try again.' })
+      }
+    })
+  })
+
 exports.authSignup = functions
   .region('australia-southeast1')
   .https.onRequest((req, res) => {
@@ -1360,6 +1483,11 @@ exports.authAdmin = functions
           }
           if (!dry && inBatch) await batch.commit()
           return sendJson(res, 200, { ok: true, dry, alreadyFiled: have.size, count: found.length, papers: found })
+        }
+
+        if (action === 'syncStudentClasses') {
+          const report = await syncStudentClasses(await getCore(true))
+          return sendJson(res, 200, { ok: true, ...report })
         }
 
         if (action === 'classHolders') {
@@ -2138,7 +2266,7 @@ exports.parentNotifyRun = functions
     cors(req, res, async () => {
       if (req.method !== 'POST') return sendJson(res, 405, { error: 'Method not allowed' })
       const caller = await verifyCaller(req)
-      if (!caller || caller.role !== 'teacher') return sendJson(res, 403, { error: 'Teacher sign-in required' })
+      if (!caller || caller.role !== 'teacher' || caller.admin !== true) return sendJson(res, 403, { error: 'Teacher sign-in required' })
       try {
         const now = Date.now()
         await queueScheduledAlerts(now)
@@ -2297,7 +2425,12 @@ exports.teacherStudents = functions
     cors(req, res, async () => {
       if (req.method !== 'POST') return sendJson(res, 405, { error: 'Method not allowed' })
       const caller = await verifyCaller(req)
-      if (!caller || caller.role !== 'teacher') return sendJson(res, 403, { error: 'Teacher sign-in required' })
+      // Making and unmaking student accounts is an admin's, the way it is in
+      // the rules. This endpoint writes with the admin SDK, so a teacher guard
+      // here was a way round the wall rather than a hole in it.
+      if (!caller || caller.role !== 'teacher' || caller.admin !== true) {
+        return sendJson(res, 403, { error: 'Admin sign-in required' })
+      }
       const { action } = req.body || {}
       try {
         if (action === 'create') return await createStudentAccount(req, res)

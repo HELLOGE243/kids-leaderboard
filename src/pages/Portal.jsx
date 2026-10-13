@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, memo } from 'react'
 import AvatarGacha from '../components/AvatarGacha.jsx'
+import TeacherAnswers from '../components/TeacherAnswers.jsx'
 
 import ProgressGraph from '../components/ProgressGraph.jsx'
 import Shop from './Shop.jsx'
@@ -534,6 +535,9 @@ function Portal({ user, onLogout }) {
             </div>
           </div>
         </div>
+
+        {/* What their teacher said back, before anything else on the page. */}
+        <TeacherAnswers studentId={student.id} />
 
         {/* News ticker: off for students while the school is not posting. */}
         {false && newsfeed.length > 0 && (

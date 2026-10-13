@@ -24,6 +24,7 @@
 import { extractAndStoreImages, findImageRefs, deleteImages } from './imageStore.js'
 import { pickSolutionVideo } from '../utils/video.js'
 import { planImport, applyAiSplit, mergeCloze, describeCoverage } from '../utils/cleverspaceImport.js'
+import { writeStudentClasses, askTeacher, loadAskedForStudent, loadAskedForClasses, answerAsked, markAskedSeen } from './firebase.js'
 import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, deleteStudentFirestore, ensureQuizSetsLoaded, refreshQuizSet, loadAiExplanations, saveAiExplanation, deleteAiExplanations, clearAiExplanationCache, archiveSubmission, saveAttemptDraft, findArchivedPapers, loadArchivedSubmissions, loadAttemptDrafts, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
 
 export { onDataChange, onBroadcast, sendBroadcast, loadContacts, isDataReady }
@@ -903,9 +904,13 @@ export function updateClass(classId, updates) {
 export function deleteClass(classId) {
   const data = loadData()
   if (!data.classes[classId]) return false
+  const wereIn = [...(data.classes[classId].studentIds || [])]
   delete data.classes[classId]
   data.scores = data.scores.filter((s) => s.classId !== classId)
   saveData(data)
+  // Everyone who was in it is now in one class fewer - their teachers lose
+  // sight of them, which is the point of deleting a class.
+  for (const id of wereIn) syncClassesOf(id, data)
   return true
 }
 
@@ -917,7 +922,20 @@ export function assignStudentToClass(classId, studentId) {
     data.classes[classId].studentIds.push(studentId)
   }
   saveData(data)
+  syncClassesOf(studentId, data)
   return true
+}
+
+/**
+ * Tells the rules which classes this student is in, so their teachers can open
+ * their work and nobody else can. Kept in step here; put back in step nightly
+ * by classRosterTick if a write here is lost.
+ */
+function syncClassesOf(studentId, data) {
+  const classIds = Object.entries((data || loadData()).classes || {})
+    .filter(([, cls]) => (cls.studentIds || []).map(String).includes(String(studentId)))
+    .map(([id]) => id)
+  writeStudentClasses(studentId, classIds)
 }
 
 export function removeStudentFromClass(classId, studentId) {
@@ -927,6 +945,7 @@ export function removeStudentFromClass(classId, studentId) {
     (id) => id !== studentId
   )
   saveData(data)
+  syncClassesOf(studentId, data)
   return true
 }
 
@@ -4263,6 +4282,67 @@ export function getDojoCardsForStudent(studentId) {
 export function getDueDojoCards(studentId) {
   const now = new Date().toISOString()
   return liveDojoCards(studentId, c => !c.archived && !c.askTeacher && (!c.nextReviewDate || c.nextReviewDate <= now))
+}
+
+/**
+ * Sends a question to the teachers of this student's classes.
+ *
+ * Flagging the revision card still happens - that is the student's own "ask for
+ * help" deck - but the question now also leaves the record, because a flag
+ * inside a child's own document was never seen by anybody.
+ *
+ * @param {string} studentId
+ * @param {object} question the question as it stands in the quiz set
+ * @param {string} quizSetId
+ * @param {number} questionIndex
+ * @param {string} [note] what the student says they do not understand
+ * @returns {Promise<string|null>} the filed question's id
+ */
+export function sendQuestionToTeachers(studentId, question, quizSetId, questionIndex, note = '') {
+  const data = loadData()
+  const student = data.students[studentId] || {}
+  const set = (data.importedQuizSets || []).find((q) => q.id === quizSetId)
+  const classIds = Object.entries(data.classes || {})
+    .filter(([, cls]) => (cls.studentIds || []).map(String).includes(String(studentId)))
+    .map(([id]) => id)
+  const plain = (html) => String(html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  return askTeacher({
+    studentId: String(studentId),
+    studentName: fullName(student) || student.name || '',
+    classIds,
+    orgId: student.orgId || null,
+    quizSetId,
+    questionIndex,
+    questionId: question?.id || null,
+    quizTitle: set?.friendlyTitle || set?.rawTitle || '',
+    // A line of the question, so an inbox reads without loading every quiz.
+    questionSnippet: plain(question?.prompt || question?.text).slice(0, 180),
+    studentNote: String(note || '').slice(0, 500),
+  })
+}
+
+/** This student's questions and the answers to them, newest first. */
+export function getMyAskedQuestions(studentId) {
+  return loadAskedForStudent(studentId)
+}
+
+/** Every question waiting on the signed-in teacher's classes. */
+export function getAskedForClasses() {
+  return loadAskedForClasses()
+}
+
+/** A teacher's reply to one question. */
+export function answerAskedQuestion(askId, text, teacher) {
+  return answerAsked(askId, {
+    text: String(text || '').trim(),
+    teacherId: String(teacher?.id || ''),
+    teacherName: teacher?.name || '',
+  })
+}
+
+/** The student has read the reply. */
+export function markAskedQuestionSeen(askId) {
+  return markAskedSeen(askId)
 }
 
 export function getDojoAskTeacherCards(studentId) {

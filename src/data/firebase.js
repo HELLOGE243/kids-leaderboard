@@ -1629,6 +1629,136 @@ export async function loadQuizStats(quizSetId) {
   }
 }
 
+/**
+ * Records which classes a student is in, for the rules to read.
+ *
+ * The rules decide whether a teacher may open a child's work by reading this,
+ * and only an admin may write it. It is deliberately not a field on the
+ * student's own record: that record is rewritten whole by the child's browser
+ * every time they answer a question, so a field there would be wiped by an
+ * older tab - and a child who worked out what it was for could drop their own
+ * class and vanish from their teacher's dashboard.
+ *
+ * Never throws: a failed write leaves the mapping stale until the nightly
+ * reconcile, which is better than failing the change the admin just made.
+ */
+export async function writeStudentClasses(studentId, classIds) {
+  if (!studentId) return false
+  try {
+    await setDoc(doc(db, 'studentClasses', String(studentId)), {
+      classIds: [...new Set((classIds || []).map(String))].sort(),
+      updatedAt: Date.now(),
+    })
+    return true
+  } catch (e) {
+    console.warn(`Firestore: could not record classes for ${studentId}:`, e?.code || e)
+    return false
+  }
+}
+
+// ------------------------------------------------------------
+// Questions a student has asked their teacher
+//
+// "Ask my teacher" used to flag a card inside the student's own record, where
+// no teacher ever saw it - there was no screen that read them, and finding
+// them would have meant opening three hundred records. A question is its own
+// document now: the teachers of that child's classes can list them, and the
+// answer finds its way back to the top of the child's dashboard.
+// ------------------------------------------------------------
+const ASKED = 'askedQuestions'
+
+/**
+ * Files a question for the student's teachers.
+ * @param {object} ask what was asked, including studentId and classIds
+ * @returns {Promise<string|null>} the id, or null if it could not be filed
+ */
+export async function askTeacher(ask) {
+  try {
+    const id = `ask-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+    await setDoc(doc(db, ASKED, id), packNested({
+      ...ask,
+      id,
+      status: 'open',
+      seenByStudent: true,     // they are looking at it as they ask
+      askedAt: new Date().toISOString(),
+    }))
+    return id
+  } catch (e) {
+    console.warn('Firestore: could not send that question to the teacher:', e?.code || e)
+    return null
+  }
+}
+
+/** One student's questions, newest first. */
+export async function loadAskedForStudent(studentId) {
+  if (!studentId) return []
+  try {
+    const { query, where, orderBy } = await import('firebase/firestore')
+    const snap = await getDocs(query(collection(db, ASKED),
+      where('studentId', '==', String(studentId)), orderBy('askedAt', 'desc')))
+    return snap.docs.map((d) => unpackNested(d.data()))
+  } catch (e) {
+    console.warn('Firestore: could not read your questions:', e?.code || e)
+    return []
+  }
+}
+
+/**
+ * Every question asked by the students of this teacher's classes, newest first.
+ *
+ * Asked of the server rather than of Firestore. To serve a query Firestore has
+ * to satisfy itself from the query's own filters that every document it could
+ * return is allowed, and "the classes on this question overlap the classes in
+ * your token" is not something it can prove that way. Reading one question and
+ * answering it still go straight to Firestore, where a rule has the document in
+ * hand and can decide.
+ */
+export async function loadAskedForClasses() {
+  try {
+    const { authedFetch, FUNCTIONS_BASE } = await import('./auth.js')
+    const res = await authedFetch(`${FUNCTIONS_BASE}/teacherQuestions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      console.warn('Could not read the questions for your classes:', data?.error)
+      return []
+    }
+    return (data.questions || []).map((q) => unpackNested(q))
+  } catch (e) {
+    console.warn('Could not reach the server for your questions:', e)
+    return []
+  }
+}
+
+/** A teacher's reply. Only the answer, its time and the status may move. */
+export async function answerAsked(askId, answer) {
+  try {
+    await updateDoc(doc(db, ASKED, askId), {
+      answer: packNested(answer),
+      status: 'answered',
+      answeredAt: new Date().toISOString(),
+    })
+    return true
+  } catch (e) {
+    console.error('Firestore: could not save that answer:', e?.code || e)
+    return false
+  }
+}
+
+/** The student has read it, so it stops shouting from their dashboard. */
+export async function markAskedSeen(askId) {
+  try {
+    await updateDoc(doc(db, ASKED, askId), { seenByStudent: true })
+    return true
+  } catch (e) {
+    console.warn('Firestore: could not mark that question read:', e?.code || e)
+    return false
+  }
+}
+
 /** Drops all aggregate subscriptions (called on sign-out). */
 export function unsubscribeAggregates() {
   for (const k of Object.keys(_lbUnsub)) {

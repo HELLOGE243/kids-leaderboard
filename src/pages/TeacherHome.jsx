@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getClassesForTeacher, getClassById, onDataChange, isDataReady } from '../data/store.js'
+import { getClassesForTeacher, getClassById, onDataChange, isDataReady, preloadClassStudents } from '../data/store.js'
 import { joinClassByCode, refreshTeacherClasses } from '../data/auth.js'
 import ClassDashboard from './ClassDashboard.jsx'
+import QuestionInbox from '../components/QuestionInbox.jsx'
 import WritingReview from './WritingReview.jsx'
 
 /**
@@ -49,6 +50,16 @@ function TeacherHome({ teacher, onLogout }) {
     () => (ready && isDataReady() ? getClassesForTeacher(teacher.id) : []),
     [teacher.id, ready, refresh])
 
+  // Marking reads whichever students are loaded, so their classes are pulled
+  // in first - not the whole school, which the rules would refuse anyway.
+  const [loadingStudents, setLoadingStudents] = useState(false)
+  async function openMarking() {
+    setLoadingStudents(true)
+    await Promise.all(classes.map((cls) => preloadClassStudents(cls.id)))
+    setLoadingStudents(false)
+    setMarking(true)
+  }
+
   async function submitCode(e) {
     e.preventDefault()
     const entered = code.trim().toUpperCase()
@@ -94,7 +105,9 @@ function TeacherHome({ teacher, onLogout }) {
         <section className="td2-card">
           <div className="td2-card-head">
             <h2 className="td2-h2">Your classes</h2>
-            <button className="td2-btn td2-btn-sm" onClick={() => setMarking(true)}>Writing to mark</button>
+            <button className="td2-btn td2-btn-sm" disabled={loadingStudents} onClick={openMarking}>
+              {loadingStudents ? 'Loading…' : 'Writing to mark'}
+            </button>
           </div>
 
           {!ready ? (
@@ -117,6 +130,10 @@ function TeacherHome({ teacher, onLogout }) {
             </div>
           )}
         </section>
+
+        {classes.length > 0 && (
+          <QuestionInbox classIds={classes.map((c) => c.id)} teacher={teacher} />
+        )}
 
         <section className="td2-card">
           <h2 className="td2-h2">Take on a class</h2>

@@ -5,7 +5,7 @@ import { app } from './firebase.js'
 // browser receives a Firebase Auth custom token instead of ever seeing a
 // stored password, which is also what gives Firestore security rules an
 // identity (request.auth) to enforce against.
-const FUNCTIONS_BASE = 'https://australia-southeast1-cleverspacev2.cloudfunctions.net'
+export const FUNCTIONS_BASE = 'https://australia-southeast1-cleverspacev2.cloudfunctions.net'
 
 export const auth = getAuth(app)
 

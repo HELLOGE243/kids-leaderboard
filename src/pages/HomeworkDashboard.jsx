@@ -38,6 +38,7 @@ import {
   getSharedExplanation,
   saveSharedExplanation,
   markDojoAskTeacher,
+  sendQuestionToTeachers,
   getStudentPercentile,
   getAllAttemptsForQuizSet,
   getWritingMark,
@@ -379,6 +380,9 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     // meant the card was never flagged and never reached the Ask for Help deck.
     const card = addDojoCard(user.id, question, 'homework', takingQuiz.id, idx, { className: '', courseName: '', quizTitle: takingQuiz.friendlyTitle || '' })
     if (card?.id) markDojoAskTeacher(card.id)
+    // The card is the student's own deck; this is the question actually
+    // reaching a teacher, who until now never saw that it had been asked.
+    sendQuestionToTeachers(user.id, question, takingQuiz.id, idx)
     setAskedTeacher((prev) => new Set(prev).add(idx))
   }
   const [reviewTokensAwarded, setReviewTokensAwarded] = useState({})

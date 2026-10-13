@@ -19122,3 +19122,59 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 }
 .td2-class-holder-x { border: none; background: none; cursor: pointer; font-size: 0.9rem; line-height: 1; opacity: 0.55; }
 .td2-class-holder-x:hover { opacity: 1; color: #e53935; }
+
+/* --- What a teacher said back, at the top of a student's screen ----------- */
+.ta-panel {
+  margin: 0 0 18px; padding: 16px 18px; border-radius: 14px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+}
+.ta-panel.is-new { border-color: #66bb6a; box-shadow: 0 0 0 1px rgba(102,187,106,0.25); }
+.ta-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ta-title { font-family: var(--font-display); font-size: 1rem; margin: 0; }
+.ta-waiting { font-family: var(--font-body); font-size: 0.68rem; color: var(--text-dim); }
+.ta-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.ta-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 12px; border-radius: 10px; cursor: pointer; text-align: left;
+  background: rgba(0,0,0,0.18); border: 1px solid transparent; color: inherit;
+}
+.ta-row:hover { border-color: var(--accent); }
+.ta-row.is-unread { background: rgba(102,187,106,0.12); }
+.ta-row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ta-row-quiz { font-family: var(--font-body); font-size: 0.8rem; font-weight: 700; }
+.ta-row-snippet {
+  font-family: var(--font-body); font-size: 0.72rem; color: var(--text-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 52ch;
+}
+.ta-row-tag {
+  font-family: var(--font-body); font-size: 0.62rem; font-weight: 700;
+  padding: 3px 10px; border-radius: 999px; flex-shrink: 0;
+}
+.ta-row-tag.is-answered { background: rgba(102,187,106,0.18); color: #66bb6a; }
+.ta-row-tag.is-open { background: rgba(255,255,255,0.08); color: var(--text-dim); }
+.ta-modal {
+  max-width: 560px; width: calc(100% - 32px); padding: 20px 22px; border-radius: 14px;
+  background: var(--surface, #16213e); border: 1px solid rgba(255,255,255,0.12);
+  font-family: var(--font-body);
+}
+.ta-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.ta-modal-q { font-size: 0.9rem; line-height: 1.6; margin: 0 0 10px; }
+.ta-modal-note { font-size: 0.78rem; color: var(--text-dim); margin: 0 0 12px; }
+.ta-modal-answer { padding: 12px 14px; border-radius: 10px; background: rgba(102,187,106,0.1); }
+.ta-modal-from { font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #66bb6a; }
+.ta-modal-text { font-size: 0.9rem; line-height: 1.7; margin: 6px 0 0; white-space: pre-wrap; }
+.ta-modal-waiting { font-size: 0.82rem; color: var(--text-dim); margin: 0; }
+/* The questions a teacher's students have asked them. */
+.qi-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.qi-item { padding: 14px 16px; border-radius: 10px; background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.07); }
+.qi-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.qi-who { font-weight: 700; font-size: 0.86rem; }
+.qi-where { font-size: 0.68rem; opacity: 0.6; }
+.qi-q { margin: 6px 0; font-size: 0.86rem; line-height: 1.55; }
+.qi-note { margin: 0 0 8px; font-size: 0.76rem; opacity: 0.75; }
+.qi-answer { padding: 10px 12px; border-radius: 8px; background: rgba(102,187,106,0.12); }
+.qi-answer-from { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #2e7d32; }
+.qi-answer-text { margin: 4px 0 0; font-size: 0.84rem; line-height: 1.6; white-space: pre-wrap; }
+.qi-reply { display: flex; flex-direction: column; gap: 8px; }
+.qi-reply-box { width: 100%; resize: vertical; font-family: inherit; }
+.qi-reply-actions { display: flex; gap: 8px; }
