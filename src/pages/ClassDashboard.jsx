@@ -11,7 +11,15 @@ import {
 import ClassSkills from '../components/ClassSkills.jsx'
 import '../class-dashboard.css'
 
-function ClassDashboard({ classId, orgId, onBack }) {
+/**
+ * A class, or one teaching group inside it.
+ *
+ * A teacher holds groups rather than classes, so the same screen is narrowed to
+ * the students in the group they opened - the headline figures, the results
+ * grid and the student list all count that group alone, because a group's
+ * teacher has no business reading the rest of the class.
+ */
+function ClassDashboard({ classId, orgId, groupId = null, canEditGroups = false, onBack }) {
   const [refresh, setRefresh] = useState(0)
   const [view, setView] = useState('overview')
   const [selectedQuizId, setSelectedQuizId] = useState(null)
@@ -33,20 +41,20 @@ function ClassDashboard({ classId, orgId, onBack }) {
   // batch so the grids below can stay synchronous.
   useEffect(() => {
     let cancelled = false
-    preloadClassStudents(classId).then(() => {
+    preloadClassStudents(classId, groupId).then(() => {
       if (!cancelled) setRefresh(r => r + 1)
     })
     return () => { cancelled = true }
-  }, [classId])
+  }, [classId, groupId])
 
-  const dashboard = useMemo(() => getClassDashboardData(classId), [classId, refresh])
+  const dashboard = useMemo(() => getClassDashboardData(classId, groupId), [classId, groupId, refresh])
 
   if (!dashboard) return <div className="cd-page"><p>Class not found.</p><button className="btn" onClick={onBack}>Back</button></div>
 
   const { cls, courses, students, totalQuizzes } = dashboard
 
   if (view === 'quiz' && selectedQuizId) {
-    return <QuizResultsView quizSetId={selectedQuizId} classStudentIds={cls.studentIds} onBack={() => { setView('overview'); setSelectedQuizId(null) }} refresh={refresh} />
+    return <QuizResultsView quizSetId={selectedQuizId} classStudentIds={dashboard.studentIds} onBack={() => { setView('overview'); setSelectedQuizId(null) }} refresh={refresh} />
   }
 
   if (view === 'student' && selectedStudentId) {
@@ -110,7 +118,7 @@ function ClassDashboard({ classId, orgId, onBack }) {
 
       <div className="cd-section">
         <h3 className="cd-section-title">Skills &amp; groups</h3>
-        <ClassSkills classId={classId} orgId={orgId} onOpenStudent={(id) => { setSelectedStudentId(id); setView('student') }} />
+        <ClassSkills classId={classId} orgId={orgId} canEditGroups={canEditGroups} fixedGroupId={groupId} onOpenStudent={(id) => { setSelectedStudentId(id); setView('student') }} />
       </div>
 
       <div className="cd-section">

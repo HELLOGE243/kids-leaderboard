@@ -12,7 +12,7 @@
       "collectionGroup": "askedQuestions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "classIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "groupIds", "arrayConfig": "CONTAINS" },
         { "fieldPath": "askedAt", "order": "DESCENDING" }
       ]
     },
@@ -20,7 +20,7 @@
       "collectionGroup": "askedQuestions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "classIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "groupIds", "arrayConfig": "CONTAINS" },
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "askedAt", "order": "DESCENDING" }
       ]

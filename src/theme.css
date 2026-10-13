@@ -19178,3 +19178,14 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .qi-reply { display: flex; flex-direction: column; gap: 8px; }
 .qi-reply-box { width: 100%; resize: vertical; font-family: inherit; }
 .qi-reply-actions { display: flex; gap: 8px; }
+/* The codes that hand a teaching group to a teacher. */
+.cs-group-codes { margin: 14px 0 6px; padding-top: 12px; border-top: 1px solid rgba(0,0,0,0.08); }
+.cs-group-codes-title { margin: 0 0 2px; font-size: 0.82rem; }
+.gc-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.gc-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 8px 10px; border-radius: 8px; background: rgba(0,0,0,0.04); }
+.gc-main { display: flex; flex-direction: column; min-width: 130px; }
+.gc-name { font-weight: 700; font-size: 0.82rem; }
+.gc-meta { font-size: 0.66rem; opacity: 0.6; }
+.gc-code-wrap { display: flex; align-items: center; gap: 8px; }
+.gc-holders { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+.gc-nobody { font-size: 0.68rem; opacity: 0.5; }

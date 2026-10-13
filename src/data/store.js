@@ -24,7 +24,7 @@
 import { extractAndStoreImages, findImageRefs, deleteImages } from './imageStore.js'
 import { pickSolutionVideo } from '../utils/video.js'
 import { planImport, applyAiSplit, mergeCloze, describeCoverage } from '../utils/cleverspaceImport.js'
-import { writeStudentClasses, askTeacher, loadAskedForStudent, loadAskedForClasses, answerAsked, markAskedSeen } from './firebase.js'
+import { writeStudentGroups, askTeacher, loadAskedForStudent, loadAskedForClasses, answerAsked, markAskedSeen } from './firebase.js'
 import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, deleteStudentFirestore, ensureQuizSetsLoaded, refreshQuizSet, loadAiExplanations, saveAiExplanation, deleteAiExplanations, clearAiExplanationCache, archiveSubmission, saveAttemptDraft, findArchivedPapers, loadArchivedSubmissions, loadAttemptDrafts, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
 
 export { onDataChange, onBroadcast, sendBroadcast, loadContacts, isDataReady }
@@ -852,44 +852,26 @@ export function setCoinsBalance(studentId, newBalance) {
 
 // --- Class Actions ---
 
-/** Six characters, with the ones people misread left out. Mirrors newClassCode() in functions/index.js. */
-const CLASS_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-
-function freshClassCode(classes) {
-  const taken = new Set(Object.values(classes || {}).map((c) => String(c.code || '').toUpperCase()))
-  let code
-  do {
-    code = Array.from({ length: 6 }, () =>
-      CLASS_CODE_ALPHABET[Math.floor(Math.random() * CLASS_CODE_ALPHABET.length)]).join('')
-  } while (taken.has(code))
-  return code
-}
-
-/**
- * A class, and the code a teacher types to take it on.
- *
- * `teacherId` records who created it - an admin - and `teacherIds` is who
- * teaches it. The two are not the same thing and the second is what grants
- * anybody anything.
- */
 export function createClass(name, orgId, teacherId, yearGroup = '') {
   const data = loadData()
   const classId = generateId(6)
-  data.classes[classId] = {
-    name, orgId, teacherId, studentIds: [], yearGroup,
-    code: freshClassCode(data.classes), teacherIds: [],
-  }
+  data.classes[classId] = { name, orgId, teacherId, studentIds: [], yearGroup }
   saveData(data)
   return { id: classId, ...data.classes[classId] }
 }
 
-/** The classes a teacher has taken on, by code. */
-export function getClassesForTeacher(teacherId) {
+/** The name of one teaching group, for a label. */
+export function getGroupName(groupId) {
+  return (loadData().classGroups || []).find((g) => g.id === groupId)?.name || ''
+}
+
+/** The groups a teacher has taken on, with the class each one sits in. */
+export function getGroupsForTeacher(teacherId) {
   const data = loadData()
   const id = String(teacherId)
-  return Object.entries(data.classes || {})
-    .filter(([, cls]) => (cls.teacherIds || []).map(String).includes(id))
-    .map(([classId, cls]) => ({ id: classId, ...cls }))
+  return (data.classGroups || [])
+    .filter((g) => (g.teacherIds || []).map(String).includes(id))
+    .map((g) => ({ ...g, className: data.classes?.[g.classId]?.name || '' }))
 }
 
 export function updateClass(classId, updates) {
@@ -904,13 +886,15 @@ export function updateClass(classId, updates) {
 export function deleteClass(classId) {
   const data = loadData()
   if (!data.classes[classId]) return false
-  const wereIn = [...(data.classes[classId].studentIds || [])]
+  const groupsInside = (data.classGroups || []).filter((g) => g.classId === classId)
+  const wereIn = new Set(groupsInside.flatMap((g) => g.studentIds || []))
   delete data.classes[classId]
+  data.classGroups = (data.classGroups || []).filter((g) => g.classId !== classId)
   data.scores = data.scores.filter((s) => s.classId !== classId)
   saveData(data)
-  // Everyone who was in it is now in one class fewer - their teachers lose
-  // sight of them, which is the point of deleting a class.
-  for (const id of wereIn) syncClassesOf(id, data)
+  // The groups inside it go too, so the teachers who held them lose sight of
+  // those students - which is the point of deleting a class.
+  for (const id of wereIn) syncGroupsOf(id, data)
   return true
 }
 
@@ -922,20 +906,19 @@ export function assignStudentToClass(classId, studentId) {
     data.classes[classId].studentIds.push(studentId)
   }
   saveData(data)
-  syncClassesOf(studentId, data)
   return true
 }
 
 /**
- * Tells the rules which classes this student is in, so their teachers can open
- * their work and nobody else can. Kept in step here; put back in step nightly
- * by classRosterTick if a write here is lost.
+ * Tells the rules which groups this student is in, so the teachers who take
+ * them can open their work and nobody else can. Kept in step here; put back in
+ * step nightly by classRosterTick if a write here is lost.
  */
-function syncClassesOf(studentId, data) {
-  const classIds = Object.entries((data || loadData()).classes || {})
-    .filter(([, cls]) => (cls.studentIds || []).map(String).includes(String(studentId)))
-    .map(([id]) => id)
-  writeStudentClasses(studentId, classIds)
+function syncGroupsOf(studentId, data) {
+  const groupIds = ((data || loadData()).classGroups || [])
+    .filter((g) => (g.studentIds || []).map(String).includes(String(studentId)))
+    .map((g) => g.id)
+  writeStudentGroups(studentId, groupIds)
 }
 
 export function removeStudentFromClass(classId, studentId) {
@@ -945,7 +928,6 @@ export function removeStudentFromClass(classId, studentId) {
     (id) => id !== studentId
   )
   saveData(data)
-  syncClassesOf(studentId, data)
   return true
 }
 
@@ -4302,14 +4284,14 @@ export function sendQuestionToTeachers(studentId, question, quizSetId, questionI
   const data = loadData()
   const student = data.students[studentId] || {}
   const set = (data.importedQuizSets || []).find((q) => q.id === quizSetId)
-  const classIds = Object.entries(data.classes || {})
-    .filter(([, cls]) => (cls.studentIds || []).map(String).includes(String(studentId)))
-    .map(([id]) => id)
+  const groupIds = (data.classGroups || [])
+    .filter((g) => (g.studentIds || []).map(String).includes(String(studentId)))
+    .map((g) => g.id)
   const plain = (html) => String(html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
   return askTeacher({
     studentId: String(studentId),
     studentName: fullName(student) || student.name || '',
-    classIds,
+    groupIds,
     orgId: student.orgId || null,
     quizSetId,
     questionIndex,
@@ -5774,11 +5756,26 @@ export function getNotificationPrefs(orgId) {
  * can read per-student data synchronously. Call on entering a class view.
  * @returns {Promise<{loaded:number, missing:number}>}
  */
-export async function preloadClassStudents(classId) {
+/** Every student in these teaching groups, for the screens that span them. */
+export async function preloadGroupStudents(groupIds) {
+  const data = loadData()
+  const wanted = new Set(groupIds || [])
+  const ids = new Set()
+  for (const group of data.classGroups || []) {
+    if (!wanted.has(group.id)) continue
+    for (const sid of group.studentIds || []) ids.add(sid)
+  }
+  return preloadStudents([...ids])
+}
+
+export async function preloadClassStudents(classId, groupId = null) {
   const data = loadData()
   const cls = data.classes[classId]
   if (!cls) return { loaded: 0, missing: 0 }
-  return preloadStudents(cls.studentIds || [])
+  // A group's teacher may read that group's students and no others, so asking
+  // for the rest of the class would be refused - noisily, and for nothing.
+  const group = groupId ? (data.classGroups || []).find((g) => g.id === groupId) : null
+  return preloadStudents(group ? (group.studentIds || []) : (cls.studentIds || []))
 }
 
 /** Preloads every student in the org - used by org-wide teacher views. */
@@ -5787,10 +5784,13 @@ export async function preloadAllStudents() {
   return preloadStudents(Object.keys(data.students || {}))
 }
 
-export function getClassDashboardData(classId) {
+export function getClassDashboardData(classId, groupId = null) {
   const data = loadData()
   const cls = data.classes[classId]
   if (!cls) return null
+  // Narrowed to one teaching group when a teacher opened it that way.
+  const group = groupId ? (data.classGroups || []).find((g) => g.id === groupId) : null
+  const roll = group ? (group.studentIds || []) : (cls.studentIds || [])
   const classCourses = (data.courses || []).filter(c => c.classId === classId)
   const allQuizSetIds = []
   for (const course of classCourses) {
@@ -5800,7 +5800,7 @@ export function getClassDashboardData(classId) {
   }
   const allHwAttempts = collectStudentArray('homeworkAttempts')
   const allHwRedos = collectStudentArray('homeworkRedos')
-  const studentRows = cls.studentIds.map(sid => {
+  const studentRows = roll.map(sid => {
     const student = data.students[sid]
     if (!student || student.archived) return null
     const attempts = allHwAttempts.filter(a => a.studentId === sid && allQuizSetIds.includes(a.quizSetId))
@@ -5812,7 +5812,15 @@ export function getClassDashboardData(classId) {
     const avgPct = totalMarks > 0 ? Math.round((totalScore / totalMarks) * 100) : 0
     return { id: sid, name: fullName(student), yearGroup: student.yearGroup || cls.yearGroup || '', school: student.school || '', completed, total: allQuizSetIds.length, avgPct, totalScore, totalMarks }
   }).filter(Boolean)
-  return { cls: { id: classId, ...cls }, courses: classCourses, quizSetIds: allQuizSetIds, students: studentRows, totalQuizzes: allQuizSetIds.length }
+  return {
+    cls: { id: classId, ...cls, ...(group ? { name: `${group.name} · ${cls.name}` } : {}) },
+    courses: classCourses,
+    quizSetIds: allQuizSetIds,
+    students: studentRows,
+    studentIds: roll,
+    group: group ? { id: group.id, name: group.name } : null,
+    totalQuizzes: allQuizSetIds.length,
+  }
 }
 
 export function getQuizResultsGrid(quizSetId) {
@@ -6376,12 +6384,41 @@ export function getClassGroups(classId) {
   return (loadData().classGroups || []).filter((g) => !classId || g.classId === classId)
 }
 
+/** Six characters, with the ones people misread left out. Mirrors newGroupCode() in functions/index.js. */
+const GROUP_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+
+function freshGroupCode(groups) {
+  const taken = new Set((groups || []).map((g) => String(g.code || '').toUpperCase()))
+  let code
+  do {
+    code = Array.from({ length: 6 }, () =>
+      GROUP_CODE_ALPHABET[Math.floor(Math.random() * GROUP_CODE_ALPHABET.length)]).join('')
+  } while (taken.has(code))
+  return code
+}
+
+/**
+ * A teaching group, and the code that hands it to a teacher.
+ *
+ * The code is the group's, not the class's: a class is the whole cohort, and
+ * what a teacher takes is the handful of students in front of them. Holding the
+ * group is what lets them see those students' work, so who is in it is an
+ * admin's to decide.
+ */
 export function createClassGroup(classId, name, studentIds = []) {
   const data = loadData()
   if (!data.classGroups) data.classGroups = []
-  const group = { id: 'grp-' + generateId(6), classId, name: String(name).trim() || 'Group', studentIds: [...studentIds], createdAt: new Date().toISOString() }
+  const group = {
+    id: 'grp-' + generateId(6), classId,
+    name: String(name).trim() || 'Group',
+    studentIds: [...studentIds],
+    code: freshGroupCode(data.classGroups),
+    teacherIds: [],
+    createdAt: new Date().toISOString(),
+  }
   data.classGroups.push(group)
   saveData(data)
+  for (const id of group.studentIds) syncGroupsOf(id, data)
   return group
 }
 
@@ -6389,16 +6426,23 @@ export function updateClassGroup(groupId, fields) {
   const data = loadData()
   const group = (data.classGroups || []).find((g) => g.id === groupId)
   if (!group) return null
+  const before = [...(group.studentIds || [])]
   if (fields.name !== undefined) group.name = String(fields.name).trim() || group.name
   if (fields.studentIds !== undefined) group.studentIds = [...fields.studentIds]
   saveData(data)
+  // Anybody who joined or left needs the mapping the rules read updating, or a
+  // teacher keeps sight of a student who has left their group.
+  for (const id of new Set([...before, ...(group.studentIds || [])])) syncGroupsOf(id, data)
   return group
 }
 
 export function deleteClassGroup(groupId) {
   const data = loadData()
+  const group = (data.classGroups || []).find((g) => g.id === groupId)
+  const wereIn = [...(group?.studentIds || [])]
   data.classGroups = (data.classGroups || []).filter((g) => g.id !== groupId)
   saveData(data)
+  for (const id of wereIn) syncGroupsOf(id, data)
 }
 
 // ============================================================

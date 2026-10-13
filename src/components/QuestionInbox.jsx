@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getAskedForClasses, answerAskedQuestion, getClassById } from '../data/store.js'
+import { getAskedForClasses, answerAskedQuestion, getGroupName } from '../data/store.js'
 
 /**
  * The questions a teacher's students have asked them.
@@ -10,10 +10,9 @@ import { getAskedForClasses, answerAskedQuestion, getClassById } from '../data/s
  * in. The answer goes back to the top of that child's own dashboard.
  *
  * @param {object} props
- * @param {string[]} props.classIds the classes this teacher holds
  * @param {{id: string, name: string}} props.teacher
  */
-function QuestionInbox({ classIds, teacher }) {
+function QuestionInbox({ teacher }) {
   const [asked, setAsked] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAnswered, setShowAnswered] = useState(false)
@@ -21,7 +20,6 @@ function QuestionInbox({ classIds, teacher }) {
   const [reply, setReply] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const key = (classIds || []).join(',')
   useEffect(() => {
     let alive = true
     setLoading(true)
@@ -31,7 +29,7 @@ function QuestionInbox({ classIds, teacher }) {
       setLoading(false)
     })
     return () => { alive = false }
-  }, [key])
+  }, [])
 
   const open = useMemo(() => asked.filter((a) => a.status !== 'answered'), [asked])
   const done = useMemo(() => asked.filter((a) => a.status === 'answered'), [asked])
@@ -71,13 +69,13 @@ function QuestionInbox({ classIds, teacher }) {
       ) : (
         <div className="qi-list">
           {shown.map((ask) => {
-            const cls = (ask.classIds || []).map((id) => getClassById(id)?.name).filter(Boolean)[0]
+            const where = ask.groupName || (ask.groupIds || []).map((id) => getGroupName(id)).filter(Boolean)[0]
             return (
               <div key={ask.id} className="qi-item">
                 <div className="qi-head">
                   <span className="qi-who">{ask.studentName || ask.studentId}</span>
                   <span className="qi-where">
-                    {cls ? `${cls} · ` : ''}{ask.quizTitle || 'a quiz'}
+                    {where ? `${where} · ` : ''}{ask.quizTitle || 'a quiz'}
                     {ask.askedAt ? ` · ${new Date(ask.askedAt).toLocaleDateString()}` : ''}
                   </span>
                 </div>

@@ -599,17 +599,17 @@ exports.authLogin = functions
 
         const isAdmin = role === 'teacher' && isAdminTeacher(user)
         const sessionId = await startSession(user.id, role)
-        // A teacher's classes ride in the token, the way a parent's children
+        // A teacher's groups ride in the token, the way a parent's children
         // do, so a rule can place a student without reading a document to do
-        // it. An admin needs none: they are not limited to a class.
-        const classIds = role === 'teacher' && !isAdmin
-          ? classesForTeacher(await getCore(true), user.id)
+        // it. An admin needs none: they are not limited to a group.
+        const groupIds = role === 'teacher' && !isAdmin
+          ? groupsForTeacher(await getGroups(), user.id)
           : []
         const token = await admin.auth().createCustomToken(String(user.id), {
           role,
           orgId: user.orgId || null,
           admin: isAdmin,
-          classIds,
+          groupIds,
         })
         return sendJson(res, 200, { ok: true, token, isAdmin, sessionId, user: publicUser(user) })
       } catch (e) {
@@ -643,38 +643,49 @@ function isAdminTeacher(user) {
   return ADMIN_TEACHER_NAMES.includes(String(user?.name || '').trim().toLowerCase())
 }
 
-/**
- * The classes a teacher holds, for their token.
- *
- * A class names its teachers, rather than a teacher naming their classes, so
- * there is one place to change and nothing to keep in step. The legacy
- * `teacherId` field is not counted: it records who created the class, which on
- * every existing class is an admin.
- */
-function classesForTeacher(core, teacherId) {
-  const id = String(teacherId)
-  return Object.entries(core.classes || {})
-    .filter(([, cls]) => (cls.teacherIds || []).map(String).includes(id))
-    .map(([classId]) => classId)
+/** The teaching groups, which live in the content document rather than core. */
+async function getGroups() {
+  const snap = await db.collection('appData').doc('content').get()
+  return (snap.data() || {}).classGroups || []
 }
 
 /**
- * Which classes each student is in, as the rules read it.
+ * The groups a teacher holds, for their token.
+ *
+ * A class is the whole cohort; a group is the handful of students one teacher
+ * actually takes, and that is what a code hands over. The group names its
+ * teachers rather than the teacher naming their groups, so there is one place
+ * to change and nothing to keep in step.
+ */
+function groupsForTeacher(groups, teacherId) {
+  const id = String(teacherId)
+  return (groups || [])
+    .filter((g) => (g.teacherIds || []).map(String).includes(id))
+    .map((g) => g.id)
+}
+
+/** Writes the groups back, which only this file and an admin may do. */
+async function saveGroups(groups) {
+  await db.collection('appData').doc('content').update({ classGroups: groups })
+}
+
+/**
+ * Which groups each student is in, as the rules read it.
  *
  * One document per student, written here and by admins, never by the student.
  * It is what decides whether a teacher may open a child's work, so it lives
  * apart from the record that child's own browser rewrites all day.
  *
- * @param {object} core the shared core document
- * @returns {Map<string, string[]>} student id -> class ids
+ * @param {Array} groups the teaching groups
+ * @returns {Map<string, string[]>} student id -> group ids
  */
-function rosterFromCore(core) {
+function rosterFromGroups(groups) {
   const out = new Map()
-  for (const [classId, cls] of Object.entries(core.classes || {})) {
-    for (const studentId of cls.studentIds || []) {
+  for (const group of groups || []) {
+    for (const studentId of group.studentIds || []) {
       const key = String(studentId)
       if (!out.has(key)) out.set(key, [])
-      out.get(key).push(classId)
+      out.get(key).push(group.id)
     }
   }
   return out
@@ -684,10 +695,10 @@ function rosterFromCore(core) {
  * Writes the mapping for every student, and clears it for those in no class.
  * @returns {Promise<{written: number, cleared: number, unchanged: number}>}
  */
-async function syncStudentClasses(core) {
-  const wanted = rosterFromCore(core)
-  const existing = await db.collection('studentClasses').get()
-  const have = new Map(existing.docs.map((d) => [d.id, (d.get('classIds') || []).map(String)]))
+async function syncStudentGroups(groups) {
+  const wanted = rosterFromGroups(groups)
+  const existing = await db.collection('studentGroups').get()
+  const have = new Map(existing.docs.map((d) => [d.id, (d.get('groupIds') || []).map(String)]))
   const report = { written: 0, cleared: 0, unchanged: 0 }
   const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i])
 
@@ -695,16 +706,16 @@ async function syncStudentClasses(core) {
   let queued = 0
   const flush = async () => { if (queued) { await batch.commit(); batch = db.batch(); queued = 0 } }
 
-  for (const [studentId, classIds] of wanted) {
-    const sorted = [...classIds].sort()
+  for (const [studentId, groupIds] of wanted) {
+    const sorted = [...groupIds].sort()
     if (same(sorted, [...(have.get(studentId) || [])].sort())) { report.unchanged++; continue }
-    batch.set(db.collection('studentClasses').doc(studentId), { classIds: sorted, updatedAt: Date.now() })
+    batch.set(db.collection('studentGroups').doc(studentId), { groupIds: sorted, updatedAt: Date.now() })
     report.written++
     if (++queued >= 400) await flush()
   }
-  for (const [studentId, classIds] of have) {
-    if (wanted.has(studentId) || classIds.length === 0) continue
-    batch.set(db.collection('studentClasses').doc(studentId), { classIds: [], updatedAt: Date.now() })
+  for (const [studentId, groupIds] of have) {
+    if (wanted.has(studentId) || groupIds.length === 0) continue
+    batch.set(db.collection('studentGroups').doc(studentId), { groupIds: [], updatedAt: Date.now() })
     report.cleared++
     if (++queued >= 400) await flush()
   }
@@ -714,7 +725,7 @@ async function syncStudentClasses(core) {
 
 /** Six characters, with the ones people misread left out. */
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-function newClassCode() {
+function newGroupCode() {
   let out = ''
   for (let i = 0; i < 6; i++) out += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)]
   return out
@@ -1056,15 +1067,16 @@ exports.parentRefresh = functions
   })
 
 /**
- * A teacher takes on a class by typing the code an admin gave them.
+ * A teacher takes on a group by typing the code an admin gave them.
  *
- * The code is the whole of it, so it is worth saying what it opens: one class,
- * and a class holds the students an admin put in it. A teacher who has the code
- * for a class they do not teach can see that class - which is why an admin can
- * see who holds each class, take one back, and change the code.
+ * The code is the whole of it, so it is worth saying what it opens: one group,
+ * which is the handful of students an admin put in it - not the class around
+ * it. A teacher who has a code for a group they do not take can see those
+ * students, which is why an admin can see who holds each group, take one back,
+ * and change the code.
  *
- * The classes ride in the token, so a new one is issued and the browser signs
- * in again with it; there is no adding a claim to a token already made.
+ * The groups ride in the token, so a new one is issued and the browser signs in
+ * again with it; there is no adding a claim to a token already made.
  */
 exports.teacherJoinClass = functions
   .region('australia-southeast1')
@@ -1075,38 +1087,40 @@ exports.teacherJoinClass = functions
       if (!caller || caller.role !== 'teacher') return sendJson(res, 403, { error: 'Teacher sign-in required' })
       try {
         const code = String(req.body?.code || '').trim().toUpperCase()
-        if (!code) return sendJson(res, 400, { error: 'Enter the class code.' })
+        if (!code) return sendJson(res, 400, { error: 'Enter the group code.' })
 
-        const coreRef = db.collection('appData').doc('core')
+        const contentRef = db.collection('appData').doc('content')
         const joined = await db.runTransaction(async (tx) => {
-          const core = (await tx.get(coreRef)).data() || {}
-          const entry = Object.entries(core.classes || {})
-            .find(([, cls]) => String(cls.code || '').toUpperCase() === code)
-          if (!entry) return { error: 'No class has that code. Check it with your administrator.' }
-          const [classId, cls] = entry
-          const holders = (cls.teacherIds || []).map(String)
-          if (holders.includes(String(caller.uid))) return { classId, name: cls.name || '', already: true }
-          tx.update(coreRef, new admin.firestore.FieldPath('classes', classId, 'teacherIds'),
-            [...holders, String(caller.uid)])
-          return { classId, name: cls.name || '' }
+          const groups = ((await tx.get(contentRef)).data() || {}).classGroups || []
+          const group = groups.find((g) => String(g.code || '').toUpperCase() === code)
+          if (!group) return { error: 'No group has that code. Check it with your administrator.' }
+          const holders = (group.teacherIds || []).map(String)
+          if (holders.includes(String(caller.uid))) {
+            return { groupId: group.id, name: group.name || '', already: true }
+          }
+          tx.update(contentRef, {
+            classGroups: groups.map((g) => (g.id === group.id
+              ? { ...g, teacherIds: [...holders, String(caller.uid)] }
+              : g)),
+          })
+          return { groupId: group.id, name: group.name || '' }
         })
         if (joined.error) return sendJson(res, 404, { error: joined.error })
-        _core = null
 
         const core = await getCore(true)
         const teacher = (core.teachers || {})[String(caller.uid)] || {}
-        const classIds = classesForTeacher(core, caller.uid)
+        const groupIds = groupsForTeacher(await getGroups(), caller.uid)
         const sessionId = await startSession(String(caller.uid), 'teacher')
         const token = await admin.auth().createCustomToken(String(caller.uid), {
           role: 'teacher',
           orgId: teacher.orgId || null,
           admin: isAdminTeacher(teacher),
-          classIds,
+          groupIds,
         })
-        console.info(`teacherJoinClass: ${caller.uid} took on ${joined.classId}`)
+        console.info(`teacherJoinClass: ${caller.uid} took on ${joined.groupId}`)
         return sendJson(res, 200, {
-          ok: true, token, sessionId, classIds,
-          classId: joined.classId, className: joined.name, already: !!joined.already,
+          ok: true, token, sessionId, groupIds,
+          groupId: joined.groupId, groupName: joined.name, already: !!joined.already,
         })
       } catch (e) {
         console.error('teacherJoinClass failed:', e)
@@ -1116,7 +1130,7 @@ exports.teacherJoinClass = functions
   })
 
 /**
- * Which classes the signed-in teacher holds, now.
+ * Which groups the signed-in teacher holds, now.
  *
  * Same reason the parent portal asks: the classes are in the token, so a
  * dashboard left open since Monday is reading Monday's list. A class taken
@@ -1137,17 +1151,27 @@ exports.teacherRefresh = functions
           return sendJson(res, 403, { error: 'This account is no longer active.' })
         }
         const isAdmin = isAdminTeacher(teacher)
-        const classIds = isAdmin ? [] : classesForTeacher(core, caller.uid)
+        const groups = await getGroups()
+        const groupIds = isAdmin ? [] : groupsForTeacher(groups, caller.uid)
         const sessionId = await startSession(String(caller.uid), 'teacher')
         const token = await admin.auth().createCustomToken(String(caller.uid), {
           role: 'teacher',
           orgId: teacher.orgId || null,
           admin: isAdmin,
-          classIds,
+          groupIds,
         })
         return sendJson(res, 200, {
-          ok: true, token, sessionId, classIds, isAdmin,
-          classes: classIds.map((id) => ({ id, name: (core.classes || {})[id]?.name || '' })),
+          ok: true, token, sessionId, groupIds, isAdmin,
+          groups: groupIds.map((id) => {
+            const g = groups.find((x) => x.id === id) || {}
+            return {
+              id,
+              name: g.name || '',
+              classId: g.classId || null,
+              className: (core.classes || {})[g.classId]?.name || '',
+              students: (g.studentIds || []).length,
+            }
+          }),
         })
       } catch (e) {
         console.error('teacherRefresh failed:', e)
@@ -1157,7 +1181,7 @@ exports.teacherRefresh = functions
   })
 
 /**
- * Puts the class mapping back in step once a night.
+ * Puts the group mapping back in step once a night.
  *
  * Admins keep it in step as they move students about; this is the safety net
  * for a write that failed, a browser closed mid-change, or a record edited
@@ -1170,7 +1194,7 @@ exports.classRosterTick = functions
   .timeZone('Australia/Sydney')
   .onRun(async () => {
     try {
-      const report = await syncStudentClasses(await getCore(true))
+      const report = await syncStudentGroups(await getGroups())
       if (report.written || report.cleared) {
         console.info(`classRosterTick: ${report.written} written, ${report.cleared} cleared, ${report.unchanged} unchanged`)
       }
@@ -1198,17 +1222,17 @@ exports.teacherQuestions = functions
       const caller = await verifyCaller(req)
       if (!caller || caller.role !== 'teacher') return sendJson(res, 403, { error: 'Teacher sign-in required' })
       try {
-        const core = await getCore(true)
-        const classIds = caller.admin === true
-          ? Object.keys(core.classes || {})
-          : classesForTeacher(core, caller.uid)
-        if (!classIds.length) return sendJson(res, 200, { ok: true, questions: [] })
+        const groups = await getGroups()
+        const groupIds = caller.admin === true
+          ? groups.map((g) => g.id)
+          : groupsForTeacher(groups, caller.uid)
+        if (!groupIds.length) return sendJson(res, 200, { ok: true, questions: [] })
 
         // array-contains-any takes ten values, and a teacher may hold more.
         const found = new Map()
-        for (let i = 0; i < classIds.length; i += 10) {
+        for (let i = 0; i < groupIds.length; i += 10) {
           const snap = await db.collection('askedQuestions')
-            .where('classIds', 'array-contains-any', classIds.slice(i, i + 10))
+            .where('groupIds', 'array-contains-any', groupIds.slice(i, i + 10))
             .orderBy('askedAt', 'desc')
             .limit(300)
             .get()
@@ -1485,85 +1509,118 @@ exports.authAdmin = functions
           return sendJson(res, 200, { ok: true, dry, alreadyFiled: have.size, count: found.length, papers: found })
         }
 
-        if (action === 'syncStudentClasses') {
-          const report = await syncStudentClasses(await getCore(true))
+        if (action === 'syncStudentGroups') {
+          const report = await syncStudentGroups(await getGroups())
           return sendJson(res, 200, { ok: true, ...report })
         }
 
-        if (action === 'classHolders') {
-          // Who can see this class, so "why is she in my dashboard" has an
-          // answer that is looked up rather than guessed at.
+        if (action === 'groupHolders') {
+          // Who can see each group, so "why is she looking at my students" has
+          // an answer that is looked up rather than guessed at.
           const core = await getCore(true)
-          const out = Object.entries(core.classes || {}).map(([id, cls]) => ({
-            id,
-            name: cls.name || '',
-            code: cls.code || null,
-            students: (cls.studentIds || []).length,
-            teachers: (cls.teacherIds || []).map((tid) => ({
-              id: tid, name: (core.teachers || {})[tid]?.name || '(deleted)',
+          const groups = await getGroups()
+          return sendJson(res, 200, {
+            ok: true,
+            groups: groups.map((g) => ({
+              id: g.id,
+              classId: g.classId || null,
+              className: (core.classes || {})[g.classId]?.name || '',
+              name: g.name || '',
+              code: g.code || null,
+              students: (g.studentIds || []).length,
+              teachers: (g.teacherIds || []).map((tid) => ({
+                id: tid, name: (core.teachers || {})[tid]?.name || '(deleted)',
+              })),
             })),
-          }))
-          return sendJson(res, 200, { ok: true, classes: out })
+          })
         }
 
-        if (action === 'setClassCode') {
-          // Gives a class a code, or a new one. Changing it does not turn out
-          // the teachers already holding the class - `removeTeacherFromClass`
-          // does that - it only stops the old code letting anybody else in.
-          const classId = String(req.body?.classId || '')
-          if (!classId) return sendJson(res, 400, { error: 'classId required' })
-          const core = await getCore(true)
-          if (!(core.classes || {})[classId]) return sendJson(res, 404, { error: 'No such class.' })
-          const taken = new Set(Object.values(core.classes || {})
-            .map((c) => String(c.code || '').toUpperCase()).filter(Boolean))
+        if (action === 'setGroupCode') {
+          // Gives a group a code, or a new one. Changing it does not turn out
+          // the teachers already holding it - `removeTeacherFromGroup` does
+          // that - it only stops the old code letting anybody else in.
+          const groupId = String(req.body?.groupId || '')
+          if (!groupId) return sendJson(res, 400, { error: 'groupId required' })
+          const groups = await getGroups()
+          if (!groups.some((g) => g.id === groupId)) return sendJson(res, 404, { error: 'No such group.' })
+          const taken = new Set(groups.map((g) => String(g.code || '').toUpperCase()).filter(Boolean))
           let code
-          do { code = newClassCode() } while (taken.has(code))
-          await coreRef.update(new admin.firestore.FieldPath('classes', classId, 'code'), code)
-          _core = null
-          return sendJson(res, 200, { ok: true, classId, code })
+          do { code = newGroupCode() } while (taken.has(code))
+          await saveGroups(groups.map((g) => (g.id === groupId ? { ...g, code } : g)))
+          return sendJson(res, 200, { ok: true, groupId, code })
         }
 
-        if (action === 'backfillClassCodes') {
-          // Every class that has no code gets one, and the single creator in
-          // `teacherId` becomes the first entry of `teacherIds`.
-          const core = await getCore(true)
-          const classes = core.classes || {}
-          const taken = new Set(Object.values(classes)
-            .map((c) => String(c.code || '').toUpperCase()).filter(Boolean))
-          const updates = []
+        if (action === 'backfillGroupCodes') {
+          // Every group that has no code gets one, and every group gets the
+          // list of teachers holding it, empty until somebody types the code.
+          const groups = await getGroups()
+          const taken = new Set(groups.map((g) => String(g.code || '').toUpperCase()).filter(Boolean))
           const report = []
-          for (const [id, cls] of Object.entries(classes)) {
-            if (!cls.code) {
+          const next = groups.map((g) => {
+            const out = { ...g }
+            if (!out.code) {
               let code
-              do { code = newClassCode() } while (taken.has(code))
+              do { code = newGroupCode() } while (taken.has(code))
               taken.add(code)
-              updates.push(new admin.firestore.FieldPath('classes', id, 'code'), code)
-              report.push({ id, name: cls.name || '', code })
+              out.code = code
+              report.push({ id: g.id, name: g.name || '', code })
             }
-            if (!Array.isArray(cls.teacherIds)) {
-              updates.push(new admin.firestore.FieldPath('classes', id, 'teacherIds'), [])
+            if (!Array.isArray(out.teacherIds)) out.teacherIds = []
+            return out
+          })
+          await saveGroups(next)
+          return sendJson(res, 200, { ok: true, coded: report })
+        }
+
+        if (action === 'removeTeacherFromGroup') {
+          // Takes a group back. Their token names it until it expires, so the
+          // sign-in behind it goes: the dashboard asks what they hold on its
+          // next load and is told this group is not theirs.
+          const groupId = String(req.body?.groupId || '')
+          if (!groupId || !teacherId) return sendJson(res, 400, { error: 'groupId and teacherId required' })
+          const groups = await getGroups()
+          const group = groups.find((g) => g.id === groupId)
+          if (!group) return sendJson(res, 404, { error: 'No such group.' })
+          const left = (group.teacherIds || []).map(String).filter((id) => id !== String(teacherId))
+          await saveGroups(groups.map((g) => (g.id === groupId ? { ...g, teacherIds: left } : g)))
+          await db.collection('sessions').doc(String(teacherId)).delete().catch(() => {})
+          await admin.auth().revokeRefreshTokens(String(teacherId)).catch(() => {})
+          return sendJson(res, 200, { ok: true, remaining: left.length })
+        }
+
+        if (action === 'dropStudentClasses') {
+          // The mapping the rules read is studentGroups now. These were written
+          // this morning and nothing reads them; a client cannot delete them,
+          // because the rules no longer name the collection at all.
+          const stale = await db.collection('studentClasses').get()
+          let batch = db.batch()
+          let queued = 0
+          for (const d of stale.docs) {
+            batch.delete(d.ref)
+            if (++queued >= 400) { await batch.commit(); batch = db.batch(); queued = 0 }
+          }
+          if (queued) await batch.commit()
+          return sendJson(res, 200, { ok: true, deleted: stale.size })
+        }
+
+        if (action === 'dropClassCodes') {
+          // The code lived on the class for an afternoon. A class is the whole
+          // cohort; what a teacher takes is a group inside it.
+          const core = await getCore(true)
+          const updates = []
+          for (const [id, cls] of Object.entries(core.classes || {})) {
+            if (cls.code !== undefined) {
+              updates.push(new admin.firestore.FieldPath('classes', id, 'code'),
+                admin.firestore.FieldValue.delete())
+            }
+            if (cls.teacherIds !== undefined) {
+              updates.push(new admin.firestore.FieldPath('classes', id, 'teacherIds'),
+                admin.firestore.FieldValue.delete())
             }
           }
           if (updates.length) await coreRef.update(...updates)
           _core = null
-          return sendJson(res, 200, { ok: true, coded: report })
-        }
-
-        if (action === 'removeTeacherFromClass') {
-          // Takes a class back. Their token names it until it expires, so the
-          // sign-in behind it goes: the dashboard asks who holds what on its
-          // next load and is told this class is not theirs.
-          const classId = String(req.body?.classId || '')
-          if (!classId || !teacherId) return sendJson(res, 400, { error: 'classId and teacherId required' })
-          const core = await getCore(true)
-          const cls = (core.classes || {})[classId]
-          if (!cls) return sendJson(res, 404, { error: 'No such class.' })
-          const left = (cls.teacherIds || []).map(String).filter((id) => id !== String(teacherId))
-          await coreRef.update(new admin.firestore.FieldPath('classes', classId, 'teacherIds'), left)
-          _core = null
-          await db.collection('sessions').doc(String(teacherId)).delete().catch(() => {})
-          await admin.auth().revokeRefreshTokens(String(teacherId)).catch(() => {})
-          return sendJson(res, 200, { ok: true, remaining: left.length })
+          return sendJson(res, 200, { ok: true, cleared: updates.length / 2 })
         }
 
         if (action === 'createTeacher') {

@@ -1630,28 +1630,28 @@ export async function loadQuizStats(quizSetId) {
 }
 
 /**
- * Records which classes a student is in, for the rules to read.
+ * Records which teaching groups a student is in, for the rules to read.
  *
  * The rules decide whether a teacher may open a child's work by reading this,
  * and only an admin may write it. It is deliberately not a field on the
  * student's own record: that record is rewritten whole by the child's browser
  * every time they answer a question, so a field there would be wiped by an
  * older tab - and a child who worked out what it was for could drop their own
- * class and vanish from their teacher's dashboard.
+ * group and vanish from their teacher's dashboard.
  *
  * Never throws: a failed write leaves the mapping stale until the nightly
  * reconcile, which is better than failing the change the admin just made.
  */
-export async function writeStudentClasses(studentId, classIds) {
+export async function writeStudentGroups(studentId, groupIds) {
   if (!studentId) return false
   try {
-    await setDoc(doc(db, 'studentClasses', String(studentId)), {
-      classIds: [...new Set((classIds || []).map(String))].sort(),
+    await setDoc(doc(db, 'studentGroups', String(studentId)), {
+      groupIds: [...new Set((groupIds || []).map(String))].sort(),
       updatedAt: Date.now(),
     })
     return true
   } catch (e) {
-    console.warn(`Firestore: could not record classes for ${studentId}:`, e?.code || e)
+    console.warn(`Firestore: could not record groups for ${studentId}:`, e?.code || e)
     return false
   }
 }
@@ -1669,7 +1669,7 @@ const ASKED = 'askedQuestions'
 
 /**
  * Files a question for the student's teachers.
- * @param {object} ask what was asked, including studentId and classIds
+ * @param {object} ask what was asked, including studentId and groupIds
  * @returns {Promise<string|null>} the id, or null if it could not be filed
  */
 export async function askTeacher(ask) {

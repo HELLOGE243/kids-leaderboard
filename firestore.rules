@@ -33,23 +33,25 @@ service cloud.firestore {
       return isTeacher() && request.auth.token.admin == true;
     }
 
-    // A teacher reaches the students in the classes they hold, and no others.
+    // A teacher reaches the students in the groups they hold, and no others.
     //
-    // The classes are in their token; which class a student is in is read from
-    // a document of its own rather than from the student's record. That record
-    // is written whole by the student's own browser every time they answer a
-    // question, so a field living there would be wiped by an older tab - and a
-    // student who worked out what it was for could drop their own class and
-    // disappear from their teacher's dashboard. Nobody but an admin writes the
-    // mapping, and nothing a student does touches it.
-    function classesOf(studentId) {
-      return get(/databases/$(database)/documents/studentClasses/$(studentId)).data.classIds;
+    // A class is the whole cohort; a group is the handful one teacher actually
+    // takes, and that is what a code hands over. The groups are in their token;
+    // which groups a student is in is read from a document of its own rather
+    // than from the student's record. That record is written whole by the
+    // student's own browser every time they answer a question, so a field
+    // living there would be wiped by an older tab - and a student who worked
+    // out what it was for could drop their own group and disappear from their
+    // teacher's dashboard. Nobody but an admin writes the mapping, and nothing
+    // a student does touches it.
+    function groupsOf(studentId) {
+      return get(/databases/$(database)/documents/studentGroups/$(studentId)).data.groupIds;
     }
 
     function teaches(studentId) {
       return isTeacher()
-        && exists(/databases/$(database)/documents/studentClasses/$(studentId))
-        && request.auth.token.classIds.hasAny(classesOf(studentId));
+        && exists(/databases/$(database)/documents/studentGroups/$(studentId))
+        && request.auth.token.groupIds.hasAny(groupsOf(studentId));
     }
 
     function isSelf(userId) {
@@ -112,10 +114,13 @@ service cloud.firestore {
     // the teaching groups inside their own class. Everything else in these
     // documents - courses, quizzes, classes, students, the shop, the term - is
     // the platform itself, and belongs to an admin.
+    // Note what is not here: classGroups. A group is what a teacher's code
+    // hands them, so a teacher who could edit groups could write themselves
+    // into any of them and reach the whole school.
     function teacherMayUpdate(docId) {
       return docId == 'content'
         && changedKeys().hasOnly(['writingMarks', 'questionReports',
-                                  'explanationReports', 'classGroups']);
+                                  'explanationReports']);
     }
 
     match /appData/{docId} {
@@ -194,31 +199,31 @@ service cloud.firestore {
     // teacher who teaches that child can find it without reading three hundred
     // records, and the answer comes back to the child's dashboard.
     //
-    // The classes are written on the question when it is asked, by the student
+    // The groups are written on the question when it is asked, by the student
     // asking: it decides only who can see their own question, so the worst a
-    // forged one does is show their work to a teacher who does not teach them.
+    // forged one does is show their work to a teacher who does not take them.
     match /askedQuestions/{askId} {
       allow read: if isAdmin()
         || (signedIn() && resource.data.studentId == request.auth.uid)
-        || (isTeacher() && request.auth.token.classIds.hasAny(resource.data.classIds));
+        || (isTeacher() && request.auth.token.groupIds.hasAny(resource.data.groupIds));
       allow create: if isStudent()
         && request.resource.data.studentId == request.auth.uid
         && request.resource.data.status == 'open'
         && !('answer' in request.resource.data);
       // A teacher answers; the student may only say they have read it.
       allow update: if (isTeacher()
-                        && request.auth.token.classIds.hasAny(resource.data.classIds)
+                        && request.auth.token.groupIds.hasAny(resource.data.groupIds)
                         && changedKeys().hasOnly(['answer', 'status', 'answeredAt']))
                     || (isSelf(resource.data.studentId)
                         && changedKeys().hasOnly(['seenByStudent']));
       allow delete: if isAdmin();
     }
 
-    // --- Which classes a student is in ------------------------------------
+    // --- Which teaching groups a student is in -----------------------------
     // Written by admins only, and read by the rules above to decide whether a
     // teacher may open a student's work. Kept apart from the student's record
     // precisely so that nothing the student does can change it.
-    match /studentClasses/{studentId} {
+    match /studentGroups/{studentId} {
       allow read: if signedIn();
       allow write: if isAdmin();
     }

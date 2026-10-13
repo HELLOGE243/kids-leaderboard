@@ -113,77 +113,6 @@ function RowMenu({ at, onClose, children }) {
   )
 }
 
-/**
- * The class's code, and who it has let in.
- *
- * The code is what a teacher types to take a class on, so it is shown with the
- * class rather than buried in a settings screen. Changing it stops the old one
- * letting anybody else in; it does not turn out the teachers already here,
- * which is what "remove" beside each name is for.
- */
-function ClassCodeRow({ cls, onChanged }) {
-  const [holders, setHolders] = useState(null)
-  const [busy, setBusy] = useState(false)
-  const [copied, setCopied] = useState(false)
-
-  async function load() {
-    const res = await adminAction('classHolders')
-    if (res?.ok) setHolders((res.classes || []).find((c) => c.id === cls.id) || null)
-  }
-
-  useEffect(() => { load() }, [cls.id, cls.code])
-
-  async function newCode() {
-    setBusy(true)
-    await adminAction('setClassCode', { classId: cls.id })
-    setBusy(false)
-    await load()
-    onChanged?.()
-  }
-
-  async function remove(teacherId) {
-    setBusy(true)
-    await adminAction('removeTeacherFromClass', { classId: cls.id, teacherId })
-    setBusy(false)
-    await load()
-    onChanged?.()
-  }
-
-  const code = holders?.code || cls.code
-  return (
-    <div className="td2-class-code">
-      <div className="td2-class-code-row">
-        <span className="td2-class-code-label">Class code</span>
-        {code ? (
-          <button
-            className="td2-class-code-value"
-            title="Copy"
-            onClick={() => {
-              navigator.clipboard?.writeText(code)
-              setCopied(true)
-              setTimeout(() => setCopied(false), 1200)
-            }}
-          >{copied ? 'Copied' : code}</button>
-        ) : <span className="td2-class-code-value is-none">none yet</span>}
-        <button className="td2-btn-ghost td2-btn-sm" disabled={busy} onClick={newCode}>
-          {code ? 'New code' : 'Give it one'}
-        </button>
-      </div>
-      {holders?.teachers?.length > 0 && (
-        <div className="td2-class-code-holders">
-          {holders.teachers.map((t) => (
-            <span key={t.id} className="td2-class-holder">
-              {t.name}
-              <button className="td2-class-holder-x" title="Remove from this class"
-                disabled={busy} onClick={() => remove(t.id)}>×</button>
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 function TeacherDashboard({ teacher, isAdmin, onLogout }) {
   const [refresh, setRefresh] = useState(0)
   const forceRefresh = () => setRefresh((r) => r + 1)
@@ -437,7 +366,7 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
   if (showNotifications && org) return <NotificationsPanel orgId={org.id} onBack={() => setShowNotifications(false)} />
   if (showNewsfeed && org) return <NewsfeedManager orgId={org.id} onBack={() => setShowNewsfeed(false)} />
   if (showShopAdmin && org) return <ShopAdmin orgId={org.id} onBack={() => setShowShopAdmin(false)} />
-  if (showClassDashboard && org) return <ClassDashboard classId={showClassDashboard} orgId={org.id} onBack={() => setShowClassDashboard(null)} />
+  if (showClassDashboard && org) return <ClassDashboard classId={showClassDashboard} orgId={org.id} canEditGroups={isAdmin} onBack={() => setShowClassDashboard(null)} />
 
   const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   const studentClasses = (sid) => classes.filter((c) => c.studentIds.includes(sid))
@@ -662,7 +591,6 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                             <div className="td2-class-meta">
                               {cls.yearGroup ? `Year ${cls.yearGroup} · ` : ''}{activeInClass} student{activeInClass !== 1 ? 's' : ''} · {evCount} event{evCount !== 1 ? 's' : ''}
                             </div>
-                            <ClassCodeRow cls={cls} onChanged={forceRefresh} />
                             <div className="td2-class-actions">
                               <button className="td2-btn td2-btn-sm" onClick={() => setShowClassDashboard(cls.id)}>Open dashboard</button>
                               <button className="td2-btn-ghost td2-btn-sm" onClick={() => setBrowseClassId(cls.id)}>Browse papers</button>

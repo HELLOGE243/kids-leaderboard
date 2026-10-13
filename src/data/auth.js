@@ -144,15 +144,15 @@ export async function linkChild(studentId) {
 }
 
 /**
- * Takes on a class with the code an admin handed over.
+ * Takes on a teaching group with the code an admin handed over.
  *
- * The classes are in the token, so the server issues a new one and the browser
+ * The groups are in the token, so the server issues a new one and the browser
  * signs in again with it - the same dance the parent portal does when a child
  * is linked.
  *
- * @returns {Promise<{ok:boolean, classId?:string, className?:string, already?:boolean, error?:string}>}
+ * @returns {Promise<{ok:boolean, groupId?:string, groupName?:string, already?:boolean, error?:string}>}
  */
-export async function joinClassByCode(code) {
+export async function joinGroupByCode(code) {
   try {
     const res = await authedFetch(`${FUNCTIONS_BASE}/teacherJoinClass`, {
       method: 'POST',
@@ -160,26 +160,26 @@ export async function joinClassByCode(code) {
       body: JSON.stringify({ code }),
     })
     const data = await res.json().catch(() => ({}))
-    if (!res.ok || !data?.token) return { ok: false, error: data?.error || 'Could not join that class.' }
+    if (!res.ok || !data?.token) return { ok: false, error: data?.error || 'Could not join that group.' }
     await establishSession(data.token)
-    return { ok: true, classId: data.classId, className: data.className, already: !!data.already, classIds: data.classIds || [] }
+    return { ok: true, groupId: data.groupId, groupName: data.groupName, already: !!data.already, groupIds: data.groupIds || [] }
   } catch (e) {
-    console.error('joinClassByCode failed:', e)
+    console.error('joinGroupByCode failed:', e)
     return { ok: false, error: 'Could not reach the server.' }
   }
 }
 
 /**
- * Re-reads which classes the signed-in teacher holds.
+ * Re-reads which teaching groups the signed-in teacher holds.
  *
- * A dashboard open since Monday is showing Monday's classes. Refused means the
+ * A dashboard open since Monday is showing Monday's groups. Refused means the
  * account is no longer one we will serve - taken away, or signed in somewhere
- * that has since been revoked - and the screen should not keep somebody's class
- * on it; unreachable means the network, and the screen stands.
+ * that has since been revoked - and the screen should not keep somebody's
+ * students on it; unreachable means the network, and the screen stands.
  *
- * @returns {Promise<{ok:boolean, expired?:boolean, classes?:object[], error?:string}>}
+ * @returns {Promise<{ok:boolean, expired?:boolean, groups?:object[], error?:string}>}
  */
-export async function refreshTeacherClasses() {
+export async function refreshTeacherGroups() {
   try {
     const res = await authedFetch(`${FUNCTIONS_BASE}/teacherRefresh`, {
       method: 'POST',
@@ -190,9 +190,9 @@ export async function refreshTeacherClasses() {
     if (res.status === 401 || res.status === 403) return { ok: false, expired: true, error: data?.error || 'Signed out.' }
     if (!res.ok || !data?.token) return { ok: false, error: data?.error || 'Could not refresh.' }
     await establishSession(data.token)
-    return { ok: true, classes: data.classes || [], classIds: data.classIds || [], isAdmin: !!data.isAdmin }
+    return { ok: true, groups: data.groups || [], groupIds: data.groupIds || [], isAdmin: !!data.isAdmin }
   } catch (e) {
-    console.warn('refreshTeacherClasses failed:', e)
+    console.warn('refreshTeacherGroups failed:', e)
     return { ok: false, error: 'Could not reach the server.' }
   }
 }
