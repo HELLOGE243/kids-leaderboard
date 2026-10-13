@@ -18,6 +18,8 @@ import { parseExplanation } from '../utils/aiChat.js'
  * @param {object} props.question as it stands in the quiz set
  * @param {*} props.answer what the student put, in whatever shape the type uses
  * @param {number} props.index its place in the paper, counting from zero
+ * @param {boolean} [props.keyOnly] the paper with its answer key and nobody's
+ *   answers on it, for a teacher reading what is on it before a lesson
  */
 /** Seconds, as the student's own review screen writes them. */
 function formatTime(s) {
@@ -69,7 +71,7 @@ const VERDICT_LABEL = {
   pending: 'Waiting to be marked',
 }
 
-function ReviewedQuestion({ question, answer, index, seconds, attemptId }) {
+function ReviewedQuestion({ question, answer, index, seconds, attemptId, keyOnly = false }) {
   const type = question.type || 'multiple-choice'
   const [tab, setTab] = useState(0)
   const hasExtracts = (type === 'multi-description' || type === 'multi-matching')
@@ -85,10 +87,16 @@ function ReviewedQuestion({ question, answer, index, seconds, attemptId }) {
   const keyRows = (rows) => (
     <div className="rq-key">
       {rows.map(({ label, theirs, right }, i) => (
-        <div key={i} className={`rq-key-row${theirs === right ? ' is-right' : ''}`}>
+        <div key={i} className={`rq-key-row${keyOnly || theirs === right ? ' is-right' : ''}`}>
           <span className="rq-key-label">{label}</span>
-          <span className="rq-key-theirs">{theirs ?? <em>blank</em>}</span>
-          {theirs !== right && <span className="rq-key-answer">{right}</span>}
+          {keyOnly ? (
+            <span className="rq-key-theirs">{right}</span>
+          ) : (
+            <>
+              <span className="rq-key-theirs">{theirs ?? <em>blank</em>}</span>
+              {theirs !== right && <span className="rq-key-answer">{right}</span>}
+            </>
+          )}
         </div>
       ))}
     </div>
@@ -109,7 +117,7 @@ function ReviewedQuestion({ question, answer, index, seconds, attemptId }) {
               <div className={cls} style={{ cursor: 'default' }}>
                 <span className={`qt-option-radio ${oi === question.correctIndex ? 'qt-radio-correct' : oi === answer ? 'qt-radio-wrong' : ''}`} />
                 <span className="qt-option-text" dangerouslySetInnerHTML={{ __html: renderMath(prepareMath(opt)) }} />
-                {oi === answer && <span className="rq-chose">their answer</span>}
+                {!keyOnly && oi === answer && <span className="rq-chose">their answer</span>}
               </div>
               {why && <div className="qt-option-explanation" dangerouslySetInnerHTML={{ __html: why }} />}
               </div>
@@ -145,6 +153,16 @@ function ReviewedQuestion({ question, answer, index, seconds, attemptId }) {
 
     if (type === 'free-response') {
       const marks = Number(question.marks) > 0 ? Math.round(Number(question.marks)) : 1
+      if (keyOnly) {
+        return (
+          <div className="rq-written">
+            <div className="rq-written-label">What it is looking for ({marks} mark{marks === 1 ? '' : 's'})</div>
+            {question.modelAnswer
+              ? <RichText html={question.modelAnswer} />
+              : <p className="rq-written-note">No model answer has been written for this one.</p>}
+          </div>
+        )
+      }
       return (
         <div className="rq-written">
           <div className="rq-written-label">What they wrote</div>
@@ -168,6 +186,9 @@ function ReviewedQuestion({ question, answer, index, seconds, attemptId }) {
     }
 
     if (isWritingType(type)) {
+      if (keyOnly) {
+        return <p className="rq-written-note">Writing — marked against the rubric on the writing screen.</p>
+      }
       // The teacher's marking is the paper, for writing - the piece on its own
       // tells a parent nothing about how it was judged.
       return (
@@ -226,8 +247,8 @@ function ReviewedQuestion({ question, answer, index, seconds, attemptId }) {
       <header className="rq-head">
         <span className="rq-num">Question {index + 1}</span>
         <div className="rq-head-right">
-          {seconds > 0 && <span className="rq-time">{formatTime(seconds)}</span>}
-          <span className={`rq-verdict is-${mark}`}>{VERDICT_LABEL[mark]}</span>
+          {!keyOnly && seconds > 0 && <span className="rq-time">{formatTime(seconds)}</span>}
+          {!keyOnly && <span className={`rq-verdict is-${mark}`}>{VERDICT_LABEL[mark]}</span>}
         </div>
       </header>
 

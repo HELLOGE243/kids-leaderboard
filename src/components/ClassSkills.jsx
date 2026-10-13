@@ -3,7 +3,6 @@ import {
   getClassSkillSummary, getClassGroups, createClassGroup, updateClassGroup, deleteClassGroup,
   getCoursesForOrg, getClassById, getStudentById, fullName, TAG_SUBJECTS,
 } from '../data/store.js'
-import GroupCodes from './GroupCodes.jsx'
 
 // Where a class's tagged results turn into teaching decisions: which skills the
 // class is weakest at, who is struggling with each one, and a way to turn that
@@ -63,26 +62,7 @@ export default function ClassSkills({ classId, orgId, onOpenStudent, canEditGrou
             </select>
           </label>
         )}
-        {canEditGroups && (
-          <>
-            <button className="cs-btn" onClick={() => startGroup([])}>+ New group</button>
-            {groupId && (
-              <>
-                <button className="cs-btn" onClick={() => { const g = groups.find((x) => x.id === groupId); setEditing({ id: g.id, name: g.name, studentIds: [...g.studentIds] }) }}>Edit group</button>
-                <button className="cs-btn cs-btn-danger" onClick={() => { if (window.confirm('Delete this group? Student results are not affected.')) { deleteClassGroup(groupId); setGroupId(''); refresh() } }}>Delete</button>
-              </>
-            )}
-          </>
-        )}
       </div>
-
-      {canEditGroups && (
-        <div className="cs-group-codes">
-          <h4 className="cs-group-codes-title">Group codes</h4>
-          <p className="cs-hint">A teacher types one of these to take on that group and see those students.</p>
-          <GroupCodes classId={classId} />
-        </div>
-      )}
 
       {skills.length === 0 ? (
         <p className="cs-empty">
@@ -113,9 +93,11 @@ export default function ClassSkills({ classId, orgId, onOpenStudent, canEditGrou
                             </button>
                           ))}
                         </div>
-                        <button className="cs-btn cs-btn-primary" onClick={() => setEditing({ name: s.name, studentIds: s.struggling.map((x) => x.id) })}>
-                          Make a group from these {s.struggling.length}
-                        </button>
+                        {canEditGroups && (
+                          <button className="cs-btn cs-btn-primary" onClick={() => setEditing({ name: s.name, studentIds: s.struggling.map((x) => x.id) })}>
+                            Make a group from these {s.struggling.length}
+                          </button>
+                        )}
                       </>
                     )}
                   </div>

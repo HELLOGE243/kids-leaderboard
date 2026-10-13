@@ -28,6 +28,7 @@ import {
   archiveStudent,
   unarchiveStudent,
   createClass,
+  getClassGroups,
   updateClass,
   deleteClass,
   getClassesForOrg,
@@ -756,14 +757,56 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                       })()}
                     </div>
                     {addError && <p className="td2-error">{addError}</p>}
-                    {activeClassStudents.length === 0 ? <p className="td2-empty">No students in this class.</p> : activeClassStudents.map((s, i) => (
-                      <div key={s.id} className="td2-item">
-                        <span className="td2-muted td2-num">{i + 1}</span>
-                        <span className="td2-grow td2-strong">{fullName(s)}</span>
-                        <span className="td2-muted td2-small">{s.coins}c · {s.tokens}t</span>
-                        <button className="td2-btn-ghost td2-btn-sm" onClick={() => requestConfirm(`Remove "${fullName(s)}" from class?`, () => handleRemove(activeClass, s.id), 'Remove')}>Remove</button>
-                      </div>
-                    ))}
+                    {activeClassStudents.length === 0 ? <p className="td2-empty">No students in this class.</p> : (() => {
+                      // The roll, in the groups it is taught in. A flat list of
+                      // thirty says nothing about who takes whom; the group is
+                      // also what decides which teacher can see them, so a
+                      // student sitting in none is worth seeing as such.
+                      const groups = getClassGroups(activeClass)
+                      const inAGroup = new Set(groups.flatMap((g) => (g.studentIds || []).map(String)))
+                      const loose = activeClassStudents.filter((s) => !inAGroup.has(String(s.id)))
+                      const row = (s) => (
+                        <div key={s.id} className="td2-item">
+                          <span className="td2-grow td2-strong">{fullName(s)}</span>
+                          <span className="td2-muted td2-small">{s.coins}c · {s.tokens}t</span>
+                          <button className="td2-btn-ghost td2-btn-sm" onClick={() => requestConfirm(`Remove "${fullName(s)}" from class?`, () => handleRemove(activeClass, s.id), 'Remove')}>Remove</button>
+                        </div>
+                      )
+                      return (
+                        <>
+                          {groups.map((g) => {
+                            const rows = (g.studentIds || [])
+                              .map((id) => activeClassStudents.find((s) => String(s.id) === String(id)))
+                              .filter(Boolean)
+                            return (
+                              <div key={g.id} className="td2-roll-group">
+                                <div className="td2-roll-group-head">
+                                  <span className="td2-strong">{g.name}</span>
+                                  <span className="td2-muted td2-small">
+                                    {rows.length} student{rows.length === 1 ? '' : 's'}
+                                    {g.code ? ` · code ${g.code}` : ''}
+                                  </span>
+                                </div>
+                                {rows.length === 0
+                                  ? <p className="td2-empty">Nobody in this group.</p>
+                                  : rows.map(row)}
+                              </div>
+                            )
+                          })}
+                          {loose.length > 0 && (
+                            <div className="td2-roll-group td2-roll-loose">
+                              <div className="td2-roll-group-head">
+                                <span className="td2-strong">Not in a group</span>
+                                <span className="td2-muted td2-small">
+                                  {loose.length} student{loose.length === 1 ? '' : 's'} · no teacher can see these
+                                </span>
+                              </div>
+                              {loose.map(row)}
+                            </div>
+                          )}
+                        </>
+                      )
+                    })()}
                   </div>
 
                   <div>

@@ -19205,3 +19205,56 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .parent-login .login-form .btn { width: 100%; }
 .parent-login > .btn-outline { width: min(340px, 100%); }
 .parent-login .login-error { margin: 0; text-align: center; }
+
+/* --- A class, as the groups it is taught in --------------------------------
+   The groups come first on the page: a class of thirty is a roll, a group of
+   six is a lesson. */
+.cg-panel { display: flex; flex-direction: column; gap: 12px; }
+.cg-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.cg-head-actions { display: flex; gap: 8px; }
+.cg-codes { padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.04); }
+.cg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.cg-card {
+  border-radius: 12px; padding: 14px 16px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
+}
+.cg-card-loose { border-style: dashed; margin-top: 12px; }
+.cg-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.cg-card-title { display: flex; flex-direction: column; gap: 2px; }
+.cg-name { margin: 0; font-size: 0.95rem; }
+.cg-meta { font-size: 0.68rem; opacity: 0.62; }
+.cg-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.cg-students { display: flex; flex-direction: column; gap: 4px; }
+.cg-student {
+  display: grid; grid-template-columns: 1fr auto 46px; align-items: center; gap: 10px;
+  width: 100%; padding: 7px 10px; border-radius: 8px; cursor: pointer; text-align: left;
+  background: rgba(0,0,0,0.16); border: 1px solid transparent; color: inherit; font: inherit;
+}
+.cg-student:hover { border-color: var(--accent); }
+.cg-student-name { font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cg-student-done { display: flex; align-items: center; gap: 6px; }
+.cg-student-score { font-size: 0.82rem; font-weight: 700; text-align: right; }
+
+/* The skills breakdown waits behind a summary instead of filling the page. */
+.cd-analytics {
+  margin: 18px 0; padding: 12px 16px; border-radius: 12px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+}
+.cd-analytics > summary { cursor: pointer; list-style: revert; }
+.cd-analytics[open] > summary { margin-bottom: 12px; }
+.cd-browse-btn {
+  margin-left: auto; padding: 8px 14px; border-radius: 8px; cursor: pointer;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18);
+  color: inherit; font-size: 0.78rem;
+}
+.cd-browse-btn:hover { border-color: var(--accent); }
+/* The class roll, in the groups it is taught in. */
+.td2-roll-group { margin-bottom: 14px; }
+.td2-roll-group-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding: 6px 2px; margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.td2-roll-loose .td2-roll-group-head { border-bottom-style: dashed; }
+/* The bar needs a width of its own here: the row is a grid, not a table. */
+.cg-student .cd-progress-bar { width: 70px; flex-shrink: 0; }
+.cg-student .cd-progress-text { font-size: 0.68rem; opacity: 0.7; min-width: 42px; text-align: right; }

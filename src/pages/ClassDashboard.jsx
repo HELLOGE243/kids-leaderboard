@@ -9,6 +9,8 @@ import {
   preloadClassStudents,
 } from '../data/store.js'
 import ClassSkills from '../components/ClassSkills.jsx'
+import ClassGroupsPanel from '../components/ClassGroupsPanel.jsx'
+import ClassQuizBrowser from '../components/ClassQuizBrowser.jsx'
 import '../class-dashboard.css'
 
 /**
@@ -25,6 +27,7 @@ function ClassDashboard({ classId, orgId, groupId = null, canEditGroups = false,
   const [selectedQuizId, setSelectedQuizId] = useState(null)
   const [selectedStudentId, setSelectedStudentId] = useState(null)
   const [sort, setSort] = useState({ key: 'name', asc: true })
+  const [browsing, setBrowsing] = useState(false)
   const [quizSort, setQuizSort] = useState({ key: 'name', asc: true })
 
   useEffect(() => {
@@ -55,6 +58,10 @@ function ClassDashboard({ classId, orgId, groupId = null, canEditGroups = false,
 
   if (view === 'quiz' && selectedQuizId) {
     return <QuizResultsView quizSetId={selectedQuizId} classStudentIds={dashboard.studentIds} onBack={() => { setView('overview'); setSelectedQuizId(null) }} refresh={refresh} />
+  }
+
+  if (browsing) {
+    return <ClassQuizBrowser classId={classId} orgId={orgId} onBack={() => setBrowsing(false)} />
   }
 
   if (view === 'student' && selectedStudentId) {
@@ -93,16 +100,13 @@ function ClassDashboard({ classId, orgId, groupId = null, canEditGroups = false,
         <button className="cd-back-btn" onClick={onBack}>{'←'} Back</button>
         <h2 className="cd-title">{cls.name}</h2>
         {cls.yearGroup && <span className="cd-year">{cls.yearGroup}</span>}
+        <button className="cd-browse-btn" onClick={() => setBrowsing(true)}>Browse papers</button>
       </div>
 
       <div className="cd-stats-row">
         <div className="cd-stat-card">
           <span className="cd-stat-value">{totalStudents}</span>
           <span className="cd-stat-label">Students</span>
-        </div>
-        <div className="cd-stat-card">
-          <span className="cd-stat-value">{totalQuizzes}</span>
-          <span className="cd-stat-label">Quizzes Assigned</span>
         </div>
         <div className="cd-stat-card">
           <span className="cd-stat-value">{avgCompletion}%</span>
@@ -114,15 +118,19 @@ function ClassDashboard({ classId, orgId, groupId = null, canEditGroups = false,
         </div>
       </div>
 
-      <DonutChart students={students} />
-
+      {/* How the class is actually taught comes first. */}
       <div className="cd-section">
-        <h3 className="cd-section-title">Skills &amp; groups</h3>
-        <ClassSkills classId={classId} orgId={orgId} canEditGroups={canEditGroups} fixedGroupId={groupId} onOpenStudent={(id) => { setSelectedStudentId(id); setView('student') }} />
+        <ClassGroupsPanel
+          classId={classId}
+          students={students}
+          canEdit={canEditGroups}
+          fixedGroupId={groupId}
+          onOpenStudent={(id) => { setSelectedStudentId(id); setView('student') }}
+        />
       </div>
 
       <div className="cd-section">
-        <h3 className="cd-section-title">Students</h3>
+        <h3 className="cd-section-title">Every student</h3>
         <div className="cd-table">
           <div className="cd-table-header">
             <span className="cd-th cd-th-name" onClick={() => toggleSort('name')}>Name {sort.key === 'name' ? (sort.asc ? '▲' : '▼') : ''}</span>
@@ -147,8 +155,13 @@ function ClassDashboard({ classId, orgId, groupId = null, canEditGroups = false,
         </div>
       </div>
 
+      <details className="cd-analytics">
+        <summary className="cd-section-title">Analytics — skills and weaknesses</summary>
+        <ClassSkills classId={classId} orgId={orgId} canEditGroups={false} fixedGroupId={groupId} onOpenStudent={(id) => { setSelectedStudentId(id); setView('student') }} />
+      </details>
+
       <div className="cd-section">
-        <h3 className="cd-section-title">Quizzes</h3>
+        <h3 className="cd-section-title">Papers — tap one for every student's result</h3>
         <div className="cd-table">
           <div className="cd-table-header">
             <span className="cd-th cd-th-name">Quiz</span>
@@ -164,48 +177,6 @@ function ClassDashboard({ classId, orgId, groupId = null, canEditGroups = false,
           ))}
           {allQuizzes.length === 0 && <div className="cd-empty">No quizzes assigned to this class</div>}
         </div>
-      </div>
-    </div>
-  )
-}
-
-function DonutChart({ students }) {
-  const total = students.length
-  if (total === 0) return null
-  const high = students.filter(s => s.avgPct >= 70).length
-  const mid = students.filter(s => s.avgPct >= 50 && s.avgPct < 70).length
-  const low = students.filter(s => s.avgPct > 0 && s.avgPct < 50).length
-  const none = students.filter(s => s.avgPct === 0).length
-
-  const segments = []
-  if (high > 0) segments.push({ pct: (high / total) * 100, color: '#4caf50', label: '70%+', count: high })
-  if (mid > 0) segments.push({ pct: (mid / total) * 100, color: '#ff9800', label: '50-69%', count: mid })
-  if (low > 0) segments.push({ pct: (low / total) * 100, color: '#f44336', label: '<50%', count: low })
-  if (none > 0) segments.push({ pct: (none / total) * 100, color: '#666', label: 'No data', count: none })
-
-  let gradient = ''
-  let cumulative = 0
-  for (const seg of segments) {
-    gradient += `${seg.color} ${cumulative}% ${cumulative + seg.pct}%, `
-    cumulative += seg.pct
-  }
-  gradient = gradient.slice(0, -2)
-
-  return (
-    <div className="cd-donut-section">
-      <div className="cd-donut" style={{ background: `conic-gradient(${gradient})` }}>
-        <div className="cd-donut-hole">
-          <span className="cd-donut-value">{total}</span>
-          <span className="cd-donut-label">students</span>
-        </div>
-      </div>
-      <div className="cd-donut-legend">
-        {segments.map((seg, i) => (
-          <div key={i} className="cd-legend-item">
-            <span className="cd-legend-dot" style={{ background: seg.color }} />
-            <span className="cd-legend-text">{seg.label}: {seg.count}</span>
-          </div>
-        ))}
       </div>
     </div>
   )

@@ -1,8 +1,6 @@
 import { useState } from 'react'
-import { getClassById, getCoursesForOrg, getImportedQuizSet, isWritingType } from '../data/store.js'
-import { RichText } from './RichTextEditor.jsx'
-import { renderMath } from '../utils/renderMath.js'
-import { prepareMath } from '../utils/mathify.js'
+import { getClassById, getCoursesForOrg, getImportedQuizSet } from '../data/store.js'
+import ReviewedQuestion from './ReviewedQuestion.jsx'
 
 /**
  * A teacher reading a class's papers.
@@ -11,110 +9,15 @@ import { prepareMath } from '../utils/mathify.js'
  * answer is, what the explanation says — without going through the editor, where
  * every field is one keystroke from changing a live paper, and without the
  * marking screens. Nothing here writes: no answers, no marks, no edits.
+ *
+ * The questions are rendered by the same component the students' own review
+ * uses, so a paper reads here exactly as it reads to the child sitting it:
+ * passage on the left, question and options on the right, the correct answer
+ * marked and the explanation under the option it belongs to. The old copy of
+ * that rendering also read the explanation from `expGeneral`/`expOptions`,
+ * which only exist while a question is open in the editor - on a saved paper
+ * they are `explanation`, so no explanation ever appeared here.
  */
-function letter(i) {
-  return String.fromCharCode(65 + i)
-}
-
-function QuestionView({ q }) {
-  const type = q.type || 'multiple-choice'
-  const [tab, setTab] = useState(0)
-  const hasExtracts = (type === 'multi-description' || type === 'multi-matching') && (q.descriptions || []).length > 0
-
-  const answerBlock = () => {
-    if (type === 'multiple-choice' || type === 'multi-description') {
-      return (
-        <div className="qt-options">
-          {(q.options || []).map((opt, oi) => {
-            if (!opt) return null
-            const right = oi === q.correctIndex
-            return (
-              <div key={oi} className={`qt-option qt-option-review${right ? ' qt-option-correct' : ''}`} style={{ cursor: 'default' }}>
-                <span className={`qt-option-radio${right ? ' qt-radio-correct' : ''}`} />
-                <span className="qt-option-text" dangerouslySetInnerHTML={{ __html: renderMath(prepareMath(opt)) }} />
-              </div>
-            )
-          })}
-        </div>
-      )
-    }
-    if (type === 'dropdown-cloze') {
-      return (
-        <div className="cqb-key">
-          {(q.blanks || []).map((b, bi) => (
-            <div key={bi} className="cqb-key-row">
-              <span className="cqb-key-label">Blank {bi + 1}</span>
-              <span className="cqb-key-value">{b.options?.[b.correctIndex] ?? letter(b.correctIndex)}</span>
-            </div>
-          ))}
-        </div>
-      )
-    }
-    if (type === 'drag-drop' || type === 'drag-sentence' || type === 'drag-summary') {
-      return (
-        <div className="cqb-key">
-          {(q.correctOrder || []).map((oi, gi) => (
-            <div key={gi} className="cqb-key-row">
-              <span className="cqb-key-label">Gap {q.gapNumbers?.[gi] ?? gi + 1}</span>
-              <span className="cqb-key-value">{q.summaryOptions?.[oi] || letter(oi)}</span>
-            </div>
-          ))}
-        </div>
-      )
-    }
-    if (type === 'multi-matching') {
-      return (
-        <div className="cqb-key">
-          {(q.matchQuestions || []).map((mq, mi) => (
-            <div key={mi} className="cqb-key-row">
-              <span className="cqb-key-label" dangerouslySetInnerHTML={{ __html: mq.question }} />
-              <span className="cqb-key-value">{letter(mq.correctExtract)}</span>
-            </div>
-          ))}
-        </div>
-      )
-    }
-    if (isWritingType(type)) {
-      return <p className="cqb-note">Writing — marked against the rubric in the writing screen.</p>
-    }
-    return <p className="cqb-note">No answer key for this question type.</p>
-  }
-
-  return (
-    <div className="cqb-question">
-      {hasExtracts && (
-        <>
-          <div className="qt-desc-tabs">
-            {q.descriptions.map((d, di) => (
-              <button key={di} className={`qt-desc-tab${tab === di ? ' qt-desc-tab-active' : ''}`} onClick={() => setTab(di)}>
-                {d.title || letter(di)}
-              </button>
-            ))}
-          </div>
-          <div className="qt-desc-content"><RichText html={q.descriptions[tab]?.content || ''} /></div>
-        </>
-      )}
-      {!hasExtracts && q.text && (
-        <div className="qt-question-text"><RichText html={q.text} /></div>
-      )}
-      {q.prompt && <div className="qt-prompt-display" dangerouslySetInnerHTML={{ __html: q.prompt }} />}
-      {answerBlock()}
-      {(q.expGeneral || Object.keys(q.expOptions || {}).length > 0) && (
-        <details className="cqb-explain">
-          <summary>Explanation</summary>
-          {q.expGeneral && <div className="cqb-explain-body" dangerouslySetInnerHTML={{ __html: renderMath(q.expGeneral) }} />}
-          {Object.entries(q.expOptions || {}).map(([key, val]) => val ? (
-            <div key={key} className="cqb-explain-opt">
-              <strong>{key}</strong>
-              <span dangerouslySetInnerHTML={{ __html: renderMath(val) }} />
-            </div>
-          ) : null)}
-        </details>
-      )}
-    </div>
-  )
-}
-
 function ClassQuizBrowser({ classId, orgId, onBack }) {
   const cls = getClassById(classId)
   const courses = getCoursesForOrg(orgId).filter((c) => c.classId === classId)
@@ -138,7 +41,9 @@ function ClassQuizBrowser({ classId, orgId, onBack }) {
           <span className="cqb-nav-count">Question {qi + 1} of {questions.length}</span>
           <button className="btn btn-outline btn-small" disabled={qi >= questions.length - 1} onClick={() => setQi(qi + 1)}>Next ▶</button>
         </div>
-        {q ? <QuestionView key={qi} q={q} /> : <p className="td2-empty">This paper has no questions.</p>}
+        {q
+          ? <ReviewedQuestion key={qi} question={q} index={qi} keyOnly />
+          : <p className="td2-empty">This paper has no questions.</p>}
       </div>
     )
   }
