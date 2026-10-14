@@ -97,13 +97,17 @@
     state = null
   }
 
-  if (state && LAST_PAGE) {
+  if (state) {
     // Saved progress for a different page range would silently extract the
-    // wrong pages; only resume when the range matches the settings.
-    const wantFirst = Math.max(1, Math.min(FIRST_PAGE, LAST_PAGE))
-    const wantLast = Math.max(FIRST_PAGE, LAST_PAGE)
-    if (state.firstPage !== wantFirst || state.lastPage !== wantLast) {
-      log(`Saved progress is for pages ${state.firstPage}-${state.lastPage}; starting pages ${wantFirst}-${wantLast} fresh.`)
+    // wrong pages; only resume when the range matches the settings. This has
+    // to hold for an open-ended range too: with LAST_PAGE left null the check
+    // used to be skipped entirely, so last month's half-finished run was
+    // offered as a resume and "OK" quietly re-did those pages instead of the
+    // ones asked for.
+    const wantFirst = LAST_PAGE ? Math.max(1, Math.min(FIRST_PAGE, LAST_PAGE)) : Math.max(1, FIRST_PAGE)
+    const wantLast = LAST_PAGE ? Math.max(FIRST_PAGE, LAST_PAGE) : null
+    if (state.firstPage !== wantFirst || (wantLast !== null && state.lastPage !== wantLast)) {
+      log(`Saved progress is for pages ${state.firstPage}-${state.lastPage}; starting from page ${wantFirst} fresh.`)
       localStorage.removeItem(STATE_KEY)
       state = null
     }
