@@ -32,8 +32,12 @@
   // Exact range: set both, e.g. FIRST_PAGE = 49, LAST_PAGE = 60 extracts pages
   // 49 to 60 and nothing else (either order works).
   // Whole list: leave LAST_PAGE = null and it scans FIRST_PAGE to the last page.
-  const FIRST_PAGE = 1
-  const LAST_PAGE = 45
+  // Where the last run left off. August swept 1-165 with the old extractor;
+  // September re-did 6-14, 24-37 and 41-49 with this one and stopped. Left to
+  // do: 50 onwards (LAST_PAGE = null detects the end and says how many pages
+  // there are), then the small gaps at 1-5, 15-23 and 38-40.
+  const FIRST_PAGE = 50
+  const LAST_PAGE = null
   const MAX_QUESTIONS_PER_FILE = 150
   const MAX_FILE_MB = 20        // images are embedded, so cap by size too
   const DELAY_MS = 300          // pause between requests (be gentle on the server)
