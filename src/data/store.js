@@ -4303,6 +4303,22 @@ export function sendQuestionToTeachers(studentId, question, quizSetId, questionI
   })
 }
 
+/**
+ * Sends the question behind a revision card to the student's teachers.
+ *
+ * The card does not keep the question - the hall reads it from the quiz set -
+ * so it is looked up here, with the card's own snippet as the fallback for a
+ * custom card or a paper since deleted.
+ */
+export function askTeacherAboutCard(studentId, card) {
+  if (!card) return Promise.resolve(null)
+  const data = loadData()
+  const set = (data.importedQuizSets || []).find((s) => s.id === card.sourceId)
+  const question = set?.questions?.[card.questionIndex]
+    || { id: card.questionId, text: card.questionSnippet || '' }
+  return sendQuestionToTeachers(studentId, question, card.sourceId, card.questionIndex)
+}
+
 /** This student's questions and the answers to them, newest first. */
 export function getMyAskedQuestions(studentId) {
   return loadAskedForStudent(studentId)

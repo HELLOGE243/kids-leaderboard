@@ -17,6 +17,7 @@ import {
   sendBroadcast,
   addDojoCard,
   markDojoAskTeacher,
+  sendQuestionToTeachers,
   getSharedExplanation,
   saveSharedExplanation,
 } from '../data/store.js'
@@ -829,6 +830,10 @@ function QuizDashboard({ user, onBack, initialNav }) {
                         onClick={() => {
                           const card = addDojoCard(user.id, q, 'quiz', quiz.id, qIdx, { className: '', courseName: '', quizTitle: quiz.title || '' })
                           if (card?.id) markDojoAskTeacher(card.id)
+                          // The card is their own deck; this is the question
+                          // reaching a teacher. The button has always said it
+                          // was sent - until now nothing was.
+                          sendQuestionToTeachers(user.id, q, quiz.id, qIdx)
                           setAskedTeacher((prev) => new Set(prev).add(qIdx))
                         }}
                       >{askedTeacher.has(qIdx) ? 'Sent to your teacher ✓' : 'I still don’t get it — ask my teacher'}</button>

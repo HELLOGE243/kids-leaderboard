@@ -10,6 +10,7 @@ import {
   getDojoKills,
   recordDojoAnswer,
   markDojoAskTeacher,
+  askTeacherAboutCard,
   returnDojoCardToTraining,
   redeemDojoKills,
   reportQuestionError,
@@ -847,7 +848,7 @@ Return ONLY valid JSON:
                           sourceId: currentCard.sourceId,
                           encounter: currentCard.correctStreak + 1,
                           leftContent: !answered
-                            ? <button className="qt-action-btn-left" onClick={() => { markDojoAskTeacher(currentCard.id); nextCard() }}>Ask for Help</button>
+                            ? <button className="qt-action-btn-left" onClick={() => { markDojoAskTeacher(currentCard.id); askTeacherAboutCard(user.id, currentCard); nextCard() }}>Ask for Help</button>
                             : null,
                           centerContent: answered
                             ? <span className={`dojo-feedback-text ${result === 'correct' ? 'dojo-fb-correct' : 'dojo-fb-wrong'}`}>

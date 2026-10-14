@@ -15,6 +15,7 @@ const FUNCTIONS_BASE = 'https://australia-southeast1-cleverspacev2.cloudfunction
 import NewsfeedManager from './NewsfeedManager.jsx'
 import ClassDashboard from './ClassDashboard.jsx'
 import AdminTeacherPanel from '../components/AdminTeacherPanel.jsx'
+import QuestionInbox from '../components/QuestionInbox.jsx'
 import { adminAction } from '../data/auth.js'
 import SubmissionArchive from '../components/SubmissionArchive.jsx'
 import '../teacher-dashboard.css'
@@ -559,6 +560,8 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                 </button>
               ))}
             </div>
+
+            <QuestionInbox teacher={teacher} />
 
             <div className="td2-grid">
               {/* Classes */}

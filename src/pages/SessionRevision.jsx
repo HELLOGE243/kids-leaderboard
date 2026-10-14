@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { renderMath } from '../utils/renderMath.js'
 import { prepareMath } from '../utils/mathify.js'
-import { getDojoCardsForStudent, recordCompulsoryRevisionAnswer, markDojoAskTeacher, reportQuestionError } from '../data/store.js'
+import { getDojoCardsForStudent, recordCompulsoryRevisionAnswer, markDojoAskTeacher, askTeacherAboutCard, reportQuestionError } from '../data/store.js'
 import ReportIssueModal from '../components/ReportIssueModal.jsx'
 import { RichText } from '../components/RichTextEditor.jsx'
 import { resolveImages } from '../data/imageStore.js'
@@ -165,7 +165,8 @@ function SessionRevision({ user, onComplete }) {
 
   function handleAskForHelp() {
     markDojoAskTeacher(card.id)
-    setFeedbackMsg('Moved to Ask for Help deck')
+    askTeacherAboutCard(user.id, card)
+    setFeedbackMsg('Sent to your teacher')
     setAnswered(true)
     setResult('help')
   }

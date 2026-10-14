@@ -720,6 +720,25 @@ async function syncStudentGroups(groups) {
     if (++queued >= 400) await flush()
   }
   await flush()
+
+  // A question records the groups its student was in when they asked. Move the
+  // student and that stamp is stale: the teacher who now takes them cannot see
+  // the question, and the one who no longer does still can. Open questions are
+  // re-stamped to match; answered ones are history and left alone.
+  const open = await db.collection('askedQuestions').where('status', '==', 'open').get()
+  let qBatch = db.batch()
+  let qQueued = 0
+  report.questionsRerouted = 0
+  for (const d of open.docs) {
+    const nowIn = [...(wanted.get(String(d.get('studentId'))) || [])].sort()
+    const had = (d.get('groupIds') || []).map(String).sort()
+    if (nowIn.length === had.length && nowIn.every((x, i) => x === had[i])) continue
+    qBatch.update(d.ref, { groupIds: nowIn })
+    report.questionsRerouted++
+    if (++qQueued >= 400) { await qBatch.commit(); qBatch = db.batch(); qQueued = 0 }
+  }
+  if (qQueued) await qBatch.commit()
+
   return report
 }
 
@@ -1223,20 +1242,29 @@ exports.teacherQuestions = functions
       if (!caller || caller.role !== 'teacher') return sendJson(res, 403, { error: 'Teacher sign-in required' })
       try {
         const groups = await getGroups()
-        const groupIds = caller.admin === true
-          ? groups.map((g) => g.id)
-          : groupsForTeacher(groups, caller.uid)
-        if (!groupIds.length) return sendJson(res, 200, { ok: true, questions: [] })
-
-        // array-contains-any takes ten values, and a teacher may hold more.
         const found = new Map()
-        for (let i = 0; i < groupIds.length; i += 10) {
+
+        if (caller.admin === true) {
+          // Everything, not just what the groups route. A question from a
+          // student in no group matches no group, so filtering by group would
+          // hide the very ones nobody else can see.
           const snap = await db.collection('askedQuestions')
-            .where('groupIds', 'array-contains-any', groupIds.slice(i, i + 10))
             .orderBy('askedAt', 'desc')
             .limit(300)
             .get()
           for (const d of snap.docs) found.set(d.id, { id: d.id, ...d.data() })
+        } else {
+          const groupIds = groupsForTeacher(groups, caller.uid)
+          if (!groupIds.length) return sendJson(res, 200, { ok: true, questions: [] })
+          // array-contains-any takes ten values, and a teacher may hold more.
+          for (let i = 0; i < groupIds.length; i += 10) {
+            const snap = await db.collection('askedQuestions')
+              .where('groupIds', 'array-contains-any', groupIds.slice(i, i + 10))
+              .orderBy('askedAt', 'desc')
+              .limit(300)
+              .get()
+            for (const d of snap.docs) found.set(d.id, { id: d.id, ...d.data() })
+          }
         }
         const questions = [...found.values()]
           .sort((a, b) => String(b.askedAt || '').localeCompare(String(a.askedAt || '')))
