@@ -4,22 +4,31 @@
 // Replaces the manual extract -> splice -> embed -> chunk workflow.
 //
 // HOW TO USE
-//   1. Log into https://back.cleverspace.app/admin (Chrome)
-//   2. Open DevTools (F12) -> Console
-//   3. Paste this whole script and press Enter
-//   4. Click "Choose folder & start" in the panel (bottom right) and pick a
+//   1. Set FIRST_PAGE and LAST_PAGE below
+//   2. Log into https://back.cleverspace.app/admin (Chrome)
+//   3. Open DevTools (F12) -> Console
+//   4. Paste this whole script and press Enter
+//   5. Click "Choose folder & start" in the panel (bottom right) and pick a
 //      folder - every part file is saved straight into it, no download prompts
-//   5. Leave the tab open until the panel says Done (it can be in the background)
+//   6. Leave the tab open until the panel says Done (it can be in the background)
 //
-// It scans the list pages, extracts every question (including the solution
-// video field), embeds images, and keeps going part after part until the whole
-// range is done: cleverspace-p<first>-<last>-part-001.json, -002.json, ...
-// In CleverSpace EduPortal: Quiz Builder -> Import JSON -> select ALL the part
-// files at once.
+// IT WORKS IN BLOCKS. The range is cut into blocks of BLOCK_PAGES pages, and
+// each block is scanned, extracted and written before the next one starts:
+//
+//     cleverspace-p50-69-part-001.json, -002.json, ...
+//     cleverspace-p70-89-part-001.json, ...
+//
+// So a block's files are complete and importable while the rest is still
+// running, and a run that dies halfway costs you one block, not the lot.
+// In CleverSpace EduPortal: Quiz Builder -> Import JSON -> select the files.
 //
 // RESUMABLE: progress is saved in this browser. If the tab crashes, is closed
-// or you get logged out, log back in and paste the script again - it offers
-// to continue from where it stopped, without re-downloading finished parts.
+// or you get logged out, log back in and paste the script again - it offers to
+// continue from the question it stopped at, in the block it stopped in.
+//
+// WHERE THE LIST ENDS: a block that turns up no questions it has not already
+// seen is past the end, and the run stops there and says so. So you can set
+// LAST_PAGE higher than the list goes without wasting a night on empty pages.
 //
 // Controls (in the console while it runs, or afterwards):
 //   csMaster.stop()    finish the current question, save a part, then pause
@@ -29,22 +38,16 @@
 
 (async function cleverSpaceMaster() {
   // >>>>>> SETTINGS <<<<<<
-  // Exact range: set both, e.g. FIRST_PAGE = 49, LAST_PAGE = 60 extracts pages
-  // 49 to 60 and nothing else (either order works).
-  // Whole list: leave LAST_PAGE = null and it scans FIRST_PAGE to the last page.
-  // Where the last run left off. August swept 1-165 with the old extractor;
-  // September re-did 6-14, 24-37 and 41-49 with this one and stopped. Left to
-  // do: 50 onwards (LAST_PAGE = null detects the end and says how many pages
-  // there are), then the small gaps at 1-5, 15-23 and 38-40.
   const FIRST_PAGE = 50
-  const LAST_PAGE = null
+  const LAST_PAGE = 165
+  const BLOCK_PAGES = 20        // pages per block; each block writes its own files
   const MAX_QUESTIONS_PER_FILE = 150
   const MAX_FILE_MB = 20        // images are embedded, so cap by size too
   const DELAY_MS = 300          // pause between requests (be gentle on the server)
   // >>>>>>>>>>>>>>>>>>>>>>
 
   const BASE = 'https://back.cleverspace.app/admin/quiz-question-model'
-  const STATE_KEY = 'cs-master-state-v1'
+  const STATE_KEY = 'cs-master-state-v2'
 
   // Chrome throttles page timers in background tabs (down to one wake-up a
   // minute after ~5 minutes), which made long runs look frozen. Timers inside
@@ -74,6 +77,20 @@
     return
   }
 
+  // ---------- the blocks ----------
+  const rangeFirst = Math.max(1, Math.min(FIRST_PAGE, LAST_PAGE))
+  const rangeLast = Math.max(FIRST_PAGE, LAST_PAGE)
+  const blockSize = Math.max(1, BLOCK_PAGES)
+
+  function blocksFor(first, last, size) {
+    const out = []
+    for (let start = first; start <= last; start += size) {
+      out.push({ first: start, last: Math.min(start + size - 1, last) })
+    }
+    return out
+  }
+  const blocks = blocksFor(rangeFirst, rangeLast, blockSize)
+
   // ---------- state ----------
   const loadState = () => { try { return JSON.parse(localStorage.getItem(STATE_KEY)) } catch { return null } }
   const saveState = (s) => localStorage.setItem(STATE_KEY, JSON.stringify(s))
@@ -81,46 +98,59 @@
   let stopRequested = false
   let state = loadState()
 
+  const blockLabel = (b) => `pages ${b.first}-${b.last}`
+
   window.csMaster = {
     stop() { stopRequested = true; log('Stopping after the current question...') },
     status() {
       const s = loadState()
       if (!s) return log('No saved progress.')
-      log(`Pages ${s.firstPage}-${s.lastPage} | questions found ${s.uuids.length} | saved to files ${s.done.length} | parts downloaded ${s.partNo - 1} | failed ${s.failed.length}`)
+      const b = s.blocks[s.blockIndex]
+      log(`Range ${s.rangeFirst}-${s.rangeLast} in blocks of ${s.blockSize}`)
+      log(`Block ${s.blockIndex + 1} of ${s.blocks.length} (${b ? blockLabel(b) : 'done'})`)
+      if (b && b.uuids) log(`  this block: ${b.done.length}/${b.uuids.length} questions, ${b.partNo - 1} file(s) written`)
+      log(`Overall: ${s.totalQuestions} questions in ${s.totalFiles} file(s); ${s.failed.length} failed`)
     },
     reset() { localStorage.removeItem(STATE_KEY); log('Saved progress cleared. Paste the script again to start fresh.') },
   }
 
-  if (state && (!Array.isArray(state.uuids) || state.uuids.length === 0)) {
-    // Left behind by a scan that found nothing - not real progress.
+  // Saved progress for a different range or block size would quietly extract
+  // the wrong pages, so only ever resume a run that matches these settings.
+  if (state && (state.rangeFirst !== rangeFirst || state.rangeLast !== rangeLast || state.blockSize !== blockSize)) {
+    log(`Saved progress is for pages ${state.rangeFirst}-${state.rangeLast} in blocks of ${state.blockSize}; starting pages ${rangeFirst}-${rangeLast} fresh.`)
     localStorage.removeItem(STATE_KEY)
     state = null
   }
 
   if (state) {
-    // Saved progress for a different page range would silently extract the
-    // wrong pages; only resume when the range matches the settings. This has
-    // to hold for an open-ended range too: with LAST_PAGE left null the check
-    // used to be skipped entirely, so last month's half-finished run was
-    // offered as a resume and "OK" quietly re-did those pages instead of the
-    // ones asked for.
-    const wantFirst = LAST_PAGE ? Math.max(1, Math.min(FIRST_PAGE, LAST_PAGE)) : Math.max(1, FIRST_PAGE)
-    const wantLast = LAST_PAGE ? Math.max(FIRST_PAGE, LAST_PAGE) : null
-    if (state.firstPage !== wantFirst || (wantLast !== null && state.lastPage !== wantLast)) {
-      log(`Saved progress is for pages ${state.firstPage}-${state.lastPage}; starting from page ${wantFirst} fresh.`)
+    const b = state.blocks[state.blockIndex]
+    const left = b && b.uuids ? b.uuids.length - b.done.length : 0
+    const finished = state.blockIndex >= state.blocks.length
+    if (finished) {
+      const again = confirm(`A previous run of pages ${rangeFirst}-${rangeLast} already finished (${state.totalQuestions} questions in ${state.totalFiles} files).\n\nOK = start it again from scratch\nCancel = do nothing`)
+      if (!again) return
       localStorage.removeItem(STATE_KEY)
       state = null
+    } else {
+      const cont = confirm(`CleverSpace Master Extractor\n\nSaved progress found for pages ${rangeFirst}-${rangeLast}:\nblock ${state.blockIndex + 1} of ${state.blocks.length} (${blockLabel(state.blocks[state.blockIndex])}), ${left} question(s) left in it.\n${state.totalQuestions} questions saved so far.\n\nOK = continue where it stopped\nCancel = start again from scratch`)
+      if (!cont) { localStorage.removeItem(STATE_KEY); state = null }
     }
   }
 
-  if (state && state.uuids && state.done.length < state.uuids.length) {
-    const cont = confirm(`CleverSpace Master Extractor\n\nSaved progress found: ${state.done.length} of ${state.uuids.length} questions already saved to ${state.partNo - 1} file(s).\n\nOK = continue where it stopped\nCancel = start again from scratch`)
-    if (!cont) { localStorage.removeItem(STATE_KEY); state = null }
-  } else if (state && state.uuids && state.done.length >= state.uuids.length) {
-    const again = confirm(`A previous run already finished (${state.uuids.length} questions in ${state.partNo - 1} files).\n\nOK = start a new full extraction\nCancel = do nothing`)
-    if (!again) return
-    localStorage.removeItem(STATE_KEY)
-    state = null
+  if (!state) {
+    state = {
+      rangeFirst,
+      rangeLast,
+      blockSize,
+      blocks: blocks.map((b) => ({ ...b, uuids: null, done: [], partNo: 1 })),
+      blockIndex: 0,
+      seen: [],            // uuids seen anywhere in this run, so a repeated page is not re-extracted
+      failed: [],
+      totalQuestions: 0,
+      totalFiles: 0,
+      startedAt: Date.now(),
+    }
+    saveState(state)
   }
 
   // ---------- output folder + start panel ----------
@@ -133,9 +163,10 @@
   document.getElementById('csm-panel')?.remove() // re-pasting replaces the old panel
   const panel = document.createElement('div')
   panel.id = 'csm-panel'
-  panel.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:2147483647;background:#0f172a;color:#e2e8f0;font:13px/1.45 system-ui,sans-serif;padding:14px 16px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.4);width:320px'
+  panel.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:2147483647;background:#0f172a;color:#e2e8f0;font:13px/1.45 system-ui,sans-serif;padding:14px 16px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.4);width:330px'
   panel.innerHTML = `
     <div style="font-weight:700;margin-bottom:6px">CleverSpace Master Extractor</div>
+    <div id="csm-sub" style="margin-bottom:6px;color:#94a3b8;font-size:12px">Pages ${rangeFirst}-${rangeLast} in ${blocks.length} block(s) of ${blockSize}</div>
     <div id="csm-msg" style="margin-bottom:10px;color:#cbd5e1">Choose a folder to save the part files into.</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button id="csm-start" style="background:#2563eb;color:#fff;border:0;border-radius:6px;padding:7px 12px;cursor:pointer;font-weight:600">Choose folder &amp; start</button>
@@ -202,115 +233,77 @@
 
   const listUrl = (page) => `${BASE}/list${page > 1 ? `?page=${page}` : ''}`
 
-  // Whether a list page has questions. An error counts as "unknown" and is
-  // retried rather than read as "past the end".
-  const pageCache = new Map()
-  async function pageHasQuestions(page) {
-    if (pageCache.has(page)) return pageCache.get(page)
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const n = uuidsOnListPage(await fetchDoc(listUrl(page))).length
-        pageCache.set(page, n > 0)
-        await sleep(DELAY_MS)
-        return n > 0
-      } catch (e) {
-        if (/Logged out/.test(e.message)) throw e
-        await sleep(1000)
-      }
-    }
-    pageCache.set(page, false)
-    return false
-  }
-
-  async function detectLastPage() {
-    // Pagination links on the list only show nearby pages (e.g. 1-5), so they
-    // cannot be trusted for the total. Double until an empty page is found,
-    // then binary-search the boundary - about 2*log2(pages) requests.
-    if (!(await pageHasQuestions(1))) return 0
-    let good = 1
-    let bad = 2
-    while (await pageHasQuestions(bad)) {
-      good = bad
-      bad *= 2
-      if (bad > 20000) break
-    }
-    while (bad - good > 1) {
-      const mid = Math.floor((good + bad) / 2)
-      if (await pageHasQuestions(mid)) good = mid
-      else bad = mid
-    }
-    // Guard against a single empty/failed page just past the boundary.
-    for (let extra = good + 1; extra <= good + 2; extra++) {
-      if (await pageHasQuestions(extra)) return detectFrom(extra)
-    }
-    return good
-  }
-
-  async function detectFrom(start) {
-    let p = start
-    while (await pageHasQuestions(p + 1)) p++
-    return p
-  }
-
   function diagnose(doc) {
     const hrefs = [...doc.querySelectorAll('a[href]')].map((a) => a.getAttribute('href')).filter(Boolean)
     console.group('[Master] DIAGNOSTICS - please send this to support')
     console.log('URL:', location.href)
-    console.log('Edit links on page 1:', hrefs.filter((h) => /edit/i.test(h)).slice(0, 5))
-    console.log('Paging links on page 1:', hrefs.filter((h) => /page/i.test(h)).slice(0, 10))
+    console.log('Edit links on the page:', hrefs.filter((h) => /edit/i.test(h)).slice(0, 5))
+    console.log('Paging links on the page:', hrefs.filter((h) => /page/i.test(h)).slice(0, 10))
     console.log('Sample links:', hrefs.slice(0, 15))
     console.log('Table rows:', doc.querySelectorAll('tr').length)
     console.groupEnd()
   }
 
-  if (!state) {
-    let firstPage
-    let lastPage
-    if (LAST_PAGE) {
-      // Exact range: exactly the pages asked for, no detection, no fallback.
-      firstPage = Math.max(1, Math.min(FIRST_PAGE, LAST_PAGE))
-      lastPage = Math.max(FIRST_PAGE, LAST_PAGE)
-      log(`Exact range: pages ${firstPage} to ${lastPage} (${lastPage - firstPage + 1} pages).`)
-    } else {
-      log('Finding how many list pages there are...')
-      const detected = await detectLastPage()
-      if (!detected) {
-        warn('No questions found on the first list page. Are you logged in to the admin?')
-        diagnose(await fetchDoc(listUrl(1)))
-        return
-      }
-      firstPage = Math.max(1, FIRST_PAGE)
-      lastPage = detected
-      if (firstPage > lastPage) {
-        warn(`FIRST_PAGE is ${FIRST_PAGE} but the list only has ${lastPage} page(s). Set LAST_PAGE for an exact range.`)
-        return
-      }
-      log(`The list has ${detected} page(s). Scanning pages ${firstPage} to ${lastPage}...`)
+  /**
+   * The questions on one block's pages, minus any already seen in this run.
+   *
+   * Asked for a page past the last one, this list may hand back the first or
+   * the last page rather than nothing, so "no questions" is not what the end
+   * looks like - "nothing we have not already got" is.
+   */
+  /**
+   * What page 1 holds, for recognising a page that is past the end.
+   *
+   * A list that answers an out-of-range page with the LAST page gives itself
+   * away: we have scanned that page, so its questions repeat. One that answers
+   * with the FIRST page does not, if the run started further in - page 1's
+   * questions would look new and be extracted as though they belonged to page
+   * 170. So page 1 is read once, up front, purely to be recognised later.
+   */
+  async function pageOneSignature() {
+    if (typeof state.pageOneSig === 'string') return state.pageOneSig
+    if (rangeFirst <= 1) { state.pageOneSig = ''; saveState(state); return '' }
+    try {
+      state.pageOneSig = uuidsOnListPage(await fetchDoc(listUrl(1))).sort().join(',')
+    } catch (e) {
+      if (/Logged out/.test(e.message)) throw e
+      state.pageOneSig = ''
     }
-    const all = []
-    const seen = new Set()
-    for (let page = firstPage; page <= lastPage; page++) {
+    saveState(state)
+    await sleep(DELAY_MS)
+    return state.pageOneSig
+  }
+
+  async function scanBlock(block) {
+    const clamp = await pageOneSignature()
+    const seen = new Set(state.seen)
+    const fresh = []
+    let repeats = 0
+    let pastEnd = false
+    for (let page = block.first; page <= block.last; page++) {
+      if (stopRequested) break
+      let ids
       try {
-        const ids = uuidsOnListPage(await fetchDoc(listUrl(page)))
-        for (const id of ids) if (!seen.has(id)) { seen.add(id); all.push(id) }
-        if (page % 10 === 0 || page === lastPage) log(`  page ${page}/${lastPage} - ${all.length} questions so far`)
+        ids = uuidsOnListPage(await fetchDoc(listUrl(page)))
       } catch (e) {
-        warn(e.message)
-        if (/Logged out/.test(e.message)) return
+        warn(`page ${page}: ${e.message}`)
+        if (/Logged out/.test(e.message)) throw e
+        continue
+      }
+      if (clamp && page > 1 && ids.slice().sort().join(',') === clamp) {
+        log(`page ${page} came back as page 1 - the list ends before it.`)
+        pastEnd = true
+        break
+      }
+      for (const id of ids) {
+        if (seen.has(id)) { repeats++; continue }
+        seen.add(id)
+        fresh.push(id)
       }
       await sleep(DELAY_MS)
     }
-    if (all.length === 0) {
-      // Never record an empty scan as a finished run.
-      warn(`Scanned pages ${firstPage}-${lastPage} but found no questions.`)
-      diagnose(await fetchDoc(listUrl(firstPage)))
-      return
-    }
-    state = { firstPage, lastPage, uuids: all, done: [], failed: [], partNo: 1, startedAt: Date.now() }
-    saveState(state)
-    log(`Found ${all.length} questions. Extracting...`)
-  } else {
-    log(`Resuming: ${state.uuids.length - state.done.length} questions left.`)
+    state.seen = [...seen]
+    return { fresh, repeats, pastEnd }
   }
 
   // ---------- extraction ----------
@@ -420,10 +413,9 @@
   }
 
   // ---------- output ----------
-  let buffer = []
-  let bufferBytes = 0
-  // Range in the name so files from separate runs never collide.
-  const filePrefix = () => `cleverspace-p${state.firstPage}-${state.lastPage}`
+  // The block's own pages in the name, so every block's files stand on their
+  // own and files from separate runs never collide.
+  const filePrefix = (block) => `cleverspace-p${block.first}-${block.last}`
 
   function download(name, data) {
     const blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
@@ -449,91 +441,148 @@
     return 'Downloaded'
   }
 
-  async function flush() {
-    if (buffer.length === 0) return
-    const name = `${filePrefix()}-part-${String(state.partNo).padStart(3, '0')}.json`
-    let how
-    try {
-      how = await writePart(name, buffer)
-    } catch (e) {
-      // Do not mark these questions done - they were not saved. Stop so a
-      // resume re-extracts them instead of leaving a hole in the export.
-      warn(`Could not save ${name}: ${e.message}. Paste the script again to resume.`)
-      panelMsg(`Could not save ${name}. Paste the script again to resume.`)
-      stopRequested = true
-      e.saveFailure = true
-      throw e
-    }
-    log(`${how} ${name} (${buffer.length} questions, ${(bufferBytes / 1048576).toFixed(1)} MB)`)
-    panelMsg(`${how} ${name}. ${state.done.length + buffer.length}/${state.uuids.length} questions so far.`)
-    state.done.push(...buffer.map((q) => q.uuid))
-    state.partNo += 1
-    saveState(state)
-    buffer = []
-    bufferBytes = 0
-  }
-
-  const doneSet = new Set(state.done)
-  const failedSet = new Set(state.failed.map((f) => f.uuid))
-  const todo = state.uuids.filter((id) => !doneSet.has(id))
-  const started = Date.now()
-  let processed = 0
+  // ---------- the run ----------
   let imagesMissing = 0
+  const runStarted = Date.now()
+  let questionsThisRun = 0
 
-  for (const uuid of todo) {
-    if (stopRequested) break
-    try {
-      const q = await extractQuestion(uuid)
-      if (q.missingImages) imagesMissing += q.missingImages.length
-      const size = JSON.stringify(q).length
-      if (buffer.length && (buffer.length >= MAX_QUESTIONS_PER_FILE || bufferBytes + size > MAX_FILE_MB * 1048576)) {
-        await flush()
+  async function runBlock(block, index) {
+    if (!block.uuids) {
+      log(`--- Block ${index + 1} of ${state.blocks.length}: ${blockLabel(block)} ---`)
+      panelMsg(`Block ${index + 1}/${state.blocks.length}: scanning ${blockLabel(block)}...`)
+      const { fresh, repeats, pastEnd } = await scanBlock(block)
+      if (stopRequested) return 'paused'
+      block.pastEnd = pastEnd
+      if (fresh.length === 0) {
+        // Nothing here that we have not already got: either the pages are
+        // empty, or this list hands back a page we have already read when
+        // asked for one past the end. Either way, this is the end.
+        if (repeats > 0) log(`${blockLabel(block)} only repeated questions already extracted - that is the end of the list.`)
+        else warn(`${blockLabel(block)} had no questions at all - that is the end of the list.`)
+        if (index === 0 && repeats === 0) {
+          try { diagnose(await fetchDoc(listUrl(block.first))) } catch { /* reported above */ }
+        }
+        return 'end'
       }
-      buffer.push(q)
-      bufferBytes += size
-      if (failedSet.has(uuid)) {
-        state.failed = state.failed.filter((f) => f.uuid !== uuid)
-      }
-    } catch (e) {
-      if (e.saveFailure) return
-      if (/Logged out/.test(e.message)) {
-        warn(e.message)
-        panelMsg('Logged out. Log back in, then paste the script again to resume.')
-        try { await flush() } catch { /* already reported */ }
-        return
-      }
-      warn(`Skipped ${uuid}: ${e.message}`)
-      if (!failedSet.has(uuid)) { state.failed.push({ uuid, error: e.message }); failedSet.add(uuid) }
-      // Count it as handled so a single broken question cannot block completion.
-      state.done.push(uuid)
+      block.uuids = fresh
       saveState(state)
+      log(`${fresh.length} questions on ${blockLabel(block)}${repeats ? ` (${repeats} already had)` : ''}. Extracting...`)
+    } else {
+      log(`--- Block ${index + 1} of ${state.blocks.length}: ${blockLabel(block)} (resuming, ${block.uuids.length - block.done.length} left) ---`)
     }
 
-    processed++
-    if (processed % 25 === 0) {
-      const perQ = (Date.now() - started) / processed
-      const left = todo.length - processed
-      log(`${state.done.length + buffer.length}/${state.uuids.length} questions - about ${Math.ceil((left * perQ) / 60000)} min left`)
+    let buffer = []
+    let bufferBytes = 0
+
+    async function flush() {
+      if (buffer.length === 0) return
+      const name = `${filePrefix(block)}-part-${String(block.partNo).padStart(3, '0')}.json`
+      let how
+      try {
+        how = await writePart(name, buffer)
+      } catch (e) {
+        // Do not mark these questions done - they were not saved. Stop so a
+        // resume re-extracts them instead of leaving a hole in the export.
+        warn(`Could not save ${name}: ${e.message}. Paste the script again to resume.`)
+        panelMsg(`Could not save ${name}. Paste the script again to resume.`)
+        stopRequested = true
+        e.saveFailure = true
+        throw e
+      }
+      log(`${how} ${name} (${buffer.length} questions, ${(bufferBytes / 1048576).toFixed(1)} MB)`)
+      block.done.push(...buffer.map((q) => q.uuid))
+      block.partNo += 1
+      state.totalQuestions += buffer.length
+      state.totalFiles += 1
+      saveState(state)
+      panelMsg(`Block ${index + 1}/${state.blocks.length} (${blockLabel(block)}): ${block.done.length}/${block.uuids.length} questions, ${state.totalFiles} file(s) so far.`)
+      buffer = []
+      bufferBytes = 0
     }
-    await sleep(DELAY_MS)
+
+    const doneSet = new Set(block.done)
+    const failedSet = new Set(state.failed.map((f) => f.uuid))
+    const todo = block.uuids.filter((id) => !doneSet.has(id))
+
+    for (const uuid of todo) {
+      if (stopRequested) break
+      try {
+        const q = await extractQuestion(uuid)
+        if (q.missingImages) imagesMissing += q.missingImages.length
+        const size = JSON.stringify(q).length
+        if (buffer.length && (buffer.length >= MAX_QUESTIONS_PER_FILE || bufferBytes + size > MAX_FILE_MB * 1048576)) {
+          await flush()
+        }
+        buffer.push(q)
+        bufferBytes += size
+        if (failedSet.has(uuid)) state.failed = state.failed.filter((f) => f.uuid !== uuid)
+      } catch (e) {
+        if (e.saveFailure) return 'stopped'
+        if (/Logged out/.test(e.message)) {
+          warn(e.message)
+          panelMsg('Logged out. Log back in, then paste the script again to resume.')
+          try { await flush() } catch { /* already reported */ }
+          return 'stopped'
+        }
+        warn(`Skipped ${uuid}: ${e.message}`)
+        if (!failedSet.has(uuid)) { state.failed.push({ uuid, error: e.message }); failedSet.add(uuid) }
+        // Count it as handled so a single broken question cannot block the run.
+        block.done.push(uuid)
+        saveState(state)
+      }
+
+      questionsThisRun++
+      if (questionsThisRun % 25 === 0) {
+        const perQ = (Date.now() - runStarted) / questionsThisRun
+        const leftHere = todo.length - (questionsThisRun % todo.length || 0)
+        log(`${block.done.length + buffer.length}/${block.uuids.length} in this block - about ${Math.ceil((leftHere * perQ) / 60000)} min left in it`)
+      }
+      await sleep(DELAY_MS)
+    }
+
+    try { await flush() } catch { return 'stopped' }
+    if (stopRequested) return 'paused'
+
+    log(`Block ${index + 1} done: ${blockLabel(block)} -> ${block.partNo - 1} file(s). These are ready to import.`)
+    return block.pastEnd ? 'end' : 'done'
   }
 
-  try { await flush() } catch { return }
+  log(`Pages ${rangeFirst}-${rangeLast} in ${state.blocks.length} block(s) of ${blockSize}.`)
 
-  if (stopRequested) {
-    panelMsg('Paused. Paste the script again to continue.')
-    log('Paused. Paste the script again to continue.')
-    return
+  while (state.blockIndex < state.blocks.length) {
+    const block = state.blocks[state.blockIndex]
+    let outcome
+    try {
+      outcome = await runBlock(block, state.blockIndex)
+    } catch (e) {
+      warn(e.message)
+      panelMsg('Stopped. Paste the script again to resume.')
+      return
+    }
+    if (outcome === 'stopped') return
+    if (outcome === 'paused') {
+      panelMsg('Paused. Paste the script again to continue.')
+      log('Paused. Paste the script again to continue.')
+      return
+    }
+    if (outcome === 'end') {
+      log('Reached the end of the list.')
+      state.blockIndex = state.blocks.length
+      saveState(state)
+      break
+    }
+    state.blockIndex += 1
+    saveState(state)
   }
 
   log('=== DONE ===')
-  panelMsg(`Done: ${state.uuids.length} questions in ${state.partNo - 1} file(s).`)
+  panelMsg(`Done: ${state.totalQuestions} questions in ${state.totalFiles} file(s).`)
   panel.querySelector('#csm-stop').style.display = 'none'
-  log(`${state.uuids.length} questions in ${state.partNo - 1} file(s): ${filePrefix()}-part-001.json ... -part-${String(state.partNo - 1).padStart(3, '0')}.json`)
+  log(`${state.totalQuestions} questions in ${state.totalFiles} file(s) across ${Math.min(state.blockIndex, state.blocks.length)} block(s).`)
   if (imagesMissing) warn(`${imagesMissing} image(s) could not be downloaded; those questions list them under "missingImages".`)
   if (state.failed.length) {
     warn(`${state.failed.length} question(s) could not be extracted:`)
     console.table(state.failed.map((f) => ({ url: `${BASE}/edit/${f.uuid}`, error: f.error })))
   }
-  log('Next: EduPortal -> Quiz Builder -> Import JSON -> select all the part files together.')
+  log('Next: EduPortal -> Quiz Builder -> Import JSON -> select the part files.')
 })()
