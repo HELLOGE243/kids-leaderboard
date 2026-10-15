@@ -5808,12 +5808,17 @@ export function getClassDashboardData(classId, groupId = null) {
   const group = groupId ? (data.classGroups || []).find((g) => g.id === groupId) : null
   const roll = group ? (group.studentIds || []) : (cls.studentIds || [])
   const classCourses = (data.courses || []).filter(c => c.classId === classId)
-  const allQuizSetIds = []
-  for (const course of classCourses) {
-    for (const mod of course.modules) {
-      for (const qsId of mod.quizSetIds) allQuizSetIds.push(qsId)
-    }
-  }
+  const papersOf = (course) => (course.modules || []).flatMap((m) => m.quizSetIds || [])
+
+  // A course can be limited to named students. Counting the whole class's
+  // papers against a group that was never given half of them made "completed
+  // 6/16" and the average completion beside it simply wrong - so the papers
+  // shown are those of courses at least one of these students is on.
+  const rollSet = new Set(roll.map(String))
+  const coursesForRoll = classCourses.filter((c) => !Array.isArray(c.studentIds)
+    || (c.studentIds || []).some((id) => rollSet.has(String(id))))
+  const allQuizSetIds = [...new Set(coursesForRoll.flatMap(papersOf))]
+
   const allHwAttempts = collectStudentArray('homeworkAttempts')
   const allHwRedos = collectStudentArray('homeworkRedos')
   const studentRows = roll.map(sid => {
@@ -5822,15 +5827,22 @@ export function getClassDashboardData(classId, groupId = null) {
     const attempts = allHwAttempts.filter(a => a.studentId === sid && allQuizSetIds.includes(a.quizSetId))
     const redos = allHwRedos.filter(a => a.studentId === sid && allQuizSetIds.includes(a.quizSetId))
     const allAttempts = [...attempts, ...redos]
-    const completed = new Set(allAttempts.map(a => a.quizSetId)).size
+    const sat = new Set(allAttempts.map(a => a.quizSetId))
+    // Their own denominator: the papers of the courses this student is on, plus
+    // anything they sat anyway, so a paper they have done can never be missing
+    // from the figure it is counted in.
+    const theirs = new Set(classCourses
+      .filter((c) => courseIncludesStudent(c, sid))
+      .flatMap(papersOf))
+    for (const id of sat) theirs.add(id)
     const totalScore = allAttempts.reduce((s, a) => s + a.score, 0)
     const totalMarks = allAttempts.reduce((s, a) => s + a.total, 0)
     const avgPct = totalMarks > 0 ? Math.round((totalScore / totalMarks) * 100) : 0
-    return { id: sid, name: fullName(student), yearGroup: student.yearGroup || cls.yearGroup || '', school: student.school || '', completed, total: allQuizSetIds.length, avgPct, totalScore, totalMarks }
+    return { id: sid, name: fullName(student), yearGroup: student.yearGroup || cls.yearGroup || '', school: student.school || '', completed: sat.size, total: theirs.size, avgPct, totalScore, totalMarks }
   }).filter(Boolean)
   return {
     cls: { id: classId, ...cls, ...(group ? { name: `${group.name} · ${cls.name}` } : {}) },
-    courses: classCourses,
+    courses: coursesForRoll,
     quizSetIds: allQuizSetIds,
     students: studentRows,
     studentIds: roll,
