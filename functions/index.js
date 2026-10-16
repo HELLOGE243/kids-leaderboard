@@ -2038,6 +2038,31 @@ exports.authAdmin = functions
           return sendJson(res, 200, { ok: true, updated: report })
         }
 
+        if (action === 'aiUsageToday') {
+          // What has been spent on AI today, and by whom. The counter is
+          // closed to every client - a counter a student can reach is not a
+          // counter - so this is the only window onto it.
+          const day = String(req.body?.day || new Date().toISOString().slice(0, 10))
+          const snap = await db.collection('aiUsage').get()
+          const core = await getCore(true)
+          const nameOf = (uid) => (core.students || {})[uid]?.name
+            || (core.teachers || {})[uid]?.name
+            || (String(uid).startsWith('parent_') ? 'a parent' : uid)
+          const rows = snap.docs
+            .filter((d) => d.get('day') === day)
+            .map((d) => ({
+              uid: d.id.replace(`_${day}`, ''),
+              who: nameOf(d.id.replace(`_${day}`, '')),
+              role: d.get('role') || '',
+              calls: d.get('calls') || 0,
+            }))
+            .sort((a, b) => b.calls - a.calls)
+          return sendJson(res, 200, {
+            ok: true, day, limits: DAILY_CALLS,
+            total: rows.reduce((n, r) => n + r.calls, 0), rows,
+          })
+        }
+
         if (action === 'parentsOf') {
           // Who can see this student's work, so a teacher can answer "why can
           // my ex-husband see this" without guessing.

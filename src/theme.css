@@ -19301,16 +19301,24 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .gw-editor-hint { font-family: var(--font-body); font-size: 0.72rem; color: #fff; opacity: 0.75; }
 
 .gw-coach-figure { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-/* Drop coach-idle.png (and the other poses) into /public and the art appears;
-   until then the gradient stands in, so nothing looks broken while waiting. */
+/* The coach is drawn in CoachFace.jsx until there is a painting of them. Drop
+   coach-idle.png, coach-thinking.png or coach-cheering.png into /public and
+   that art covers the drawing - no code change, and the expressions still
+   follow what the coach is doing. */
 .gw-coach-avatar {
-  width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0;
-  background-color: #1565c0;
-  background-image: image-set(url('/coach-idle.png') 1x), linear-gradient(145deg, #42a5f5, #1565c0);
+  position: relative; width: 64px; height: 64px; border-radius: 50%;
+  flex-shrink: 0; overflow: hidden; line-height: 0;
+}
+.gw-coach-avatar::after {
+  content: ''; position: absolute; inset: 0; border-radius: 50%;
+  background-image: url('/coach-idle.png');
   background-size: cover; background-position: center;
 }
-.gw-coach.is-thinking .gw-coach-avatar { background-image: image-set(url('/coach-thinking.png') 1x), linear-gradient(145deg, #42a5f5, #1565c0); }
-.gw-coach.is-pleased .gw-coach-avatar { background-image: image-set(url('/coach-cheering.png') 1x), linear-gradient(145deg, #66bb6a, #2e7d32); }
+.gw-coach.is-thinking .gw-coach-avatar::after { background-image: url('/coach-thinking.png'); }
+.gw-coach.is-pleased .gw-coach-avatar::after { background-image: url('/coach-cheering.png'); }
+.coach-face { display: block; }
+.gw-coach.is-thinking .coach-face-dots { animation: coach-think 1.4s ease-in-out infinite; }
+@keyframes coach-think { 0%, 100% { opacity: 0.35 } 50% { opacity: 1 } }
 .gw-coach-name { font-weight: 700; font-size: 0.78rem; }
 .gw-bubble {
   position: relative; background: #eef5ff; border: 1px solid #c6dcff;

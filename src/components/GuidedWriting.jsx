@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { RichTextEditor } from './RichTextEditor.jsx'
 import SpeakButton from './SpeakButton.jsx'
+import CoachFace from './CoachFace.jsx'
 import { composeBrief } from '../data/writingGenres.js'
 import { countSentences, lastSentenceOf, plainWords } from '../utils/writingText.js'
 
@@ -129,7 +130,9 @@ function GuidedWriting({ question, value, onChange, session, onAsk, onTakeCard, 
           ref={bubbleRef}
         >
           <div className="gw-coach-figure">
-            <div className="gw-coach-avatar" aria-hidden="true" />
+            <div className="gw-coach-avatar">
+              <CoachFace mood={busy ? 'thinking' : latest?.glow ? 'pleased' : 'idle'} />
+            </div>
             <span className="gw-coach-name">Your writing coach</span>
           </div>
 
