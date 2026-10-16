@@ -19272,3 +19272,85 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .speak-btn.is-speaking { background: rgba(255,87,34,0.16); border-color: rgba(255,87,34,0.4); color: #ff7043; }
 .speak-btn-icon { font-size: 0.85rem; line-height: 1; }
 .qt-help-speak { margin-top: 10px; }
+
+/* --- Guided writing ---------------------------------------------------------
+   The task and the plan on the left, the writing in the middle, the coach on
+   the right. The coach is quiet until the opening is the child's own. */
+.gw-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr) 290px; gap: 14px; height: 100%; min-height: 0; }
+.gw-task, .gw-coach {
+  background: #fff; border-radius: 10px; padding: 14px 16px; overflow-y: auto;
+  font-family: var(--font-body); color: #1a1a2e; min-height: 0;
+}
+.gw-task-prompt { font-size: 0.88rem; line-height: 1.6; margin-bottom: 12px; }
+.gw-task-kind { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 8px; background: rgba(0,0,0,0.05); }
+.gw-task-kind-name { font-weight: 700; font-size: 0.82rem; }
+.gw-task-kind-job { font-size: 0.72rem; opacity: 0.75; line-height: 1.5; }
+.gw-spine { margin-top: 14px; }
+.gw-spine-head { background: none; border: 0; cursor: pointer; font: inherit; font-weight: 700; font-size: 0.78rem; padding: 0; color: inherit; }
+.gw-spine-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.gw-beat { display: grid; grid-template-columns: 16px 1fr; gap: 2px 8px; font-size: 0.74rem; opacity: 0.6; }
+.gw-beat.is-met { opacity: 1; }
+.gw-beat-tick { grid-row: span 2; color: #43a047; font-weight: 700; }
+.gw-beat-name { font-weight: 700; }
+.gw-beat-look { font-size: 0.68rem; opacity: 0.7; line-height: 1.4; }
+.gw-count { margin-top: 14px; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.72rem; opacity: 0.75; }
+
+.gw-editor { display: flex; flex-direction: column; min-height: 0; gap: 8px; }
+.gw-editor > :first-child { flex: 1; min-height: 0; }
+.gw-editor-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.gw-editor-hint { font-family: var(--font-body); font-size: 0.72rem; color: #fff; opacity: 0.75; }
+
+.gw-coach-figure { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.gw-coach-avatar {
+  width: 54px; height: 54px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(145deg, #42a5f5, #1565c0);
+  background-size: cover; background-position: center;
+}
+.gw-coach-name { font-weight: 700; font-size: 0.78rem; }
+.gw-bubble {
+  position: relative; background: #eef5ff; border: 1px solid #c6dcff;
+  border-radius: 12px; padding: 12px 14px; font-size: 0.78rem; line-height: 1.6;
+}
+.gw-bubble::before {
+  content: ''; position: absolute; top: -7px; left: 20px; width: 12px; height: 12px;
+  background: #eef5ff; border-left: 1px solid #c6dcff; border-top: 1px solid #c6dcff;
+  transform: rotate(45deg);
+}
+.gw-bubble-thinking { font-style: italic; opacity: 0.8; }
+.gw-bubble-line { margin: 0 0 7px; }
+.gw-bubble-line:last-of-type { margin-bottom: 0; }
+.gw-glow b { color: #2e7d32; }
+.gw-grow b { color: #ef6c00; }
+.gw-missing b { color: #c62828; }
+.gw-next b { color: #1565c0; }
+.gw-cards { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.gw-cards-lead { font-size: 0.68rem; opacity: 0.7; margin: 0 0 2px; line-height: 1.4; }
+.gw-card {
+  display: flex; flex-direction: column; gap: 2px; align-items: flex-start; text-align: left;
+  padding: 9px 11px; border-radius: 9px; cursor: pointer; font: inherit;
+  background: #fff; border: 1px solid #c6dcff; color: inherit;
+}
+.gw-card:hover { border-color: #1565c0; background: #f6faff; }
+.gw-card.is-taken { background: #e8f5e9; border-color: #a5d6a7; }
+.gw-card-move { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #1565c0; }
+.gw-card-text { font-size: 0.76rem; line-height: 1.45; }
+.gw-card-taken { font-size: 0.6rem; color: #2e7d32; font-weight: 700; }
+.gw-coach-actions { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.gw-btn {
+  padding: 9px 12px; border-radius: 9px; cursor: pointer; font: inherit; font-size: 0.76rem; font-weight: 700;
+  background: #eceff1; border: 1px solid #cfd8dc; color: #37474f;
+}
+.gw-btn:disabled { opacity: 0.5; cursor: default; }
+.gw-btn-primary { background: #1565c0; border-color: #1565c0; color: #fff; }
+
+/* The teacher's side: the brief a task composes to. */
+.gw-pickers, .gw-settings { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.gw-picker { display: flex; flex-direction: column; gap: 3px; font-size: 0.62rem; color: #888; }
+.gw-brief { padding: 10px 12px; border-radius: 8px; background: rgba(0,0,0,0.05); font-size: 0.7rem; line-height: 1.6; }
+.gw-brief-title { font-weight: 700; font-size: 0.78rem; margin-bottom: 2px; }
+.gw-brief-job { margin: 0 0 6px; opacity: 0.8; }
+.gw-brief-line { margin: 0 0 3px; opacity: 0.85; }
+
+@media (max-width: 1100px) {
+  .gw-layout { grid-template-columns: 1fr; grid-template-rows: auto minmax(260px, 1fr) auto; }
+}

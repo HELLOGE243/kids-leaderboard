@@ -2876,7 +2876,18 @@ export const WRITING_MAX = 25
  * kept, which is for ever.
  */
 export function isWritingType(type) {
-  return type === 'writing' || type === 'free-writing'
+  // 'free-writing' is the name the first version used. Answer keys in the
+  // archive are written once and never altered, so papers sat under that name
+  // still carry it and it is accepted for good. 'guided-writing' is the same
+  // kind of answer - a piece of writing marked against the rubric - and
+  // everything that marks, reviews or reports on writing should treat it so;
+  // what differs is only how the child was helped to write it.
+  return type === 'writing' || type === 'free-writing' || type === 'guided-writing'
+}
+
+/** Writing that came with a coach beside it. */
+export function isGuidedWriting(type) {
+  return type === 'guided-writing'
 }
 
 function scoreOneQuestion(q, answer, writingMark) {

@@ -70,6 +70,9 @@ import ClozeText from '../components/ClozeText.jsx'
 import TrialReport from '../components/TrialReport.jsx'
 import ReviewHelp from '../components/ReviewHelp.jsx'
 import SpeakButton from '../components/SpeakButton.jsx'
+import GuidedWriting from '../components/GuidedWriting.jsx'
+import { askWritingCoach } from '../data/writingCoach.js'
+import { countSentences } from '../utils/writingText.js'
 import { stopSpeaking } from '../utils/speech.js'
 import { checkExplanation, parseExplanation, generateWordDefinition, generateExplanation } from '../utils/aiChat.js'
 
@@ -387,6 +390,65 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     sendQuestionToTeachers(user.id, question, takingQuiz.id, idx)
     setAskedTeacher((prev) => new Set(prev).add(idx))
   }
+  // What the coach has said on each guided writing question, and whether one
+  // is being asked right now. Kept per question index, because a paper may
+  // hold more than one piece of writing.
+  const [guidedSessions, setGuidedSessions] = useState({})
+  const [guidedBusy, setGuidedBusy] = useState(null)
+
+  async function askCoach(index, question, action) {
+    if (guidedBusy !== null) return
+    const draft = quizAnswers[index]
+    const session = guidedSessions[index] || { turns: [], sentencesAtLastTurn: 0, cardsTaken: [] }
+    setGuidedBusy(index)
+    try {
+      const turn = await askWritingCoach({
+        action,
+        question,
+        draft: typeof draft === 'string' ? draft : '',
+        session,
+        student: { id: user.id, year: question.yearLevel || 5 },
+      })
+      if (!turn) return
+      setGuidedSessions((prev) => {
+        const was = prev[index] || { turns: [], sentencesAtLastTurn: 0, cardsTaken: [] }
+        return {
+          ...prev,
+          [index]: {
+            ...was,
+            turns: [...was.turns, turn],
+            // Only an evaluation spends a turn and resets the sentence count;
+            // asking for ideas afterwards is part of the same turn.
+            sentencesAtLastTurn: action === 'evaluate'
+              ? countSentences(typeof draft === 'string' ? draft : '')
+              : was.sentencesAtLastTurn,
+            beatsMet: turn.beatsMet || was.beatsMet || [],
+          },
+        }
+      })
+    } finally {
+      setGuidedBusy(null)
+    }
+  }
+
+  /** A card the child chose as their starting point. They still write it. */
+  function takeCoachCard(index, card) {
+    setGuidedSessions((prev) => {
+      const was = prev[index] || { turns: [], sentencesAtLastTurn: 0, cardsTaken: [] }
+      return {
+        ...prev,
+        [index]: {
+          ...was,
+          cardsTaken: [...(was.cardsTaken || []), { id: card.id, text: card.text, at: Date.now() }],
+          turns: was.turns.map((t) => ({
+            ...t,
+            cards: (t.cards || []).map((c) => (c.id === card.id ? { ...c, taken: true } : c)),
+          })),
+        },
+      }
+    })
+  }
+
   const [reviewTokensAwarded, setReviewTokensAwarded] = useState({})
   const [reviewNudge, setReviewNudge] = useState(false)
   const [tokenPopup, setTokenPopup] = useState(null)
@@ -2680,6 +2742,18 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                       ))}
                     </div>
                   </>
+                }
+
+                if (qType === 'guided-writing') {
+                  return <GuidedWriting
+                    question={q}
+                    value={typeof selectedAnswer === 'string' ? selectedAnswer : ''}
+                    onChange={(html) => { setQuizAnswers(prev => { const next = [...prev]; next[currentQ] = html; return next }) }}
+                    session={guidedSessions[currentQ]}
+                    busy={guidedBusy === currentQ}
+                    onAsk={(action) => askCoach(currentQ, q, action)}
+                    onTakeCard={(card) => takeCoachCard(currentQ, card)}
+                  />
                 }
 
                 if (isWritingType(qType)) {

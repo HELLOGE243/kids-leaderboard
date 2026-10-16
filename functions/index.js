@@ -1357,6 +1357,219 @@ exports.teacherQuestions = functions
     })
   })
 
+// ============================================================
+// THE WRITING COACH
+//
+// A child writing a guided task gets a few turns of help: ideas to start
+// with, then - every few sentences - what is working, what to look at again,
+// what is still missing against the shape this kind of writing takes, and one
+// thing to try next. Then, if they ask, cards to spark the next sentence.
+//
+// The cards are inspiration and nothing else. The child writes the sentence.
+// That is the whole point: a piece assembled from an AI's sentences would be
+// marked as though it were theirs, and every rubric average, exemplar and
+// improvement score built on it would be a measurement of a model.
+// ============================================================
+
+const WRITING_BRIEFS = require('./writingBriefs.json')
+
+/** The brief for a mode and form, as the client's genre file composes it. */
+function briefFor(modeId, formId) {
+  const mode = WRITING_BRIEFS.modes.find((m) => m.id === modeId) || WRITING_BRIEFS.modes[0]
+  const form = WRITING_BRIEFS.forms.find((f) => f.id === formId)
+    || WRITING_BRIEFS.forms.find((f) => f.id === 'plain')
+  return { mode, form }
+}
+
+function craftMovesFor(modeId, year) {
+  const band = year <= 5 ? 'lower' : 'upper'
+  return (WRITING_BRIEFS.moves || []).filter((m) => m.modes.includes(modeId)
+    && (m.band === 'all' || m.band === band))
+}
+
+/** The words, without the markup the editor wraps them in. */
+function plainWriting(html) {
+  return String(html || '')
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&[a-z]+;|&#\d+;/gi, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .trim()
+}
+
+/** How an eight to fourteen year old should be spoken to. */
+function voiceFor(year) {
+  if (year <= 4) return 'Year 3-4: very short sentences, everyday words, warm and encouraging. Never more than about 12 words in a sentence.'
+  if (year <= 6) return 'Year 5-6: plain, friendly, specific. Name techniques in simple words.'
+  return 'Year 7-8: direct and a little more grown up. You may name techniques properly, but stay warm.'
+}
+
+function coachPrompt({ action, brief, moves, task, draft, year, said, takenCards }) {
+  const { mode, form } = brief
+  const beats = mode.beats.map((b, i) => `${i + 1}. ${b.name} - ${b.lookFor}`).join('\n')
+  const conventions = [...(form.furniture || []), ...(form.features || [])]
+  const movesList = moves.map((m) => `- ${m.name}: ${m.child}`).join('\n')
+  const alreadySaid = (said || []).length
+    ? `\nYou have already told this child:\n${said.map((x) => `- ${[x.glow, x.grow, x.missing].filter(Boolean).join(' / ')}`).join('\n')}\nDo not repeat any of it. Move them on.`
+    : ''
+  const chosen = (takenCards || []).length
+    ? `\nIdeas they have already taken: ${takenCards.join(' | ')}. Do not offer these again.`
+    : ''
+
+  const shared = `You are a writing coach for a primary school child in Australia.
+Voice: ${voiceFor(year)}
+You are never sarcastic, never discouraging, and you never write the child's sentences for them.
+
+THE TASK THEY WERE SET: ${task || '(none given)'}
+KIND OF WRITING: ${mode.name}${form.id === 'plain' ? '' : ` written as a ${form.name}`}
+WHAT THIS KIND OF WRITING DOES: ${mode.job}
+WHO READS IT: ${form.audience}
+HOW IT SHOULD SOUND: ${form.register}
+USUALLY WRITTEN IN: ${mode.person} person, ${mode.tense} tense
+THE STAGES IT SHOULD PASS THROUGH:
+${beats}
+${conventions.length ? `THINGS THIS FORM MUST CARRY: ${conventions.join('; ')}` : ''}
+COMMON MISTAKES IN THIS KIND OF WRITING: ${(mode.pitfalls || []).concat(form.pitfalls || []).join('; ')}
+TECHNIQUES YOU MAY SUGGEST BY NAME:
+${movesList}${alreadySaid}${chosen}`
+
+  if (action === 'brainstorm') {
+    return `${shared}
+
+The child has not started yet. Offer FOUR different ways in - different angles, not four versions of one idea. Each is a spark for them to write in their own words, never a finished sentence to copy.
+
+Reply as JSON only:
+{"text":"one friendly line introducing the ideas","cards":[{"id":"a","move":"the technique name or empty","text":"the idea, 12 words or fewer, as a thing to write about - NOT a sentence to copy"}]}`
+  }
+
+  if (action === 'suggest') {
+    return `${shared}
+
+WHAT THEY HAVE WRITTEN SO FAR:
+"""
+${plainWriting(draft).slice(0, 6000)}
+"""
+
+Offer THREE sparks for what could come next. Each is a direction or a technique to try, in their own words - never a sentence to copy out.
+
+Reply as JSON only:
+{"text":"one short line","cards":[{"id":"a","move":"technique name or empty","text":"what they could do next, 12 words or fewer"}]}`
+  }
+
+  return `${shared}
+
+WHAT THEY HAVE WRITTEN SO FAR:
+"""
+${plainWriting(draft).slice(0, 6000)}
+"""
+
+Give them one turn of coaching, in four parts:
+- glow: what is genuinely working, naming the technique if you can. Be specific - quote three or four of their own words back.
+- grow: ONE thing to look at again in what they have already written. One only.
+- missing: which stage from the list above has not happened yet, said plainly. If every stage is there, say what would deepen it instead.
+- next: one concrete thing to do in the next sentence or two.
+- beatsMet: the ids of the stages you can see in their writing so far, from this list: ${mode.beats.map((b) => b.id).join(', ')}
+
+Never rewrite their sentences. Never give them a sentence to copy. Keep each part to one sentence.
+
+Reply as JSON only:
+{"glow":"...","grow":"...","missing":"...","next":"...","beatsMet":["id"]}`
+}
+
+exports.writingCoach = functions
+  .region('australia-southeast1')
+  .https.onRequest((req, res) => {
+    cors(req, res, async () => {
+      if (req.method !== 'POST') return sendJson(res, 405, { error: 'Method not allowed' })
+      const caller = await verifyCaller(req)
+      if (!caller) return sendJson(res, 403, { error: 'Sign in required' })
+
+      try {
+        const action = ['brainstorm', 'evaluate', 'suggest'].includes(req.body?.action)
+          ? req.body.action : 'evaluate'
+        const year = Math.min(8, Math.max(3, Number(req.body?.year) || 5))
+        const brief = briefFor(String(req.body?.modeId || ''), String(req.body?.formId || ''))
+        const moves = craftMovesFor(brief.mode.id, year)
+
+        const allowance = await withinAiAllowance(caller)
+        if (!allowance.ok) {
+          return sendJson(res, 429, { error: "That's all the writing help available today. It comes back tomorrow." })
+        }
+
+        const prompt = coachPrompt({
+          action,
+          brief,
+          moves,
+          task: String(req.body?.task || '').slice(0, 2000),
+          draft: String(req.body?.draft || '').slice(0, 20000),
+          year,
+          said: Array.isArray(req.body?.said) ? req.body.said.slice(-3) : [],
+          takenCards: Array.isArray(req.body?.takenCards) ? req.body.takenCards.slice(-6) : [],
+        })
+
+        const out = await callClaude({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 700,
+          messages: [{ role: 'user', content: prompt }],
+        })
+        if (out.status !== 200) {
+          console.warn('writingCoach: Claude replied', out.status, out.body.slice(0, 200))
+          return sendJson(res, 502, { error: 'The coach is busy. Try again in a moment.' })
+        }
+
+        const reply = JSON.parse(out.body)
+        const text = (reply.content || []).map((c) => c.text || '').join('')
+        const parsed = parseCoachJson(text)
+        if (!parsed) {
+          console.warn('writingCoach: could not read the reply:', text.slice(0, 200))
+          return sendJson(res, 502, { error: 'The coach got muddled. Try again in a moment.' })
+        }
+
+        const turn = {
+          id: `${action}-${Date.now()}`,
+          kind: action,
+          at: new Date().toISOString(),
+          ...(parsed.text ? { text: String(parsed.text).slice(0, 400) } : {}),
+          ...(parsed.glow ? { glow: String(parsed.glow).slice(0, 400) } : {}),
+          ...(parsed.grow ? { grow: String(parsed.grow).slice(0, 400) } : {}),
+          ...(parsed.missing ? { missing: String(parsed.missing).slice(0, 400) } : {}),
+          ...(parsed.next ? { next: String(parsed.next).slice(0, 400) } : {}),
+          ...(Array.isArray(parsed.beatsMet)
+            ? { beatsMet: parsed.beatsMet.filter((b) => brief.mode.beats.some((x) => x.id === b)) }
+            : {}),
+          ...(Array.isArray(parsed.cards)
+            ? {
+              cards: parsed.cards.slice(0, 4).map((c, i) => ({
+                id: String(c.id || i),
+                move: String(c.move || '').slice(0, 40),
+                text: String(c.text || '').slice(0, 160),
+              })).filter((c) => c.text),
+            }
+            : {}),
+        }
+        return sendJson(res, 200, { ok: true, turn })
+      } catch (e) {
+        console.error('writingCoach failed:', e)
+        return sendJson(res, 500, { error: 'The coach is having a rest. Try again in a moment.' })
+      }
+    })
+  })
+
+/** A model asked for JSON sometimes wraps it in a sentence or a code fence. */
+function parseCoachJson(text) {
+  const attempt = (raw) => { try { return JSON.parse(raw) } catch { return null } }
+  const direct = attempt(text)
+  if (direct) return direct
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (fenced) { const got = attempt(fenced[1]); if (got) return got }
+  const braced = text.match(/\{[\s\S]*\}/)
+  if (braced) { const got = attempt(braced[0]); if (got) return got }
+  return null
+}
+
 exports.authSignup = functions
   .region('australia-southeast1')
   .https.onRequest((req, res) => {

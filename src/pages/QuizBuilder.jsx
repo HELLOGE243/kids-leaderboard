@@ -55,6 +55,7 @@ import {
 } from '../data/store.js'
 import { extractTextFromPDF, processWithAI, parseBookletMeta, getPDFPageCount } from '../utils/pdfImport.js'
 import { RichTextEditor, RichText } from '../components/RichTextEditor.jsx'
+import { WRITING_MODES, WRITING_FORMS, composeBrief } from '../data/writingGenres.js'
 import { generateExplanation, parseExplanation, serializeExplanation } from '../utils/aiChat.js'
 import { resolveImages, extractAndStoreImages } from '../data/imageStore.js'
 import { getLastWriteErrors, getChunkSizes, flushPendingWrites, resyncQuizSets, uploadMissingQuizSets, getLibraryError } from '../data/firebase.js'
@@ -67,6 +68,7 @@ const QUESTION_TYPES = [
   { value: 'drag-summary', label: 'Drag Summaries' },
   { value: 'multi-matching', label: 'Matching' },
   { value: 'writing', label: 'Writing' },
+  { value: 'guided-writing', label: 'Guided Writing' },
   { value: 'free-response', label: 'Free Response' },
 ]
 
@@ -1404,8 +1406,98 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                 </div>
               )}
 
+              {/* --- Guided Writing: the brief the coach works from --- */}
+              {qType === 'guided-writing' && (
+                <div style={{ padding: '0 4px' }}>
+                  <p style={{ fontSize: '0.7rem', color: '#888', marginBottom: 8 }}>What kind of writing is this?</p>
+                  <div className="gw-pickers">
+                    <label className="gw-picker">
+                      <span>Mode — what the writing does</span>
+                      <select
+                        className="td2-select"
+                        value={q.modeId || 'short-story'}
+                        onChange={(e) => updateQuestion(currentEditQ, 'modeId', e.target.value)}
+                      >
+                        {WRITING_MODES.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                      </select>
+                    </label>
+                    <label className="gw-picker">
+                      <span>Form — where it appears, who reads it</span>
+                      <select
+                        className="td2-select"
+                        value={q.formId || 'plain'}
+                        onChange={(e) => updateQuestion(currentEditQ, 'formId', e.target.value)}
+                      >
+                        {WRITING_FORMS.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                      </select>
+                    </label>
+                    <label className="gw-picker">
+                      <span>Year level — pitches the coach's voice</span>
+                      <select
+                        className="td2-select"
+                        value={q.yearLevel || 5}
+                        onChange={(e) => updateQuestion(currentEditQ, 'yearLevel', Number(e.target.value))}
+                      >
+                        {[3, 4, 5, 6, 7, 8].map((y) => <option key={y} value={y}>Year {y}</option>)}
+                      </select>
+                    </label>
+                  </div>
+
+                  {(() => {
+                    const brief = composeBrief(q.modeId || 'short-story', q.formId || 'plain')
+                    if (!brief) return null
+                    return (
+                      <div className="gw-brief">
+                        <div className="gw-brief-title">{brief.title}</div>
+                        <p className="gw-brief-job">{brief.job}</p>
+                        <p className="gw-brief-line"><b>Written for</b> {brief.audience} · <b>sounds</b> {brief.register}</p>
+                        <p className="gw-brief-line"><b>Stages the coach checks</b> {brief.beats.map((b) => b.name).join(' → ')}</p>
+                        {brief.conventions.length > 0 && (
+                          <p className="gw-brief-line"><b>Must carry</b> {brief.conventions.slice(0, 4).join(' · ')}</p>
+                        )}
+                      </div>
+                    )
+                  })()}
+
+                  <p style={{ fontSize: '0.7rem', color: '#888', margin: '16px 0 8px' }}>The task, as the student reads it</p>
+                  <RichTextEditor
+                    key={`gw-prompt-${currentEditQ}`}
+                    value={q.prompt || ''}
+                    onChange={(html) => updateQuestion(currentEditQ, 'prompt', html)}
+                    placeholder="e.g. Write a letter to the editor arguing that your school needs a covered lunch area."
+                  />
+
+                  <div className="gw-settings">
+                    <label className="gw-picker">
+                      <span>Coaching turns</span>
+                      <select
+                        className="td2-select"
+                        value={q.coachTurns ?? 5}
+                        onChange={(e) => updateQuestion(currentEditQ, 'coachTurns', Number(e.target.value))}
+                      >
+                        {[0, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n === 0 ? 'None — write unaided' : n}</option>)}
+                      </select>
+                    </label>
+                    <label className="gw-picker">
+                      <span>Sentences between turns</span>
+                      <select
+                        className="td2-select"
+                        value={q.sentencesPerTurn ?? 4}
+                        onChange={(e) => updateQuestion(currentEditQ, 'sentencesPerTurn', Number(e.target.value))}
+                      >
+                        {[3, 4, 5, 6].map((n) => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </label>
+                  </div>
+                  <p style={{ fontSize: '0.6rem', color: '#666', marginTop: 12 }}>
+                    The coach stays quiet until the first {q.sentencesPerTurn ?? 4} sentences are written, so the
+                    opening is the student's own. Marked against the writing rubric, as any writing task is.
+                  </p>
+                </div>
+              )}
+
               {/* --- Free Writing: prompt only --- */}
-              {isWritingType(qType) && (
+              {isWritingType(qType) && qType !== 'guided-writing' && (
                 <div style={{ padding: '0 4px' }}>
                   <p style={{ fontSize: '0.7rem', color: '#888', marginBottom: 8 }}>Writing prompt (shown to student)</p>
                   <RichTextEditor
