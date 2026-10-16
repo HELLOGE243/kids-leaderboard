@@ -19301,11 +19301,16 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .gw-editor-hint { font-family: var(--font-body); font-size: 0.72rem; color: #fff; opacity: 0.75; }
 
 .gw-coach-figure { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+/* Drop coach-idle.png (and the other poses) into /public and the art appears;
+   until then the gradient stands in, so nothing looks broken while waiting. */
 .gw-coach-avatar {
-  width: 54px; height: 54px; border-radius: 50%; flex-shrink: 0;
-  background: linear-gradient(145deg, #42a5f5, #1565c0);
+  width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0;
+  background-color: #1565c0;
+  background-image: image-set(url('/coach-idle.png') 1x), linear-gradient(145deg, #42a5f5, #1565c0);
   background-size: cover; background-position: center;
 }
+.gw-coach.is-thinking .gw-coach-avatar { background-image: image-set(url('/coach-thinking.png') 1x), linear-gradient(145deg, #42a5f5, #1565c0); }
+.gw-coach.is-pleased .gw-coach-avatar { background-image: image-set(url('/coach-cheering.png') 1x), linear-gradient(145deg, #66bb6a, #2e7d32); }
 .gw-coach-name { font-weight: 700; font-size: 0.78rem; }
 .gw-bubble {
   position: relative; background: #eef5ff; border: 1px solid #c6dcff;
@@ -19345,8 +19350,11 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 
 /* The teacher's side: the brief a task composes to. */
 .gw-pickers, .gw-settings { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-.gw-picker { display: flex; flex-direction: column; gap: 3px; font-size: 0.62rem; color: #888; }
-.gw-brief { padding: 10px 12px; border-radius: 8px; background: rgba(0,0,0,0.05); font-size: 0.7rem; line-height: 1.6; }
+.gw-picker { display: flex; flex-direction: column; gap: 3px; font-size: 0.62rem; opacity: 0.75; }
+.gw-brief {
+  padding: 10px 12px; border-radius: 8px; font-size: 0.7rem; line-height: 1.6;
+  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.16); color: inherit;
+}
 .gw-brief-title { font-weight: 700; font-size: 0.78rem; margin-bottom: 2px; }
 .gw-brief-job { margin: 0 0 6px; opacity: 0.8; }
 .gw-brief-line { margin: 0 0 3px; opacity: 0.85; }
@@ -19364,3 +19372,5 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .wst-kind { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.6; }
 .wst-cards { margin: 4px 0 0; padding-left: 16px; opacity: 0.8; }
 .wst-cards .is-taken { color: #2e7d32; font-weight: 600; }
+/* Guided writing is its own screen, not an answer box beside a passage. */
+.qt-guided-fullwidth { flex: 1; min-height: 0; padding: 14px 18px; overflow: hidden; }

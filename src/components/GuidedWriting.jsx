@@ -124,7 +124,10 @@ function GuidedWriting({ question, value, onChange, session, onAsk, onTakeCard, 
 
       {/* ---- the coach ---- */}
       {maxTurns > 0 && (
-        <aside className="gw-coach" ref={bubbleRef}>
+        <aside
+          className={`gw-coach${busy ? ' is-thinking' : ''}${latest?.kind === 'evaluate' && latest?.glow ? ' is-pleased' : ''}`}
+          ref={bubbleRef}
+        >
           <div className="gw-coach-figure">
             <div className="gw-coach-avatar" aria-hidden="true" />
             <span className="gw-coach-name">Your writing coach</span>

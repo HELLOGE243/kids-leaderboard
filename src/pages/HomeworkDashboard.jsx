@@ -1781,6 +1781,22 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
           {/* Two-panel content */}
           {(() => {
             const qType = q.type || 'multiple-choice'
+            const isGuidedActive = qType === 'guided-writing' && !isReview
+            if (isGuidedActive) {
+              return (
+                <div className="qt-guided-fullwidth">
+                  <GuidedWriting
+                    question={q}
+                    value={typeof quizAnswers[currentQ] === 'string' ? quizAnswers[currentQ] : ''}
+                    onChange={(html) => { setQuizAnswers(prev => { const next = [...prev]; next[currentQ] = html; return next }) }}
+                    session={guidedSessions[currentQ]}
+                    busy={guidedBusy === currentQ}
+                    onAsk={(action) => askCoach(currentQ, q, action)}
+                    onTakeCard={(card) => takeCoachCard(currentQ, card)}
+                  />
+                </div>
+              )
+            }
             const isClozeActive = qType === 'dropdown-cloze' && !isReview
             if (isClozeActive) {
               return (
@@ -1826,6 +1842,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
           })()}
           {(() => {
             const qType = q.type || 'multiple-choice'
+            if (qType === 'guided-writing' && !isReview) return null
             const isClozeActive = qType === 'dropdown-cloze' && !isReview
             if (isClozeActive) return null
             const hasExtracts = q.descriptions && q.descriptions.length > 0 && (qType === 'multi-description' || qType === 'multi-matching')
