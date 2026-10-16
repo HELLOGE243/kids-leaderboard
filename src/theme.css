@@ -19382,3 +19382,88 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .wst-cards .is-taken { color: #2e7d32; font-weight: 600; }
 /* Guided writing is its own screen, not an answer box beside a passage. */
 .qt-guided-fullwidth { flex: 1; min-height: 0; padding: 14px 18px; overflow: hidden; }
+
+/* --- The library ------------------------------------------------------------
+   What the school is reading, and what it has written. */
+.lib-page { min-height: 100vh; padding: 22px 24px 40px; font-family: var(--font-body); }
+.lib-top { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
+.lib-title { font-family: var(--font-display); font-size: 1.7rem; margin: 0; }
+.lib-sub { font-size: 0.76rem; opacity: 0.7; }
+.lib-tabs { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+.lib-tab {
+  padding: 8px 16px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 0.78rem; font-weight: 700;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: inherit;
+}
+.lib-tab.is-active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.lib-shelf { max-width: 920px; }
+.lib-empty, .lib-mine { font-size: 0.82rem; opacity: 0.75; }
+.lib-mine { color: #66bb6a; opacity: 1; margin-bottom: 10px; }
+.lib-works { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.lib-work {
+  display: flex; flex-direction: column; gap: 5px; align-items: flex-start; text-align: left;
+  padding: 14px 16px; border-radius: 12px; cursor: pointer; font: inherit; color: inherit;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+}
+.lib-work:hover { border-color: var(--accent); transform: translateY(-2px); }
+.lib-work-task { font-weight: 700; font-size: 0.86rem; }
+.lib-work-by { font-size: 0.7rem; opacity: 0.7; }
+.lib-work-note { font-size: 0.74rem; font-style: italic; opacity: 0.85; line-height: 1.5; }
+.lib-work-score { font-size: 0.68rem; font-weight: 700; color: #66bb6a; }
+.lib-news { display: flex; flex-direction: column; gap: 12px; }
+.lib-news-item { padding: 14px 16px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); }
+.lib-news-title { margin: 0 0 2px; font-size: 0.95rem; }
+.lib-news-source { font-size: 0.68rem; opacity: 0.65; }
+.lib-news-blurb { margin: 8px 0; font-size: 0.82rem; line-height: 1.6; }
+.lib-news-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.lib-news-link { font-size: 0.78rem; font-weight: 700; color: #42a5f5; text-decoration: none; }
+.lib-book { display: flex; gap: 18px; padding: 18px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); flex-wrap: wrap; }
+.lib-book-cover { width: 120px; border-radius: 8px; }
+.lib-book-body { flex: 1; min-width: 220px; }
+.lib-book-title { margin: 0; font-family: var(--font-display); font-size: 1.25rem; }
+.lib-book-author { margin: 2px 0 10px; font-size: 0.8rem; opacity: 0.75; }
+.lib-book-why { font-size: 0.86rem; line-height: 1.7; margin: 0 0 10px; }
+.lib-reader {
+  max-width: 720px; width: calc(100% - 32px); max-height: 82vh; overflow-y: auto;
+  padding: 22px 24px; border-radius: 14px; background: var(--surface, #16213e);
+  border: 1px solid rgba(255,255,255,0.12); font-family: var(--font-body);
+}
+.lib-reader-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.lib-reader-task { margin: 0; font-size: 1.05rem; }
+.lib-reader-note { margin: 12px 0; padding: 10px 12px; border-radius: 8px; background: rgba(102,187,106,0.12); font-size: 0.8rem; line-height: 1.6; }
+.lib-reader-body { font-size: 0.92rem; line-height: 1.9; white-space: pre-wrap; margin-bottom: 14px; }
+
+/* Putting a piece on the shelf, from the marking screen. */
+.wr-publish-bar { margin: 0 16px 10px; }
+.wr-publish-btn, .wr-publish-go, .wr-publish-cancel {
+  padding: 7px 14px; border-radius: 8px; cursor: pointer; font: inherit; font-size: 0.75rem; font-weight: 700;
+  background: rgba(102,187,106,0.14); border: 1px solid rgba(102,187,106,0.4); color: #2e7d32;
+}
+.wr-publish-cancel { background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.15); color: inherit; }
+.wr-publish { margin: 0 16px 10px; padding: 12px 14px; border-radius: 10px; background: rgba(102,187,106,0.08); border: 1px solid rgba(102,187,106,0.3); }
+.wr-publish-label { display: block; font-size: 0.72rem; font-weight: 700; margin-bottom: 6px; }
+.wr-publish-note { width: 100%; font: inherit; font-size: 0.8rem; padding: 8px 10px; border-radius: 8px; }
+.wr-publish-row { display: flex; gap: 10px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+.wr-publish-byline { display: flex; gap: 6px; align-items: center; font-size: 0.72rem; }
+.wr-publish-state { margin: 8px 0 0; font-size: 0.74rem; opacity: 0.8; }
+.lib-admin-form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.lib-admin-why, .lib-admin-url { flex: 1 1 100%; font-family: inherit; }
+/* The Library card on the portal, cut from the same cloth as its neighbours. */
+.btn-library {
+  border: 2px solid #4db6ac;
+  background: linear-gradient(135deg, #04201e, #0b3a35);
+  color: #7fe3d8;
+  font-family: var(--font-pixel);
+  font-size: 0.8rem;
+  font-weight: bold;
+  padding: 18px 24px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: 0 3px 0 rgba(0,0,0,0.3), 0 4px 12px rgba(77,182,172,0.1);
+  transition: transform 0.1s, box-shadow 0.15s;
+}
+.btn-library:hover { transform: translateY(-2px); box-shadow: 0 5px 0 rgba(0,0,0,0.3), 0 8px 18px rgba(77,182,172,0.2); }
+.btn-library:active { transform: translateY(1px); box-shadow: 0 2px 0 rgba(0,0,0,0.3); }
+.theme-light .btn-library { background: linear-gradient(135deg, #e6fbf8, #d6f5f0); border-color: #00897b; color: #00695c; }
+.theme-light .btn-library:hover { box-shadow: 0 4px 0 rgba(0,0,0,0.1), 0 6px 16px rgba(0,137,123,0.15); }

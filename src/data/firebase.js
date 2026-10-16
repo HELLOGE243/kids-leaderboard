@@ -25,7 +25,7 @@ const UNASSIGNED_DOC = 'unassigned'
 
 const CHUNK_KEYS = {
   core: ['organisations', 'teachers', 'students', 'classes', '_savedAt', 'notificationPrefs', 'smsLog', 'leaderboardSnapshots'],
-  content: ['topics', 'tagLibrary', 'classGroups', 'policies', 'quizzes', 'quizAttempts', 'courses', 'quizFolders', 'writingMarks', 'questionReports', 'explanationReports', 'newsfeedPosts'],
+  content: ['topics', 'tagLibrary', 'classGroups', 'policies', 'quizzes', 'quizAttempts', 'courses', 'quizFolders', 'writingMarks', 'questionReports', 'explanationReports', 'newsfeedPosts', 'libraryNews', 'libraryBook'],
   activity: ['scores', 'testEvents', 'eventTemplates', 'homeworkAttempts', 'homeworkStarts', 'homeworkRedos', 'homeworkProgress', 'dailyTrivia', 'dailyPuzzles'],
   shop: ['shopItems', 'shopCategories', 'purchases', 'avatarPool', 'shopPools', 'lootChestPool', 'voucherConfig'],
   extras: ['battlegroundsData', 'dojoCards', 'dojoClones', 'dojoKills', 'dojoCustomReview', 'vocabBank', 'wordleSolvers', 'arenaGhosts'],
@@ -1816,6 +1816,51 @@ export async function loadWritingSessionsForAttempt(studentId, quizSetId) {
   } catch (e) {
     console.warn('Firestore: could not read the writing sessions:', e?.code || e)
     return []
+  }
+}
+
+// ------------------------------------------------------------
+// The library's peer works
+//
+// One document per published piece. A piece of writing with its marking runs
+// to thousands of words, and the shared documents are already near the size
+// Firestore allows - the student records hit that ceiling once this term.
+// ------------------------------------------------------------
+const LIBRARY_WORKS = 'libraryWorks'
+
+/** Puts a marked piece on the shelf. @returns {Promise<string|null>} its id */
+export async function publishLibraryWork(work) {
+  try {
+    const id = work.id || `work-${work.attemptId || Date.now()}-${work.questionIndex ?? 0}`
+    await setDoc(doc(db, LIBRARY_WORKS, id), packNested({ ...work, id }))
+    return id
+  } catch (e) {
+    console.error('Firestore: could not publish to the library:', e?.code || e)
+    return null
+  }
+}
+
+/** Everything on the shelf, newest first. */
+export async function loadLibraryWorks() {
+  try {
+    const snap = await getDocs(collection(db, LIBRARY_WORKS))
+    return snap.docs
+      .map((d) => unpackNested(d.data()))
+      .sort((a, b) => String(b.publishedAt || '').localeCompare(String(a.publishedAt || '')))
+  } catch (e) {
+    console.warn('Firestore: could not read the library:', e?.code || e)
+    return []
+  }
+}
+
+/** Takes a piece back off the shelf. */
+export async function unpublishLibraryWork(id) {
+  try {
+    await deleteDoc(doc(db, LIBRARY_WORKS, String(id)))
+    return true
+  } catch (e) {
+    console.warn('Firestore: could not unpublish that piece:', e?.code || e)
+    return false
   }
 }
 

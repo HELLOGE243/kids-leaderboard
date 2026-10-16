@@ -16,6 +16,7 @@ import NewsfeedManager from './NewsfeedManager.jsx'
 import ClassDashboard from './ClassDashboard.jsx'
 import AdminTeacherPanel from '../components/AdminTeacherPanel.jsx'
 import QuestionInbox from '../components/QuestionInbox.jsx'
+import LibraryAdmin from '../components/LibraryAdmin.jsx'
 import { adminAction } from '../data/auth.js'
 import SubmissionArchive from '../components/SubmissionArchive.jsx'
 import '../teacher-dashboard.css'
@@ -999,6 +1000,15 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                 />
               </details>
             )}
+            <details className="td2-card" style={{ marginTop: 16 }}>
+              <summary className="td2-h2">Library · what the school is reading</summary>
+              <p className="td2-muted td2-small" style={{ margin: '8px 0 12px' }}>
+                The reading list and the book of the week, which students find under Library on their
+                own screen. Pieces of writing go on the shelf from the marking screen.
+              </p>
+              <LibraryAdmin onChanged={forceRefresh} />
+            </details>
+
             <details className="td2-card" style={{ marginTop: 16 }}>
               <summary className="td2-h2">Submission archive · recovery</summary>
               <p className="td2-muted td2-small" style={{ margin: '8px 0 12px' }}>

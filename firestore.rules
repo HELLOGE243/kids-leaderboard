@@ -230,6 +230,16 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // --- The library's peer works ------------------------------------------
+    // Writing a teacher has chosen to put in front of the school. Everyone
+    // signed in reads it; a teacher publishes and unpublishes, because
+    // choosing what the school reads is a teaching decision. A student cannot
+    // publish their own work, which is the point of it being chosen.
+    match /libraryWorks/{workId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isTeacher();
+    }
+
     // --- Guided writing sessions -------------------------------------------
     // What the coach said to one child on one piece, and how many turns they
     // have spent. The child writes their own and nobody else's; their

@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { getQuizSetsWithWriting, getWritingSubmissions, saveWritingMark, getWritingExemplars, adjustWritingMark, WRITING_RUBRIC, onDataChange } from '../data/store.js'
 import { generateWritingSuggestions, preAnalyseWriting, generateAiAnnotation, generateAiMark } from '../utils/aiChat.js'
 import WritingSessionTrail from '../components/WritingSessionTrail.jsx'
+import PublishToLibrary from '../components/PublishToLibrary.jsx'
 
 const SCORE_LABELS = ['', 'Beginning', 'Developing', 'Competent', 'Proficient', 'Advanced']
 const SCORE_COLORS = ['', '#ff1744', '#ff9100', '#ffab00', '#66bb6a', '#00e5ff']
@@ -676,6 +677,14 @@ function WritingReview({ orgId, teacherId, onBack }) {
           {aiPreloadStatus === 'ready' && '🤖 AI Ready'}
           {aiPreloadStatus === 'error' && '🤖 AI Unavailable'}
         </span>
+      </div>
+
+      <div className="wr-publish-bar">
+        <PublishToLibrary
+          submission={activeSubmission}
+          mark={activeSubmission.mark}
+          taskTitle={(promptHtml || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90)}
+        />
       </div>
 
       <WritingSessionTrail

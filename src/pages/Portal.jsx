@@ -10,6 +10,7 @@ import HomeworkDashboard from './HomeworkDashboard.jsx'
 import RevisionDojo, { preloadDojoWallpapers } from './RevisionDojo.jsx'
 import Battlegrounds from './Battlegrounds.jsx'
 import VocabularyBank from './VocabularyBank.jsx'
+import Library from './Library.jsx'
 import { getClassesForStudent, getOrganisation, getStudentById, getLeaderboard, getHomeworkLeaderboard, getActiveTerm, addScore, getTestEventsForClass, getScoresForStudentInClass, getRankingForStudentInClass, getHomeworkWeeklyStats, getTopicsForClass, getQuizzesForTopic, isQuizUnlocked, getAttemptForQuiz, getPendingHomeworkCount, getNewCourseCount, getDueDojoCards, getStudentFeedData, getSchoolNewsfeed, getPurchasedTracks, getPastLeaderboards, onDataChange, onBroadcast } from '../data/store.js'
 import { playClick, playCoinSound, playTrack, stopTrack, getCurrentTrackId, isMuted, toggleMute, MUSIC_TRACKS } from '../utils/soundManager.js'
 
@@ -193,6 +194,7 @@ function Portal({ user, onLogout }) {
   const [showDojo, setShowDojo] = useState(false)
   const [showBattlegrounds, setShowBattlegrounds] = useState(false)
   const [showVocab, setShowVocab] = useState(false)
+  const [showLibrary, setShowLibrary] = useState(false)
   const [rankTab, setRankTab] = useState('test')
   const [showPastLb, setShowPastLb] = useState(null)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
@@ -220,6 +222,7 @@ function Portal({ user, onLogout }) {
     revisionDojo: { en: 'Revision Hall', zh: '复习大厅' },
     battlegrounds: { en: 'Battlegrounds', zh: '竞技场' },
     vocabBank: { en: 'Vocabulary Bank', zh: '词汇库' },
+    library: { en: 'Library', zh: '图书馆' },
     myReports: { en: 'My Reports', zh: '我的报告' },
     locked: { en: 'Locked', zh: '已锁定' },
     back: { en: 'Back', zh: '返回' },
@@ -346,6 +349,7 @@ function Portal({ user, onLogout }) {
   if (showReport) return <div className={themeWrap}>{muteBtn}<ReportPage studentId={user.id} initialCourseId={reportLink && reportLink !== 'all' ? reportLink : null} onBack={() => { setShowReport(false); if (reportLink) window.history.replaceState(null, '', window.location.pathname) }} /></div>
   if (showShop) return <div className={themeWrap}>{muteBtn}<Shop user={user} onBack={() => setShowShop(false)} /></div>
   if (showVocab) return <div className={themeWrap}>{muteBtn}<VocabularyBank user={user} onBack={() => setShowVocab(false)} /></div>
+  if (showLibrary) return <div className={themeWrap}>{muteBtn}<Library student={student} onBack={() => setShowLibrary(false)} /></div>
 
   if (activeNewsPost) return (
     <div className={`portal-page ${themeWrap}`}>
@@ -685,6 +689,9 @@ function Portal({ user, onLogout }) {
       </button>
       <button className="btn-vocab w-full mt-16" data-help="vocab" onClick={() => setShowVocab(true)}>
         🔤 {t('vocabBank')}
+      </button>
+      <button className="btn-library w-full mt-16" data-help="library" onClick={() => setShowLibrary(true)}>
+        📚 {t('library')}
       </button>
       <button className="btn-battlegrounds w-full mt-16" data-help="battlegrounds" onClick={() => {
         if (student?.battlegroundsApproved) {

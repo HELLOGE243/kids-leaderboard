@@ -860,6 +860,65 @@ export function createClass(name, orgId, teacherId, yearGroup = '') {
   return { id: classId, ...data.classes[classId] }
 }
 
+// ============================================================
+// THE LIBRARY'S CURATED SHELVES
+//
+// The reading list and the book of the week: a handful of lines chosen by
+// the school, so they travel with the shared content. The peer works shelf
+// is a document per piece and lives in data/library.js.
+// ============================================================
+
+/** @returns {Array<object>} the reading list, newest first */
+export function getLibraryNews() {
+  const data = loadData()
+  return [...(data.libraryNews || [])]
+    .sort((a, b) => String(b.addedAt || '').localeCompare(String(a.addedAt || '')))
+}
+
+/** @returns {object|null} this week's book */
+export function getLibraryBook() {
+  return loadData().libraryBook || null
+}
+
+export function addLibraryNews({ title, source, url, blurb, yearBand = 'all' }) {
+  const data = loadData()
+  if (!data.libraryNews) data.libraryNews = []
+  const item = {
+    id: 'news-' + Math.random().toString(36).slice(2, 9),
+    title: String(title || '').trim().slice(0, 160),
+    source: String(source || '').trim().slice(0, 80),
+    url: String(url || '').trim().slice(0, 500),
+    blurb: String(blurb || '').trim().slice(0, 400),
+    yearBand,
+    addedAt: new Date().toISOString(),
+  }
+  data.libraryNews.unshift(item)
+  // A reading list is this term's reading, not an archive.
+  data.libraryNews = data.libraryNews.slice(0, 40)
+  saveData(data)
+  return item
+}
+
+export function removeLibraryNews(id) {
+  const data = loadData()
+  data.libraryNews = (data.libraryNews || []).filter((n) => n.id !== id)
+  saveData(data)
+}
+
+export function setLibraryBook({ title, author, why, yearBand = 'all', cover = '' }) {
+  const data = loadData()
+  data.libraryBook = {
+    title: String(title || '').trim().slice(0, 160),
+    author: String(author || '').trim().slice(0, 120),
+    why: String(why || '').trim().slice(0, 600),
+    yearBand,
+    cover: String(cover || '').slice(0, 400),
+    setAt: new Date().toISOString(),
+  }
+  saveData(data)
+  return data.libraryBook
+}
+
 /** The name of one teaching group, for a label. */
 export function getGroupName(groupId) {
   return (loadData().classGroups || []).find((g) => g.id === groupId)?.name || ''
