@@ -222,6 +222,14 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // --- What each account has spent on AI today ---------------------------
+    // Written only by the Claude proxy, which counts a call before it makes
+    // it. No client may read or write it: a counter a student could reset is
+    // not a counter.
+    match /aiUsage/{entry} {
+      allow read, write: if false;
+    }
+
     // --- Which teaching groups a student is in -----------------------------
     // Written by admins only, and read by the rules above to decide whether a
     // teacher may open a student's work. Kept apart from the student's record

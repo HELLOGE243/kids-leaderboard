@@ -69,6 +69,8 @@ import ClozeGapReview from '../components/ClozeGapReview.jsx'
 import ClozeText from '../components/ClozeText.jsx'
 import TrialReport from '../components/TrialReport.jsx'
 import ReviewHelp from '../components/ReviewHelp.jsx'
+import SpeakButton from '../components/SpeakButton.jsx'
+import { stopSpeaking } from '../utils/speech.js'
 import { checkExplanation, parseExplanation, generateWordDefinition, generateExplanation } from '../utils/aiChat.js'
 
 const TRIAL_INSTRUCTIONS = {
@@ -409,7 +411,6 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   const [reportType, setReportType] = useState('')
   const [reportDetails, setReportDetails] = useState('')
   const [reportSent, setReportSent] = useState(false)
-  const [speakingExp, setSpeakingExp] = useState(null)
   const [vocabTooltip, setVocabTooltip] = useState(null)
   const [vocabSaved, setVocabSaved] = useState(null)
   const [vocabDefinition, setVocabDefinition] = useState(null)
@@ -559,7 +560,8 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   }, [reviewMode, takingQuiz])
 
   useEffect(() => { setStudentDescTab(0) }, [currentQ])
-  useEffect(() => { setSpeakingExp(null); window.speechSynthesis?.cancel() }, [currentQ])
+  // Moving to another question stops whatever was being read aloud.
+  useEffect(() => { stopSpeaking() }, [currentQ])
   useEffect(() => { setVocabTooltip(null) }, [currentQ])
 
 
@@ -589,23 +591,6 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     addToVocabBank(user.id, vocabTooltip.word, context, source)
     setVocabSaved(vocabTooltip.word)
     setTimeout(() => { setVocabTooltip(null); setVocabSaved(null) }, 1500)
-  }
-
-  function toggleSpeak(key, html) {
-    if (speakingExp === key) {
-      window.speechSynthesis?.cancel()
-      setSpeakingExp(null)
-      return
-    }
-    window.speechSynthesis?.cancel()
-    const text = html.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').trim()
-    if (!text || !window.speechSynthesis) return
-    const utter = new SpeechSynthesisUtterance(text)
-    utter.rate = 0.9
-    utter.onend = () => setSpeakingExp(null)
-    utter.onerror = () => setSpeakingExp(null)
-    setSpeakingExp(key)
-    window.speechSynthesis.speak(utter)
   }
 
   useEffect(() => {
@@ -1992,7 +1977,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                             {optExp && <div className="qt-exp-wrap">
                               <div className="qt-option-explanation" dangerouslySetInnerHTML={{ __html: renderMath(optExp) }} />
                               <div className="qt-exp-actions">
-                                <button className={`qt-exp-speak ${speakingExp === `${currentQ}-${oi}` ? 'qt-exp-speak-active' : ''}`} title="Read aloud" onClick={() => toggleSpeak(`${currentQ}-${oi}`, optExp)}>{speakingExp === `${currentQ}-${oi}` ? '⏹' : '🔊'}</button>
+                                <SpeakButton text={optExp} speechKey={`opt-${currentQ}-${oi}`} className="qt-exp-speak" />
                                 <button className="qt-exp-report" title="Report explanation issue" onClick={() => { setShowReportModal('explanation'); setReportType(''); setReportDetails(''); setReportSent(false) }}>🚩</button>
                               </div>
                             </div>}

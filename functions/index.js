@@ -69,32 +69,112 @@ async function claudeAuthHeader() {
   return apiKey ? { 'x-api-key': apiKey } : null
 }
 
-// --- Claude API proxy ---
+// ============================================================
+// CLAUDE API
+//
+// The proxy used to forward whatever the browser sent - any model, any
+// prompt, any token count - on nothing but a signed-in check. Any student
+// could spend the account's budget on anything they liked. It now serves a
+// known list of models, caps what one call may cost, and gives every account
+// a day's allowance.
+// ============================================================
+
+/** Models this app actually asks for. Anything else is refused. */
+const ALLOWED_MODELS = new Set([
+  'claude-haiku-4-5-20251001',
+  'claude-sonnet-5',
+])
+
+/** No single call may ask for more than this, whatever the browser says. */
+const MAX_TOKENS_CEILING = 4000
+
+/** A day's calls, by who is asking. */
+const DAILY_CALLS = { student: 120, parent: 20, teacher: 1500 }
+
+/** The whole request body, as a guard against a prompt built to be expensive. */
+const MAX_BODY_CHARS = 120000
+
+/**
+ * Counts one call against today's allowance, and says whether to serve it.
+ *
+ * One document per account per day, so the count resets by itself and nothing
+ * has to be swept up. Admins are not counted: marking a class's writing is a
+ * burst of hundreds, and an admin who runs the platform can already spend its
+ * money in a dozen other ways.
+ */
+async function withinAiAllowance(caller) {
+  if (caller.admin === true) return { ok: true }
+  const role = caller.role === 'teacher' ? 'teacher' : caller.role === 'parent' ? 'parent' : 'student'
+  const limit = DAILY_CALLS[role]
+  const day = new Date().toISOString().slice(0, 10)
+  const ref = db.collection('aiUsage').doc(`${caller.uid}_${day}`)
+  try {
+    return await db.runTransaction(async (tx) => {
+      const used = (await tx.get(ref)).data()?.calls || 0
+      if (used >= limit) return { ok: false, used, limit }
+      tx.set(ref, { calls: used + 1, role, day, updatedAt: Date.now() }, { merge: true })
+      return { ok: true, used: used + 1, limit }
+    })
+  } catch (e) {
+    // A counter that cannot be read must not stop a lesson.
+    console.warn('AI allowance check failed, allowing the call:', e?.message || e)
+    return { ok: true }
+  }
+}
+
+/**
+ * Sends a request to Claude with this project's credentials.
+ * @returns {Promise<{status: number, body: string}>}
+ */
+async function callClaude(body) {
+  const auth = await claudeAuthHeader()
+  if (!auth) return { status: 500, body: JSON.stringify({ error: 'Claude API credentials not configured' }) }
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...auth,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify(body),
+  })
+  return { status: response.status, body: await response.text() }
+}
+
 exports.claudeProxy = functions.https.onRequest((req, res) => {
   cors(req, res, async () => {
     if (req.method !== 'POST') {
       return res.status(405).json({ error: 'Method not allowed' })
     }
-    if (!(await verifyCaller(req))) {
+    const caller = await verifyCaller(req)
+    if (!caller) {
       return res.status(401).json({ error: { message: 'Sign in required' } })
     }
 
-    try {
-      const auth = await claudeAuthHeader()
-      if (!auth) {
-        return res.status(500).json({ error: 'Claude API credentials not configured' })
-      }
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...auth,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify(req.body),
+    const body = req.body || {}
+    if (!ALLOWED_MODELS.has(String(body.model))) {
+      console.warn(`claudeProxy: ${caller.uid} asked for model "${body.model}"`)
+      return res.status(400).json({ error: { message: 'That model is not available here.' } })
+    }
+    if (JSON.stringify(body).length > MAX_BODY_CHARS) {
+      return res.status(413).json({ error: { message: 'That request is too long.' } })
+    }
+
+    const allowance = await withinAiAllowance(caller)
+    if (!allowance.ok) {
+      console.info(`claudeProxy: ${caller.uid} (${caller.role}) is out of calls for today`)
+      return res.status(429).json({
+        error: { message: "That's all the AI help available today. It comes back tomorrow." },
       })
-      const data = await response.text()
-      res.status(response.status).set('Content-Type', 'application/json').send(data)
+    }
+
+    try {
+      const capped = {
+        ...body,
+        max_tokens: Math.min(Number(body.max_tokens) || 1000, MAX_TOKENS_CEILING),
+      }
+      const out = await callClaude(capped)
+      res.status(out.status).set('Content-Type', 'application/json').send(out.body)
     } catch (e) {
       res.status(500).json({ error: e.message })
     }

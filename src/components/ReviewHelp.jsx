@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { renderMath } from '../utils/renderMath.js'
+import SpeakButton from './SpeakButton.jsx'
 
 /**
  * The three-step help a student works through on a question they got wrong:
@@ -108,7 +109,17 @@ function ReviewHelp({
         <div className="qt-help-panel">
           {chat.loading === open
             ? <div className="qt-help-loading">Working it out…</div>
-            : <div className="qt-help-text" dangerouslySetInnerHTML={{ __html: renderMath(help[open] || '') }} />}
+            : (
+              <>
+                <div className="qt-help-text" dangerouslySetInnerHTML={{ __html: renderMath(help[open] || '') }} />
+                <SpeakButton
+                  text={help[open] || ''}
+                  speechKey={`help-${open}`}
+                  label="Read it to me"
+                  className="qt-help-speak"
+                />
+              </>
+            )}
         </div>
       )}
 

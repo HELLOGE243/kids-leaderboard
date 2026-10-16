@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { setSittingActive } from '../utils/activeSitting.js'
 import { renderMath } from '../utils/renderMath.js'
+import SpeakButton from '../components/SpeakButton.jsx'
+import { stopSpeaking } from '../utils/speech.js'
 import { prepareMath } from '../utils/mathify.js'
 import {
   getClassesForStudent,
@@ -657,7 +659,12 @@ function QuizDashboard({ user, onBack, initialNav }) {
                       <span className={`qt-option-radio ${oi === q.correctIndex ? 'qt-radio-correct' : oi === picked ? 'qt-radio-wrong' : ''}`} />
                       <span className="qt-option-text" dangerouslySetInnerHTML={{ __html: renderMath(prepareMath(opt)) }} />
                     </div>
-                    {optExp && <div className="qt-option-explanation" dangerouslySetInnerHTML={{ __html: optExp }} />}
+                    {optExp && (
+                      <div className="qt-exp-wrap">
+                        <div className="qt-option-explanation" dangerouslySetInnerHTML={{ __html: optExp }} />
+                        <SpeakButton text={optExp} speechKey={`qd-opt-${reviewCurrentQ}-${oi}`} className="qt-exp-speak" />
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -792,7 +799,12 @@ function QuizDashboard({ user, onBack, initialNav }) {
                     <div className="qt-help-panel">
                       {chat.loading === open
                         ? <div className="qt-help-loading">Working it out…</div>
-                        : <div className="qt-help-text" dangerouslySetInnerHTML={{ __html: help[open] || '' }} />}
+                        : (
+                          <>
+                            <div className="qt-help-text" dangerouslySetInnerHTML={{ __html: help[open] || '' }} />
+                            <SpeakButton text={help[open] || ''} speechKey={`qd-help-${open}`} label="Read it to me" className="qt-help-speak" />
+                          </>
+                        )}
                     </div>
                   )}
                   {open === 'mine' && (

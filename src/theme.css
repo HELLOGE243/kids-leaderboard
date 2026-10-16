@@ -19258,3 +19258,17 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 /* The bar needs a width of its own here: the row is a grid, not a table. */
 .cg-student .cd-progress-bar { width: 70px; flex-shrink: 0; }
 .cg-student .cd-progress-text { font-size: 0.68rem; opacity: 0.7; min-width: 42px; text-align: right; }
+
+/* --- Read aloud -------------------------------------------------------------
+   Hearing a sentence is how a child catches the run-on their eye slides over,
+   and how a slower reader gets at an explanation written for a stronger one. */
+.speak-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px; cursor: pointer;
+  background: rgba(66,165,245,0.14); border: 1px solid rgba(66,165,245,0.35);
+  color: #42a5f5; font-family: var(--font-body); font-size: 0.68rem; font-weight: 700;
+}
+.speak-btn:hover { background: rgba(66,165,245,0.24); }
+.speak-btn.is-speaking { background: rgba(255,87,34,0.16); border-color: rgba(255,87,34,0.4); color: #ff7043; }
+.speak-btn-icon { font-size: 0.85rem; line-height: 1; }
+.qt-help-speak { margin-top: 10px; }
