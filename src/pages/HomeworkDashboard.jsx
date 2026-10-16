@@ -72,6 +72,7 @@ import ReviewHelp from '../components/ReviewHelp.jsx'
 import SpeakButton from '../components/SpeakButton.jsx'
 import GuidedWriting from '../components/GuidedWriting.jsx'
 import { askWritingCoach } from '../data/writingCoach.js'
+import { writingSessionId, loadWritingSession, saveWritingSession } from '../data/firebase.js'
 import { countSentences } from '../utils/writingText.js'
 import { stopSpeaking } from '../utils/speech.js'
 import { checkExplanation, parseExplanation, generateWordDefinition, generateExplanation } from '../utils/aiChat.js'
@@ -396,6 +397,35 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   const [guidedSessions, setGuidedSessions] = useState({})
   const [guidedBusy, setGuidedBusy] = useState(null)
 
+  // Pick up where the coach left off. Without this a child could reload the
+  // page and be handed five fresh turns, which makes the cap a decoration.
+  useEffect(() => {
+    if (!takingQuiz || !user?.id) return undefined
+    let alive = true
+    const guided = (takingQuiz.questions || [])
+      .map((q, i) => ((q.type === 'guided-writing') ? i : -1)).filter((i) => i >= 0)
+    if (!guided.length) return undefined
+    Promise.all(guided.map((i) =>
+      loadWritingSession(writingSessionId(user.id, takingQuiz.id, i)).then((sess) => [i, sess])))
+      .then((pairs) => {
+        if (!alive) return
+        const found = Object.fromEntries(pairs.filter(([, sess]) => sess))
+        if (Object.keys(found).length) setGuidedSessions((prev) => ({ ...found, ...prev }))
+      })
+    return () => { alive = false }
+  }, [takingQuiz?.id, user?.id])
+
+  /** Keeps one question's session on the server, turns spent and all. */
+  function persistGuided(index, session) {
+    if (!takingQuiz || !user?.id) return
+    saveWritingSession(writingSessionId(user.id, takingQuiz.id, index), {
+      ...session,
+      studentId: String(user.id),
+      quizSetId: String(takingQuiz.id),
+      questionIndex: index,
+    })
+  }
+
   async function askCoach(index, question, action) {
     if (guidedBusy !== null) return
     const draft = quizAnswers[index]
@@ -412,19 +442,18 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       if (!turn) return
       setGuidedSessions((prev) => {
         const was = prev[index] || { turns: [], sentencesAtLastTurn: 0, cardsTaken: [] }
-        return {
-          ...prev,
-          [index]: {
-            ...was,
-            turns: [...was.turns, turn],
-            // Only an evaluation spends a turn and resets the sentence count;
-            // asking for ideas afterwards is part of the same turn.
-            sentencesAtLastTurn: action === 'evaluate'
-              ? countSentences(typeof draft === 'string' ? draft : '')
-              : was.sentencesAtLastTurn,
-            beatsMet: turn.beatsMet || was.beatsMet || [],
-          },
+        const next = {
+          ...was,
+          turns: [...was.turns, turn],
+          // Only an evaluation spends a turn and resets the sentence count;
+          // asking for ideas afterwards is part of the same turn.
+          sentencesAtLastTurn: action === 'evaluate'
+            ? countSentences(typeof draft === 'string' ? draft : '')
+            : was.sentencesAtLastTurn,
+          beatsMet: turn.beatsMet || was.beatsMet || [],
         }
+        persistGuided(index, next)
+        return { ...prev, [index]: next }
       })
     } finally {
       setGuidedBusy(null)
@@ -435,17 +464,16 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   function takeCoachCard(index, card) {
     setGuidedSessions((prev) => {
       const was = prev[index] || { turns: [], sentencesAtLastTurn: 0, cardsTaken: [] }
-      return {
-        ...prev,
-        [index]: {
-          ...was,
-          cardsTaken: [...(was.cardsTaken || []), { id: card.id, text: card.text, at: Date.now() }],
-          turns: was.turns.map((t) => ({
-            ...t,
-            cards: (t.cards || []).map((c) => (c.id === card.id ? { ...c, taken: true } : c)),
-          })),
-        },
+      const next = {
+        ...was,
+        cardsTaken: [...(was.cardsTaken || []), { id: card.id, text: card.text, at: Date.now() }],
+        turns: was.turns.map((t) => ({
+          ...t,
+          cards: (t.cards || []).map((c) => (c.id === card.id ? { ...c, taken: true } : c)),
+        })),
       }
+      persistGuided(index, next)
+      return { ...prev, [index]: next }
     })
   }
 

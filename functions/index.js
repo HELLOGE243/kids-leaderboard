@@ -1479,8 +1479,12 @@ Reply as JSON only:
 {"glow":"...","grow":"...","missing":"...","next":"...","beatsMet":["id"]}`
 }
 
+// Served through a Hosting rewrite at /api/coach, the way the Claude proxy is.
+// A function called straight from the browser has to be invokable by anyone,
+// and this project no longer grants that to new functions by default - the
+// browser got a 401 from Google before the request ever reached this code.
+// Behind Hosting there is nothing to grant, and the path is same-origin.
 exports.writingCoach = functions
-  .region('australia-southeast1')
   .https.onRequest((req, res) => {
     cors(req, res, async () => {
       if (req.method !== 'POST') return sendJson(res, 405, { error: 'Method not allowed' })

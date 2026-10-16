@@ -230,6 +230,20 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // --- Guided writing sessions -------------------------------------------
+    // What the coach said to one child on one piece, and how many turns they
+    // have spent. The child writes their own and nobody else's; their
+    // teachers and an admin may read it, because how a piece was helped along
+    // is part of what a teacher is marking.
+    match /writingSessions/{sessionId} {
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.studentId == request.auth.uid)
+        || teaches(resource.data.studentId);
+      allow create, update: if isStudent()
+        && request.resource.data.studentId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+
     // --- Which teaching groups a student is in -----------------------------
     // Written by admins only, and read by the rules above to decide whether a
     // teacher may open a student's work. Kept apart from the student's record

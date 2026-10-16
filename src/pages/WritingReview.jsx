@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { getQuizSetsWithWriting, getWritingSubmissions, saveWritingMark, getWritingExemplars, adjustWritingMark, WRITING_RUBRIC, onDataChange } from '../data/store.js'
 import { generateWritingSuggestions, preAnalyseWriting, generateAiAnnotation, generateAiMark } from '../utils/aiChat.js'
+import WritingSessionTrail from '../components/WritingSessionTrail.jsx'
 
 const SCORE_LABELS = ['', 'Beginning', 'Developing', 'Competent', 'Proficient', 'Advanced']
 const SCORE_COLORS = ['', '#ff1744', '#ff9100', '#ffab00', '#66bb6a', '#00e5ff']
@@ -676,6 +677,12 @@ function WritingReview({ orgId, teacherId, onBack }) {
           {aiPreloadStatus === 'error' && '🤖 AI Unavailable'}
         </span>
       </div>
+
+      <WritingSessionTrail
+        studentId={activeSubmission.studentId}
+        quizSetId={selectedSet}
+        questionIndex={activeSubmission.questionIndex}
+      />
 
       <div className="wr-marking-layout">
         {/* Left: Student response + annotations */}

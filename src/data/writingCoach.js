@@ -1,4 +1,4 @@
-import { authedFetch, FUNCTIONS_BASE } from './auth.js'
+import { authedFetch } from './auth.js'
 
 /**
  * Asking the writing coach for a turn.
@@ -21,7 +21,7 @@ import { authedFetch, FUNCTIONS_BASE } from './auth.js'
  */
 export async function askWritingCoach({ action, question, draft, session, student }) {
   try {
-    const res = await authedFetch(`${FUNCTIONS_BASE}/writingCoach`, {
+    const res = await authedFetch('/api/coach', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

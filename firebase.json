@@ -28,6 +28,14 @@
     ],
     "rewrites": [
       {
+        "source": "/api/coach",
+        "function": "writingCoach"
+      },
+      {
+        "source": "/api/coach/**",
+        "function": "writingCoach"
+      },
+      {
         "source": "/api/claude/**",
         "function": "claudeProxy"
       },

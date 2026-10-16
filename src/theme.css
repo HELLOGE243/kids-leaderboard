@@ -19354,3 +19354,13 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 @media (max-width: 1100px) {
   .gw-layout { grid-template-columns: 1fr; grid-template-rows: auto minmax(260px, 1fr) auto; }
 }
+/* How a guided piece was helped along, beside the marking. */
+.wst { margin: 0 16px 10px; padding: 8px 12px; border-radius: 8px; background: rgba(66,165,245,0.08); border: 1px solid rgba(66,165,245,0.25); font-family: var(--font-body); }
+.wst-head { background: none; border: 0; cursor: pointer; font: inherit; font-weight: 700; font-size: 0.76rem; color: inherit; display: flex; gap: 10px; align-items: baseline; width: 100%; }
+.wst-sum { font-weight: 400; opacity: 0.7; font-size: 0.7rem; }
+.wst-flag { margin: 6px 0 0; font-size: 0.72rem; color: #ef6c00; }
+.wst-turns { margin: 8px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 0.73rem; line-height: 1.5; }
+.wst-turn p { margin: 0 0 2px; }
+.wst-kind { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.6; }
+.wst-cards { margin: 4px 0 0; padding-left: 16px; opacity: 0.8; }
+.wst-cards .is-taken { color: #2e7d32; font-weight: 600; }

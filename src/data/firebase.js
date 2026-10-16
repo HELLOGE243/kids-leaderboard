@@ -1759,6 +1759,66 @@ export async function markAskedSeen(askId) {
   }
 }
 
+// ------------------------------------------------------------
+// Guided writing sessions
+//
+// What the coach said, which sparks were taken, and how many turns are spent.
+// Kept here rather than in the student's record for two reasons: a record
+// already outgrew the 1 MiB a Firestore document allows once this term, and a
+// cap that lives only in the browser is no cap at all - a child who reloaded
+// the page would be handed five fresh turns.
+// ------------------------------------------------------------
+const WRITING_SESSIONS = 'writingSessions'
+
+/** One session's id: this student, this paper, this question. */
+export function writingSessionId(studentId, quizSetId, questionIndex) {
+  return `${studentId}_${quizSetId}_${questionIndex}`
+}
+
+/** @returns {Promise<object|null>} */
+export async function loadWritingSession(id) {
+  if (!id) return null
+  try {
+    const snap = await getDoc(doc(db, WRITING_SESSIONS, id))
+    return snap.exists() ? unpackNested(snap.data()) : null
+  } catch (e) {
+    console.warn('Firestore: could not read the writing session:', e?.code || e)
+    return null
+  }
+}
+
+/**
+ * Writes the session. Never throws: losing a coach turn must not cost a child
+ * the sentence they were in the middle of.
+ */
+export async function saveWritingSession(id, session) {
+  if (!id) return false
+  try {
+    await setDoc(doc(db, WRITING_SESSIONS, id), packNested({
+      ...session,
+      updatedAt: new Date().toISOString(),
+    }))
+    return true
+  } catch (e) {
+    console.warn('Firestore: could not save the writing session:', e?.code || e)
+    return false
+  }
+}
+
+/** Every session for one paper, for the teacher marking it. */
+export async function loadWritingSessionsForAttempt(studentId, quizSetId) {
+  try {
+    const { query, where } = await import('firebase/firestore')
+    const snap = await getDocs(query(collection(db, WRITING_SESSIONS),
+      where('studentId', '==', String(studentId)),
+      where('quizSetId', '==', String(quizSetId))))
+    return snap.docs.map((d) => unpackNested(d.data()))
+  } catch (e) {
+    console.warn('Firestore: could not read the writing sessions:', e?.code || e)
+    return []
+  }
+}
+
 /** Drops all aggregate subscriptions (called on sign-out). */
 export function unsubscribeAggregates() {
   for (const k of Object.keys(_lbUnsub)) {
