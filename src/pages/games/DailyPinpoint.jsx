@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getDailyGameState, saveDailyGameState, awardDailyGameCoins, getDailyPuzzles, setDailyPuzzles } from '../../data/store.js'
+import { getDailyGameState, saveDailyGameState, awardDailyGameTokens, getDailyPuzzles, setDailyPuzzles } from '../../data/store.js'
 import { authedFetch } from '../../data/auth.js'
 
 const CLUE_POINTS = [50, 40, 30, 20, 10]
@@ -87,9 +87,9 @@ The answer should be one word, capitalised. Clues should be 3-8 words each. No c
       setWon(true)
       const coins = CLUE_POINTS[revealedClues - 1] || 10
       saveDailyGameState(userId, 'pinpoint', { revealedClues, guesses: newGuesses, gameOver: true, won: true })
-      awardDailyGameCoins(userId, 'pinpoint', coins)
+      awardDailyGameTokens(userId, 'pinpoint', coins)
       if (onWin) onWin()
-      showMsg(`Correct! +${coins} Coins!`)
+      showMsg(`Correct! +${coins} Tokens!`)
     } else if (revealedClues < 5) {
       const next = revealedClues + 1
       setRevealedClues(next)
@@ -141,7 +141,7 @@ The answer should be one word, capitalised. Clues should be 3-8 words each. No c
         </div>
       </div>
 
-      <p className="pp-instructions">Guess the secret word from the clues. Fewer clues = more coins!</p>
+      <p className="pp-instructions">Guess the secret word from the clues. Fewer clues = more tokens!</p>
 
       {message && <div className="wdl-message">{message}</div>}
 

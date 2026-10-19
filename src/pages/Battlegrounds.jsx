@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { getStudentById, getBattlegroundsOnlineCount, pingBattlegroundsPresence, hasDailyTriviaBeenAnswered, completeDailyTrivia, getDailyTrivia, setDailyTrivia, getDailyTriviaStats, getDailyGameState, getWordleHistory, getWordleSolveOrder, getWordleSolverCount, getArenaElo, getArenaTier, getArenaLeaderboard } from '../data/store.js'
+import { getStudentById, spendTokens, getBalanceLeaderboard, getBattlegroundsOnlineCount, pingBattlegroundsPresence, hasDailyTriviaBeenAnswered, completeDailyTrivia, getDailyTrivia, setDailyTrivia, getDailyTriviaStats, getDailyGameState, getWordleHistory, getWordleSolveOrder, getWordleSolverCount, getArenaElo, getArenaTier, getArenaLeaderboard } from '../data/store.js'
 import DailyWordle from './games/DailyWordle.jsx'
 import DailyConnections from './games/DailyConnections.jsx'
 import DailyWordHunt from './games/DailyWordHunt.jsx'
@@ -11,10 +11,10 @@ import DailyVocabTrainer from './games/DailyVocabTrainer.jsx'
 import { authedFetch } from '../data/auth.js'
 
 const DAILY_CHALLENGES = [
-  { id: 'wordle', name: 'Wordle', icon: '🟩', desc: 'Guess the 5-letter word in 6 tries', reward: '10 coins', color: '#538d4e' },
-  { id: 'connections', name: 'Connections', icon: '🔗', desc: 'Find 4 groups of synonyms', reward: '10 coins', color: '#b59f3b' },
-  { id: 'wordhunt', name: 'Word Hunt', icon: '🔍', desc: 'Drag to trace words in a 4×4 grid', reward: '10 coins', color: '#4ecdc4' },
-  { id: 'vocabtrainer', name: 'Vocab Trainer', icon: '📖', desc: 'Learn words and fill the passage', reward: '10 coins', color: '#6a5acd' },
+  { id: 'wordle', name: 'Wordle', icon: '🟩', desc: 'Guess the 5-letter word in 6 tries', reward: '10 tokens', color: '#538d4e' },
+  { id: 'connections', name: 'Connections', icon: '🔗', desc: 'Find 4 groups of synonyms', reward: '10 tokens', color: '#b59f3b' },
+  { id: 'wordhunt', name: 'Word Hunt', icon: '🔍', desc: 'Drag to trace words in a 4×4 grid', reward: '10 tokens', color: '#4ecdc4' },
+  { id: 'vocabtrainer', name: 'Vocab Trainer', icon: '📖', desc: 'Learn words and fill the passage', reward: '10 tokens', color: '#6a5acd' },
 ]
 
 const LIVE_ARENAS = [
@@ -30,6 +30,77 @@ const MINIGAMES = [
   { id: 'bombparty', name: 'Bomb Party', icon: '💣', desc: 'Type a word with the given letters before the bomb explodes!', players: '2-4', color: '#e94560' },
   { id: 'pictionary', name: 'Pictionary', icon: '🎨', desc: 'Draw the word and race to guess what others are drawing!', players: '2-4', color: '#a86eff' },
 ]
+
+/**
+ * Who is holding what, in both currencies.
+ *
+ * Two boards rather than one combined rank, because the currencies mean
+ * different things: coins are earned by doing the work, tokens by playing
+ * well here and in revision. A single leaderboard would quietly say one of
+ * those mattered more.
+ *
+ * The reader's own row is always shown, even when they are nowhere near the
+ * top - a leaderboard a child cannot find themselves on is just a list of
+ * other people.
+ */
+function BalanceBoard({ userId, orgId }) {
+  const [tab, setTab] = useState('coins')
+  const boards = getBalanceLeaderboard(orgId)
+  const rows = boards[tab] || []
+  const top = rows.slice(0, 10)
+  const myIndex = rows.findIndex((r) => String(r.id) === String(userId))
+  const me = myIndex >= 0 ? rows[myIndex] : null
+  const icon = tab === 'coins' ? '/coin.png' : '/token.png'
+
+  const row = (r, place, isMe) => (
+    <div key={r.id} className={`bg-lb-row${isMe ? ' bg-lb-row-me' : ''}`}>
+      <span className="bg-lb-place">{place}</span>
+      <span className="bg-lb-avatar">{r.avatar ? <img src={r.avatar} alt="" /> : '\u{1F464}'}</span>
+      <span className="bg-lb-name">{r.name}{isMe ? ' (you)' : ''}</span>
+      <span className="bg-lb-amount">
+        <img src={icon} alt="" style={{ width: 14, height: 14 }} />
+        {r[tab].toLocaleString()}
+      </span>
+    </div>
+  )
+
+  return (
+    <div className="bg-lb">
+      <div className="bg-lb-tabs">
+        <button
+          className={`bg-lb-tab${tab === 'coins' ? ' bg-lb-tab-active' : ''}`}
+          onClick={() => setTab('coins')}
+        >
+          <img src="/coin.png" alt="" style={{ width: 14, height: 14 }} /> Coins
+        </button>
+        <button
+          className={`bg-lb-tab${tab === 'tokens' ? ' bg-lb-tab-active' : ''}`}
+          onClick={() => setTab('tokens')}
+        >
+          <img src="/token.png" alt="" style={{ width: 14, height: 14 }} /> Tokens
+        </button>
+      </div>
+      <p className="bg-lb-what">
+        {tab === 'coins'
+          ? 'Earned from first attempts at your homework and the marks your teacher enters.'
+          : 'Earned from revision, the daily challenges and the arenas.'}
+      </p>
+      {rows.length === 0 ? (
+        <p className="bg-lb-empty">Nobody has earned anything yet.</p>
+      ) : (
+        <div className="bg-lb-rows">
+          {top.map((r, i) => row(r, i + 1, String(r.id) === String(userId)))}
+          {me && myIndex >= 10 && (
+            <>
+              <div className="bg-lb-gap">⋯</div>
+              {row(me, myIndex + 1, true)}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function PlayerProfile({ userId, student, refresh, open, onToggle }) {
   if (!open) return null
@@ -382,8 +453,22 @@ function Battlegrounds({ user, onBack }) {
     setWarnGame(null)
   }
 
+  /**
+   * Takes the entry fee, then opens the game.
+   *
+   * The modal has always said what entering costs and the button has always
+   * said "Spend 2 Tokens", but nothing was ever deducted: the minigames were
+   * free and could be entered again and again. The fee is charged here, and
+   * only if it is actually paid does the game open - spendTokens refuses when
+   * the balance will not cover it, and a refused entry must not let anybody in.
+   */
   function confirmEnter() {
     if (!confirmGame) return
+    if (confirmGame.cost > 0 && !spendTokens(user.id, confirmGame.cost)) {
+      setConfirmGame(null)
+      return
+    }
+    setRefresh(r => r + 1)
     setActiveGame(confirmGame.gameId)
     setConfirmGame(null)
   }
@@ -428,9 +513,20 @@ function Battlegrounds({ user, onBack }) {
           <span className="bg-subtitle">Card games, battles & party games</span>
         </div>
         <div className="bg-header-right">
-          <div className="bg-token-display">
-            <img src="/token.png" alt="" style={{ width: 18, height: 18 }} />
-            <span>{student?.tokens ?? 0}</span>
+          {/* Both balances, where a student is already looking. The header
+              used to carry tokens alone, and coins were visible nowhere but
+              inside the shop - so the one number a child earns all week by
+              doing their homework could not be checked without going to spend
+              it. */}
+          <div className="bg-balances" title="Coins are earned from your work. Tokens are earned here and in revision.">
+            <div className="bg-balance bg-balance-coins">
+              <img src="/coin.png" alt="" style={{ width: 18, height: 18 }} />
+              <span>{(student?.coins ?? 0).toLocaleString()}</span>
+            </div>
+            <div className="bg-balance bg-balance-tokens">
+              <img src="/token.png" alt="" style={{ width: 18, height: 18 }} />
+              <span>{(student?.tokens ?? 0).toLocaleString()}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -502,9 +598,20 @@ function Battlegrounds({ user, onBack }) {
             </button>
             <PlayerProfile userId={user.id} student={student} refresh={refresh} open={profileOpen} onToggle={() => setProfileOpen(p => !p)} />
           </div>
-          <div className="bg-token-display">
-            <img src="/token.png" alt="" style={{ width: 18, height: 18 }} />
-            <span>{student?.tokens ?? 0}</span>
+          {/* Both balances, where a student is already looking. The header
+              used to carry tokens alone, and coins were visible nowhere but
+              inside the shop - so the one number a child earns all week by
+              doing their homework could not be checked without going to spend
+              it. */}
+          <div className="bg-balances" title="Coins are earned from your work. Tokens are earned here and in revision.">
+            <div className="bg-balance bg-balance-coins">
+              <img src="/coin.png" alt="" style={{ width: 18, height: 18 }} />
+              <span>{(student?.coins ?? 0).toLocaleString()}</span>
+            </div>
+            <div className="bg-balance bg-balance-tokens">
+              <img src="/token.png" alt="" style={{ width: 18, height: 18 }} />
+              <span>{(student?.tokens ?? 0).toLocaleString()}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -516,7 +623,7 @@ function Battlegrounds({ user, onBack }) {
       <div className="bg-section-header">
         <span className="bg-section-icon">📅</span>
         <span className="bg-section-title">Daily Challenges</span>
-        <span className="bg-section-badge">Earn Coins</span>
+        <span className="bg-section-badge">Earn Tokens</span>
       </div>
       <div className="bg-daily-grid">
         {DAILY_CHALLENGES.map(ch => {
@@ -529,7 +636,7 @@ function Battlegrounds({ user, onBack }) {
                 <div className="bg-daily-desc">{ch.desc}</div>
               </div>
               <div className="bg-daily-reward">
-                <img src="/coin.png" alt="" style={{ width: 14, height: 14 }} />
+                <img src="/token.png" alt="" style={{ width: 14, height: 14 }} />
                 {ch.reward}
               </div>
               <button className={`bg-daily-play ${done ? 'bg-daily-done' : ''}`} onClick={() => !done && tryEnterDaily(ch.id)}>
@@ -584,6 +691,14 @@ function Battlegrounds({ user, onBack }) {
           ))}
         </div>
       </div>
+
+      {/* === BALANCES === */}
+      <div className="bg-section-header">
+        <span className="bg-section-icon">🏆</span>
+        <span className="bg-section-title">Balances</span>
+        <span className="bg-section-badge">Whole school</span>
+      </div>
+      <BalanceBoard userId={user.id} orgId={user.orgId} />
 
       {confirmGame && createPortal(
         <div className="bg-confirm-overlay" onClick={() => setConfirmGame(null)}>

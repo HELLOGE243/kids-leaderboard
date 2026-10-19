@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getDailyGameState, saveDailyGameState, awardDailyGameCoins, getDailyPuzzles, setDailyPuzzles } from '../../data/store.js'
+import { getDailyGameState, saveDailyGameState, awardDailyGameTokens, getDailyPuzzles, setDailyPuzzles } from '../../data/store.js'
 import { authedFetch } from '../../data/auth.js'
 
 const GROUP_COLORS = ['#f9df6d', '#a0c35a', '#b0c4ef', '#ba81c5']
@@ -166,9 +166,9 @@ Each word should be a single word (no spaces). Make the connections tricky — s
         setGameOver(true)
         setWon(true)
         saveDailyGameState(userId, 'connections', { solved: newSolved, mistakes, gameOver: true, won: true })
-        awardDailyGameCoins(userId, 'connections', 10)
+        awardDailyGameTokens(userId, 'connections', 10)
         if (onWin) onWin()
-        showMsg('Solved! +10 Coins!')
+        showMsg('Solved! +10 Tokens!')
       } else {
         saveDailyGameState(userId, 'connections', { solved: newSolved, mistakes, gameOver: false, won: false })
       }

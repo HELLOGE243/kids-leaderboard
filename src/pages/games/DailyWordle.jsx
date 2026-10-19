@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getDailyGameState, saveDailyGameState, awardDailyGameCoins, getTodayTriviaKey, recordWordleSolve } from '../../data/store.js'
+import { getDailyGameState, saveDailyGameState, awardDailyGameTokens, getTodayTriviaKey, recordWordleSolve } from '../../data/store.js'
 
 const WORDS = [
   'CRANE','BRAVE','FLAME','GHOST','STORM','PLANT','DREAM','HOUSE','OCEAN','BEACH',
@@ -122,10 +122,10 @@ function DailyWordle({ userId, onBack, onWin }) {
         const state = { guesses: newGuesses, gameOver: true, won: isWin }
         saveDailyGameState(userId, 'wordle', state)
         if (isWin) {
-          awardDailyGameCoins(userId, 'wordle', 10)
+          awardDailyGameTokens(userId, 'wordle', 10)
           recordWordleSolve(userId)
           if (onWin) onWin()
-          showMsg('You got it! +10 Coins!')
+          showMsg('You got it! +10 Tokens!')
         } else {
           saveDailyGameState(userId, 'wordle', { ...state, answer })
           showMsg(`The word was ${answer}`)

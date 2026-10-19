@@ -4681,9 +4681,18 @@ export function getDojoKills(studentId) {
   return (data.dojoKills || {})[studentId] || 0
 }
 
-export function redeemDojoKills(studentId, count) {
+/**
+ * Turns mastered cards into tokens.
+ *
+ * The parameter used to be called `count`, which shadowed the helper of that
+ * name that coerces a balance to a number - so `count(student.tokens)` called
+ * a number and threw, every time, after the kills had already been cleared
+ * from the student's own record and before the tokens were added. Mastery paid
+ * nothing and cost the student their streak.
+ */
+export function redeemDojoKills(studentId, howMany) {
   const available = getDojoKills(studentId)
-  const redeemable = Math.min(count, available)
+  const redeemable = Math.min(count(howMany), available)
   if (redeemable <= 0) return 0
   const sData = loadStudentData(studentId)
   if (sData && sData._migrated) {
@@ -5229,17 +5238,36 @@ export function saveDailyGameState(studentId, gameId, state) {
   saveData(data)
 }
 
-export function awardDailyGameCoins(studentId, gameId, amount) {
+/**
+ * What a daily puzzle pays, once a day.
+ *
+ * These pay tokens. Coins are what a student earns from the work - the first
+ * attempt at a paper, and the marks a teacher enters - and the Battlegrounds
+ * are deliberately kept clear of them, so that nothing a child plays can move
+ * the balance they spend in the shop.
+ *
+ * This used to award coins, and it awarded them by taking the amount off
+ * coinsSpent, which made a third way for coins to enter the system on top of
+ * the scores and the bonus field. That is gone: tokens are one field, added
+ * to in one way.
+ *
+ * The once-a-day guard still reads the old `coinsAwarded` flag as well as the
+ * new one, so a student who has already played today cannot play again for
+ * tokens.
+ */
+export function awardDailyGameTokens(studentId, gameId, amount) {
   const data = loadData()
   if (!data.students[studentId]) return false
   const key = getTodayTriviaKey()
   const games = data.students[studentId].dailyGames?.[key]
-  if (games?.[gameId]?.coinsAwarded) return false
+  if (games?.[gameId]?.awarded || games?.[gameId]?.coinsAwarded) return false
   if (!data.students[studentId].dailyGames) data.students[studentId].dailyGames = {}
   if (!data.students[studentId].dailyGames[key]) data.students[studentId].dailyGames[key] = {}
   if (!data.students[studentId].dailyGames[key][gameId]) data.students[studentId].dailyGames[key][gameId] = {}
-  data.students[studentId].dailyGames[key][gameId].coinsAwarded = true
-  data.students[studentId].coinsSpent = count(data.students[studentId].coinsSpent) - count(amount)
+  data.students[studentId].dailyGames[key][gameId].awarded = true
+  const gain = count(amount)
+  data.students[studentId].tokens = count(data.students[studentId].tokens) + gain
+  data.students[studentId].tokensEarned = count(data.students[studentId].tokensEarned) + gain
   saveData(data)
   return true
 }
@@ -5381,6 +5409,42 @@ export function saveArenaMatch(studentId, arenaId, match) {
   if (!s.arenaHistory[arenaId]) s.arenaHistory[arenaId] = []
   s.arenaHistory[arenaId].push(match)
   saveData(data)
+}
+
+/**
+ * Who is holding what, across the school.
+ *
+ * Two currencies, so two orders rather than a single rank: coins say who has
+ * done the work, tokens say who has earned their play. Both are read from the
+ * same place the student's own balance is read from, so what a child sees
+ * against their name here is the number they see in the header.
+ *
+ * Archived students are left out - a leaderboard is a list of who is here -
+ * and so is anyone holding nothing at all, which keeps a new child off the
+ * bottom of a list they have not had a chance to climb.
+ *
+ * @param {string} [orgId] limits it to one school
+ * @returns {{coins: object[], tokens: object[]}} each sorted, richest first
+ */
+export function getBalanceLeaderboard(orgId) {
+  const data = loadData()
+  const points = {}
+  for (const row of data.scores || []) {
+    points[row.studentId] = count(points[row.studentId]) + count(row.value)
+  }
+  const rows = []
+  for (const [id, s] of Object.entries(data.students || {})) {
+    if (s.archived) continue
+    if (orgId && s.orgId !== orgId) continue
+    const coins = count(points[id]) * 10 + count(s.bonusCoins) - count(s.coinsSpent)
+    const tokens = count(s.tokens)
+    if (coins <= 0 && tokens <= 0) continue
+    rows.push({ id, name: s.name || 'A student', avatar: s.avatar || null, coins, tokens })
+  }
+  return {
+    coins: [...rows].sort((a, b) => b.coins - a.coins),
+    tokens: [...rows].sort((a, b) => b.tokens - a.tokens),
+  }
 }
 
 export function getArenaLeaderboard(arenaId) {

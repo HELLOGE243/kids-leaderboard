@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { getDailyGameState, saveDailyGameState, awardDailyGameCoins } from '../../data/store.js'
+import { getDailyGameState, saveDailyGameState, awardDailyGameTokens } from '../../data/store.js'
 import { authedFetch } from '../../data/auth.js'
 
 const FALLBACK_SETS = [
@@ -140,7 +140,7 @@ Return ONLY the JSON object, no other text.` }],
     setSubmitted(true)
     setPhase('result')
     if (coins > 0) {
-      awardDailyGameCoins(userId, 'vocabtrainer', coins)
+      awardDailyGameTokens(userId, 'vocabtrainer', coins)
       onCoinsEarned?.(coins)
     }
   }
@@ -258,7 +258,7 @@ Return ONLY the JSON object, no other text.` }],
       <div className="vt-result">
         <div className="vt-result-score" style={{ color: score >= 80 ? '#66bb6a' : score >= 50 ? '#ffab00' : '#ff1744' }}>{correct}/{state.blanks.length}</div>
         <p className="vt-result-label">{score === 100 ? 'Perfect!' : score >= 80 ? 'Great job!' : score >= 50 ? 'Good effort!' : 'Keep practising!'}</p>
-        {coins > 0 && <p className="vt-result-coins">+{coins} coins earned!</p>}
+        {coins > 0 && <p className="vt-result-coins">+{coins} tokens earned!</p>}
       </div>
       <div className="vt-result-review">
         {state.blanks.map((blank, i) => {

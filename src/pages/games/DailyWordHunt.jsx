@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { getDailyGameState, saveDailyGameState, awardDailyGameCoins, getDailyPuzzles, setDailyPuzzles } from '../../data/store.js'
+import { getDailyGameState, saveDailyGameState, awardDailyGameTokens, getDailyPuzzles, setDailyPuzzles } from '../../data/store.js'
 import { authedFetch } from '../../data/auth.js'
 
 const GAME_DURATION = 90
@@ -123,7 +123,7 @@ words: 30-60 valid English words of 3+ letters that can be traced through adjace
   useEffect(() => {
     if (gameOver && started && puzzle) {
       saveDailyGameState(userId, 'wordhunt', { found, gameOver: true })
-      awardDailyGameCoins(userId, 'wordhunt', 10)
+      awardDailyGameTokens(userId, 'wordhunt', 10)
       if (onWin) onWin()
     }
   }, [gameOver])
@@ -273,7 +273,7 @@ words: 30-60 valid English words of 3+ letters that can be traced through adjace
         <button className="btn btn-outline" onClick={onBack}>Back</button>
         <div className="game-title">Word Hunt</div>
         <div className="game-reward">
-          <img src="/coin.png" alt="" style={{ width: 16, height: 16 }} />
+          <img src="/token.png" alt="" style={{ width: 16, height: 16 }} />
           <span>10</span>
         </div>
       </div>

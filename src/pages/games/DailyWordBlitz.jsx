@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { getDailyGameState, saveDailyGameState, awardDailyGameCoins, getDailyPuzzles, setDailyPuzzles } from '../../data/store.js'
+import { getDailyGameState, saveDailyGameState, awardDailyGameTokens, getDailyPuzzles, setDailyPuzzles } from '../../data/store.js'
 import { authedFetch } from '../../data/auth.js'
 
 const GAME_DURATION = 120
@@ -104,7 +104,7 @@ Include 20-50 valid English words of 3+ letters that can be made using these 7 l
   function endGame() {
     setGameOver(true)
     saveDailyGameState(userId, 'wordblitz', { found, gameOver: true })
-    awardDailyGameCoins(userId, 'wordblitz', 10)
+    awardDailyGameTokens(userId, 'wordblitz', 10)
     if (onWin) onWin()
   }
 
@@ -205,7 +205,7 @@ Include 20-50 valid English words of 3+ letters that can be made using these 7 l
         <button className="btn btn-outline" onClick={onBack}>Back</button>
         <div className="game-title">Word Blitz</div>
         <div className="game-reward">
-          <img src="/coin.png" alt="" style={{ width: 16, height: 16 }} />
+          <img src="/token.png" alt="" style={{ width: 16, height: 16 }} />
           <span>{10}</span>
         </div>
       </div>
