@@ -2252,6 +2252,17 @@ export function updateImportedQuizSet(id, updates) {
   // arguing for the wrong one, so the whole solution side is wiped and will be
   // written again from the corrected question.
   let wipedKeys = []
+  // Everything the shared cache must let go of: the questions whose answer
+  // moved, and the questions that merely read differently now. The first
+  // loses the teacher's own explanation as well - it argues for the wrong
+  // answer - while the second keeps it, because a teacher's words are theirs
+  // to replace.
+  const deadIds = updates.questions
+    ? [...new Set([
+      ...changedAnswerKeys(set.questions, updates.questions),
+      ...changedWordingIds(set.questions, updates.questions),
+    ])]
+    : []
   if (updates.questions) {
     const changed = new Set(changedAnswerKeys(set.questions, updates.questions))
     if (changed.size) {
@@ -2286,6 +2297,12 @@ export function updateImportedQuizSet(id, updates) {
   if (wipedKeys.length) {
     clearAiExplanationCache(id)
     deleteAiExplanations(id, wipedKeys)
+  }
+  // Sweeps up what the wipe above does not reach: reworded questions, deleted
+  // ones, and the gap and match entries hanging off either.
+  if (updates.questions) {
+    pruneAiExplanations(id, deadIds, updates.questions)
+      .catch((e) => console.warn('Could not tidy the shared explanations:', e))
   }
   return set
 }
@@ -3389,6 +3406,71 @@ function questionFingerprint(question) {
   let h = 0
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0
   return String(h)
+}
+
+/**
+ * Keeps the shared explanation document to one live entry per question.
+ *
+ * An entry is written when a student asks and read by everyone after them, so
+ * nothing in the ordinary run of things ever removes one. Two edits leave a
+ * dead entry behind: rewording a question makes its entry unreadable - the
+ * fingerprint stops it being served - but does not remove it, and deleting a
+ * question orphans its entry altogether. Both would sit in the document for
+ * good, and the cloze and matching entries hanging off a question id go with
+ * it.
+ *
+ * Called as a paper is saved, where the two versions are both in hand. The
+ * document is read back first because the sub-entries of a question are not
+ * derivable from the question: only the document knows how many gaps a
+ * student has asked about.
+ *
+ * @param {string} quizSetId
+ * @param {string[]} deadIds question ids whose explanations no longer hold
+ * @param {object[]} questions the paper as it now stands
+ */
+async function pruneAiExplanations(quizSetId, deadIds, questions) {
+  if (!quizSetId || !questions) return
+  clearAiExplanationCache(quizSetId)
+  let all = {}
+  try { all = await loadAiExplanations(quizSetId) } catch { return }
+  const dead = new Set(deadIds || [])
+  const byId = new Map(questions.filter((q) => q.id).map((q) => [q.id, q]))
+  const count = questions.length
+  const doomed = Object.keys(all || {}).filter((k) => {
+    // q_<question id>, optionally #g<n> or #m<n> for one gap or one match.
+    if (k.startsWith('q_')) {
+      const base = k.slice(2).split('#')[0]
+      const question = byId.get(base)
+      if (!question) return true                    // its question is gone
+      if (dead.has(base)) return true               // changed in this save
+      // A gap or a match was written about a question made up on the review
+      // screen, which cannot be reconstructed here, so those go only with the
+      // question itself. A whole-question entry carries the fingerprint of
+      // what it was written about, and anything that no longer matches is
+      // already unreadable - left over from an edit made before any of this.
+      if (k.includes('#')) return false
+      const fp = all[k]?.fp
+      return !!fp && fp !== questionFingerprint(question)
+    }
+    // i_<index> for the papers old enough to have questions without ids.
+    if (k.startsWith('i_')) {
+      const n = parseInt(k.slice(2), 10)
+      return !Number.isFinite(n) || n >= count
+    }
+    return false
+  })
+  if (!doomed.length) return
+  clearAiExplanationCache(quizSetId)
+  await deleteAiExplanations(quizSetId, doomed)
+  clearAiExplanationCache(quizSetId)
+}
+
+/** Question ids whose wording or options differ between two versions of a set. */
+function changedWordingIds(before, after) {
+  const old = new Map((before || []).map((q) => [q.id, questionFingerprint(q)]))
+  return (after || [])
+    .filter((q) => old.has(q.id) && old.get(q.id) !== questionFingerprint(q))
+    .map((q) => q.id)
 }
 
 /**

@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction, updateDoc, arrayUnion, deleteField, writeBatch } from 'firebase/firestore'
+import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction, updateDoc, arrayUnion, deleteField, writeBatch, FieldPath } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
 
 const firebaseConfig = {
@@ -512,18 +512,43 @@ export async function loadAiExplanations(setId) {
 }
 
 /**
- * Stores one question's generated explanation for everyone else. Merges, so two
- * students generating different questions at once cannot overwrite each other.
+ * Stores one question's generated explanation for everyone else.
+ *
+ * One question's entry is replaced outright while the other questions in the
+ * document are left alone, so two students generating different questions at
+ * once cannot overwrite each other.
+ *
+ * It has to be an update against the field rather than a merging set. A
+ * merging set expands to one path per leaf, so an explanation rewritten after
+ * the question changed would be merged into the old one and the option notes
+ * written for the old wording would survive underneath the new ones - stale
+ * text a student could still be shown, and a document that only ever grows.
+ * An update replaces the whole entry.
  */
 export async function saveAiExplanation(setId, questionKey, payload) {
   if (!setId || !questionKey || !payload) return false
   const local = _aiExpCache.get(setId) || {}
   local[questionKey] = payload
   _aiExpCache.set(setId, local)
+  const ref = doc(db, AI_EXPLANATIONS_COLLECTION, String(setId))
   try {
-    await setDoc(doc(db, AI_EXPLANATIONS_COLLECTION, String(setId)), { [questionKey]: payload }, { merge: true })
+    // A field path built from the key, not a dotted string: a question id is
+    // not guaranteed to be free of the characters a path would read as syntax.
+    await updateDoc(ref, new FieldPath(questionKey), payload)
     return true
   } catch (e) {
+    // The first explanation for a paper has no document to update yet. This
+    // one merges: there is nothing of this question's to merge into, and two
+    // students starting the same paper at once must not clobber each other.
+    if (e?.code === 'not-found') {
+      try {
+        await setDoc(ref, { [questionKey]: payload }, { merge: true })
+        return true
+      } catch (e2) {
+        console.warn('Firestore: failed to start the explanation document:', e2)
+        return false
+      }
+    }
     console.warn('Firestore: failed to save AI explanation:', e)
     return false
   }
