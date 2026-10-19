@@ -753,6 +753,30 @@ export function approveStudent(studentId) {
   return true
 }
 
+/**
+ * What a student's coins add up to.
+ *
+ * There was no single answer to this. The student's own screen counted the
+ * marks a teacher had entered, the coins earned from homework and what had
+ * been spent; the teacher's table and all three ways of buying something left
+ * the homework coins out. So a child could be shown a balance of 3,830 and be
+ * refused a purchase costing 500, with nothing on either screen to explain it.
+ * One function now, used by every one of them.
+ *
+ * @param {object} student the student record
+ * @param {number} totalPoints the marks entered for them, before the x10
+ */
+function coinBalance(student, totalPoints) {
+  return count(totalPoints) * 10 + count(student?.bonusCoins) - count(student?.coinsSpent)
+}
+
+/** The marks entered for one student, which are worth ten coins each. */
+function pointsFor(data, studentId) {
+  return (data.scores || [])
+    .filter((s) => s.studentId === studentId)
+    .reduce((sum, s) => sum + count(s.value), 0)
+}
+
 export function getStudentById(studentId) {
   const data = loadData()
   const student = data.students[studentId]
@@ -767,7 +791,7 @@ export function getStudentById(studentId) {
   return {
     id: studentId,
     ...student,
-    coins: totalEarned - count(student.coinsSpent),
+    coins: coinBalance(student, totalPoints),
     totalEarned,
     totalPoints,
   }
@@ -837,15 +861,21 @@ export function spendCoins(studentId, amount) {
   return true
 }
 
+/**
+ * A teacher setting a balance outright.
+ *
+ * There is nowhere to write a balance to: coins are what has been earned less
+ * what has been spent, so a balance is set by moving the spent figure. It has
+ * to count everything earned, the homework coins included - counting only the
+ * marks meant that setting a child to 500 left them holding 500 plus whatever
+ * their homework had paid.
+ */
 export function setCoinsBalance(studentId, newBalance) {
-  // Teacher sets coins directly by adjusting coinsSpent
   const data = loadData()
-  if (!data.students[studentId]) return false
-  const totalPoints = data.scores
-    .filter((s) => s.studentId === studentId)
-    .reduce((sum, s) => sum + s.value, 0)
-  const totalEarned = totalPoints * 10
-  data.students[studentId].coinsSpent = totalEarned - newBalance
+  const student = data.students[studentId]
+  if (!student) return false
+  const totalEarned = count(pointsFor(data, studentId)) * 10 + count(student.bonusCoins)
+  student.coinsSpent = totalEarned - count(newBalance)
   saveData(data)
   return true
 }
@@ -1018,8 +1048,8 @@ export function getStudentsInOrg(orgId) {
       const totalPoints = data.scores
         .filter((sc) => sc.studentId === id)
         .reduce((sum, sc) => sum + sc.value, 0)
-      const totalEarned = totalPoints * 10
-      return { id, ...s, coins: totalEarned - count(s.coinsSpent), totalEarned, totalPoints }
+      const totalEarned = count(totalPoints) * 10 + count(s.bonusCoins)
+      return { id, ...s, coins: coinBalance(s, totalPoints), totalEarned, totalPoints }
     })
 }
 
@@ -1372,10 +1402,7 @@ export function purchaseItem(studentId, itemId) {
   const student = data.students[studentId]
   if (!student) return null
 
-  const totalPoints = data.scores
-    .filter((s) => s.studentId === studentId)
-    .reduce((sum, s) => sum + s.value, 0)
-  const coins = totalPoints * 10 - student.coinsSpent
+  const coins = coinBalance(student, pointsFor(data, studentId))
   if (coins < item.price) return null
 
   student.coinsSpent = count(student.coinsSpent) + count(item.price)
@@ -5082,8 +5109,7 @@ export function purchaseTrack(studentId, trackId, price) {
   if (!student) return false
   if (!student.purchasedTracks) student.purchasedTracks = []
   if (student.purchasedTracks.includes(trackId)) return false
-  const totalPoints = data.scores.filter(s => s.studentId === studentId).reduce((sum, s) => sum + s.value, 0)
-  const coins = totalPoints * 10 - student.coinsSpent
+  const coins = coinBalance(student, pointsFor(data, studentId))
   if (coins < price) return false
   student.coinsSpent = count(student.coinsSpent) + count(price)
   student.purchasedTracks.push(trackId)
@@ -5100,8 +5126,7 @@ export function purchasePoolItem(studentId, item) {
     if (student.tokens < item.price) return null
     student.tokens = count(student.tokens) - count(item.price)
   } else {
-    const totalPoints = data.scores.filter(s => s.studentId === studentId).reduce((sum, s) => sum + s.value, 0)
-    const coins = totalPoints * 10 - student.coinsSpent
+    const coins = coinBalance(student, pointsFor(data, studentId))
     if (coins < item.price) return null
     student.coinsSpent = count(student.coinsSpent) + count(item.price)
   }
@@ -5436,7 +5461,7 @@ export function getBalanceLeaderboard(orgId) {
   for (const [id, s] of Object.entries(data.students || {})) {
     if (s.archived) continue
     if (orgId && s.orgId !== orgId) continue
-    const coins = count(points[id]) * 10 + count(s.bonusCoins) - count(s.coinsSpent)
+    const coins = coinBalance(s, points[id])
     const tokens = count(s.tokens)
     if (coins <= 0 && tokens <= 0) continue
     rows.push({ id, name: s.name || 'A student', avatar: s.avatar || null, coins, tokens })
