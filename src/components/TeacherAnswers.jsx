@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getMyAskedQuestions, markAskedQuestionSeen } from '../data/store.js'
+import { getMyAskedQuestions, markAskedQuestionSeen, plainSnippet } from '../data/store.js'
 
 /**
  * What their teacher said back, at the top of a student's own screen.
@@ -57,7 +57,7 @@ function TeacherAnswers({ studentId }) {
           >
             <span className="ta-row-main">
               <span className="ta-row-quiz">{ask.quizTitle || 'A question'}</span>
-              <span className="ta-row-snippet">{ask.questionSnippet || `Question ${(ask.questionIndex ?? 0) + 1}`}</span>
+              <span className="ta-row-snippet">{plainSnippet(ask.questionSnippet) || `Question ${(ask.questionIndex ?? 0) + 1}`}</span>
             </span>
             <span className={`ta-row-tag is-${ask.status === 'answered' ? 'answered' : 'open'}`}>
               {ask.status === 'answered' ? 'Answered' : 'Waiting'}
@@ -73,7 +73,7 @@ function TeacherAnswers({ studentId }) {
               <span className="ta-row-quiz">{open.quizTitle || 'A question'}</span>
               <button className="td2-icon-btn" aria-label="Close" onClick={() => setOpen(null)}>✕</button>
             </div>
-            <p className="ta-modal-q">{open.questionSnippet || `Question ${(open.questionIndex ?? 0) + 1}`}</p>
+            <p className="ta-modal-q">{plainSnippet(open.questionSnippet) || `Question ${(open.questionIndex ?? 0) + 1}`}</p>
             {open.studentNote && <p className="ta-modal-note">You asked: {open.studentNote}</p>}
             {open.status === 'answered' ? (
               <div className="ta-modal-answer">

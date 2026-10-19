@@ -4350,6 +4350,25 @@ export function getDueDojoCards(studentId) {
  * @param {string} [note] what the student says they do not understand
  * @returns {Promise<string|null>} the filed question's id
  */
+/**
+ * A line of a question with the markup taken out.
+ *
+ * Questions are stored as HTML, and stripping the tags alone leaves the
+ * entities behind - an inbox then reads "How much is Johan paying?&nbsp;".
+ */
+export function plainSnippet(html) {
+  return String(html || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;|&apos;/gi, "'")
+    .replace(/&amp;/gi, '&')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 export function sendQuestionToTeachers(studentId, question, quizSetId, questionIndex, note = '') {
   const data = loadData()
   const student = data.students[studentId] || {}
@@ -4357,7 +4376,6 @@ export function sendQuestionToTeachers(studentId, question, quizSetId, questionI
   const groupIds = (data.classGroups || [])
     .filter((g) => (g.studentIds || []).map(String).includes(String(studentId)))
     .map((g) => g.id)
-  const plain = (html) => String(html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
   return askTeacher({
     studentId: String(studentId),
     studentName: fullName(student) || student.name || '',
@@ -4368,7 +4386,7 @@ export function sendQuestionToTeachers(studentId, question, quizSetId, questionI
     questionId: question?.id || null,
     quizTitle: set?.friendlyTitle || set?.rawTitle || '',
     // A line of the question, so an inbox reads without loading every quiz.
-    questionSnippet: plain(question?.prompt || question?.text).slice(0, 180),
+    questionSnippet: plainSnippet(question?.prompt || question?.text).slice(0, 180),
     studentNote: String(note || '').slice(0, 500),
   })
 }
@@ -4397,6 +4415,56 @@ export function getMyAskedQuestions(studentId) {
 /** Every question waiting on the signed-in teacher's classes. */
 export function getAskedForClasses() {
   return loadAskedForClasses()
+}
+
+/**
+ * The question a student asked about, as it stands, with what they put for it.
+ *
+ * A filed question carries only a line of the prompt, which is enough to read
+ * an inbox but not enough to answer anything: a teacher needs the question in
+ * front of them, the options, and whether the child had a go at it. The paper
+ * is pulled fresh from the cloud because it may have been edited since, and
+ * the question is found by its permanent id first so a reordered paper does
+ * not hand back somebody else's question.
+ *
+ * The answer is read from the student's own record. A teacher may not read the
+ * submission archive - that is the recovery copy, and the rules keep it to
+ * admins - so this is the same route the class dashboard takes.
+ *
+ * @param {object} ask a row from the asked-questions inbox
+ * @returns {Promise<{question: object|null, index: number, answer: *,
+ *   seconds: number, attempt: object|null, quizTitle: string, sat: boolean}>}
+ */
+export async function loadAskedQuestionContext(ask) {
+  const empty = { question: null, index: 0, answer: undefined, seconds: 0, attempt: null, quizTitle: '', sat: false }
+  if (!ask?.quizSetId) return empty
+  const set = await refreshQuizSetFromCloud(ask.quizSetId)
+  const questions = set?.questions || []
+  const byId = ask.questionId ? questions.findIndex((q) => q.id === ask.questionId) : -1
+  const index = byId >= 0 ? byId : Number(ask.questionIndex) || 0
+  const question = questions[index] || null
+
+  const studentId = String(ask.studentId || '')
+  if (studentId) await loadStudentFirestore(studentId)
+  // Their marked paper, or their latest redo of it if they asked while
+  // working through it again.
+  const attempt = getHomeworkAttempt(ask.quizSetId, studentId)
+    || getStudentArray(studentId, 'homeworkRedos')
+      .filter((a) => a.quizSetId === ask.quizSetId)
+      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))[0]
+    || null
+
+  return {
+    question,
+    index,
+    answer: attempt?.answers?.[index],
+    seconds: Number(attempt?.questionTimes?.[index]) || 0,
+    attempt,
+    quizTitle: set?.friendlyTitle || set?.rawTitle || ask.quizTitle || '',
+    // Whether there is an answer to show at all - a question asked from the
+    // revision hall was never sat as part of this paper.
+    sat: !!attempt && attempt.answers?.[index] !== undefined,
+  }
 }
 
 /** A teacher's reply to one question. */
