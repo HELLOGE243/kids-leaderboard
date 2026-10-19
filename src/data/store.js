@@ -4482,9 +4482,22 @@ export function sendQuestionToTeachers(studentId, question, quizSetId, questionI
   const data = loadData()
   const student = data.students[studentId] || {}
   const set = (data.importedQuizSets || []).find((q) => q.id === quizSetId)
-  const groupIds = (data.classGroups || [])
+  // The groups this paper is taught in, narrowed to the ones the student is
+  // actually in - a child taught by two teachers should not send a question
+  // about one teacher's paper to both. The server decides this again as the
+  // question lands, from data that cannot be stale; this is the first guess.
+  const mine = (data.classGroups || [])
     .filter((g) => (g.studentIds || []).map(String).includes(String(studentId)))
     .map((g) => g.id)
+  const course = (data.courses || []).find((c) =>
+    (c.modules || []).some((m) => (m.quizSetIds || []).includes(quizSetId)))
+  const ofThisClass = course?.classId
+    ? new Set((data.classGroups || [])
+      .filter((g) => String(g.classId) === String(course.classId))
+      .map((g) => g.id))
+    : null
+  const scoped = ofThisClass ? mine.filter((id) => ofThisClass.has(id)) : []
+  const groupIds = scoped.length ? scoped : mine
   return askTeacher({
     studentId: String(studentId),
     studentName: fullName(student) || student.name || '',

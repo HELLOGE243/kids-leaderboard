@@ -319,6 +319,42 @@ function computePoints(attempts, quizModuleMap, starts, studentId) {
 // Collocated with Firestore (australia-southeast1): a us-central1 function
 // would add a cross-Pacific round trip to every update, which undermines the
 // point of pushing these changes out instantly.
+/**
+ * Routes a question the moment it is filed.
+ *
+ * The student's browser works out which groups to send a question to, and it
+ * gets it wrong in two ways. It reads the class groups from a copy taken when
+ * the child signed in and never refreshed, so a child moved into a group that
+ * morning sends their question to nobody - twenty of thirty-nine open
+ * questions had no group on them at all, and five of them were one child's.
+ * And it stamps every group the child is in rather than the one whose work it
+ * is, so a child taught by two teachers sent each question to both.
+ *
+ * The server knows both things properly, so it decides. The browser's stamp is
+ * left in place only if this cannot run; otherwise it is replaced.
+ */
+exports.onAskedQuestion = functions
+  .region('australia-southeast1')
+  .runWith({ memory: '256MB', timeoutSeconds: 60 })
+  .firestore.document('askedQuestions/{askId}')
+  .onCreate(async (snap) => {
+    try {
+      const ask = snap.data() || {}
+      const content = await getContent()
+      const groupIds = groupsForQuestion(
+        ask.studentId, ask.quizSetId, content.classGroups || [], content.courses || [])
+      const had = (ask.groupIds || []).map(String).sort()
+      if (groupIds.length === had.length && groupIds.every((g, i) => g === had[i])) return null
+      await snap.ref.update({ groupIds })
+      console.info(`onAskedQuestion: ${snap.id} routed to [${groupIds.join(', ')}] (was [${had.join(', ')}])`)
+    } catch (e) {
+      // The browser's own stamp stands. Better a question routed by a stale
+      // roster than a write that fails and loses the question.
+      console.error('onAskedQuestion failed:', e)
+    }
+    return null
+  })
+
 exports.onStudentDataWrite = functions
   .region('australia-southeast1')
   .runWith({ memory: '256MB', timeoutSeconds: 60 })
@@ -759,6 +795,53 @@ async function saveGroups(groups) {
  * @param {Array} groups the teaching groups
  * @returns {Map<string, string[]>} student id -> group ids
  */
+/** The whole shared content document: groups and courses come from it. */
+async function getContent() {
+  const snap = await db.collection('appData').doc('content').get()
+  return snap.data() || {}
+}
+
+/**
+ * Which groups a question belongs to.
+ *
+ * A question used to be stamped with every group its student was in. A child
+ * who sits with two teachers therefore sent every question to both, and a
+ * teacher opened their inbox on work set by somebody else's class. The group
+ * is a property of the work, not of the child: the paper sits in a course, the
+ * course belongs to a class, and the class has the groups that are taught from
+ * it. The answer is those groups, narrowed to the ones this student is
+ * actually in - normally exactly one.
+ *
+ * Where that cannot be worked out - a paper in no course, or a student in no
+ * group of the class it belongs to - it falls back to the groups the student
+ * is in. A question seen by a teacher who did not set it is a nuisance; a
+ * question seen by nobody is the bug that hid five of one child's questions,
+ * and the worse of the two.
+ *
+ * @param {string} studentId
+ * @param {string} quizSetId the paper asked about
+ * @param {object[]} groups every class group
+ * @param {object[]} courses every course
+ * @returns {string[]} group ids, sorted
+ */
+function groupsForQuestion(studentId, quizSetId, groups, courses) {
+  const sid = String(studentId)
+  const mine = (groups || [])
+    .filter((g) => (g.studentIds || []).map(String).includes(sid))
+    .map((g) => g.id)
+  if (!quizSetId || !mine.length) return mine.sort()
+
+  const course = (courses || []).find((c) =>
+    (c.modules || []).some((m) => (m.quizSetIds || []).includes(quizSetId)))
+  if (!course || !course.classId) return mine.sort()
+
+  const ofThisClass = new Set((groups || [])
+    .filter((g) => String(g.classId) === String(course.classId))
+    .map((g) => g.id))
+  const scoped = mine.filter((id) => ofThisClass.has(id))
+  return (scoped.length ? scoped : mine).sort()
+}
+
 function rosterFromGroups(groups) {
   const out = new Map()
   for (const group of groups || []) {
@@ -775,7 +858,7 @@ function rosterFromGroups(groups) {
  * Writes the mapping for every student, and clears it for those in no class.
  * @returns {Promise<{written: number, cleared: number, unchanged: number}>}
  */
-async function syncStudentGroups(groups) {
+async function syncStudentGroups(groups, courses) {
   const wanted = rosterFromGroups(groups)
   const existing = await db.collection('studentGroups').get()
   const have = new Map(existing.docs.map((d) => [d.id, (d.get('groupIds') || []).map(String)]))
@@ -801,16 +884,17 @@ async function syncStudentGroups(groups) {
   }
   await flush()
 
-  // A question records the groups its student was in when they asked. Move the
-  // student and that stamp is stale: the teacher who now takes them cannot see
-  // the question, and the one who no longer does still can. Open questions are
-  // re-stamped to match; answered ones are history and left alone.
+  // A question records the groups it was routed to when it was asked. Move the
+  // student, or correct a roster, and that stamp is stale: the teacher who now
+  // takes them cannot see the question, and the one who no longer does still
+  // can. Open questions are re-stamped by the rule above; answered ones are
+  // history and left alone.
   const open = await db.collection('askedQuestions').where('status', '==', 'open').get()
   let qBatch = db.batch()
   let qQueued = 0
   report.questionsRerouted = 0
   for (const d of open.docs) {
-    const nowIn = [...(wanted.get(String(d.get('studentId'))) || [])].sort()
+    const nowIn = groupsForQuestion(d.get('studentId'), d.get('quizSetId'), groups, courses)
     const had = (d.get('groupIds') || []).map(String).sort()
     if (nowIn.length === had.length && nowIn.every((x, i) => x === had[i])) continue
     qBatch.update(d.ref, { groupIds: nowIn })
@@ -1293,9 +1377,10 @@ exports.classRosterTick = functions
   .timeZone('Australia/Sydney')
   .onRun(async () => {
     try {
-      const report = await syncStudentGroups(await getGroups())
-      if (report.written || report.cleared) {
-        console.info(`classRosterTick: ${report.written} written, ${report.cleared} cleared, ${report.unchanged} unchanged`)
+      const content = await getContent()
+      const report = await syncStudentGroups(content.classGroups || [], content.courses || [])
+      if (report.written || report.cleared || report.questionsRerouted) {
+        console.info(`classRosterTick: ${report.written} written, ${report.cleared} cleared, ${report.unchanged} unchanged, ${report.questionsRerouted} questions rerouted`)
       }
     } catch (e) {
       console.error('classRosterTick failed:', e)
@@ -1835,7 +1920,8 @@ exports.authAdmin = functions
         }
 
         if (action === 'syncStudentGroups') {
-          const report = await syncStudentGroups(await getGroups())
+          const content = await getContent()
+          const report = await syncStudentGroups(content.classGroups || [], content.courses || [])
           return sendJson(res, 200, { ok: true, ...report })
         }
 
