@@ -563,7 +563,7 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
               ))}
             </div>
 
-            <QuestionInbox teacher={teacher} />
+            <QuestionInbox teacher={teacher} isAdmin={isAdmin} />
 
             <div className="td2-grid">
               {/* Classes */}

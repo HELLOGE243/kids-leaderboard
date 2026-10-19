@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getAskedForClasses, answerAskedQuestion, getGroupName, loadAskedQuestionContext, plainSnippet } from '../data/store.js'
+import { useExamGuard } from '../utils/examGuard.js'
 import ReviewedQuestion from './ReviewedQuestion.jsx'
 
 /**
@@ -16,10 +17,18 @@ import ReviewedQuestion from './ReviewedQuestion.jsx'
  * sat it - a question sent from the revision hall - the answer key is shown
  * instead, which is the honest thing to show.
  *
+ * A student who is in no class group reaches no teacher, because there is no
+ * teacher who holds them. Those questions come to the admin instead - the
+ * server hands them everything rather than only what the groups route - and
+ * they are marked here, because an admin looking at a list of questions has no
+ * other way to tell which ones nobody else can answer.
+ *
  * @param {object} props
  * @param {{id: string, name: string}} props.teacher
+ * @param {boolean} [props.isAdmin] whether this account also catches the
+ *   questions no group routes
  */
-function QuestionInbox({ teacher }) {
+function QuestionInbox({ teacher, isAdmin = false }) {
   const [asked, setAsked] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAnswered, setShowAnswered] = useState(false)
@@ -30,6 +39,10 @@ function QuestionInbox({ teacher }) {
   // per question id so closing and reopening does not fetch it again.
   const [openId, setOpenId] = useState(null)
   const [context, setContext] = useState({})
+  // An opened question puts a live question, its options and its answer on the
+  // screen, so the screen is held to the same conditions as the paper itself.
+  // The list on its own is a line of each question and is not.
+  useExamGuard(!!openId)
 
   async function openQuestion(ask) {
     if (openId === ask.id) { setOpenId(null); return }
@@ -59,6 +72,10 @@ function QuestionInbox({ teacher }) {
   const open = useMemo(() => asked.filter((a) => a.status !== 'answered'), [asked])
   const done = useMemo(() => asked.filter((a) => a.status === 'answered'), [asked])
   const shown = showAnswered ? done : open
+  // Nobody holds these: their student is in no class group, so no teacher's
+  // inbox will ever show them.
+  const isUnrouted = (ask) => !(ask.groupIds || []).length
+  const unroutedOpen = useMemo(() => open.filter(isUnrouted).length, [open])
 
   async function send(ask) {
     const text = reply.trim()
@@ -79,6 +96,11 @@ function QuestionInbox({ teacher }) {
       <div className="td2-card-head">
         <h2 className="td2-h2">
           Questions from students{open.length > 0 ? ` (${open.length})` : ''}
+          {isAdmin && unroutedOpen > 0 && (
+            <span className="qi-unrouted-count" title="Their student is in no class group, so no other teacher can see these">
+              {unroutedOpen} with no class
+            </span>
+          )}
         </h2>
         <button className="td2-btn-ghost td2-btn-sm" onClick={() => setShowAnswered((v) => !v)}>
           {showAnswered ? `Show unanswered (${open.length})` : `Show answered (${done.length})`}
@@ -103,6 +125,11 @@ function QuestionInbox({ teacher }) {
                     {where ? `${where} · ` : ''}{ask.quizTitle || 'a quiz'}
                     {ask.askedAt ? ` · ${new Date(ask.askedAt).toLocaleDateString()}` : ''}
                   </span>
+                  {isUnrouted(ask) && (
+                    <span className="qi-unrouted" title="They are in no class group, so this came to you">
+                      no class · yours to answer
+                    </span>
+                  )}
                 </div>
                 <button
                   className={`qi-q${openId === ask.id ? ' is-open' : ''}`}

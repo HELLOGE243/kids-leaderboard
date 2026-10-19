@@ -19277,6 +19277,20 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 }
 .qi-unsat { margin: 0 0 10px; font-size: 0.74rem; opacity: 0.75; }
 .qi-note { margin: 0 0 8px; font-size: 0.76rem; opacity: 0.75; }
+/* A question nobody else can see, because its student is in no group. */
+.qi-unrouted {
+  flex: none; padding: 1px 8px; border-radius: 999px;
+  font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  background: color-mix(in srgb, var(--warning, #e6a700) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning, #e6a700) 50%, transparent);
+  color: var(--warning, #e6a700);
+}
+.qi-unrouted-count {
+  margin-left: 10px; padding: 2px 9px; border-radius: 999px;
+  font-size: 0.66rem; font-weight: 700;
+  background: color-mix(in srgb, var(--warning, #e6a700) 20%, transparent);
+  color: var(--warning, #e6a700);
+}
 .qi-answer { padding: 10px 12px; border-radius: 8px; background: rgba(102,187,106,0.12); }
 .qi-answer-from { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #2e7d32; }
 .qi-answer-text { margin: 4px 0 0; font-size: 0.84rem; line-height: 1.6; white-space: pre-wrap; }

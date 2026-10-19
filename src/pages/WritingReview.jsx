@@ -3,6 +3,7 @@ import { getQuizSetsWithWriting, getWritingSubmissions, saveWritingMark, getWrit
 import { generateWritingSuggestions, preAnalyseWriting, generateAiAnnotation, generateAiMark } from '../utils/aiChat.js'
 import WritingSessionTrail from '../components/WritingSessionTrail.jsx'
 import PublishToLibrary from '../components/PublishToLibrary.jsx'
+import { useExamGuard } from '../utils/examGuard.js'
 
 const SCORE_LABELS = ['', 'Beginning', 'Developing', 'Competent', 'Proficient', 'Advanced']
 const SCORE_COLORS = ['', '#ff1744', '#ff9100', '#ffab00', '#66bb6a', '#00e5ff']
@@ -73,6 +74,11 @@ function migrateAnnotations(annotations, plainText) {
 }
 
 function WritingReview({ orgId, teacherId, onBack }) {
+  // The task a child is answering is as much the school's to keep as the
+  // questions on a paper, so marking is held to the same conditions as
+  // reading one. Typing feedback is unaffected: what is blocked is copying
+  // out of the page, not into it.
+  useExamGuard()
   const [refresh, setRefresh] = useState(0)
   const [selectedSet, setSelectedSet] = useState(null)
   const [activeSubmission, setActiveSubmission] = useState(null)
