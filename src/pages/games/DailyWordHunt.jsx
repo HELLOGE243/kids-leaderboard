@@ -170,8 +170,14 @@ words: 30-60 valid English words of 3+ letters that can be traced through adjace
       const last = prev[prev.length - 1]
       if (last[0] === r && last[1] === c) return prev
 
+      // Dragging back onto the cell before this one undoes the last step.
+      // findIndex answers -1 when the cell is not in the path at all, and for
+      // a path of one cell length - 2 is also -1 - so every first move looked
+      // like a backtrack and cleared the trace. Pressing a letter worked and
+      // sliding did nothing, which is what "the word search is undraggable"
+      // was.
       const prevIdx = prev.findIndex(([pr, pc]) => pr === r && pc === c)
-      if (prevIdx === prev.length - 2) {
+      if (prevIdx !== -1 && prevIdx === prev.length - 2) {
         return prev.slice(0, -1)
       }
 

@@ -12,6 +12,7 @@ import PolicyNotice from './components/PolicyNotice.jsx'
 import { initFirestore, setSyncScope, refreshSharedData, unsubscribeAggregates, watchSession, resetFirestore, getSyncScope, getSyncUserId } from './data/firebase.js'
 import { initStudentData, syncStudentQuizSets, linkDojoCardQuestionIds, clearStudentLocalCache } from './data/store.js'
 import { auth, signOutUser } from './data/auth.js'
+import { onExamGuardChange, isExamGuarded } from './utils/examGuard.js'
 
 const SESSION_KEY = 'leaderboard_session'
 const COOKIE_KEY = 'lb_session'
@@ -198,13 +199,19 @@ function App() {
     })
   }, [session?.user?.id, session?.sessionId])
 
-  /* ---- Tab-focus / copy prevention (students only) ----
-     These guard exam conditions: a student must stay on the quiz tab and must
-     not copy the questions out. A teacher has every right to switch windows and
-     to copy text while building quizzes, so none of it applies to them. */
+  /* ---- Tab-focus / copy prevention ----
+     Exam conditions: stay on the tab, and do not copy the questions out. A
+     student is held to them for their whole session. A teacher is not - they
+     have every reason to switch windows and to copy text while building a
+     paper - except on a screen that asks for them, which browse-papers does:
+     the questions there are the ones a child will sit, and a paper copied out
+     of the browser is as leaked as one copied out of the quiz. */
   const isStudent = session?.role === 'student'
+  const [screenGuard, setScreenGuard] = useState(isExamGuarded())
+  useEffect(() => onExamGuardChange(setScreenGuard), [])
+  const examGuarded = isStudent || screenGuard
   useEffect(() => {
-    if (!isStudent) { setTabBlurred(false); return undefined }
+    if (!examGuarded) { setTabBlurred(false); return undefined }
     const show = () => setTabBlurred(true)
     const hide = () => setTabBlurred(false)
 
@@ -234,7 +241,7 @@ function App() {
       document.removeEventListener('contextmenu', blockCtx)
       document.removeEventListener('keydown', blockKeys)
     }
-  }, [isStudent])
+  }, [examGuarded])
 
   // Everyone re-reads the shared data when their tab comes back to the front.
   // Teachers have live listeners as well, but a listener that never attached -
@@ -306,8 +313,8 @@ function App() {
     signOutUser()
   }
 
-  /* ---- "Stay on this tab" overlay: students only ---- */
-  const overlay = isStudent ? (
+  /* ---- "Stay on this tab" overlay, for whoever holds the guard ---- */
+  const overlay = examGuarded ? (
     <div className={`tab-blur-overlay${tabBlurred ? ' active' : ''}`}>
       <div className="tab-blur-overlay-title">Come back! 👀</div>
       <div className="tab-blur-overlay-subtitle">This tab must stay active</div>

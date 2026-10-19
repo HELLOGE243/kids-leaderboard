@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { getClassById, getCoursesForOrg, getImportedQuizSet } from '../data/store.js'
 import ReviewedQuestion from './ReviewedQuestion.jsx'
+import { useExamGuard } from '../utils/examGuard.js'
 
 /**
  * A teacher reading a class's papers.
@@ -17,9 +18,20 @@ import ReviewedQuestion from './ReviewedQuestion.jsx'
  * that rendering also read the explanation from `expGeneral`/`expOptions`,
  * which only exist while a question is open in the editor - on a saved paper
  * they are `explanation`, so no explanation ever appeared here.
+ *
+ * The frame around it is the students' too - the same scrolling body and the
+ * same bar of navigation at the foot - because a teacher reading a paper to
+ * plan a lesson should be seeing what the child will see, not a tidier
+ * version of it with different spacing.
+ *
+ * Reading a live paper is held to exam conditions, so the screen takes the
+ * guard that students are under: the questions here are the questions they
+ * will sit, and one copied out of this screen is as leaked as one copied out
+ * of the quiz.
  */
 function ClassQuizBrowser({ classId, orgId, onBack }) {
   const cls = getClassById(classId)
+  useExamGuard()
   const courses = getCoursesForOrg(orgId).filter((c) => c.classId === classId)
   const [openPaper, setOpenPaper] = useState(null)
   const [qi, setQi] = useState(0)
@@ -36,14 +48,28 @@ function ClassQuizBrowser({ classId, orgId, onBack }) {
           <span className="cqb-bar-title">{openPaper.friendlyTitle || openPaper.rawTitle}</span>
           <span className="cqb-bar-note">Reading only — nothing here can be marked or changed</span>
         </div>
-        <div className="cqb-nav">
-          <button className="btn btn-outline btn-small" disabled={qi === 0} onClick={() => setQi(qi - 1)}>◀ Previous</button>
-          <span className="cqb-nav-count">Question {qi + 1} of {questions.length}</span>
-          <button className="btn btn-outline btn-small" disabled={qi >= questions.length - 1} onClick={() => setQi(qi + 1)}>Next ▶</button>
+        <div className="qt-review-scroll cqb-paper-body">
+          {q
+            ? <ReviewedQuestion key={qi} question={q} index={qi} keyOnly />
+            : <p className="td2-empty">This paper has no questions.</p>}
         </div>
-        {q
-          ? <ReviewedQuestion key={qi} question={q} index={qi} keyOnly />
-          : <p className="td2-empty">This paper has no questions.</p>}
+        <div className="qt-bottombar cqb-bottombar">
+          <div className="qt-bottom-left">
+            <button
+              className="qt-nav-btn qt-nav-back qt-click-flash"
+              disabled={qi === 0}
+              onClick={() => setQi(qi - 1)}
+            >&#9664; Back</button>
+          </div>
+          <div className="qt-bottom-mid cqb-nav-count">Question {qi + 1} of {questions.length}</div>
+          <div className="qt-bottom-right">
+            <button
+              className="qt-nav-btn qt-nav-next qt-click-flash"
+              disabled={qi >= questions.length - 1}
+              onClick={() => setQi(qi + 1)}
+            >Next &#9654;</button>
+          </div>
+        </div>
       </div>
     )
   }

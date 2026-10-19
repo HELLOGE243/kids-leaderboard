@@ -17,6 +17,7 @@ import ClassDashboard from './ClassDashboard.jsx'
 import AdminTeacherPanel from '../components/AdminTeacherPanel.jsx'
 import QuestionInbox from '../components/QuestionInbox.jsx'
 import LibraryAdmin from '../components/LibraryAdmin.jsx'
+import ReadingsAdmin from '../components/ReadingsAdmin.jsx'
 import { adminAction } from '../data/auth.js'
 import SubmissionArchive from '../components/SubmissionArchive.jsx'
 import '../teacher-dashboard.css'
@@ -1007,6 +1008,15 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                 own screen. Pieces of writing go on the shelf from the marking screen.
               </p>
               <LibraryAdmin onChanged={forceRefresh} />
+            </details>
+
+            <details className="td2-card" style={{ marginTop: 16 }}>
+              <summary className="td2-h2">Daily readings · the reading challenge</summary>
+              <p className="td2-muted td2-small" style={{ margin: '8px 0 12px' }}>
+                One piece a day, which every student is asked to read. Separate from the library's
+                reading list on purpose: that one is an invitation, this one is the work.
+              </p>
+              <ReadingsAdmin onChanged={forceRefresh} />
             </details>
 
             <details className="td2-card" style={{ marginTop: 16 }}>

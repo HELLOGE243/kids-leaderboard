@@ -11,7 +11,10 @@ import RevisionDojo, { preloadDojoWallpapers } from './RevisionDojo.jsx'
 import Battlegrounds from './Battlegrounds.jsx'
 import VocabularyBank from './VocabularyBank.jsx'
 import Library from './Library.jsx'
-import { getClassesForStudent, getOrganisation, getStudentById, getLeaderboard, getHomeworkLeaderboard, getActiveTerm, addScore, getTestEventsForClass, getScoresForStudentInClass, getRankingForStudentInClass, getHomeworkWeeklyStats, getTopicsForClass, getQuizzesForTopic, isQuizUnlocked, getAttemptForQuiz, getPendingHomeworkCount, getNewCourseCount, getDueDojoCards, getStudentFeedData, getSchoolNewsfeed, getPurchasedTracks, getPastLeaderboards, onDataChange, onBroadcast } from '../data/store.js'
+import DailyReadings from './DailyReadings.jsx'
+import { getClassesForStudent, getOrganisation, getStudentById, getLeaderboard, getHomeworkLeaderboard, getActiveTerm, addScore, getTestEventsForClass, getScoresForStudentInClass, getRankingForStudentInClass, getHomeworkWeeklyStats, getTopicsForClass, getQuizzesForTopic, isQuizUnlocked, getAttemptForQuiz, getPendingHomeworkCount, getNewCourseCount, getDueDojoCards, getStudentFeedData, getSchoolNewsfeed, getPurchasedTracks, getPastLeaderboards, onDataChange, onBroadcast,
+  getOutstandingReadings,
+} from '../data/store.js'
 import { playClick, playCoinSound, playTrack, stopTrack, getCurrentTrackId, isMuted, toggleMute, MUSIC_TRACKS } from '../utils/soundManager.js'
 
 function FlipDigit({ value }) {
@@ -195,6 +198,7 @@ function Portal({ user, onLogout }) {
   const [showBattlegrounds, setShowBattlegrounds] = useState(false)
   const [showVocab, setShowVocab] = useState(false)
   const [showLibrary, setShowLibrary] = useState(false)
+  const [showReadings, setShowReadings] = useState(false)
   const [rankTab, setRankTab] = useState('test')
   const [showPastLb, setShowPastLb] = useState(null)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
@@ -223,6 +227,7 @@ function Portal({ user, onLogout }) {
     battlegrounds: { en: 'Battlegrounds', zh: '竞技场' },
     vocabBank: { en: 'Vocabulary Bank', zh: '词汇库' },
     library: { en: 'Library', zh: '图书馆' },
+    dailyReadings: { en: 'Daily Readings', zh: '每日阅读' },
     myReports: { en: 'My Reports', zh: '我的报告' },
     locked: { en: 'Locked', zh: '已锁定' },
     back: { en: 'Back', zh: '返回' },
@@ -318,6 +323,11 @@ function Portal({ user, onLogout }) {
   const homeworkStatus = useMemo(() => getPendingHomeworkCount(user.id), [user.id, refresh])
   const newCourseCount = useMemo(() => getNewCourseCount(user.id), [user.id, refresh])
   const dojoDueCount = useMemo(() => getDueDojoCards(user.id).length, [user.id, refresh])
+  // What is still owed, today's included: a challenge should show a number
+  // that goes down when you read.
+  const readingsDue = useMemo(
+    () => getOutstandingReadings(user.id, student?.yearGroup).length,
+    [user.id, student?.yearGroup, refresh])
   const feedData = useMemo(() => getStudentFeedData(user.id), [user.id, refresh])
   const newsfeed = useMemo(() => getSchoolNewsfeed(user.orgId), [user.orgId, refresh])
 
@@ -350,6 +360,7 @@ function Portal({ user, onLogout }) {
   if (showShop) return <div className={themeWrap}>{muteBtn}<Shop user={user} onBack={() => setShowShop(false)} /></div>
   if (showVocab) return <div className={themeWrap}>{muteBtn}<VocabularyBank user={user} onBack={() => setShowVocab(false)} /></div>
   if (showLibrary) return <div className={themeWrap}>{muteBtn}<Library student={student} onBack={() => setShowLibrary(false)} /></div>
+  if (showReadings) return <div className={themeWrap}>{muteBtn}<DailyReadings student={student} onBack={() => { setShowReadings(false); forceRefresh() }} /></div>
 
   if (activeNewsPost) return (
     <div className={`portal-page ${themeWrap}`}>
@@ -687,6 +698,10 @@ function Portal({ user, onLogout }) {
         🥷🏻 {t('revisionDojo')}
         {dojoDueCount > 0 && <span className="hw-badge-warn">{dojoDueCount}</span>}
       </button>
+      <button className="btn-readings w-full mt-16" data-help="readings" style={{ position: 'relative' }} onClick={() => setShowReadings(true)}>
+        📰 {t('dailyReadings')}
+        {readingsDue > 0 && <span className="hw-badge-warn">{readingsDue}</span>}
+      </button>
       <button className="btn-vocab w-full mt-16" data-help="vocab" onClick={() => setShowVocab(true)}>
         🔤 {t('vocabBank')}
       </button>
@@ -910,6 +925,7 @@ function Portal({ user, onLogout }) {
           { selector: '[data-help="assignments"]', title: 'Assignments', desc: 'All your homework and trial test papers, organised by course and week.' },
           { selector: '[data-help="checkpoints"]', title: 'Checkpoint Tests', desc: 'Formal tests set by your teacher. Timed and single-attempt.' },
           { selector: '[data-help="dojo"]', title: 'Revision Hall', desc: 'Review questions you got wrong. Master cards by getting 3 correct in a row. Earns tokens.' },
+          { selector: '[data-help="readings"]', title: 'Daily Readings', desc: 'One piece to read each day. Finishing one earns tokens, and missed days are kept for you.' },
           { selector: '[data-help="vocab"]', title: 'Vocabulary Bank', desc: 'Words you have saved from quizzes. Study with flashcards and practice.' },
           { selector: '[data-help="battlegrounds"]', title: 'Battlegrounds', desc: 'Daily word games, live arena battles, and the Arcade.' },
           { selector: '[data-help="leaderboards"]', title: 'Leaderboards', desc: 'See how you rank against classmates in each subject.' },

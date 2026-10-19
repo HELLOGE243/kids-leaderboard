@@ -4,22 +4,33 @@ import { adminAction } from '../data/auth.js'
 /**
  * The codes that hand a teaching group to a teacher, with the group.
  *
- * A class is the whole cohort; what a teacher is given is a group inside it,
- * and the code is how they take it on. Holding the group is what lets them open
- * those students' work, so this also shows who is holding each one - and takes
- * it back, which signs that teacher out so their token stops naming it.
+ * A class is the whole cohort; what a teacher is given is a group inside it.
+ * A code is one way to take it on, which suits handing codes out at the start
+ * of term; an admin can also give a group to a teacher outright, which suits
+ * one person setting the whole thing up. There was only ever a way to take a
+ * group off a teacher, never a way to put one on.
+ *
+ * Holding the group is what lets them open those students' work, so this shows
+ * who is holding each one. Giving and taking both end that teacher's session:
+ * the groups are named in their token, which is minted at sign-in, so until
+ * they sign in again the token would not know.
  *
  * @param {object} props
  * @param {string} props.classId only the groups in this class
  */
 function GroupCodes({ classId }) {
   const [groups, setGroups] = useState(null)
+  const [teachers, setTeachers] = useState([])
   const [busy, setBusy] = useState('')
   const [copied, setCopied] = useState('')
+  const [assigning, setAssigning] = useState('')
 
   const load = useCallback(async () => {
     const res = await adminAction('groupHolders')
-    if (res?.ok) setGroups((res.groups || []).filter((g) => g.classId === classId))
+    if (res?.ok) {
+      setGroups((res.groups || []).filter((g) => g.classId === classId))
+      setTeachers(res.allTeachers || [])
+    }
   }, [classId])
 
   useEffect(() => { load() }, [load])
@@ -28,6 +39,15 @@ function GroupCodes({ classId }) {
     setBusy(groupId)
     await adminAction('setGroupCode', { groupId })
     setBusy('')
+    load()
+  }
+
+  async function give(groupId, teacherId) {
+    if (!teacherId) return
+    setBusy(groupId)
+    await adminAction('addTeacherToGroup', { groupId, teacherId })
+    setBusy('')
+    setAssigning('')
     load()
   }
 
@@ -79,6 +99,28 @@ function GroupCodes({ classId }) {
                     disabled={busy === g.id} onClick={() => remove(g.id, t.id)}>×</button>
                 </span>
               ))}
+            {assigning === g.id ? (
+              <select
+                className="td2-select gc-assign-pick"
+                defaultValue=""
+                autoFocus
+                disabled={busy === g.id}
+                onChange={(e) => give(g.id, e.target.value)}
+                onBlur={() => setAssigning('')}
+              >
+                <option value="">Choose a teacher…</option>
+                {teachers
+                  .filter((t) => !g.teachers.some((h) => String(h.id) === String(t.id)))
+                  .map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            ) : (
+              <button
+                className="cs-btn gc-assign"
+                disabled={busy === g.id}
+                title="Give this group to a teacher without a code"
+                onClick={() => setAssigning(g.id)}
+              >+ Give to a teacher</button>
+            )}
           </div>
         </div>
       ))}

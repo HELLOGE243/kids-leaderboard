@@ -11676,7 +11676,14 @@ button.hw-res-qth.active {
   margin-bottom: 16px;
   user-select: none;
   -webkit-user-select: none;
+  /* The grid owns the gesture. Without this the browser reads a drag across
+     the letters as a scroll, takes the touch for itself and the moves never
+     reach the handler - which is why tracing a word did nothing on a tablet
+     while the code to trace it was there all along. */
+  touch-action: none;
+  -ms-touch-action: none;
 }
+.wh-cell { touch-action: none; }
 .wh-grid-row {
   display: flex;
   gap: 8px;
@@ -17925,6 +17932,16 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 
 /* --- A teacher reading a class's papers (read-only) --- */
 .cqb { padding: 18px 22px 60px; }
+/* The paper reads in the students' own frame: same scrolling body, same bar
+   of navigation at the foot. */
+.cqb-paper-body { margin-top: 10px; }
+.cqb-bottombar { position: sticky; bottom: 0; }
+.cqb-nav-count {
+  /* The students' bottom bar is a light grey, so the count has to be dark.
+     Inheriting the page colour put pale text on it and it could not be read. */
+  font-size: 0.78rem; white-space: nowrap; color: #4a5560; font-weight: 600;
+}
+.qt-nav-btn:disabled { opacity: 0.4; cursor: default; }
 
 .cqb-bar {
   display: flex;
@@ -19277,6 +19294,8 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .gc-code-wrap { display: flex; align-items: center; gap: 8px; }
 .gc-holders { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
 .gc-nobody { font-size: 0.68rem; opacity: 0.5; }
+.gc-assign { white-space: nowrap; }
+.gc-assign-pick { max-width: 190px; font-size: 0.72rem; }
 
 /* --- Parent sign-in ---------------------------------------------------------
    One column at one width: the address field, the button under it and Back all
@@ -19553,4 +19572,89 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .btn-library:hover { transform: translateY(-2px); box-shadow: 0 5px 0 rgba(0,0,0,0.3), 0 8px 18px rgba(77,182,172,0.2); }
 .btn-library:active { transform: translateY(1px); box-shadow: 0 2px 0 rgba(0,0,0,0.3); }
 .theme-light .btn-library { background: linear-gradient(135deg, #e6fbf8, #d6f5f0); border-color: #00897b; color: #00695c; }
+
+/* --- Daily readings -------------------------------------------------------
+   The reading challenge: its own portal card, above the vocabulary bank. */
+.btn-readings {
+  border: 2px solid #d4953f;
+  background: linear-gradient(135deg, #251704, #432c0b);
+  color: #f0c88a;
+  font-family: var(--font-pixel);
+  font-size: 0.8rem;
+  font-weight: bold;
+  padding: 18px 24px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: 0 3px 0 rgba(0,0,0,0.3), 0 4px 12px rgba(212,149,63,0.1);
+  transition: transform 0.1s, box-shadow 0.15s;
+}
+.btn-readings:hover { transform: translateY(-2px); box-shadow: 0 5px 0 rgba(0,0,0,0.3), 0 8px 18px rgba(212,149,63,0.2); }
+.btn-readings:active { transform: translateY(1px); box-shadow: 0 2px 0 rgba(0,0,0,0.3); }
+.theme-light .btn-readings { background: linear-gradient(135deg, #fdf3e2, #f8e8cd); border-color: #b07314; color: #7d5210; }
+
+.dr-page { max-width: 880px; margin: 0 auto; padding: 18px 16px 60px; }
+.dr-top { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.dr-top-mid { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dr-title { margin: 0; font-size: 1.2rem; }
+.dr-sub { font-size: 0.78rem; opacity: 0.68; }
+.dr-streak {
+  display: flex; flex-direction: column; align-items: center; flex: none;
+  padding: 6px 12px; border-radius: 10px;
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+}
+.dr-streak.is-on { border-color: #d4953f; color: #d4953f; }
+.dr-streak-num { font-size: 1.2rem; font-weight: 800; line-height: 1; }
+.dr-streak-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.75; }
+
+.dr-section { margin-bottom: 22px; }
+.dr-section-title { margin: 0 0 6px; font-size: 0.95rem; }
+.dr-section-note { margin: 0 0 10px; font-size: 0.76rem; opacity: 0.65; }
+.dr-empty { font-size: 0.85rem; opacity: 0.6; }
+
+.dr-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; margin-bottom: 8px; border-radius: 10px;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+}
+.dr-card.is-today { border-color: #d4953f; }
+.dr-card.is-done { opacity: 0.75; }
+.dr-card-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dr-card-title { font-weight: 700; font-size: 0.92rem; }
+.dr-card-meta { font-size: 0.72rem; opacity: 0.6; }
+.dr-card-tick { font-size: 0.74rem; color: #66bb6a; font-weight: 700; white-space: nowrap; }
+.dr-card-open {
+  flex: none; padding: 7px 14px; border-radius: 8px; cursor: pointer;
+  font: inherit; font-size: 0.78rem; font-weight: 700;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
+  color: inherit;
+}
+.dr-card-open.is-primary { background: #d4953f; border-color: #d4953f; color: #1a1205; }
+
+.dr-reader {
+  padding: 20px 24px; border-radius: 12px; line-height: 1.75; font-size: 1rem;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+  max-height: 64vh; overflow-y: auto;
+}
+.dr-reader p { margin: 0 0 1em; }
+.dr-source-link { font-size: 0.78rem; opacity: 0.7; }
+.dr-foot { display: flex; justify-content: center; margin-top: 16px; }
+.dr-finish {
+  padding: 12px 26px; border-radius: 10px; cursor: pointer; border: 0;
+  font: inherit; font-size: 0.9rem; font-weight: 700;
+  background: #d4953f; color: #1a1205;
+}
+.dr-wait, .dr-done-note { font-size: 0.82rem; opacity: 0.7; }
+
+/* Setting the readings. */
+.ra-field { display: flex; align-items: center; gap: 6px; font-size: 0.76rem; opacity: 0.8; }
+.ra-mins { width: 70px; }
+.ra-text { width: 100%; resize: vertical; font-family: inherit; line-height: 1.6; }
+.ra-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; }
+
 .theme-light .btn-library:hover { box-shadow: 0 4px 0 rgba(0,0,0,0.1), 0 6px 16px rgba(0,137,123,0.15); }

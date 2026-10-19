@@ -1932,6 +1932,12 @@ exports.authAdmin = functions
           const groups = await getGroups()
           return sendJson(res, 200, {
             ok: true,
+            // Everyone who could be given a group, so the picker that hands
+            // one over has a list to pick from.
+            allTeachers: Object.entries(core.teachers || {})
+              .filter(([, t]) => !t.archived)
+              .map(([id, t]) => ({ id, name: t.name || '(unnamed)' }))
+              .sort((a, b) => a.name.localeCompare(b.name)),
             groups: groups.map((g) => ({
               id: g.id,
               classId: g.classId || null,
@@ -1981,6 +1987,38 @@ exports.authAdmin = functions
           })
           await saveGroups(next)
           return sendJson(res, 200, { ok: true, coded: report })
+        }
+
+        if (action === 'addTeacherToGroup') {
+          // Hands a group over without the code. The code exists so a teacher
+          // can take a class on themselves, which is right when an admin is
+          // handing out codes at the start of term and wrong when one person
+          // is setting the whole thing up: there was a way to take a group off
+          // a teacher and no way to put one on.
+          //
+          // Their token names the groups they hold and is minted at sign-in,
+          // so a teacher already signed in would not see the new group until
+          // it expired. The session goes, the same as when a group is taken
+          // away, and the next sign-in names it.
+          const groupId = String(req.body?.groupId || '')
+          if (!groupId || !teacherId) return sendJson(res, 400, { error: 'groupId and teacherId required' })
+          const core = await getCore(true)
+          if (!(core.teachers || {})[String(teacherId)]) {
+            return sendJson(res, 404, { error: 'No such teacher.' })
+          }
+          const groups = await getGroups()
+          const group = groups.find((g) => g.id === groupId)
+          if (!group) return sendJson(res, 404, { error: 'No such group.' })
+          const holders = (group.teacherIds || []).map(String)
+          if (holders.includes(String(teacherId))) {
+            return sendJson(res, 200, { ok: true, already: true, holders: holders.length })
+          }
+          const next = [...holders, String(teacherId)]
+          await saveGroups(groups.map((g) => (g.id === groupId ? { ...g, teacherIds: next } : g)))
+          await db.collection('sessions').doc(String(teacherId)).delete().catch(() => {})
+          await admin.auth().revokeRefreshTokens(String(teacherId)).catch(() => {})
+          console.info(`addTeacherToGroup: ${teacherId} given ${groupId}`)
+          return sendJson(res, 200, { ok: true, holders: next.length })
         }
 
         if (action === 'removeTeacherFromGroup') {

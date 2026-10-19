@@ -899,6 +899,164 @@ export function createClass(name, orgId, teacherId, yearGroup = '') {
 // ============================================================
 
 /** @returns {Array<object>} the reading list, newest first */
+/* --- Daily readings -------------------------------------------------------
+ *
+ * The reading challenge. An admin uploads the pieces; each one is set for a
+ * day, and every child is expected to read that day's. This is deliberately
+ * not the library's reading list: that one is an invitation, a shelf of things
+ * worth your time, and this one is the work. Mixing them would make the
+ * invitation feel like homework and the homework feel optional.
+ *
+ * The text is kept with the entry rather than linked out to. A link is a
+ * promise about somebody else's website - it rots, it asks for a login, it
+ * carries advertising - and a reading set for a whole school on a given day
+ * cannot rest on that. A link may be added as well, for a child who wants the
+ * original.
+ */
+
+/** Every reading, newest day first. */
+export function getDailyReadings() {
+  const data = loadData()
+  return [...(data.dailyReadings || [])]
+    .sort((a, b) => String(b.forDate || '').localeCompare(String(a.forDate || '')))
+}
+
+/** Today's reading, or none if nothing is set for today. */
+export function getTodaysReading(yearGroup) {
+  const today = new Date().toISOString().slice(0, 10)
+  return getDailyReadings().find((r) => r.forDate === today && suitsBand(r, yearGroup)) || null
+}
+
+/**
+ * What a child still owes.
+ *
+ * Readings set for today or earlier that they have not finished, oldest
+ * first - a child who misses Monday should be given Monday, not told they are
+ * behind and left to find it.
+ */
+export function getOutstandingReadings(studentId, yearGroup) {
+  const today = new Date().toISOString().slice(0, 10)
+  const done = new Set(getStudentArray(studentId, 'readingLog').map((r) => r.readingId))
+  return getDailyReadings()
+    .filter((r) => r.forDate <= today && suitsBand(r, yearGroup) && !done.has(r.id))
+    .sort((a, b) => String(a.forDate).localeCompare(String(b.forDate)))
+}
+
+/** Whether a reading is meant for this reader, by the library's year bands. */
+function suitsBand(reading, yearGroup) {
+  const band = reading?.yearBand || 'all'
+  if (band === 'all') return true
+  const year = Number(String(yearGroup || '').replace(/[^0-9]/g, '')) || 0
+  if (!year) return true
+  return band === 'lower' ? year <= 5 : year >= 6
+}
+
+/**
+ * Keeps the shape of what was pasted in.
+ *
+ * An article is pasted as plain text with blank lines between paragraphs, and
+ * it is rendered as HTML, where a blank line is nothing at all - so the whole
+ * piece arrived on the page as one unbroken block. Text that is already HTML
+ * is left alone, so a piece copied from a web page keeps its own markup.
+ */
+function asParagraphs(text) {
+  const raw = String(text || '').trim()
+  if (!raw) return ''
+  if (/<(p|div|br|h[1-6]|ul|ol|blockquote)\b/i.test(raw)) return raw
+  const escape = (t) => t
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return raw
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map((block) => `<p>${escape(block).replace(/\n/g, '<br>')}</p>`)
+    .join('')
+}
+
+export function addDailyReading({ title, source, url, text, forDate, yearBand = 'all', minutes = 0 }) {
+  const data = loadData()
+  if (!data.dailyReadings) data.dailyReadings = []
+  const item = {
+    id: 'read-' + Math.random().toString(36).slice(2, 9),
+    title: String(title || '').trim().slice(0, 160),
+    source: String(source || '').trim().slice(0, 80),
+    url: String(url || '').trim().slice(0, 500),
+    // Long enough for a full article; a reading nobody can finish in a sitting
+    // is not a daily reading.
+    text: asParagraphs(text).slice(0, 20000),
+    forDate: String(forDate || new Date().toISOString().slice(0, 10)).slice(0, 10),
+    yearBand,
+    minutes: Math.max(0, Math.round(Number(minutes) || 0)),
+    addedAt: new Date().toISOString(),
+  }
+  data.dailyReadings.unshift(item)
+  // A term's worth. Older readings stop being the challenge and start being
+  // weight in a document that every student loads.
+  data.dailyReadings = data.dailyReadings.slice(0, 120)
+  saveData(data)
+  return item
+}
+
+export function removeDailyReading(id) {
+  const data = loadData()
+  data.dailyReadings = (data.dailyReadings || []).filter((r) => r.id !== id)
+  saveData(data)
+}
+
+/**
+ * A child marking a reading read.
+ *
+ * Kept in their own record rather than on the reading, which every child
+ * loads: a list of who has read what would grow with the school and be
+ * rewritten by every reader at once.
+ *
+ * The streak is counted from the log rather than stored, so it cannot drift
+ * out of step with what was actually read.
+ */
+export function markReadingDone(studentId, readingId, seconds = 0) {
+  if (!studentId || !readingId) return false
+  const already = getStudentArray(studentId, 'readingLog').some((r) => r.readingId === readingId)
+  if (already) return false
+  mutateStudentArray(studentId, 'readingLog', (arr) => {
+    arr.push({ readingId, at: new Date().toISOString(), seconds: Math.round(Number(seconds) || 0) })
+  })
+  addTokens(studentId, READING_TOKENS)
+  return true
+}
+
+/** What finishing the day's reading pays. */
+export const READING_TOKENS = 5
+
+export function getReadingLog(studentId) {
+  return getStudentArray(studentId, 'readingLog')
+}
+
+/** How many days in a row, counting back from today, hold a finished reading. */
+export function getReadingStreak(studentId) {
+  const readings = getDailyReadings()
+  const byId = new Map(readings.map((r) => [r.id, r]))
+  const doneDays = new Set(
+    getReadingLog(studentId).map((r) => byId.get(r.readingId)?.forDate).filter(Boolean))
+  if (!doneDays.size) return 0
+  // Only the days something was actually set for are walked. Walking the
+  // calendar instead meant that a day with no reading on it neither counted
+  // nor broke the run, so with one reading ever set the walk never met a day
+  // that could stop it and ran back through the calendar until the date
+  // overflowed and toISOString threw.
+  const setDays = [...new Set(readings.map((r) => r.forDate).filter(Boolean))]
+    .sort()
+    .reverse()
+  const today = new Date().toISOString().slice(0, 10)
+  let streak = 0
+  for (const day of setDays) {
+    if (day > today) continue            // set for a day that has not come
+    if (doneDays.has(day)) streak += 1
+    else if (day === today) continue     // today is not over yet
+    else break
+  }
+  return streak
+}
+
 export function getLibraryNews() {
   const data = loadData()
   return [...(data.libraryNews || [])]
