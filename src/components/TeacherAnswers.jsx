@@ -1,92 +1,58 @@
 import { useEffect, useState } from 'react'
-import { getMyAskedQuestions, markAskedQuestionSeen, plainSnippet } from '../data/store.js'
+import { getMyAskedQuestions } from '../data/store.js'
 
 /**
- * What their teacher said back, at the top of a student's own screen.
+ * A word on the portal that their teacher has written back.
  *
- * A student who asks for help in a review has, until now, been asking nobody:
- * the question was flagged inside their own record and no teacher had a screen
- * that read it. The reply lands here, where they will see it, and stops asking
- * for attention once they have opened it.
+ * This used to be the whole of it: a list, and a popup holding one line of the
+ * question, what the child had asked and the teacher's sentence. Nothing to do
+ * with it, and no way for anyone to know whether it had landed. A child who is
+ * told why they were wrong and never asked the question again has not been
+ * taught anything.
+ *
+ * So the reading of it moved to the Revision Hall, where the rest of the cards
+ * are and where a question can be handed back to be answered again. What is
+ * left here is the knock on the door: how many are waiting, and a way in.
  *
  * @param {object} props
  * @param {string} props.studentId
+ * @param {() => void} props.onOpen takes them to the hall, on the answers tab
  */
-function TeacherAnswers({ studentId }) {
+function TeacherAnswers({ studentId, onOpen }) {
   const [asked, setAsked] = useState([])
-  const [open, setOpen] = useState(null)
 
   useEffect(() => {
     let alive = true
-    getMyAskedQuestions(studentId).then((rows) => { if (alive) setAsked(rows) })
+    getMyAskedQuestions(studentId).then((rows) => { if (alive) setAsked(rows || []) })
     return () => { alive = false }
   }, [studentId])
 
   const answered = asked.filter((a) => a.status === 'answered')
-  const waiting = asked.filter((a) => a.status !== 'answered')
   const unread = answered.filter((a) => !a.seenByStudent)
+  const waiting = asked.filter((a) => a.status !== 'answered')
   if (!answered.length && !waiting.length) return null
 
-  function openOne(ask) {
-    setOpen(ask)
-    if (!ask.seenByStudent) {
-      markAskedQuestionSeen(ask.id)
-      setAsked((rows) => rows.map((r) => (r.id === ask.id ? { ...r, seenByStudent: true } : r)))
-    }
-  }
+  // Nothing new to read and nothing outstanding: the hall can say so in its
+  // own time rather than the portal keeping a dead panel on the screen.
+  if (!unread.length && !waiting.length) return null
 
   return (
-    <section className={`ta-panel${unread.length ? ' is-new' : ''}`}>
-      <header className="ta-head">
-        <h2 className="ta-title">
+    <button className={`ta-banner${unread.length ? ' is-new' : ''}`} onClick={onOpen}>
+      <span className="ta-banner-icon">{unread.length ? '💬' : '⏳'}</span>
+      <span className="ta-banner-main">
+        <span className="ta-banner-title">
           {unread.length
             ? `Your teacher answered ${unread.length === 1 ? 'your question' : `${unread.length} of your questions`}`
-            : 'Questions you asked your teacher'}
-        </h2>
-        {waiting.length > 0 && (
-          <span className="ta-waiting">{waiting.length} waiting for an answer</span>
-        )}
-      </header>
-
-      <div className="ta-list">
-        {[...answered, ...waiting].slice(0, 6).map((ask) => (
-          <button
-            key={ask.id}
-            className={`ta-row${ask.status === 'answered' && !ask.seenByStudent ? ' is-unread' : ''}`}
-            onClick={() => openOne(ask)}
-          >
-            <span className="ta-row-main">
-              <span className="ta-row-quiz">{ask.quizTitle || 'A question'}</span>
-              <span className="ta-row-snippet">{plainSnippet(ask.questionSnippet) || `Question ${(ask.questionIndex ?? 0) + 1}`}</span>
-            </span>
-            <span className={`ta-row-tag is-${ask.status === 'answered' ? 'answered' : 'open'}`}>
-              {ask.status === 'answered' ? 'Answered' : 'Waiting'}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {open && (
-        <div className="modal-overlay" onClick={() => setOpen(null)}>
-          <div className="ta-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="ta-modal-head">
-              <span className="ta-row-quiz">{open.quizTitle || 'A question'}</span>
-              <button className="td2-icon-btn" aria-label="Close" onClick={() => setOpen(null)}>✕</button>
-            </div>
-            <p className="ta-modal-q">{plainSnippet(open.questionSnippet) || `Question ${(open.questionIndex ?? 0) + 1}`}</p>
-            {open.studentNote && <p className="ta-modal-note">You asked: {open.studentNote}</p>}
-            {open.status === 'answered' ? (
-              <div className="ta-modal-answer">
-                <span className="ta-modal-from">{open.answer?.teacherName || 'Your teacher'} said</span>
-                <p className="ta-modal-text">{open.answer?.text}</p>
-              </div>
-            ) : (
-              <p className="ta-modal-waiting">Your teacher has not answered this one yet.</p>
-            )}
-          </div>
-        </div>
-      )}
-    </section>
+            : `${waiting.length} question${waiting.length === 1 ? '' : 's'} waiting for your teacher`}
+        </span>
+        <span className="ta-banner-sub">
+          {unread.length
+            ? 'Open it in the Revision Hall and try the question again'
+            : 'Their answers will appear in the Revision Hall'}
+        </span>
+      </span>
+      {unread.length > 0 && <span className="ta-banner-go">Open →</span>}
+    </button>
   )
 }
 

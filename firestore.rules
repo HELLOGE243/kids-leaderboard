@@ -214,9 +214,14 @@ service cloud.firestore {
       // admin answers too: they hold no groups, so without this a question
       // from a student in no group - which is most of them until the groups
       // are made - could be answered by nobody at all.
+      //
+      // Answering also clears seenByStudent. A question is filed as seen,
+      // because the child is looking at it as they ask; what is unseen from
+      // then on is the answer, and without this the "your teacher replied"
+      // mark could never come back on.
       allow update: if ((isAdmin() || (isTeacher()
                         && request.auth.token.groupIds.hasAny(resource.data.groupIds)))
-                        && changedKeys().hasOnly(['answer', 'status', 'answeredAt']))
+                        && changedKeys().hasOnly(['answer', 'status', 'answeredAt', 'seenByStudent']))
                     || (isSelf(resource.data.studentId)
                         && changedKeys().hasOnly(['seenByStudent']));
       allow delete: if isAdmin();

@@ -21,10 +21,12 @@ import {
   unarchiveDojoCard,
   addCustomDojoCard,
   getDojoTopics,
+  getMyAskedQuestions,
 } from '../data/store.js'
 import { generateShadowClones } from '../utils/aiChat.js'
 import { authedFetch } from '../data/auth.js'
 import ReportIssueModal from '../components/ReportIssueModal.jsx'
+import AnsweredQuestions from '../components/AnsweredQuestions.jsx'
 
 
 // src: full image. placeholder: a 24px blurred copy inlined so something shows instantly.
@@ -280,7 +282,7 @@ function shuffleArray(arr) {
   return a
 }
 
-function RevisionDojo({ user, onBack, onNavigateToQuiz }) {
+function RevisionDojo({ user, onBack, onNavigateToQuiz, initialTab }) {
   const [sceneIdx] = useState(() => Math.floor(Math.random() * WALLPAPERS.length))
   const wallpaper = WALLPAPERS[sceneIdx]
   // Everything renders at once. If the portal has already preloaded the image
@@ -293,7 +295,11 @@ function RevisionDojo({ user, onBack, onNavigateToQuiz }) {
     loadWallpaper(wallpaper.src).then((ok) => { if (alive && ok) setBgReady(true) })
     return () => { alive = false }
   }, [wallpaper.src, bgReady])
-  const [tab, setTab] = useState('training')
+  const [tab, setTab] = useState(initialTab || 'training')
+  // How many answers are waiting to be read, for the badge on the tab. The
+  // questions live in their own collection rather than in the deck, so this
+  // is a read of its own rather than a count of cards.
+  const [unreadAnswers, setUnreadAnswers] = useState(0)
   const [dueCards, setDueCards] = useState([])
   const [currentIdx, setCurrentIdx] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState(-1)
@@ -313,6 +319,15 @@ function RevisionDojo({ user, onBack, onNavigateToQuiz }) {
   const [showKillAnim, setShowKillAnim] = useState(false)
   const [dojoClearedBanner, setDojoClearedBanner] = useState(null)
   const [refresh, setRefresh] = useState(0)
+
+  useEffect(() => {
+    let alive = true
+    getMyAskedQuestions(user.id).then((rows) => {
+      if (!alive) return
+      setUnreadAnswers((rows || []).filter((a) => a.status === 'answered' && !a.seenByStudent).length)
+    })
+    return () => { alive = false }
+  }, [user.id, refresh, tab])
 
   const [askViewCard, setAskViewCard] = useState(null)
   const [askSel, setAskSel] = useState(-1)
@@ -752,6 +767,10 @@ Return ONLY valid JSON:
             Ask for Help
             {askTeacherCards.length > 0 && <span className="dojo-tab-badge dojo-tab-badge-red">{askTeacherCards.length}</span>}
           </button>
+          <button className={`dojo-tab ${tab === 'answers' ? 'dojo-tab-active' : ''}`} onClick={() => { setTab('answers'); setAskViewCard(null) }} style={{ position: 'relative' }}>
+            Answers
+            {unreadAnswers > 0 && <span className="dojo-tab-badge dojo-tab-badge-green">{unreadAnswers}</span>}
+          </button>
           <button className={`dojo-tab ${tab === 'endless' ? 'dojo-tab-active' : ''}`} onClick={() => { setTab('endless'); setEndlessBuilding(true) }}>
             Endless Practice
           </button>
@@ -924,6 +943,13 @@ Return ONLY valid JSON:
               ))}
             </div>
           )
+        )}
+
+        {/* ===== ANSWERS TAB =====
+            What a teacher said back, as cards to work through rather than a
+            line of text in a popup. */}
+        {tab === 'answers' && (
+          <AnsweredQuestions user={user} onChanged={() => setRefresh(r => r + 1)} />
         )}
 
         {/* ===== ENDLESS PRACTICE TAB ===== */}

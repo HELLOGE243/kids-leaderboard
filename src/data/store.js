@@ -4757,6 +4757,57 @@ export function answerAskedQuestion(askId, text, teacher) {
 }
 
 /** The student has read the reply. */
+/**
+ * What finishing an answered question is worth.
+ *
+ * Less than mastering a revision card, which takes three correct answers in a
+ * row: this takes one, and the answer has just been explained.
+ */
+export const ANSWER_PRACTICE_TOKENS = 2
+
+/** What this student has already put right after their teacher answered. */
+export function getAnswerPractice(studentId) {
+  return getStudentArray(studentId, 'answerPractice')
+}
+
+/**
+ * A student having another go at a question their teacher has answered.
+ *
+ * The point of the whole exercise is this attempt rather than the reading of
+ * the reply, so it is what pays and what closes the card. Getting it wrong
+ * costs nothing and is not recorded - the card stays open and they can try
+ * again, because a child who is still stuck after an explanation needs another
+ * go, not a mark against them.
+ *
+ * Getting it right also retires the revision card for that question where
+ * there is one. They were sent to the hall for getting it wrong; they have now
+ * got it right with the explanation in front of them, and leaving the card
+ * there would ask them the same question twice over.
+ *
+ * @returns {number} tokens awarded, 0 if they had already done this one
+ */
+export function recordAnswerPractice(studentId, askId, questionId) {
+  if (!studentId || !askId) return 0
+  const already = getAnswerPractice(studentId).some((r) => r.askId === askId)
+  if (already) return 0
+  mutateStudentArray(studentId, 'answerPractice', (arr) => {
+    arr.push({ askId, questionId: questionId || null, at: new Date().toISOString() })
+  })
+  if (questionId) {
+    mutateStudentArray(studentId, 'dojoCards', (arr) => {
+      for (const card of arr) {
+        if (card.questionId === questionId && !card.archived) {
+          card.archived = true
+          card.archivedDate = new Date().toISOString()
+          card.askTeacher = false
+        }
+      }
+    })
+  }
+  addTokens(studentId, ANSWER_PRACTICE_TOKENS)
+  return ANSWER_PRACTICE_TOKENS
+}
+
 export function markAskedQuestionSeen(askId) {
   return markAskedSeen(askId)
 }

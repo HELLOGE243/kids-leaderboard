@@ -9990,6 +9990,11 @@ button.hw-res-qth.active {
   color: #fff;
   box-shadow: 0 0 8px rgba(255, 68, 68, 0.6), 0 0 16px rgba(255, 68, 68, 0.3);
 }
+.dojo-tab-badge-green {
+  background: #2ea043;
+  color: #fff;
+  box-shadow: 0 0 8px rgba(46, 160, 67, 0.6), 0 0 16px rgba(46, 160, 67, 0.3);
+}
 @keyframes dojo-badge-pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.15); }
@@ -19208,6 +19213,28 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .td2-class-holder-x:hover { opacity: 1; color: #e53935; }
 
 /* --- What a teacher said back, at the top of a student's screen ----------- */
+.ta-banner {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  padding: 14px 18px; margin-bottom: 14px; border-radius: 12px;
+  cursor: pointer; text-align: left; font: inherit; color: inherit;
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
+  transition: transform 0.1s, box-shadow 0.15s;
+}
+.ta-banner.is-new {
+  background: linear-gradient(140deg, rgba(46,160,67,0.18), rgba(46,160,67,0.06));
+  border-color: #43c75a;
+}
+.ta-banner:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
+.ta-banner-icon { font-size: 1.5rem; flex: none; }
+.ta-banner-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.ta-banner-title { font-weight: 700; font-size: 0.95rem; }
+.ta-banner-sub { font-size: 0.76rem; opacity: 0.7; }
+.ta-banner-go {
+  flex: none; padding: 7px 14px; border-radius: 8px;
+  background: #2ea043; color: #fff; font-size: 0.8rem; font-weight: 700;
+}
+
 .ta-panel {
   margin: 0 0 18px; padding: 16px 18px; border-radius: 14px;
   background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
@@ -19248,6 +19275,120 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .ta-modal-from { font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #66bb6a; }
 .ta-modal-text { font-size: 0.9rem; line-height: 1.7; margin: 6px 0 0; white-space: pre-wrap; }
 .ta-modal-waiting { font-size: 0.82rem; color: var(--text-dim); margin: 0; }
+/* --- A teacher's answer, as a card -----------------------------------------
+   Green, where the hall's other cards are the things still to put right:
+   these are the ones that have help attached. */
+.aq-list { display: flex; flex-direction: column; gap: 10px; }
+.aq-loading { text-align: center; opacity: 0.7; font-size: 0.86rem; padding: 18px; }
+
+.aq-card {
+  display: flex; flex-direction: column; gap: 6px; width: 100%;
+  padding: 14px 16px; border-radius: 12px; cursor: pointer; text-align: left;
+  font: inherit; color: inherit;
+  background: linear-gradient(140deg, rgba(46,160,67,0.16), rgba(46,160,67,0.06));
+  border: 1px solid rgba(46,160,67,0.42);
+  transition: transform 0.1s, box-shadow 0.15s;
+}
+.aq-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(46,160,67,0.18); }
+.aq-card.is-new { border-color: #43c75a; box-shadow: 0 0 0 1px rgba(67,199,90,0.35); }
+.aq-card.is-done { opacity: 0.72; }
+.aq-card.is-waiting {
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  border-color: color-mix(in srgb, var(--text) 14%, transparent);
+  cursor: default;
+}
+.aq-card.is-waiting:hover { transform: none; box-shadow: none; }
+.aq-card-top { display: flex; align-items: center; gap: 8px; }
+.aq-card-from {
+  font-size: 0.64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+  color: #43c75a;
+}
+.aq-card.is-waiting .aq-card-from { color: inherit; opacity: 0.6; }
+.aq-card-new {
+  padding: 1px 7px; border-radius: 999px; background: #43c75a; color: #06220c;
+  font-size: 0.58rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+}
+.aq-card-tick { font-size: 0.64rem; font-weight: 700; opacity: 0.75; margin-left: auto; }
+.aq-card-q { font-size: 0.92rem; line-height: 1.5; }
+.aq-card-foot {
+  display: flex; justify-content: space-between; gap: 10px;
+  font-size: 0.7rem; opacity: 0.6;
+}
+
+/* Working one through. */
+.aq-card-open {
+  max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px;
+  padding: 16px; border-radius: 14px;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  border: 1px solid rgba(46,160,67,0.35);
+}
+.aq-open-head { display: flex; align-items: center; gap: 12px; }
+.aq-back {
+  padding: 6px 12px; border-radius: 8px; cursor: pointer; font: inherit; font-size: 0.78rem;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
+  color: inherit;
+}
+.aq-open-where { font-size: 0.76rem; opacity: 0.65; }
+.aq-step { display: flex; flex-direction: column; gap: 5px; }
+.aq-step-label {
+  font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  opacity: 0.6;
+}
+.aq-passage {
+  border-radius: 10px; padding: 10px 14px;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+}
+.aq-passage > summary { cursor: pointer; list-style: revert; }
+.aq-passage-body { max-height: 260px; overflow-y: auto; margin-top: 8px; font-size: 0.9rem; line-height: 1.65; }
+.aq-passage-body p { margin: 0 0 0.7em; }
+.aq-question { font-size: 1rem; line-height: 1.65; }
+.aq-question p { margin: 0 0 0.7em; }
+.aq-yours { margin: 0; font-size: 0.9rem; line-height: 1.55; }
+
+.aq-reply {
+  padding: 14px 16px; border-radius: 10px;
+  background: rgba(46,160,67,0.14);
+  border: 1px solid rgba(46,160,67,0.4);
+}
+.aq-reply-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.aq-reply-from {
+  font-size: 0.64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+  color: #43c75a;
+}
+.aq-reply-text { margin: 8px 0 0; font-size: 0.95rem; line-height: 1.7; white-space: pre-wrap; }
+
+.aq-retry { display: flex; flex-direction: column; gap: 8px; }
+.aq-options { display: flex; flex-direction: column; gap: 8px; }
+.aq-option {
+  padding: 11px 14px; border-radius: 9px; cursor: pointer; text-align: left;
+  font: inherit; font-size: 0.9rem; color: inherit;
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
+}
+.aq-option:hover { background: color-mix(in srgb, var(--text) 9%, transparent); }
+.aq-option.is-picked { border-color: #43c75a; background: rgba(46,160,67,0.16); }
+.aq-option.is-wrong { border-color: #e05260; background: rgba(224,82,96,0.16); }
+.aq-wrong-note { margin: 0; font-size: 0.82rem; color: #e8808b; }
+
+.aq-go {
+  align-self: flex-start; padding: 11px 22px; border-radius: 10px; border: 0;
+  cursor: pointer; font: inherit; font-size: 0.9rem; font-weight: 700;
+  background: #2ea043; color: #fff;
+}
+.aq-go:disabled { opacity: 0.45; cursor: default; }
+
+.aq-done { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px 0; }
+.aq-done-tick {
+  width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center;
+  background: #2ea043; color: #fff; font-size: 1.4rem; font-weight: 800;
+}
+.aq-done-text { margin: 0; font-size: 0.95rem; }
+
+.theme-light .aq-card-from, .theme-light .aq-reply-from { color: #1a7f37; }
+.theme-light .aq-card-new { background: #1a7f37; color: #fff; }
+
 /* The questions a teacher's students have asked them. */
 .qi-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
 .qi-item { padding: 14px 16px; border-radius: 10px; background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.07); }

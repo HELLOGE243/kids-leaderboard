@@ -1172,7 +1172,7 @@ const STUDENT_DATA_KEYS = [
   'homeworkAttempts', 'homeworkRedos', 'homeworkProgress', 'homeworkStarts',
   'quizAttempts', 'dojoCards', 'dojoClones', 'dojoKills', 'dojoCustomReview',
   'purchases', 'vocabBank', 'questionReports', 'explanationReports',
-  'scores', 'policyAcceptances', 'readingLog',
+  'scores', 'policyAcceptances', 'readingLog', 'answerPractice',
 ]
 
 const STUDENT_PROFILE_KEYS = [
@@ -1765,6 +1765,11 @@ export async function answerAsked(askId, answer) {
       answer: packNested(answer),
       status: 'answered',
       answeredAt: new Date().toISOString(),
+      // A question is filed as already seen - the child is looking at it as
+      // they ask. From the moment it is answered the unseen thing is the
+      // answer, and leaving this alone meant the mark never came back on:
+      // a reply arrived and nothing anywhere said so.
+      seenByStudent: false,
     })
     return true
   } catch (e) {

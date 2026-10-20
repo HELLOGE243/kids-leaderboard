@@ -195,6 +195,9 @@ function Portal({ user, onLogout }) {
   const [showHomework, setShowHomework] = useState(false)
   const [homeworkNav, setHomeworkNav] = useState(null)
   const [showDojo, setShowDojo] = useState(false)
+  // Which tab of the hall to land on. The banner about a teacher's answer
+  // opens straight onto them rather than onto the training deck.
+  const [dojoTab, setDojoTab] = useState(null)
   const [showBattlegrounds, setShowBattlegrounds] = useState(false)
   const [showVocab, setShowVocab] = useState(false)
   const [showLibrary, setShowLibrary] = useState(false)
@@ -353,7 +356,7 @@ function Portal({ user, onLogout }) {
 
   const themeWrap = lightMode ? 'theme-light' : ''
   if (showBattlegrounds) return <div className={themeWrap}>{muteBtn}<Battlegrounds user={user} onBack={() => setShowBattlegrounds(false)} /></div>
-  if (showDojo) return <div className={themeWrap}>{muteBtn}<RevisionDojo user={user} onBack={() => setShowDojo(false)} onNavigateToQuiz={(nav) => { setShowDojo(false); setHomeworkNav(nav); setShowHomework(true) }} /></div>
+  if (showDojo) return <div className={themeWrap}>{muteBtn}<RevisionDojo user={user} initialTab={dojoTab} onBack={() => { setShowDojo(false); setDojoTab(null); forceRefresh() }} onNavigateToQuiz={(nav) => { setShowDojo(false); setDojoTab(null); setHomeworkNav(nav); setShowHomework(true) }} /></div>
   if (showHomework) return <div className={themeWrap}>{muteBtn}<HomeworkDashboard user={user} onBack={() => { setShowHomework(false); setHomeworkNav(null) }} initialNav={homeworkNav} /></div>
   if (showQuiz) return <div className={themeWrap}>{muteBtn}<QuizDashboard user={user} onBack={() => { setShowQuiz(false); setQuizNav(null) }} initialNav={quizNav} /></div>
   if (showReport) return <div className={themeWrap}>{muteBtn}<ReportPage studentId={user.id} initialCourseId={reportLink && reportLink !== 'all' ? reportLink : null} onBack={() => { setShowReport(false); if (reportLink) window.history.replaceState(null, '', window.location.pathname) }} /></div>
@@ -552,7 +555,7 @@ function Portal({ user, onLogout }) {
         </div>
 
         {/* What their teacher said back, before anything else on the page. */}
-        <TeacherAnswers studentId={student.id} />
+        <TeacherAnswers studentId={student.id} onOpen={() => { setDojoTab('answers'); setShowDojo(true) }} />
 
         {/* News ticker: off for students while the school is not posting. */}
         {false && newsfeed.length > 0 && (
