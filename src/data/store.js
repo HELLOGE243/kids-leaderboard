@@ -550,12 +550,18 @@ function mutateStudentArray(studentId, key, mutateFn) {
     saveStudentData(studentId, sData)
     return
   }
-  // No document yet (a student created outside the sign-in flow). Start one
-  // rather than writing to the shared array: answers for cloze, drag and
-  // matching questions are arrays, and Firestore rejects arrays nested inside
-  // an array, so those writes failed silently and the work was lost.
+  // Nothing to write into. Either this student has no document yet - one made
+  // outside the sign-in flow - or theirs has not arrived on this device. The
+  // two look identical from here, and they used to be treated identically: a
+  // record was invented holding only what was being written, and written as
+  // the whole document. On a student whose record simply had not loaded, that
+  // replaced everything they had done with one array.
+  //
+  // It is still written, because the alternative is dropping work a child has
+  // just done. It is marked instead, and a marked record is folded into the
+  // stored one rather than replacing it.
   console.warn(`store: starting a data document for student ${studentId} ("${key}")`)
-  const fresh = { ...(sData || {}), _migrated: true, studentId }
+  const fresh = { ...(sData || {}), _migrated: true, studentId, _partial: true }
   if (!fresh[key]) fresh[key] = []
   mutateFn(fresh[key], fresh)
   saveStudentData(studentId, fresh)

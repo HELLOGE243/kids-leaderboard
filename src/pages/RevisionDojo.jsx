@@ -409,7 +409,14 @@ function RevisionDojo({ user, onBack, onNavigateToQuiz, initialTab }) {
   async function startChaosMode() {
     setChaosMode(true); setGeneratingClones(true); setCloneIdx(0); setCloneAnswers([]); setCloneSelected(-1); setCloneAnswered(false); setCloneResult(null)
     const q = currentCard.question
-    const generated = await generateShadowClones({ questionText: q.text?.replace(/<[^>]*>/g, '') || '', options: q.options.filter(Boolean), correctIndex: q.correctIndex, correctAnswer: q.options[q.correctIndex] })
+    // The blanks are dropped before sending, so the index of the right answer
+    // has to be worked out against the list that is actually sent. Sending the
+    // original index with a filtered list describes a different answer, and
+    // the clones come back keyed to it.
+    const liveOptions = q.options.filter(Boolean)
+    const correctText = q.options[q.correctIndex]
+    const liveCorrect = Math.max(0, liveOptions.indexOf(correctText))
+    const generated = await generateShadowClones({ questionText: q.text?.replace(/<[^>]*>/g, '') || '', options: liveOptions, correctIndex: liveCorrect, correctAnswer: correctText })
     if (generated && generated.length === 2) { setClones(generated); saveDojoClones(currentCard.id, user.id, generated) }
     else { setClones([{ text: q.text, options: q.options, correctIndex: q.correctIndex, difficulty: 'easy' }, { text: q.text, options: q.options, correctIndex: q.correctIndex, difficulty: 'hard' }]) }
     setGeneratingClones(false)

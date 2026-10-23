@@ -1417,9 +1417,103 @@ export async function loadStudentFirestore(studentId) {
  * Parent and parts go in one batch so the record is never half-written, and
  * parts left over from a larger version are deleted in the same batch.
  */
+/** The arrays that hold work a student cannot get back if they are dropped. */
+const WORK_KEYS = ['homeworkAttempts', 'homeworkRedos', 'quizAttempts', 'scores']
+
+/**
+ * Whether this write would destroy work, and must not be made.
+ *
+ * A record is written as a whole document, so a write says "this is everything
+ * the student has" - and anything the incoming copy does not mention is gone.
+ * That is fine when the copy is current and wrong when it is not, and there is
+ * one way for it not to be: a snapshot is taken when a save is made and
+ * committed when the queue reaches it, which can be hours later if the tab was
+ * suspended in between. A laptop closed mid-morning and opened at night writes
+ * the morning's record over the evening's.
+ *
+ * One child lost eight papers that way. The record carried _savedAt 05:28 and
+ * the document was modified at 21:01; every healthy record in the school was
+ * within a minute of itself.
+ *
+ * Two refusals, both deliberately narrow:
+ *
+ * - the stored copy was saved after this snapshot was taken, so this one is
+ *   behind and cannot be the whole truth;
+ * - it would empty an array of work that is not empty, which no single action
+ *   in the app does - a teacher clears one paper at a time.
+ *
+ * @returns {string} why it must not be written, or '' if it is safe
+ */
+function wouldDestroyWork(stored, incoming) {
+  if (!stored) return ''
+  const storedAt = Number(stored._savedAt) || 0
+  const incomingAt = Number(incoming._savedAt) || 0
+  // A second of slack: two saves in the same moment are not a rollback.
+  if (storedAt && incomingAt && storedAt > incomingAt + 1000) {
+    return `snapshot is ${Math.round((storedAt - incomingAt) / 1000)}s behind the stored record`
+  }
+  // Emptying an array of work outright. A teacher clearing a paper so it can
+  // be sat again does this legitimately when it was the only one, so it is
+  // refused only for a record that is also thinner than the stored one -
+  // which is a stub standing in for a record, not a record.
+  const thinner = Object.keys(incoming).length < Object.keys(stored).length
+  for (const key of WORK_KEYS) {
+    const had = Array.isArray(stored[key]) ? stored[key].length : 0
+    const has = Array.isArray(incoming[key]) ? incoming[key].length : 0
+    if (had > 0 && has === 0 && thinner) {
+      return `${key} would go from ${had} to none, from a record missing `
+        + `${Object.keys(stored).length - Object.keys(incoming).length} of its keys`
+    }
+  }
+  return ''
+}
+
+/**
+ * Folds a record that was never read from the server into the stored one.
+ *
+ * Something can need to write before a student's record has arrived - a paper
+ * handed in on a slow connection, say. The record built in that moment holds
+ * only what is being written, and writing it as the whole document would
+ * delete the rest. The keys it does carry are the new ones and win; every
+ * other key is kept as stored.
+ */
+function mergeOverStored(stored, incoming) {
+  const out = { ...stored }
+  for (const [k, v] of Object.entries(incoming)) {
+    if (k === '_partial') continue
+    out[k] = v
+  }
+  return out
+}
+
 async function writeRecord(studentId, snapshot) {
-  const { parent, parts } = splitRecord(snapshot)
   const ref = doc(db, 'studentData', studentId)
+
+  // What is there now, so a write cannot silently replace work with less.
+  let stored = null
+  try {
+    const snap = await getDoc(ref)
+    if (snap.exists()) stored = await joinRecord(studentId, unpackNested(snap.data()))
+  } catch (e) {
+    // Reading failed, so there is nothing to compare against. A write that
+    // cannot be checked is still better than a student's work sitting only in
+    // a tab, and the submission archive is the backstop either way.
+    console.warn(`Firestore: could not read ${studentId}'s record before writing:`, e?.code || e)
+  }
+
+  let record = snapshot
+  if (snapshot._partial && stored) {
+    record = mergeOverStored(stored, snapshot)
+  } else if (stored) {
+    const refusal = wouldDestroyWork(stored, snapshot)
+    if (refusal) {
+      console.error(`Firestore: refused a write to ${studentId} that would lose work - ${refusal}`)
+      throw new Error(`stale write refused for ${studentId}: ${refusal}`)
+    }
+  }
+  delete record._partial
+
+  const { parent, parts } = splitRecord(record)
   const existing = await getDocs(collection(db, 'studentData', studentId, PARTS))
   const batch = writeBatch(db)
   batch.set(ref, packNested(parent))
