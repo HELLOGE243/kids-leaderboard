@@ -1,0 +1,117 @@
+{
+  "_README": "Everything the public site says that is not structural lives here. Change a value, run `node site/build.mjs`, deploy. Anything still marked TODO is a placeholder and must not be shown to customers.",
+
+  "business": {
+    "name": "AVANT OC & Selective",
+    "shortName": "AVANT",
+    "tagline": "OC and Selective test preparation for Years 3 to 6",
+    "description": "Small-group coaching for the NSW Opportunity Class and Selective High School tests, with a practice platform students use between lessons.",
+    "email": "TODO-public-enquiries@example.com",
+    "phone": "",
+    "suburb": "",
+    "region": "NSW",
+    "country": "AU"
+  },
+
+  "site": {
+    "domain": "TODO-your-domain.com.au",
+    "_domainNote": "No https://, no trailing slash. Used for canonical links, Open Graph and the sitemap. Until it is set, the build writes the .web.app address instead.",
+    "fallbackDomain": "avant-oc-selective.web.app",
+    "portalUrl": "https://cleverspacev2.web.app",
+    "portalLabel": "Student Portal"
+  },
+
+  "pricing": {
+    "show": false,
+    "_showNote": "Set true once the figures below are right. While false, each course shows an enquiry link instead of a price.",
+    "note": "Prices are per term of 10 weeks."
+  },
+
+  "courses": [
+    {
+      "slug": "reading",
+      "name": "Reading and Comprehension",
+      "years": "Years 3 to 6",
+      "price": "TODO",
+      "summary": "Reading for meaning under time pressure: inference, author's purpose, tone, and the close reading the OC and Selective papers are built on.",
+      "covers": [
+        "Inference and drawing conclusions from evidence",
+        "Author's purpose, tone and point of view",
+        "Vocabulary in context, including unfamiliar words",
+        "Cloze and sentence-completion passages",
+        "Matching extracts to statements under timed conditions"
+      ],
+      "times": ["Saturday 10:30am - 12:00pm", "Saturday 12:00pm - 2:00pm", "Sunday 10:00am - 11:30am"]
+    },
+    {
+      "slug": "thinking-skills",
+      "name": "Thinking Skills",
+      "years": "Years 3 to 5",
+      "price": "TODO",
+      "summary": "The reasoning paper, which is the one most students have never seen before: logic puzzles, sufficient and necessary conditions, pattern and spatial reasoning.",
+      "covers": [
+        "Logical deduction and valid argument",
+        "Necessary versus sufficient conditions",
+        "Number and pattern reasoning",
+        "Spatial reasoning, nets and rotations",
+        "Problem solving against the clock"
+      ],
+      "times": ["Tuesday 7:00pm - 9:00pm", "Sunday 11:15am - 1:15pm", "Sunday 1:45pm - 3:45pm"]
+    },
+    {
+      "slug": "mathematical-reasoning",
+      "name": "Mathematical Reasoning",
+      "years": "Year 4 and up",
+      "price": "TODO",
+      "summary": "Worded, multi-step problems rather than drill: the arithmetic is rarely the hard part, and reading the question properly usually is.",
+      "covers": [
+        "Multi-step word problems",
+        "Fractions, ratio and proportional reasoning",
+        "Measurement, time and money in context",
+        "Working backwards and checking an answer is sensible",
+        "Showing a method that survives a second look"
+      ],
+      "times": ["Tuesday 7:00pm - 9:00pm", "Sunday 1:45pm - 3:45pm"]
+    },
+    {
+      "slug": "writing",
+      "name": "Writing",
+      "years": "Years 3 to 6",
+      "price": "TODO",
+      "summary": "Narrative and persuasive writing to a brief, marked against the criteria the tests use, with the craft taught rather than assumed.",
+      "covers": [
+        "Narrative: short story, personal recount, description",
+        "Persuasive: essay, speech, discussion",
+        "Writing to a form: article, letter, diary entry, review",
+        "Openings, structure and endings that land",
+        "Marked feedback on content, structure, vocabulary, fluency and mechanics"
+      ],
+      "times": ["Included within each class"]
+    },
+    {
+      "slug": "trial-testing",
+      "name": "OC and Selective Trial Testing",
+      "years": "Year 3 for OC, Year 5 for Selective",
+      "price": "TODO",
+      "summary": "Full timed papers sat under test conditions, marked and returned with a percentile against everyone who sat the same paper.",
+      "covers": [
+        "Full-length papers to the real format and timing",
+        "Sat under exam conditions",
+        "Marked with a rank and percentile against the cohort",
+        "A written report for parents after each sitting",
+        "Every wrong answer becomes revision in the portal"
+      ],
+      "times": ["Scheduled through the term - ask for the current calendar"]
+    }
+  ],
+
+  "reviews": {
+    "show": false,
+    "_showNote": "Set true only when every entry below is a real quote from a real family. Invented testimonials are misleading conduct under Australian Consumer Law, and the build refuses to publish any entry still marked TODO.",
+    "items": [
+      { "quote": "TODO - paste a real parent quote here", "author": "TODO - first name or initials", "context": "TODO - e.g. Parent, Year 4 OC" },
+      { "quote": "TODO - paste a real parent quote here", "author": "TODO", "context": "TODO" },
+      { "quote": "TODO - paste a real parent quote here", "author": "TODO", "context": "TODO" }
+    ]
+  }
+}
