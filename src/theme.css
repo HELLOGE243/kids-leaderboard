@@ -9720,6 +9720,48 @@ button.hw-res-qth.active {
 .dojo-fb-correct { color: #4caf50; }
 .dojo-fb-wrong { color: #e53935; }
 .dojo-fb-help { color: #ffab00; }
+
+/* "Question cleared" - the third correct answer in a row, which retires the
+   card to the archive. It sits after the green "Returned successfully",
+   because that one says what happened to the answer and this one says the
+   question is finished with. Prismatic so it reads as rarer than a tick: the
+   sheen travels across the letters rather than the badge flashing, which is
+   celebratory without being another thing blinking on the screen. */
+/* While the record is still arriving, before the deck can be built. */
+.sr-loading { color: #cfd6e6; font-size: 0.95rem; }
+.sr-cleared {
+  display: inline-block;
+  margin-left: 12px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-family: var(--font-pixel);
+  font-size: 0.52rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: transparent;
+  background-image: linear-gradient(
+    100deg,
+    #ff5f6d 0%, #ffc371 18%, #9bff8f 36%,
+    #5ad1ff 54%, #9b8cff 72%, #ff6ec7 90%, #ff5f6d 100%);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: sr-prism 4s linear infinite;
+  border: 1px solid transparent;
+  /* A second gradient paints the ring, clipped to the border box, so the edge
+     shifts with the letters instead of sitting flat around them. */
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.14) inset,
+    0 0 14px rgba(155, 140, 255, 0.35);
+}
+@keyframes sr-prism {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sr-cleared { animation: none; background-position: 40% 50%; }
+}
 .sr-ask-help-btn {
   font-family: var(--font-pixel);
   font-size: 0.55rem;

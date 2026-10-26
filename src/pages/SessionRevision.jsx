@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { renderMath } from '../utils/renderMath.js'
 import { prepareMath } from '../utils/mathify.js'
-import { getDojoCardsForStudent, recordCompulsoryRevisionAnswer, markDojoAskTeacher, askTeacherAboutCard, reportQuestionError } from '../data/store.js'
+import { getDojoCardsForStudent, recordCompulsoryRevisionAnswer, markDojoAskTeacher, askTeacherAboutCard, reportQuestionError, studentRecordReady, onDataChange } from '../data/store.js'
 import ReportIssueModal from '../components/ReportIssueModal.jsx'
 import { RichText } from '../components/RichTextEditor.jsx'
 import { resolveImages } from '../data/imageStore.js'
@@ -10,10 +10,26 @@ import { playCorrectChime } from '../utils/soundManager.js'
 const TARGET = 5
 
 function SessionRevision({ user, onComplete }) {
-  const cards = useMemo(() => {
-    const all = getDojoCardsForStudent(user.id).filter(c => !c.archived)
-    const shuffled = [...all].sort(() => Math.random() - 0.5)
-    return shuffled.slice(0, TARGET)
+  // The deck is settled once, so that answering a card - which rewrites the
+  // record - cannot reshuffle what is still to come. It has to wait for the
+  // record to arrive first: an unloaded record and a student with nothing to
+  // revise look identical, and building the deck from the first of those
+  // produced an empty one, marked the day's revision done and sent the
+  // student past it. null means "not decided yet", which is not the same as
+  // an empty deck.
+  const [cards, setCards] = useState(null)
+
+  useEffect(() => {
+    let alive = true
+    const build = () => {
+      if (!alive || !studentRecordReady(user.id)) return false
+      const all = getDojoCardsForStudent(user.id).filter((c) => !c.archived)
+      setCards([...all].sort(() => Math.random() - 0.5).slice(0, TARGET))
+      return true
+    }
+    if (build()) return () => { alive = false }
+    const off = onDataChange(() => { if (build()) off() })
+    return () => { alive = false; off() }
   }, [user.id])
 
   const [idx, setIdx] = useState(0)
@@ -25,6 +41,11 @@ function SessionRevision({ user, onComplete }) {
   const [done, setDone] = useState(false)
   const [resolvedHtml, setResolvedHtml] = useState({})
   const [feedbackMsg, setFeedbackMsg] = useState(null)
+  // Set when this answer was the third correct one in a row, which retires the
+  // card. Separate from the pass/fail message because it is a different kind
+  // of thing: that one says what happened to this answer, this one says the
+  // question is finished with.
+  const [cleared, setCleared] = useState(false)
   const [showBurst, setShowBurst] = useState(false)
   // The burst clears itself after a moment, but a student who presses Next
   // straight away used to carry the green celebration onto the next card.
@@ -34,12 +55,27 @@ function SessionRevision({ user, onComplete }) {
   const [reportType, setReportType] = useState('')
   const [reportDetails, setReportDetails] = useState('')
 
-  const total = cards.length
+  const total = cards ? cards.length : 0
 
   useEffect(() => {
-    if (total === 0) onComplete()
-  }, [total, onComplete])
+    // Only once the record has actually been read: "nothing to revise" is a
+    // conclusion, not a starting state.
+    if (cards && cards.length === 0) onComplete()
+  }, [cards, onComplete])
 
+  // Every hook has to run on every render, so this one belongs above the
+  // returns below rather than in the middle of the body. It was already the
+  // wrong side of "no cards, render nothing"; adding a second early return
+  // for "the record has not arrived" turned that into a crash on first paint.
+  useEffect(() => () => clearTimeout(burstTimer.current), [])
+
+  if (!cards) {
+    return (
+      <div className="dojo-page" style={{ alignItems: 'center', justifyContent: 'center' }}>
+        <p className="sr-loading">Fetching today&rsquo;s revision&hellip;</p>
+      </div>
+    )
+  }
   if (total === 0) return null
 
   const card = cards[idx]
@@ -117,8 +153,6 @@ function SessionRevision({ user, onComplete }) {
     setParticles([])
   }
 
-  useEffect(() => () => clearTimeout(burstTimer.current), [])
-
   function handleSelfMark(knewIt) {
     if (answered) return
     setAnswered(true)
@@ -130,7 +164,8 @@ function SessionRevision({ user, onComplete }) {
     } else {
       setFeedbackMsg('Kept in your revision deck')
     }
-    recordCompulsoryRevisionAnswer(card.id, knewIt)
+    const updated = recordCompulsoryRevisionAnswer(card.id, knewIt)
+    if (knewIt && updated?.archived) setCleared(true)
   }
 
   function handleSubmit() {
@@ -145,7 +180,11 @@ function SessionRevision({ user, onComplete }) {
     } else {
       setFeedbackMsg('Kept in your revision deck')
     }
-    recordCompulsoryRevisionAnswer(card.id, correct)
+    // The store archives a card on its third correct answer and hands the
+    // updated card back; it was being thrown away, so nothing on the screen
+    // ever said a question had been finished with.
+    const updated = recordCompulsoryRevisionAnswer(card.id, correct)
+    if (correct && updated?.archived) setCleared(true)
   }
 
   function handleNext() {
@@ -161,6 +200,7 @@ function SessionRevision({ user, onComplete }) {
     setResult(null)
     setFlipped(false)
     setFeedbackMsg(null)
+    setCleared(false)
   }
 
   function handleAskForHelp() {
@@ -290,6 +330,7 @@ function SessionRevision({ user, onComplete }) {
                           {feedbackMsg}
                         </span>
                       )}
+                      {cleared && <span className="sr-cleared">Question cleared</span>}
                     </div>
                     <div className="qt-bottom-right">
                       {!answered ? (
