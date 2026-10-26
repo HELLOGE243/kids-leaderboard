@@ -172,3 +172,9 @@ a { color: var(--gold-dark); }
   .hero { padding: 52px 0 46px; }
   .band { padding: 42px 0; }
 }
+
+/* Only ever on a local preview build. */
+.preview-flag {
+  margin: 0; padding: 8px 16px; text-align: center;
+  background: #8b1a1a; color: #fff; font-size: 0.82rem; font-weight: 700;
+}

@@ -32,3 +32,6 @@ functions/.env
 .firebase/
 /*.png
 .playwright-mcp-output/
+
+# Local-only preview build of the public site (sample text, never deployed)
+site/preview/

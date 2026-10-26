@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url'
 import { createHash } from 'node:crypto'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const out = join(here, 'dist')
+const out = join(here, process.argv.includes('--preview') ? 'preview' : 'dist')
 const cfg = JSON.parse(readFileSync(join(here, 'site.config.json'), 'utf8'))
 
 // The stylesheet is cached for a day, which is right for visitors and wrong
@@ -31,23 +31,39 @@ const cssVersion = createHash('sha1').update(cssText).digest('hex').slice(0, 8)
 const isTodo = (v) => typeof v === 'string' && v.trim().toUpperCase().startsWith('TODO')
 const warnings = []
 
+// `node site/build.mjs --preview` fills the gaps with sample text so the
+// layout can be looked at before the real words exist. It writes to
+// site/preview, never to site/dist, and every sample is labelled as one, so
+// there is no path by which a made-up review reaches a customer.
+const preview = process.argv.includes('--preview')
+const SAMPLE = {
+  email: 'sample@example.com',
+  price: '$SAMPLE per term',
+  reviews: [
+    { quote: 'SAMPLE TEXT - this is where a real parent quote goes, two or three sentences about what changed for their child.', author: 'SAMPLE', context: 'Parent, Year 4 OC' },
+    { quote: 'SAMPLE TEXT - a second quote. Keep them specific: what they were worried about, and what is different now.', author: 'SAMPLE', context: 'Parent, Year 6 Selective' },
+    { quote: 'SAMPLE TEXT - a third. A line about the teaching or the weekly practice reads better than a line about results.', author: 'SAMPLE', context: 'Parent, Year 5' },
+  ],
+}
+
 // ---------------------------------------------------------------- settings
 const domain = isTodo(cfg.site.domain) ? cfg.site.fallbackDomain : cfg.site.domain
 if (isTodo(cfg.site.domain)) {
   warnings.push(`no domain set, built for ${cfg.site.fallbackDomain}`)
 }
 const origin = `https://${domain}`
-const email = isTodo(cfg.business.email) ? '' : cfg.business.email
+const email = isTodo(cfg.business.email) ? (preview ? SAMPLE.email : '') : cfg.business.email
 if (!email) warnings.push('no enquiry email set, the enquiry buttons are hidden')
 
-const showPrices = cfg.pricing.show && cfg.courses.every((c) => !isTodo(c.price))
+const showPrices = preview || (cfg.pricing.show && cfg.courses.every((c) => !isTodo(c.price)))
 if (cfg.pricing.show && !showPrices) {
   warnings.push('prices are switched on but some are still TODO, so none are shown')
 }
 
-const liveReviews = (cfg.reviews.items || []).filter(
+const realReviews = (cfg.reviews.items || []).filter(
   (r) => !isTodo(r.quote) && !isTodo(r.author))
-const showReviews = cfg.reviews.show && liveReviews.length > 0
+const liveReviews = preview && !realReviews.length ? SAMPLE.reviews : realReviews
+const showReviews = preview || (cfg.reviews.show && realReviews.length > 0)
 if (cfg.reviews.show && !showReviews) {
   warnings.push('reviews are switched on but none are filled in, so the page is left out')
 }
@@ -87,6 +103,7 @@ ${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
+${preview ? '<p class="preview-flag">Preview &mdash; prices and reviews below are sample text, not real</p>' : ''}
 <header class="site-head">
   <div class="wrap head-row">
     <a class="brand" href="/">
@@ -249,7 +266,7 @@ const coursesBody = `
       <div class="course-head">
         <h2>${esc(c.name)}</h2>
         <p class="card-years">${esc(c.years)}</p>
-        ${showPrices ? `<p class="price">${esc(c.price)}</p>` : ''}
+        ${showPrices ? `<p class="price">${esc(isTodo(c.price) ? SAMPLE.price : c.price)}</p>` : ''}
       </div>
       <p class="course-summary">${esc(c.summary)}</p>
       <h3 class="course-sub">What it covers</h3>
