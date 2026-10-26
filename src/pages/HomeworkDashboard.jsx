@@ -783,8 +783,14 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     setIsRedo(!!progress.isRedo)
     setRedoIndices(progress.redoIndices || null)
     const all = await prepareQuiz(quizSet)
-    const resolved = progress.isRedo && progress.redoIndices
-      ? progress.redoIndices.map((i) => all[i]).filter(Boolean)
+    const resumeAsking = progress.isRedo && progress.redoIndices
+      ? progress.redoIndices.filter((i) => all[i])
+      : null
+    if (resumeAsking && resumeAsking.length !== progress.redoIndices.length) {
+      setRedoIndices(resumeAsking)
+    }
+    const resolved = resumeAsking
+      ? resumeAsking.map((i) => all[i])
       : all
     setResolvedQuestions(resolved)
     setQuizAnswers(progress.answers || resolved.map(q => {
@@ -890,7 +896,19 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     submittedOnceRef.current = false
     setShowWarning(null)
     const all = await prepareQuiz(quizSet)
-    const resolved = isRedo && redoIndices ? redoIndices.map((i) => all[i]).filter(Boolean) : all
+    // A revision run asks the questions this student got wrong, by their
+    // original numbers. Any number the paper no longer has is dropped from
+    // the list of numbers as well as from the questions - dropping it from
+    // only the questions leaves the two out of step, and the answers are
+    // spread back over the paper by position, so everything after the gap
+    // would be recorded against the wrong question.
+    const asking = isRedo && redoIndices ? redoIndices.filter((i) => all[i]) : null
+    if (asking && asking.length !== (redoIndices || []).length) {
+      console.warn(`homework: ${(redoIndices || []).length - asking.length} revision `
+        + `question(s) are no longer on ${quizSet.id} and have been left out`)
+      setRedoIndices(asking)
+    }
+    const resolved = asking ? asking.map((i) => all[i]) : all
     setResolvedQuestions(resolved)
     setQuizAnswers(resolved.map(q => {
       const type = q.type || 'multiple-choice'
