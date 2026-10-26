@@ -2972,22 +2972,57 @@ export function quizResultsVisible(quizSetId, studentId) {
  * as soon as every quiz in the current one has been attempted - a student sits
  * the papers in order, at their own pace, not a week apart.
  */
+/**
+ * How many of a course's modules a student may open.
+ *
+ * Homework used to be released a module a week, counted from the day the
+ * student first opened the course: a week per module, and the rest behind a
+ * padlock. That is off. A module unlock will replace it, decided by the
+ * school rather than by the calendar, and until then every module of a
+ * homework course is open.
+ *
+ * A trial test is not weekly and never was. Its papers are sat in order, each
+ * opening as the one before it is finished, which is the point of a trial, so
+ * that is left alone.
+ *
+ * What a student is *expected* to have done by now is a different question,
+ * and still weekly - see getExpectedModuleCount. Opening the course early is
+ * allowed; the list of what is due has not moved.
+ */
 export function getUnlockedModuleCountForCourse(course, studentId) {
   if (!course) return 0
-  const start = getHomeworkStart(studentId, course.id)
-  if (!start) return 0
+  const modules = course.modules || []
   if (course.trialTest) {
+    const start = getHomeworkStart(studentId, course.id)
+    if (!start) return 0
     const attempts = getStudentArray(studentId, 'homeworkAttempts')
     const done = (ids) => (ids || []).length > 0 && (ids || []).every((id) => attempts.some((a) => a.quizSetId === id))
     let unlocked = 1
-    for (const mod of course.modules || []) {
+    for (const mod of modules) {
       if (done(mod.quizSetIds)) unlocked++
       else break
     }
-    return Math.min(unlocked, (course.modules || []).length)
+    return Math.min(unlocked, modules.length)
   }
+  return modules.length
+}
+
+/**
+ * How far through a course a student is meant to be by now, a module a week
+ * from the day they started it.
+ *
+ * This is the pace, not a gate. It is what "due" and "overdue" are counted
+ * against, so that turning the padlocks off did not turn a term's homework
+ * into one list of sixty papers all due today.
+ */
+export function getExpectedModuleCount(course, studentId) {
+  if (!course) return 0
+  const modules = course.modules || []
+  if (course.trialTest) return modules.length
+  const start = getHomeworkStart(studentId, course.id)
+  if (!start) return 0
   const days = Math.floor((Date.now() - new Date(start.startedDate).getTime()) / (1000 * 60 * 60 * 24))
-  return Math.floor(days / 7) + 1
+  return Math.min(Math.floor(days / 7) + 1, modules.length)
 }
 
 function median(nums) {
@@ -4292,13 +4327,15 @@ export function getPendingHomeworkCount(studentId) {
   const courses = (data.courses || []).filter((c) => studentClassIds.includes(c.classId) && courseIncludesStudent(c, studentId))
   let pending = 0, overdue = 0
   for (const course of courses) {
-    const unlocked = getUnlockedModuleCount(studentId, course.id)
-    if (unlocked === 0) continue
+    // What is due, not what can be opened: every module is open now, and
+    // counting them all would put a term of homework on one day's list.
+    const expected = getExpectedModuleCount(course, studentId)
+    if (expected === 0) continue
     const start = getHomeworkStart(studentId, course.id)
     const days = Math.floor((Date.now() - new Date(start.startedDate).getTime()) / (1000 * 60 * 60 * 24))
     const currentWeek = Math.floor(days / 7)
     const modules = course.modules || []
-    for (let i = 0; i < Math.min(unlocked, modules.length); i++) {
+    for (let i = 0; i < Math.min(expected, modules.length); i++) {
       for (const qsId of (modules[i].quizSetIds || [])) {
         if (!myAttempts.some((a) => a.quizSetId === qsId)) {
           if (i < currentWeek) overdue++; else pending++
