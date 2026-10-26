@@ -67,12 +67,22 @@ if (cfg.pricing.show && !showPrices) {
 const realReviews = (cfg.reviews.items || []).filter(
   (r) => !isTodo(r.quote) && !isTodo(r.author))
 const liveReviews = preview && !realReviews.length ? SAMPLE.reviews : realReviews
+
+// Google holds the reviews and will not let us republish them wholesale, so
+// the honest arrangement is to send people to the source. Three states:
+//   quotes written here        -> a page of them, with a link to Google for the rest
+//   no quotes, Google link set -> Testimonies goes straight to Google
+//   neither                    -> no Testimonies item at all
+const googleReviewsUrl = isTodo(cfg.reviews.googleUrl) ? '' : (cfg.reviews.googleUrl || '')
 const showReviews = preview || (cfg.reviews.show && realReviews.length > 0)
 if (cfg.reviews.show && !showReviews) {
   warnings.push('reviews are switched on but none are filled in, so the page is left out')
 }
-if (!cfg.reviews.show && (cfg.reviews.items || []).length) {
-  warnings.push('reviews are off - the page is built but not linked or indexed')
+if (!showReviews && !googleReviewsUrl) {
+  warnings.push('no quotes and no Google reviews link, so there is no Testimonies item in the nav')
+}
+if (!showReviews && googleReviewsUrl) {
+  warnings.push('no quotes written here, so Testimonies links straight out to Google')
 }
 const reviewsPath = cfg.reviews.path || '/reviews/'
 const reviewsLabel = cfg.reviews.label || 'Reviews'
@@ -120,7 +130,11 @@ ${preview ? '<p class="preview-flag">Preview &mdash; prices and reviews below ar
     </a>
     <nav class="nav" aria-label="Main">
       <a href="/courses/">Courses</a>
-      ${showReviews ? `<a href="${esc(reviewsPath)}">${esc(reviewsLabel)}</a>` : ''}
+      ${showReviews
+        ? `<a href="${esc(reviewsPath)}">${esc(reviewsLabel)}</a>`
+        : googleReviewsUrl
+          ? `<a href="${esc(googleReviewsUrl)}" rel="noopener">${esc(reviewsLabel)}</a>`
+          : ''}
       <a class="btn btn-portal" href="${esc(cfg.site.portalUrl)}">Portal</a>
     </nav>
   </div>
@@ -277,7 +291,10 @@ const reviewsBody = `
         <figcaption>${esc(r.author)}${r.context && !isTodo(r.context) ? ` <span class="quote-ctx">&mdash; ${esc(r.context)}</span>` : ''}</figcaption>
       </figure>`).join('')}
     </div>
-    ${enquire('Enquire about a place')}
+    <p class="review-actions">
+      ${enquire('Enquire about a place')}
+      ${googleReviewsUrl ? `<a class="btn btn-ghost" href="${esc(googleReviewsUrl)}" rel="noopener">Read all our reviews on Google</a>` : ''}
+    </p>
   </div>
 </section>
 `
@@ -403,7 +420,9 @@ writeFileSync(join(out, 'courses', 'index.html'), page({
         description: c.summary,
         url: `${origin}/courses/#${c.slug}`,
         provider: { '@type': 'EducationalOrganization', name: cfg.business.name, url: origin },
-        ...(showPrices ? { offers: { '@type': 'Offer', price: c.price, priceCurrency: 'AUD' } } : {}),
+        ...(showPrices && /\d/.test(String(c.price))
+          ? { offers: { '@type': 'Offer', price: String(c.price).replace(/[^\d.]/g, ''), priceCurrency: 'AUD' } }
+          : {}),
       },
     })),
   },

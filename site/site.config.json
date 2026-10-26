@@ -5,7 +5,7 @@
     "shortName": "AVANT",
     "tagline": "OC and Selective test preparation for Years 3 to 6",
     "description": "Small-group coaching for the NSW Opportunity Class and Selective High School tests, with a practice platform students use between lessons.",
-    "email": "TODO-public-enquiries@example.com",
+    "email": "hello.avantacademy@gmail.com",
     "phone": "",
     "suburb": "",
     "region": "NSW",
@@ -21,7 +21,7 @@
     "_mockTestNote": "Where the 'sit a free mock test' buttons on the home page point. Set this to the sign-up page once it exists; until then it lands on the portal front door."
   },
   "pricing": {
-    "show": false,
+    "show": true,
     "_showNote": "Set true once the figures below are right. While false, each course shows an enquiry link instead of a price.",
     "note": "Prices are per term of 10 weeks."
   },
@@ -30,7 +30,7 @@
       "slug": "reading",
       "name": "Reading and Comprehension",
       "years": "Years 3 to 6",
-      "price": "TODO",
+      "price": "$750 per term",
       "summary": "Reading for meaning under time pressure: inference, author's purpose, tone, and the close reading the OC and Selective papers are built on.",
       "covers": [
         "Inference and drawing conclusions from evidence",
@@ -49,7 +49,7 @@
       "slug": "thinking-skills",
       "name": "Thinking Skills",
       "years": "Years 3 to 5",
-      "price": "TODO",
+      "price": "$750 per term",
       "summary": "The reasoning paper, which is the one most students have never seen before: logic puzzles, sufficient and necessary conditions, pattern and spatial reasoning.",
       "covers": [
         "Logical deduction and valid argument",
@@ -68,7 +68,7 @@
       "slug": "mathematical-reasoning",
       "name": "Mathematical Reasoning",
       "years": "Year 4 and up",
-      "price": "TODO",
+      "price": "$750 per term",
       "summary": "Worded, multi-step problems rather than drill: the arithmetic is rarely the hard part, and reading the question properly usually is.",
       "covers": [
         "Multi-step word problems",
@@ -86,7 +86,7 @@
       "slug": "writing",
       "name": "Writing",
       "years": "Years 3 to 6",
-      "price": "TODO",
+      "price": "$750 per term",
       "summary": "Narrative and persuasive writing to a brief, marked against the criteria the tests use, with the craft taught rather than assumed.",
       "covers": [
         "Narrative: short story, personal recount, description",
@@ -103,7 +103,7 @@
       "slug": "trial-testing",
       "name": "OC and Selective Trial Testing",
       "years": "Year 3 for OC, Year 5 for Selective",
-      "price": "TODO",
+      "price": "$750 per term",
       "summary": "Full timed papers sat under test conditions, marked and returned with a percentile against everyone who sat the same paper.",
       "covers": [
         "Full-length papers to the real format and timing",
@@ -119,7 +119,7 @@
   ],
   "reviews": {
     "show": false,
-    "_showNote": "Set true only when every entry below is a real quote from a real family. Invented testimonials are misleading conduct under Australian Consumer Law, and the build refuses to publish any entry still marked TODO.",
+    "_showNote": "Set true only when every entry below is a real quote from a real family, copied from a review they actually left. Invented testimonials are misleading conduct under Australian Consumer Law, and the build refuses to publish any entry still marked TODO.",
     "items": [
       {
         "quote": "TODO - paste a real parent quote here",
@@ -138,7 +138,9 @@
       }
     ],
     "label": "Testimonies",
-    "path": "/testimonials/"
+    "path": "/testimonials/",
+    "googleUrl": "TODO - paste the public link to your Google reviews here",
+    "_googleNote": "Google Business Profile > Reviews > 'Get more reviews' gives a share link, or open the listing in Google Maps, click the review count and copy the address. While this is TODO the Testimonies nav item is hidden. With it set and no quotes below, Testimonies links straight to Google; with quotes below as well, the page shows them and links to Google for the rest."
   },
   "advantages": {
     "heading": "Why families choose us",

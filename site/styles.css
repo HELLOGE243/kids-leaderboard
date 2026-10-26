@@ -186,6 +186,8 @@ a { color: var(--gold-dark); }
 .contact-direct h2 { margin: 0 0 10px; font-size: 1.1rem; }
 .contact-direct p { margin: 0 0 6px; }
 
+.review-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 0; }
+
 /* --- footer --------------------------------------------------------- */
 .site-foot { border-top: 1px solid var(--line); padding: 28px 0; margin-top: 10px; }
 .foot-row { display: flex; flex-wrap: wrap; gap: 10px 24px; justify-content: space-between; }
