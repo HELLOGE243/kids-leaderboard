@@ -59,6 +59,19 @@ if (!email) warnings.push('no enquiry email set, so the contact page has no addr
 // until then, so the button always lands somewhere real.
 const mockTestUrl = isTodo(cfg.site.mockTestUrl) ? cfg.site.portalUrl : cfg.site.mockTestUrl
 
+const bookshopItems = (cfg.bookshop?.items || []).filter(
+  (b) => !isTodo(b.title) && !isTodo(b.price))
+const showBookshop = preview || (cfg.bookshop?.show && bookshopItems.length > 0)
+const liveBooks = preview && !bookshopItems.length
+  ? (cfg.bookshop?.items || []).map((b, i) => ({
+      title: `SAMPLE BOOK ${i + 1}`, years: 'Years 3 to 4', price: '$SAMPLE',
+      summary: 'SAMPLE TEXT - two sentences on what is inside this book and who it is for.',
+    }))
+  : bookshopItems
+if (cfg.bookshop?.show && !showBookshop) {
+  warnings.push('the bookshop is switched on but every title is still TODO, so the tab is hidden')
+}
+
 const showPrices = preview || (cfg.pricing.show && cfg.courses.every((c) => !isTodo(c.price)))
 if (cfg.pricing.show && !showPrices) {
   warnings.push('prices are switched on but some are still TODO, so none are shown')
@@ -99,6 +112,30 @@ const esc = (s) => String(s ?? '')
 const enquire = (label = 'Enquire about a place', cls = 'btn btn-primary', q = '') =>
   `<a class="${cls}" href="/contact/${q ? `?about=${encodeURIComponent(q)}` : ''}">${esc(label)}</a>`
 
+// -------------------------------------------------------------------- icons
+// Drawn inline rather than loaded: a dozen icons as one external font or
+// sprite is a second request on the critical path for a few hundred bytes of
+// geometry. All one 24x24 grid, all stroked in currentColor, so they take the
+// colour and weight of whatever they sit in.
+const ICONS = {
+  home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/>',
+  'book-open': '<path d="M12 6.5S10 4.5 3 4.5V18c7 0 9 2 9 2s2-2 9-2V4.5c-7 0-9 2-9 2Z"/><path d="M12 6.5V20"/>',
+  lightbulb: '<path d="M8.6 16.2a6 6 0 1 1 6.8 0V18h-6.8Z"/><path d="M9.8 21h4.4"/>',
+  calculator: '<rect x="4.5" y="3" width="15" height="18" rx="2"/><path d="M8 7h8"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 16h.01M12 16h.01M15.5 16h.01"/>',
+  pen: '<path d="m15.5 3.5 5 5L8 21H3v-5Z"/><path d="m13 6 5 5"/>',
+  'clipboard-check': '<rect x="5" y="4.5" width="14" height="16.5" rx="2"/><path d="M9 4.5V3.2A1.2 1.2 0 0 1 10.2 2h3.6A1.2 1.2 0 0 1 15 3.2v1.3Z"/><path d="m9 13 2.2 2.2L15.5 11"/>',
+  award: '<circle cx="12" cy="9" r="5.5"/><path d="m8.5 13.8-1.3 7.2 4.8-2.6 4.8 2.6-1.3-7.2"/>',
+  layers: '<path d="m12 3 8.5 4.5L12 12 3.5 7.5Z"/><path d="m3.5 12 8.5 4.5L20.5 12"/><path d="m3.5 16.5 8.5 4.5 8.5-4.5"/>',
+  zap: '<path d="M13.5 2 4 13.5h7L10.5 22 20 10.5h-7Z"/>',
+  trophy: '<path d="M7 3.5h10V9a5 5 0 0 1-10 0Z"/><path d="M7 5.5H4V7a3.5 3.5 0 0 0 3 3.4"/><path d="M17 5.5h3V7a3.5 3.5 0 0 1-3 3.4"/><path d="M12 14v3.5"/><path d="M8.5 20.5h7"/>',
+  'message-square': '<path d="M20.5 4.5v11H8l-4.5 4v-15Z"/><path d="M8.5 9h7M8.5 12h4"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 19.5a6.5 6.5 0 0 1 13 0"/><path d="M16 4.9a3.5 3.5 0 0 1 0 6.2"/><path d="M17.5 14.2a6.5 6.5 0 0 1 4 5.3"/>',
+  book: '<path d="M5 3.5h12.5v17H5Z"/><path d="M5 17h12.5"/><path d="M8.5 3.5v13"/>',
+}
+const icon = (name, cls = 'icon') => ICONS[name]
+  ? `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICONS[name]}</svg>`
+  : ''
+
 function page({ title, description, path, body, jsonLd }) {
   const canonical = `${origin}${path}`
   return `<!doctype html>
@@ -118,23 +155,23 @@ function page({ title, description, path, body, jsonLd }) {
 <meta name="twitter:card" content="summary">
 <link rel="icon" href="/logo.png">
 <link rel="stylesheet" href="/styles.css?v=${cssVersion}">
-${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>` : ''}
+${[].concat(jsonLd || []).filter(Boolean).map((d) => `<script type="application/ld+json">${JSON.stringify(d)}</script>`).join('')}
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 ${preview ? '<p class="preview-flag">Preview &mdash; prices and reviews below are sample text, not real</p>' : ''}
 <header class="site-head">
   <div class="wrap head-row">
-    <a class="brand" href="/" aria-label="${esc(cfg.business.name)} home">
-      <img src="/logo.png" alt="${esc(cfg.business.name)}" width="52" height="52">
-    </a>
+    <a class="nav-home" href="/">${icon('home')}<span>Home</span></a>
     <nav class="nav" aria-label="Main">
       <a href="/courses/">Courses</a>
+      ${showBookshop ? '<a href="/bookshop/">Bookshop</a>' : ''}
       ${showReviews
         ? `<a href="${esc(reviewsPath)}">${esc(reviewsLabel)}</a>`
         : googleReviewsUrl
           ? `<a href="${esc(googleReviewsUrl)}" rel="noopener">${esc(reviewsLabel)}</a>`
           : ''}
+      <a class="btn btn-trial" href="/contact/?about=${encodeURIComponent('A trial class')}">${esc(cfg.site.trialLabel || 'Trial class')}</a>
       <a class="btn btn-portal" href="${esc(cfg.site.portalUrl)}">Portal</a>
     </nav>
   </div>
@@ -158,9 +195,13 @@ ${body}
 }
 
 // --------------------------------------------------------------- structured
+// EducationalOrganization alone does not qualify for the local results that
+// "tutoring in Eastwood" actually returns; the LocalBusiness type with an
+// address and an areaServed does. Both are declared, which is allowed.
 const orgLd = {
   '@context': 'https://schema.org',
-  '@type': 'EducationalOrganization',
+  '@type': ['EducationalOrganization', 'LocalBusiness'],
+  '@id': `${origin}/#school`,
   name: cfg.business.name,
   description: cfg.business.description,
   url: origin,
@@ -174,14 +215,37 @@ const orgLd = {
       addressCountry: cfg.business.country,
     },
   } : {}),
+  ...(cfg.business.areaServed?.length
+    ? { areaServed: cfg.business.areaServed.map((a) => ({ '@type': 'Place', name: a })) }
+    : {}),
+  ...(googleReviewsUrl ? { sameAs: [googleReviewsUrl] } : {}),
+  knowsAbout: [
+    'Opportunity Class test preparation',
+    'Selective High School test preparation',
+    'Thinking Skills',
+    'Mathematical Reasoning',
+    'Reading comprehension',
+    'Persuasive and narrative writing',
+  ],
 }
+
+// A breadcrumb on every page below the root: it is what puts the readable
+// trail under a result instead of a raw URL.
+const crumbs = (trail) => ({
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [{ name: 'Home', url: '/' }, ...trail].map((c, i) => ({
+    '@type': 'ListItem', position: i + 1, name: c.name, item: `${origin}${c.url}`,
+  })),
+})
 
 // -------------------------------------------------------------------- home
 const homeBody = `
 <section class="hero">
   <div class="wrap">
+    <img class="hero-logo" src="/logo.svg" alt="${esc(cfg.business.name)}" width="300" height="113">
     <h1>${esc(cfg.business.tagline)}</h1>
-    <p class="lede">Small groups, real papers, and a practice platform your child uses between lessons &mdash; so the week between classes counts for something.</p>
+    <p class="lede">${esc(cfg.business.heroLede)}</p>
     <p class="hero-cta">
       ${enquire('Enquire about a place')}
       <a class="btn btn-ghost" href="/courses/">See the courses</a>
@@ -211,14 +275,18 @@ const homeBody = `
   <div class="wrap">
     <h2>What we teach</h2>
     <div class="cards">
-      ${cfg.courses.slice(0, 4).map((c) => `
-      <article class="card">
-        <h3>${esc(c.name)}</h3>
+      ${cfg.courses.map((c) => `
+      <article class="card card-link">
+        ${icon(c.icon, 'icon icon-lg')}
+        <h3><a href="/courses/#${esc(c.slug)}">${esc(c.name)}</a></h3>
         <p class="card-years">${esc(c.years)}</p>
         <p>${esc(c.summary)}</p>
       </article>`).join('')}
     </div>
-    <p><a class="more" href="/courses/">All courses and class times &rarr;</a></p>
+    <p class="band-actions">
+      <a class="more" href="/courses/">All courses and class times &rarr;</a>
+      <a class="more" href="${esc(mockTestUrl)}">Sit a free mock test &rarr;</a>
+    </p>
   </div>
 </section>
 
@@ -228,9 +296,11 @@ const homeBody = `
     <p class="lede">${esc(cfg.advantages.lede)}</p>
     <div class="cards">
       ${(cfg.advantages.items || []).map((a) => `
-      <article class="card">
-        <h3>${esc(a.title)}</h3>
+      <article class="card card-link">
+        ${icon(a.icon, 'icon icon-lg')}
+        <h3><a href="/why/${esc(a.slug)}/">${esc(a.title)}</a></h3>
         <p>${esc(a.body)}</p>
+        <p class="card-more"><a href="/why/${esc(a.slug)}/">More on this &rarr;</a></p>
       </article>`).join('')}
     </div>
   </div>
@@ -391,12 +461,76 @@ const contactBody = `
 </section>
 `
 
+// ---------------------------------------------------------------- bookshop
+const bookshopBody = `
+<section class="page-head">
+  <div class="wrap">
+    <h1>${esc(cfg.bookshop.heading)}</h1>
+    <p class="lede">${esc(cfg.bookshop.lede)}</p>
+    ${cfg.bookshop.note ? `<p class="note">${esc(cfg.bookshop.note)}</p>` : ''}
+  </div>
+</section>
+<section class="band">
+  <div class="wrap">
+    <div class="cards">
+      ${liveBooks.map((b) => `
+      <article class="card">
+        ${icon('book', 'icon icon-lg')}
+        <h3>${esc(b.title)}</h3>
+        ${b.years && !isTodo(b.years) ? `<p class="card-years">${esc(b.years)}</p>` : ''}
+        ${b.price && !isTodo(b.price) ? `<p class="price price-inline">${esc(b.price)}</p>` : ''}
+        ${b.summary && !isTodo(b.summary) ? `<p>${esc(b.summary)}</p>` : ''}
+        <p class="card-cta">${enquire(`Order ${b.title}`, 'btn btn-primary btn-sm', b.title)}</p>
+      </article>`).join('')}
+    </div>
+  </div>
+</section>
+`
+
+// ------------------------------------------------------- one page per reason
+// Six short pages rather than six anchors on one. They each answer a different
+// question a parent arrives with, which is how somebody searching for "small
+// class tutoring Eastwood" finds us at all, and they give the home page six
+// internal links worth following.
+const whyPage = (a) => `
+<section class="page-head">
+  <div class="wrap">
+    <p class="crumb"><a href="/">Home</a> <span aria-hidden="true">&rsaquo;</span> ${esc(cfg.advantages.heading)}</p>
+    ${icon(a.icon, 'icon icon-xl')}
+    <h1>${esc(a.title)}</h1>
+  </div>
+</section>
+<section class="band">
+  <div class="wrap">
+    <div class="prose">
+      ${(a.page || [a.body]).map((para) => `<p>${esc(para)}</p>`).join('')}
+      <p class="review-actions">
+        ${enquire('Contact us')}
+        <a class="btn btn-ghost" href="/courses/">See the courses</a>
+      </p>
+    </div>
+  </div>
+</section>
+<section class="band band-alt">
+  <div class="wrap">
+    <h2>The other reasons</h2>
+    <div class="cards">
+      ${(cfg.advantages.items || []).filter((o) => o.slug !== a.slug).map((o) => `
+      <article class="card card-link">
+        ${icon(o.icon, 'icon icon-lg')}
+        <h3><a href="/why/${esc(o.slug)}/">${esc(o.title)}</a></h3>
+      </article>`).join('')}
+    </div>
+  </div>
+</section>
+`
+
 // ------------------------------------------------------------------- write
 mkdirSync(out, { recursive: true })
 mkdirSync(join(out, 'courses'), { recursive: true })
 
 writeFileSync(join(out, 'index.html'), page({
-  title: `${cfg.business.name} | ${cfg.business.tagline}`,
+  title: `OC & Selective Tutoring in ${cfg.business.suburb || 'Sydney'} | ${cfg.business.name}`,
   description: cfg.business.description,
   path: '/',
   body: homeBody,
@@ -404,11 +538,12 @@ writeFileSync(join(out, 'index.html'), page({
 }))
 
 writeFileSync(join(out, 'courses', 'index.html'), page({
-  title: `Courses | ${cfg.business.name}`,
-  description: `OC and Selective preparation courses: ${cfg.courses.map((c) => c.name).join(', ')}.`,
+  title: `OC & Selective Courses and Class Times | ${cfg.business.name}`,
+  description: `OC and Selective preparation courses in ${cfg.business.suburb || 'Sydney'}: `
+    + `${cfg.courses.map((c) => c.name).join(', ')}. Class times and fees.`,
   path: '/courses/',
   body: coursesBody,
-  jsonLd: {
+  jsonLd: [crumbs([{ name: 'Courses', url: '/courses/' }]), {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
     itemListElement: cfg.courses.map((c, i) => ({
@@ -425,19 +560,44 @@ writeFileSync(join(out, 'courses', 'index.html'), page({
           : {}),
       },
     })),
-  },
+  }],
 }))
 
 mkdirSync(join(out, 'contact'), { recursive: true })
 writeFileSync(join(out, 'contact', 'index.html'), page({
-  title: `Contact | ${cfg.business.name}`,
-  description: cfg.contact.lede,
+  title: `Contact and Trial Class | ${cfg.business.name}`,
+  description: `Enquire about a place or a trial class at ${cfg.business.name}`
+    + `${cfg.business.suburb ? ` in ${cfg.business.suburb}` : ''}. ${cfg.contact.lede}`,
   path: '/contact/',
   body: contactBody,
-  jsonLd: orgLd,
+  jsonLd: [orgLd, crumbs([{ name: 'Contact', url: '/contact/' }])],
 }))
 
-const pages = ['/', '/courses/', '/contact/']
+for (const a of cfg.advantages.items || []) {
+  mkdirSync(join(out, 'why', a.slug), { recursive: true })
+  writeFileSync(join(out, 'why', a.slug, 'index.html'), page({
+    title: `${a.title} | ${cfg.business.name}`,
+    description: (a.page?.[0] || a.body).slice(0, 155),
+    path: `/why/${a.slug}/`,
+    body: whyPage(a),
+    jsonLd: crumbs([{ name: a.title, url: `/why/${a.slug}/` }]),
+  }))
+}
+
+if (showBookshop) {
+  mkdirSync(join(out, 'bookshop'), { recursive: true })
+  writeFileSync(join(out, 'bookshop', 'index.html'), page({
+    title: `${cfg.bookshop.heading} | ${cfg.business.name}`,
+    description: cfg.bookshop.lede,
+    path: '/bookshop/',
+    body: bookshopBody,
+    jsonLd: crumbs([{ name: cfg.bookshop.heading, url: '/bookshop/' }]),
+  }))
+}
+
+const pages = ['/', '/courses/', '/contact/',
+  ...(cfg.advantages.items || []).map((a) => `/why/${a.slug}/`),
+  ...(showBookshop ? ['/bookshop/'] : [])]
 if (showReviews) {
   pages.push(reviewsPath)
   mkdirSync(join(out, reviewsDir), { recursive: true })
@@ -471,6 +631,8 @@ writeFileSync(join(out, 'sitemap.xml'),
 copyFileSync(join(here, 'styles.css'), join(out, 'styles.css'))
 const logo = join(here, '..', 'public', 'avant-logo.png')
 if (existsSync(logo)) copyFileSync(logo, join(out, 'logo.png'))
+const logoSvg = join(here, '..', 'public', 'logo.svg')
+if (existsSync(logoSvg)) copyFileSync(logoSvg, join(out, 'logo.svg'))
 
 console.log(`built ${pages.length} page(s) for ${origin}`)
 console.log(`  prices: ${showPrices ? 'shown' : 'hidden'}   reviews: ${showReviews ? `${liveReviews.length} shown` : 'not published'}`)

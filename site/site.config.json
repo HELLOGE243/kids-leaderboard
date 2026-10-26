@@ -3,13 +3,25 @@
   "business": {
     "name": "AVANT OC & Selective",
     "shortName": "AVANT",
-    "tagline": "OC and Selective test preparation for Years 3 to 6",
-    "description": "Small-group coaching for the NSW Opportunity Class and Selective High School tests, with a practice platform students use between lessons.",
+    "tagline": "OC and Selective tutoring in Eastwood",
+    "description": "OC and Selective test preparation in Eastwood, Sydney. Small-group coaching for the NSW Opportunity Class and Selective High School tests for Years 3 to 6, with a practice platform students use between lessons.",
     "email": "hello.avantacademy@gmail.com",
     "phone": "",
     "suburb": "Eastwood",
     "region": "NSW",
-    "country": "AU"
+    "country": "AU",
+    "heroLede": "Small-group coaching for the NSW Opportunity Class and Selective High School tests, Years 3 to 6, with a practice platform your child uses between lessons.",
+    "areaServed": [
+      "Eastwood",
+      "Epping",
+      "Carlingford",
+      "Ryde",
+      "Marsfield",
+      "Denistone",
+      "West Ryde",
+      "North Sydney",
+      "Sydney"
+    ]
   },
   "site": {
     "domain": "avant.school",
@@ -18,7 +30,9 @@
     "portalUrl": "https://cleverspacev2.web.app",
     "portalLabel": "Student Portal",
     "mockTestUrl": "https://cleverspacev2.web.app",
-    "_mockTestNote": "Where the 'sit a free mock test' buttons on the home page point. Set this to the sign-up page once it exists; until then it lands on the portal front door."
+    "_mockTestNote": "Where the 'sit a free mock test' buttons on the home page point. Set this to the sign-up page once it exists; until then it lands on the portal front door.",
+    "trialLabel": "Trial class",
+    "_trialNote": "The gold button in the header. It goes to the contact page with 'A trial class' pre-selected."
   },
   "pricing": {
     "show": true,
@@ -43,7 +57,8 @@
         "Saturday 10:30am - 12:00pm",
         "Saturday 12:00pm - 2:00pm",
         "Sunday 10:00am - 11:30am"
-      ]
+      ],
+      "icon": "book-open"
     },
     {
       "slug": "thinking-skills",
@@ -62,7 +77,8 @@
         "Tuesday 7:00pm - 9:00pm",
         "Sunday 11:15am - 1:15pm",
         "Sunday 1:45pm - 3:45pm"
-      ]
+      ],
+      "icon": "lightbulb"
     },
     {
       "slug": "mathematical-reasoning",
@@ -80,7 +96,8 @@
       "times": [
         "Tuesday 7:00pm - 9:00pm",
         "Sunday 1:45pm - 3:45pm"
-      ]
+      ],
+      "icon": "calculator"
     },
     {
       "slug": "writing",
@@ -97,7 +114,8 @@
       ],
       "times": [
         "Included within each class"
-      ]
+      ],
+      "icon": "pen"
     },
     {
       "slug": "trial-testing",
@@ -114,7 +132,8 @@
       ],
       "times": [
         "Scheduled through the term - ask for the current calendar"
-      ]
+      ],
+      "icon": "clipboard-check"
     }
   ],
   "reviews": {
@@ -148,32 +167,103 @@
     "items": [
       {
         "title": "Teachers who sat these tests and won",
-        "body": "James Ruse graduates, Mathematics Olympiad medallists and university literature prize shortlistees. The people in front of your child have been through the selective system themselves and teach it from the inside."
+        "body": "James Ruse graduates, Mathematics Olympiad medallists and university literature prize shortlistees. The people in front of your child have been through the selective system themselves and teach it from the inside.",
+        "slug": "teachers",
+        "icon": "award",
+        "page": [
+          "Every teacher in front of a class here has sat the tests they are teaching. James Ruse graduates, Mathematics Olympiad medallists, and shortlistees for university literature prizes.",
+          "That matters for a reason that is easy to miss. A tutor who has only read about the Thinking Skills paper teaches the question types. Somebody who sat it under time, at ten years old, teaches what the paper is actually doing to a child in the room - which question to leave, when a neat-looking answer is a trap, and what to do with eight minutes left and four questions to go.",
+          "It also sets the ceiling of the conversation. A child who asks a hard question gets a real answer, not a redirection to the answer key."
+        ]
       },
       {
         "title": "Material you cannot buy anywhere else",
-        "body": "Rich, multi-step questions written by our own teachers. Nothing off the shelf, nothing recycled from the workbooks every other centre hands out."
+        "body": "Rich, multi-step questions written by our own teachers. Nothing off the shelf, nothing recycled from the workbooks every other centre hands out.",
+        "slug": "material",
+        "icon": "layers",
+        "page": [
+          "Every question your child sees here was written by one of our teachers, for our classes.",
+          "Walk into most centres and the handouts are the same handful of published workbooks, reprinted. Children who have been coached for two years have seen those questions before, which means the practice measures memory rather than reasoning, and a parent paying for a year of it is buying a false reading of where their child stands.",
+          "Our questions are multi-step on purpose. A single question will ask a child to extract a fact, hold it, and use it against a second constraint - because that is what the real papers do, and because a question with one move in it cannot tell you anything useful about a strong child."
+        ]
       },
       {
         "title": "The most powerful study platform in NSW",
-        "body": "Homework that marks itself, a revision hall that brings every wrong answer back until it is right three times, guided writing, and a line straight to the teacher when a student is stuck."
+        "body": "Homework that marks itself, a revision hall that brings every wrong answer back until it is right three times, guided writing, and a line straight to the teacher when a student is stuck.",
+        "slug": "platform",
+        "icon": "zap",
+        "page": [
+          "Classes are once a week. The other six days are where the gap between students actually opens up, so every student here has a portal of their own.",
+          "Homework is set by their teacher and marked the moment it is handed in, question by question, with the reasoning shown rather than a letter. Every question a student gets wrong becomes a revision card that comes back days later, and again after that, and is only retired once they have answered it correctly three separate times.",
+          "There is guided writing that asks for a plan, reads what has been written and says what is working and what is missing without writing it for them. There is a line straight to their own teacher when they are stuck on a question, and the question comes back to be tried again once it is answered.",
+          "And there are reports you can actually read: where your child sits against the cohort, which topics are weak, and what was handed in late."
+        ]
       },
       {
         "title": "A track record over five years",
-        "body": "More than 150 students placed at top-tier selective schools, James Ruse, North Sydney Boys and North Sydney Girls among them."
+        "body": "More than 150 students placed at top-tier selective schools, James Ruse, North Sydney Boys and North Sydney Girls among them.",
+        "slug": "track-record",
+        "icon": "trophy",
+        "page": [
+          "Over the last five years we have placed more than 150 students at top-tier selective schools, James Ruse, North Sydney Boys and North Sydney Girls among them.",
+          "We would rather you read that carefully than be impressed by it. A number like that is produced by a cohort over years, not by any single child's term, and nobody can promise your child a place at a particular school. What the record tells you is that the method has been run long enough, on enough students, to know it works on more than the naturally gifted.",
+          "If you want to know how children like yours have gone specifically, ask us. We will tell you honestly, including when we think another centre or another year would suit you better."
+        ]
       },
       {
         "title": "In-depth explanations for every question",
-        "body": "Not just the letter of the right answer. Why it is right, why each of the others is tempting, and what to look for the next time a question is built the same way."
+        "body": "Not just the letter of the right answer. Why it is right, why each of the others is tempting, and what to look for the next time a question is built the same way.",
+        "slug": "explanations",
+        "icon": "message-square",
+        "page": [
+          "A wrong answer that is only ever marked wrong teaches a child nothing except that they got it wrong.",
+          "Every question in our material carries a worked explanation: why the right answer is right, why each of the wrong answers was built to be tempting, and what to look for the next time a question is put together the same way. The last part is the part that transfers. Children do not improve by learning answers, they improve by learning to recognise the shape of a question.",
+          "Those explanations sit in the portal next to the question, so a child working at home on a Tuesday night has the same explanation in front of them that they would get in class."
+        ]
       },
       {
         "title": "Small classes, on purpose",
-        "body": "Focused and intense, with enough room for a teacher to notice what one child in particular has not understood."
+        "body": "Focused and intense, with enough room for a teacher to notice what one child in particular has not understood.",
+        "slug": "small-classes",
+        "icon": "users",
+        "page": [
+          "Our classes are deliberately small, and we hold them that way even when there is a waiting list.",
+          "The reason is simple arithmetic. In a room of thirty, a teacher can mark the room's average. In a room of a handful, a teacher notices that one particular child has quietly stopped attempting the second half of the reasoning paper, and can do something about it that week rather than at the end of term.",
+          "Small does not mean gentle. The pace is intense and the material is hard, which is the point; a child who is never stretched in the room will be stretched for the first time in the exam hall."
+        ]
       }
-    ]
+    ],
+    "_pageNote": "Each strength also gets its own page at /why/<slug>/. 'body' is the card on the home page, 'page' is the paragraphs on that page. These are claims about the school - read them before they go live and change anything that overstates what we actually do."
   },
   "contact": {
     "heading": "Contact us",
     "lede": "Tell us your child's year and what you are preparing for, and we will tell you honestly whether we can help."
+  },
+  "bookshop": {
+    "show": false,
+    "_showNote": "Set true once the titles below are real. The build hides the Bookshop tab entirely while any item is still TODO, so a customer never sees a placeholder book.",
+    "heading": "Bookshop",
+    "lede": "The books and papers we write for our own classes, available to families preparing on their own.",
+    "note": "There is no checkout on this site. Tell us what you want and we will reply with how to pay and collect.",
+    "items": [
+      {
+        "title": "TODO - book title",
+        "years": "TODO - e.g. Years 3 to 4",
+        "price": "TODO - e.g. $45",
+        "summary": "TODO - two sentences on what is inside and who it is for."
+      },
+      {
+        "title": "TODO - book title",
+        "years": "TODO",
+        "price": "TODO",
+        "summary": "TODO"
+      },
+      {
+        "title": "TODO - book title",
+        "years": "TODO",
+        "price": "TODO",
+        "summary": "TODO"
+      }
+    ]
   }
 }
