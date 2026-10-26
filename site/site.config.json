@@ -1,6 +1,5 @@
 {
   "_README": "Everything the public site says that is not structural lives here. Change a value, run `node site/build.mjs`, deploy. Anything still marked TODO is a placeholder and must not be shown to customers.",
-
   "business": {
     "name": "AVANT OC & Selective",
     "shortName": "AVANT",
@@ -12,21 +11,20 @@
     "region": "NSW",
     "country": "AU"
   },
-
   "site": {
-    "domain": "TODO-your-domain.com.au",
-    "_domainNote": "No https://, no trailing slash. Used for canonical links, Open Graph and the sitemap. Until it is set, the build writes the .web.app address instead.",
+    "domain": "avant.school",
+    "_domainNote": "No https://, no www, no trailing slash. www.avant.school redirects to the apex, so the apex is the canonical name. Used for canonical links, Open Graph and the sitemap.",
     "fallbackDomain": "avant-oc-selective.web.app",
     "portalUrl": "https://cleverspacev2.web.app",
-    "portalLabel": "Student Portal"
+    "portalLabel": "Student Portal",
+    "mockTestUrl": "https://cleverspacev2.web.app",
+    "_mockTestNote": "Where the 'sit a free mock test' buttons on the home page point. Set this to the sign-up page once it exists; until then it lands on the portal front door."
   },
-
   "pricing": {
     "show": false,
     "_showNote": "Set true once the figures below are right. While false, each course shows an enquiry link instead of a price.",
     "note": "Prices are per term of 10 weeks."
   },
-
   "courses": [
     {
       "slug": "reading",
@@ -41,7 +39,11 @@
         "Cloze and sentence-completion passages",
         "Matching extracts to statements under timed conditions"
       ],
-      "times": ["Saturday 10:30am - 12:00pm", "Saturday 12:00pm - 2:00pm", "Sunday 10:00am - 11:30am"]
+      "times": [
+        "Saturday 10:30am - 12:00pm",
+        "Saturday 12:00pm - 2:00pm",
+        "Sunday 10:00am - 11:30am"
+      ]
     },
     {
       "slug": "thinking-skills",
@@ -56,7 +58,11 @@
         "Spatial reasoning, nets and rotations",
         "Problem solving against the clock"
       ],
-      "times": ["Tuesday 7:00pm - 9:00pm", "Sunday 11:15am - 1:15pm", "Sunday 1:45pm - 3:45pm"]
+      "times": [
+        "Tuesday 7:00pm - 9:00pm",
+        "Sunday 11:15am - 1:15pm",
+        "Sunday 1:45pm - 3:45pm"
+      ]
     },
     {
       "slug": "mathematical-reasoning",
@@ -71,7 +77,10 @@
         "Working backwards and checking an answer is sensible",
         "Showing a method that survives a second look"
       ],
-      "times": ["Tuesday 7:00pm - 9:00pm", "Sunday 1:45pm - 3:45pm"]
+      "times": [
+        "Tuesday 7:00pm - 9:00pm",
+        "Sunday 1:45pm - 3:45pm"
+      ]
     },
     {
       "slug": "writing",
@@ -86,7 +95,9 @@
         "Openings, structure and endings that land",
         "Marked feedback on content, structure, vocabulary, fluency and mechanics"
       ],
-      "times": ["Included within each class"]
+      "times": [
+        "Included within each class"
+      ]
     },
     {
       "slug": "trial-testing",
@@ -101,17 +112,66 @@
         "A written report for parents after each sitting",
         "Every wrong answer becomes revision in the portal"
       ],
-      "times": ["Scheduled through the term - ask for the current calendar"]
+      "times": [
+        "Scheduled through the term - ask for the current calendar"
+      ]
     }
   ],
-
   "reviews": {
     "show": false,
     "_showNote": "Set true only when every entry below is a real quote from a real family. Invented testimonials are misleading conduct under Australian Consumer Law, and the build refuses to publish any entry still marked TODO.",
     "items": [
-      { "quote": "TODO - paste a real parent quote here", "author": "TODO - first name or initials", "context": "TODO - e.g. Parent, Year 4 OC" },
-      { "quote": "TODO - paste a real parent quote here", "author": "TODO", "context": "TODO" },
-      { "quote": "TODO - paste a real parent quote here", "author": "TODO", "context": "TODO" }
+      {
+        "quote": "TODO - paste a real parent quote here",
+        "author": "TODO - first name or initials",
+        "context": "TODO - e.g. Parent, Year 4 OC"
+      },
+      {
+        "quote": "TODO - paste a real parent quote here",
+        "author": "TODO",
+        "context": "TODO"
+      },
+      {
+        "quote": "TODO - paste a real parent quote here",
+        "author": "TODO",
+        "context": "TODO"
+      }
+    ],
+    "label": "Testimonies",
+    "path": "/testimonials/"
+  },
+  "advantages": {
+    "heading": "Why families choose us",
+    "lede": "Six things that are hard to find together anywhere else in Sydney.",
+    "items": [
+      {
+        "title": "Teachers who sat these tests and won",
+        "body": "James Ruse graduates, Mathematics Olympiad medallists and university literature prize shortlistees. The people in front of your child have been through the selective system themselves and teach it from the inside."
+      },
+      {
+        "title": "Material you cannot buy anywhere else",
+        "body": "Rich, multi-step questions written by our own teachers. Nothing off the shelf, nothing recycled from the workbooks every other centre hands out."
+      },
+      {
+        "title": "The most powerful study platform in NSW",
+        "body": "Homework that marks itself, a revision hall that brings every wrong answer back until it is right three times, guided writing, and a line straight to the teacher when a student is stuck."
+      },
+      {
+        "title": "A track record over five years",
+        "body": "More than 150 students placed at top-tier selective schools, James Ruse, North Sydney Boys and North Sydney Girls among them."
+      },
+      {
+        "title": "In-depth explanations for every question",
+        "body": "Not just the letter of the right answer. Why it is right, why each of the others is tempting, and what to look for the next time a question is built the same way."
+      },
+      {
+        "title": "Small classes, on purpose",
+        "body": "Focused and intense, with enough room for a teacher to notice what one child in particular has not understood."
+      }
     ]
+  },
+  "contact": {
+    "heading": "Contact us",
+    "lede": "Tell us your child's year and what you are preparing for, and we will tell you honestly whether we can help."
   }
 }
