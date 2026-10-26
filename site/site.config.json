@@ -7,7 +7,7 @@
     "description": "Small-group coaching for the NSW Opportunity Class and Selective High School tests, with a practice platform students use between lessons.",
     "email": "hello.avantacademy@gmail.com",
     "phone": "",
-    "suburb": "",
+    "suburb": "Eastwood",
     "region": "NSW",
     "country": "AU"
   },
@@ -139,8 +139,8 @@
     ],
     "label": "Testimonies",
     "path": "/testimonials/",
-    "googleUrl": "TODO - paste the public link to your Google reviews here",
-    "_googleNote": "Google Business Profile > Reviews > 'Get more reviews' gives a share link, or open the listing in Google Maps, click the review count and copy the address. While this is TODO the Testimonies nav item is hidden. With it set and no quotes below, Testimonies links straight to Google; with quotes below as well, the page shows them and links to Google for the rest."
+    "googleUrl": "https://www.google.com/maps/search/?api=1&query=AVANT%20OC%20%26%20Selective%20Eastwood",
+    "_googleNote": "Google licences review text and does not allow it to be republished wholesale, so the site links to the listing instead. With no quotes in items[] the Testimonies nav item is this link; add real quotes and it becomes a page that links on to Google for the rest."
   },
   "advantages": {
     "heading": "Why families choose us",
