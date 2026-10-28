@@ -88,14 +88,11 @@ a { color: var(--gold-dark); }
   background: linear-gradient(160deg, #14213d 0%, #1f3160 60%, #2a3f73 100%);
   color: #fff; padding: 72px 0 64px;
 }
-/* The logo is drawn in black on white, for light backgrounds. On the navy
-   hero it needs a plate of its own, or it reads as a sticker somebody left
-   there. Given one with padding and a radius, it reads as a mark. */
+/* site/logo-light.svg: the mark repainted white with no panel behind it, for
+   the navy hero. The black-on-white original stays for light backgrounds. */
 .hero-logo {
-  display: block; width: 260px; max-width: 72%; height: auto;
-  margin: 0 0 26px; padding: 14px 20px;
-  background: #fff; border-radius: 12px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.22);
+  display: block; width: 270px; max-width: 72%; height: auto;
+  margin: 0 0 26px;
 }
 .hero h1 {
   margin: 0 0 14px; font-size: clamp(1.9rem, 5vw, 3rem);

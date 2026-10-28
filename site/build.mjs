@@ -208,6 +208,14 @@ ${body}
 `
 }
 
+// A strength whose card should send a parent to the contact form rather than
+// to a page of prose says so with a subject; the form opens with it chosen.
+const advLink = (a) => (a.ctaAbout && !isTodo(a.ctaAbout))
+  ? `/contact/?about=${encodeURIComponent(a.ctaAbout)}`
+  : `/why/${a.slug}/`
+const advSubjects = (cfg.advantages.items || [])
+  .map((a) => a.ctaAbout).filter((x) => x && !isTodo(x))
+
 // --------------------------------------------------------------- structured
 // EducationalOrganization alone does not qualify for the local results that
 // "tutoring in Eastwood" actually returns; the LocalBusiness type with an
@@ -257,7 +265,7 @@ const crumbs = (trail) => ({
 const homeBody = `
 <section class="hero">
   <div class="wrap">
-    <img class="hero-logo" src="/logo.svg" alt="${esc(cfg.business.name)}" width="300" height="113">
+    <img class="hero-logo" src="/logo-light.svg" alt="${esc(cfg.business.name)}" width="300" height="113">
     <h1${ed('business.tagline')}>${esc(cfg.business.tagline)}</h1>
     <p class="lede"${ed('business.heroLede')}>${esc(cfg.business.heroLede)}</p>
     <p class="hero-cta">
@@ -314,7 +322,7 @@ const homeBody = `
         ${icon(a.icon, 'icon icon-lg')}
         <h3><a href="/why/${esc(a.slug)}/"${ed(`advantages.items.${i}.title`)}>${esc(a.title)}</a></h3>
         <p${ed(`advantages.items.${i}.body`)}>${esc(a.body)}</p>
-        <p class="card-more"><a href="/why/${esc(a.slug)}/">More on this &rarr;</a></p>
+        <p class="card-more"><a href="${advLink(a)}"><span${ed(`advantages.items.${i}.cta`)}>${esc(a.cta || 'More on this')}</span> &rarr;</a></p>
       </article>`).join('')}
     </div>
   </div>
@@ -424,7 +432,9 @@ const contactBody = `
         <select id="f-about" name="about">
           <option value="">Please choose</option>
           <option>A place in a class</option>
+          <option>A trial class</option>
           <option>A free mock test</option>
+          ${advSubjects.map((x) => `<option>${esc(x)}</option>`).join('')}
           ${cfg.courses.map((c) => `<option>${esc(c.name)}</option>`).join('')}
           <option>Something else</option>
         </select>
@@ -648,6 +658,8 @@ const logo = join(here, '..', 'public', 'avant-logo.png')
 if (existsSync(logo)) copyFileSync(logo, join(out, 'logo.png'))
 const logoSvg = join(here, '..', 'public', 'logo.svg')
 if (existsSync(logoSvg)) copyFileSync(logoSvg, join(out, 'logo.svg'))
+const logoLight = join(here, 'logo-light.svg')
+if (existsSync(logoLight)) copyFileSync(logoLight, join(out, 'logo-light.svg'))
 
 console.log(`built ${pages.length} page(s) for ${origin}`)
 console.log(`  prices: ${showPrices ? 'shown' : 'hidden'}   reviews: ${showReviews ? `${liveReviews.length} shown` : 'not published'}`)

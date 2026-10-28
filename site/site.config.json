@@ -3,14 +3,14 @@
   "business": {
     "name": "AVANT OC & Selective",
     "shortName": "AVANT",
-    "tagline": "OC and Selective tutoring in Eastwood",
+    "tagline": "We accelerate students to reach their full potential.",
     "description": "OC and Selective test preparation in Eastwood, Sydney. Small-group coaching for the NSW Opportunity Class and Selective High School tests for Years 3 to 6, with a practice platform students use between lessons.",
     "email": "hello.avantacademy@gmail.com",
     "phone": "",
     "suburb": "Eastwood",
     "region": "NSW",
     "country": "AU",
-    "heroLede": "Small-group coaching for the NSW Opportunity Class and Selective High School tests, Years 3 to 6, with a practice platform your child uses between lessons.",
+    "heroLede": "Small-group classes for the NSW Opportunity Class and Selective High School tests, Years 3 to 6. Founded and taught by passionate, experienced teachers.",
     "areaServed": [
       "Eastwood",
       "Epping",
@@ -43,7 +43,7 @@
     {
       "slug": "reading",
       "name": "Reading and Comprehension",
-      "years": "Years 3 to 6",
+      "years": "Y1 - y6",
       "price": "$750 per term",
       "summary": "Reading for meaning under time pressure: inference, author's purpose, tone, and the close reading the OC and Selective papers are built on.",
       "covers": [
@@ -63,7 +63,7 @@
     {
       "slug": "thinking-skills",
       "name": "Thinking Skills",
-      "years": "Years 3 to 5",
+      "years": "Y2 - Y6",
       "price": "$750 per term",
       "summary": "The reasoning paper, which is the one most students have never seen before: logic puzzles, sufficient and necessary conditions, pattern and spatial reasoning.",
       "covers": [
@@ -83,7 +83,7 @@
     {
       "slug": "mathematical-reasoning",
       "name": "Mathematical Reasoning",
-      "years": "Year 4 and up",
+      "years": "Y1 - Y6",
       "price": "$750 per term",
       "summary": "Worded, multi-step problems rather than drill: the arithmetic is rarely the hard part, and reading the question properly usually is.",
       "covers": [
@@ -102,7 +102,7 @@
     {
       "slug": "writing",
       "name": "Writing",
-      "years": "Years 3 to 6",
+      "years": "Y3 - y6",
       "price": "$750 per term",
       "summary": "Narrative and persuasive writing to a brief, marked against the criteria the tests use, with the craft taught rather than assumed.",
       "covers": [
@@ -120,9 +120,9 @@
     {
       "slug": "trial-testing",
       "name": "OC and Selective Trial Testing",
-      "years": "Year 3 for OC, Year 5 for Selective",
+      "years": "Y3-Y6",
       "price": "$750 per term",
-      "summary": "Full timed papers sat under test conditions, marked and returned with a percentile against everyone who sat the same paper.",
+      "summary": "Full timed papers sat under test conditions along with a detailed breakdown of diffcult questions. Students are offered opportunities for 1-on-1 review for individual questions.",
       "covers": [
         "Full-length papers to the real format and timing",
         "Sat under exam conditions",
@@ -174,7 +174,9 @@
           "Every teacher in front of a class here has sat the tests they are teaching. James Ruse graduates, Mathematics Olympiad medallists, and shortlistees for university literature prizes.",
           "That matters for a reason that is easy to miss. A tutor who has only read about the Thinking Skills paper teaches the question types. Somebody who sat it under time, at ten years old, teaches what the paper is actually doing to a child in the room - which question to leave, when a neat-looking answer is a trap, and what to do with eight minutes left and four questions to go.",
           "It also sets the ceiling of the conversation. A child who asks a hard question gets a real answer, not a redirection to the answer key."
-        ]
+        ],
+        "cta": "Meet the teachers",
+        "ctaAbout": ""
       },
       {
         "title": "Material you cannot buy anywhere else",
@@ -185,11 +187,13 @@
           "Every question your child sees here was written by one of our teachers, for our classes.",
           "Walk into most centres and the handouts are the same handful of published workbooks, reprinted. Children who have been coached for two years have seen those questions before, which means the practice measures memory rather than reasoning, and a parent paying for a year of it is buying a false reading of where their child stands.",
           "Our questions are multi-step on purpose. A single question will ask a child to extract a fact, hold it, and use it against a second constraint - because that is what the real papers do, and because a question with one move in it cannot tell you anything useful about a strong child."
-        ]
+        ],
+        "cta": "See how our material differs",
+        "ctaAbout": ""
       },
       {
-        "title": "The most powerful study platform in NSW",
-        "body": "Homework that marks itself, a revision hall that brings every wrong answer back until it is right three times, guided writing, and a line straight to the teacher when a student is stuck.",
+        "title": "The best study platform in NSW",
+        "body": "We're bringing in our best technology to assist parents and children in making the most of their time. By integrating proven study and revision strategies in our learning management system, we've created the best stress free, professional digital learning environment.",
         "slug": "platform",
         "icon": "zap",
         "page": [
@@ -197,7 +201,9 @@
           "Homework is set by their teacher and marked the moment it is handed in, question by question, with the reasoning shown rather than a letter. Every question a student gets wrong becomes a revision card that comes back days later, and again after that, and is only retired once they have answered it correctly three separate times.",
           "There is guided writing that asks for a plan, reads what has been written and says what is working and what is missing without writing it for them. There is a line straight to their own teacher when they are stuck on a question, and the question comes back to be tried again once it is answered.",
           "And there are reports you can actually read: where your child sits against the cohort, which topics are weak, and what was handed in late."
-        ]
+        ],
+        "cta": "Contact us for a demo",
+        "ctaAbout": "A demo of the platform"
       },
       {
         "title": "A track record over five years",
@@ -208,7 +214,9 @@
           "Over the last five years we have placed more than 150 students at top-tier selective schools, James Ruse, North Sydney Boys and North Sydney Girls among them.",
           "We would rather you read that carefully than be impressed by it. A number like that is produced by a cohort over years, not by any single child's term, and nobody can promise your child a place at a particular school. What the record tells you is that the method has been run long enough, on enough students, to know it works on more than the naturally gifted.",
           "If you want to know how children like yours have gone specifically, ask us. We will tell you honestly, including when we think another centre or another year would suit you better."
-        ]
+        ],
+        "cta": "Read the record",
+        "ctaAbout": ""
       },
       {
         "title": "In-depth explanations for every question",
@@ -219,7 +227,9 @@
           "A wrong answer that is only ever marked wrong teaches a child nothing except that they got it wrong.",
           "Every question in our material carries a worked explanation: why the right answer is right, why each of the wrong answers was built to be tempting, and what to look for the next time a question is put together the same way. The last part is the part that transfers. Children do not improve by learning answers, they improve by learning to recognise the shape of a question.",
           "Those explanations sit in the portal next to the question, so a child working at home on a Tuesday night has the same explanation in front of them that they would get in class."
-        ]
+        ],
+        "cta": "See what an explanation looks like",
+        "ctaAbout": ""
       },
       {
         "title": "Small classes, on purpose",
@@ -230,11 +240,14 @@
           "Our classes are deliberately small, and we hold them that way even when there is a waiting list.",
           "The reason is simple arithmetic. In a room of thirty, a teacher can mark the room's average. In a room of a handful, a teacher notices that one particular child has quietly stopped attempting the second half of the reasoning paper, and can do something about it that week rather than at the end of term.",
           "Small does not mean gentle. The pace is intense and the material is hard, which is the point; a child who is never stretched in the room will be stretched for the first time in the exam hall."
-        ]
+        ],
+        "cta": "Ask about class sizes",
+        "ctaAbout": "Class sizes"
       }
     ],
     "_pageNote": "Each strength also gets its own page at /why/<slug>/. 'body' is the card on the home page, 'page' is the paragraphs on that page. These are claims about the school - read them before they go live and change anything that overstates what we actually do.",
-    "otherHeading": "The other reasons"
+    "otherHeading": "The other reasons",
+    "_ctaNote": "Each card's link text. Leave ctaAbout empty and it goes to that strength's own page; put a subject in it and the link goes to the contact form with that subject pre-selected, and the subject is added to the form's dropdown."
   },
   "contact": {
     "heading": "Contact us",
@@ -269,16 +282,16 @@
   },
   "home": {
     "_note": "Copy for the front page. **double asterisks** make bold; nothing else is markup.",
-    "heroCta": "Enquire about a place",
-    "heroCtaAlt": "See the courses",
+    "heroCta": "Make an enquiry",
+    "heroCtaAlt": "See our courses",
     "tests": {
-      "heading": "Two tests, four years, one preparation",
+      "heading": "Two tests, four years, one chance to prep.",
       "ocTitle": "Opportunity Class",
       "ocBody": "Sat in **Year 4** for entry to an OC class in Year 5. Reading, mathematical reasoning and thinking skills, all under time.",
-      "ocCta": "Sit a free OC mock test",
+      "ocCta": "Try our OC trial quiz",
       "selectiveTitle": "Selective High School",
       "selectiveBody": "Sat in **Year 6** for entry in Year 7. The same three papers plus writing, and a far larger field.",
-      "selectiveCta": "Sit a free Selective mock test"
+      "selectiveCta": "Try our Selective trial quiz"
     },
     "teach": {
       "heading": "What we teach",
@@ -286,8 +299,8 @@
       "mockTest": "Sit a free mock test"
     },
     "cta": {
-      "heading": "Come and see a class",
-      "lede": "Tell us your child's year and what you are preparing for, and we will tell you honestly whether we can help.",
+      "heading": "Consult us or book a trial class today.",
+      "lede": "We're here to help. Tell us your child's year and what you are preparing for, and we will give you our honest recommendation on what's best for you.",
       "button": "Contact us"
     }
   },
