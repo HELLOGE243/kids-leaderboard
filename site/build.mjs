@@ -307,7 +307,7 @@ const homeBody = `
     </div>
     <p class="band-actions">
       <a class="more" href="/courses/"><span${ed('home.teach.allCourses')}>${esc(cfg.home.teach.allCourses)}</span> &rarr;</a>
-      <a class="more" href="${esc(mockTestUrl)}"><span${ed('home.teach.mockTest')}>${esc(cfg.home.teach.mockTest)}</span> &rarr;</a>
+      <a class="btn btn-primary" href="${esc(mockTestUrl)}"${ed('home.teach.mockTest')}>${esc(cfg.home.teach.mockTest)}</a>
     </p>
   </div>
 </section>
