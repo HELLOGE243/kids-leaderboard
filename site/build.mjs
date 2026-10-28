@@ -265,7 +265,7 @@ const crumbs = (trail) => ({
 const homeBody = `
 <section class="hero">
   <div class="wrap">
-    <img class="hero-logo" src="/logo-light.svg" alt="${esc(cfg.business.name)}" width="300" height="113">
+    <img class="hero-logo" src="/logo.svg" alt="${esc(cfg.business.name)}" width="300" height="113">
     <h1${ed('business.tagline')}>${esc(cfg.business.tagline)}</h1>
     <p class="lede"${ed('business.heroLede')}>${esc(cfg.business.heroLede)}</p>
     <p class="hero-cta">
@@ -295,25 +295,6 @@ const homeBody = `
 
 <section class="band band-alt">
   <div class="wrap">
-    <h2${ed('home.teach.heading')}>${esc(cfg.home.teach.heading)}</h2>
-    <div class="cards">
-      ${cfg.courses.map((c, i) => `
-      <article class="card card-link">
-        ${icon(c.icon, 'icon icon-lg')}
-        <h3><a href="/courses/#${esc(c.slug)}"${ed(`courses.${i}.name`)}>${esc(c.name)}</a></h3>
-        <p class="card-years"${ed(`courses.${i}.years`)}>${esc(c.years)}</p>
-        <p${ed(`courses.${i}.summary`)}>${esc(c.summary)}</p>
-      </article>`).join('')}
-    </div>
-    <p class="band-actions">
-      <a class="more" href="/courses/"><span${ed('home.teach.allCourses')}>${esc(cfg.home.teach.allCourses)}</span> &rarr;</a>
-      <a class="btn btn-primary" href="${esc(mockTestUrl)}"${ed('home.teach.mockTest')}>${esc(cfg.home.teach.mockTest)}</a>
-    </p>
-  </div>
-</section>
-
-<section class="band">
-  <div class="wrap">
     <h2${ed('advantages.heading')}>${esc(cfg.advantages.heading)}</h2>
     <p class="lede"${ed('advantages.lede')}>${esc(cfg.advantages.lede)}</p>
     <div class="cards">
@@ -324,6 +305,25 @@ const homeBody = `
         <p${ed(`advantages.items.${i}.body`)}>${esc(a.body)}</p>
         <p class="card-more"><a href="${advLink(a)}"><span${ed(`advantages.items.${i}.cta`)}>${esc(a.cta || 'More on this')}</span> &rarr;</a></p>
       </article>`).join('')}
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap">
+    <h2${ed('home.teach.heading')}>${esc(cfg.home.teach.heading)}</h2>
+    <div class="cards">
+      ${cfg.courses.map((c, i) => `
+      <article class="card card-link">
+        ${icon(c.icon, 'icon icon-lg')}
+        <h3><a href="/courses/#${esc(c.slug)}"${ed(`courses.${i}.name`)}>${esc(c.name)}</a></h3>
+        <p class="card-years"${ed(`courses.${i}.years`)}>${esc(c.years)}</p>
+        <p${ed(`courses.${i}.summary`)}>${esc(c.summary)}</p>
+      </article>`).join('')}
+      <a class="card card-tile" href="/courses/">
+        <span${ed('home.teach.allCourses')}>${esc(cfg.home.teach.allCourses)}</span>
+        <span class="card-tile-arrow" aria-hidden="true">&rarr;</span>
+      </a>
     </div>
   </div>
 </section>
@@ -658,8 +658,6 @@ const logo = join(here, '..', 'public', 'avant-logo.png')
 if (existsSync(logo)) copyFileSync(logo, join(out, 'logo.png'))
 const logoSvg = join(here, '..', 'public', 'logo.svg')
 if (existsSync(logoSvg)) copyFileSync(logoSvg, join(out, 'logo.svg'))
-const logoLight = join(here, 'logo-light.svg')
-if (existsSync(logoLight)) copyFileSync(logoLight, join(out, 'logo-light.svg'))
 
 console.log(`built ${pages.length} page(s) for ${origin}`)
 console.log(`  prices: ${showPrices ? 'shown' : 'hidden'}   reviews: ${showReviews ? `${liveReviews.length} shown` : 'not published'}`)
