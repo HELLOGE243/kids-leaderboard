@@ -233,7 +233,8 @@
         ]
       }
     ],
-    "_pageNote": "Each strength also gets its own page at /why/<slug>/. 'body' is the card on the home page, 'page' is the paragraphs on that page. These are claims about the school - read them before they go live and change anything that overstates what we actually do."
+    "_pageNote": "Each strength also gets its own page at /why/<slug>/. 'body' is the card on the home page, 'page' is the paragraphs on that page. These are claims about the school - read them before they go live and change anything that overstates what we actually do.",
+    "otherHeading": "The other reasons"
   },
   "contact": {
     "heading": "Contact us",
@@ -265,5 +266,32 @@
         "summary": "TODO"
       }
     ]
+  },
+  "home": {
+    "_note": "Copy for the front page. **double asterisks** make bold; nothing else is markup.",
+    "heroCta": "Enquire about a place",
+    "heroCtaAlt": "See the courses",
+    "tests": {
+      "heading": "Two tests, four years, one preparation",
+      "ocTitle": "Opportunity Class",
+      "ocBody": "Sat in **Year 4** for entry to an OC class in Year 5. Reading, mathematical reasoning and thinking skills, all under time.",
+      "ocCta": "Sit a free OC mock test",
+      "selectiveTitle": "Selective High School",
+      "selectiveBody": "Sat in **Year 6** for entry in Year 7. The same three papers plus writing, and a far larger field.",
+      "selectiveCta": "Sit a free Selective mock test"
+    },
+    "teach": {
+      "heading": "What we teach",
+      "allCourses": "All courses and class times",
+      "mockTest": "Sit a free mock test"
+    },
+    "cta": {
+      "heading": "Come and see a class",
+      "lede": "Tell us your child's year and what you are preparing for, and we will tell you honestly whether we can help.",
+      "button": "Contact us"
+    }
+  },
+  "coursesPage": {
+    "heading": "Courses"
   }
 }

@@ -18,7 +18,10 @@ import { fileURLToPath } from 'node:url'
 import { createHash } from 'node:crypto'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const out = join(here, process.argv.includes('--preview') ? 'preview' : 'dist')
+const out = join(here,
+  process.argv.includes('--edit') ? 'editing'
+  : process.argv.includes('--preview') ? 'preview'
+  : 'dist')
 const cfg = JSON.parse(readFileSync(join(here, 'site.config.json'), 'utf8'))
 
 // The stylesheet is cached for a day, which is right for visitors and wrong
@@ -35,6 +38,17 @@ const warnings = []
 // layout can be looked at before the real words exist. It writes to
 // site/preview, never to site/dist, and every sample is labelled as one, so
 // there is no path by which a made-up review reaches a customer.
+// `--edit` builds the same pages with every editable string tagged with the
+// config key it came from, so the editor server can offer them up for direct
+// editing and write the result back. It changes nothing a visitor would see;
+// the real build emits no markers at all.
+const editMode = process.argv.includes('--edit')
+// A marker on the element holding a value, naming its path in the config.
+// Dotted path, array index as a number: `courses.2.summary`.
+const ed = (path) => (editMode ? ` data-edit="${path}"` : '')
+// **bold** and nothing else. Escaped first, so the config cannot inject markup.
+const rich = (v) => esc(v).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+
 const preview = process.argv.includes('--preview')
 const SAMPLE = {
   email: 'sample@example.com',
@@ -109,8 +123,8 @@ const esc = (s) => String(s ?? '')
 // Enquiry buttons go to the contact page rather than straight to a mailto:
 // a parent on a phone without a mail client configured gets nothing from a
 // mailto link, and the contact page also carries the address in plain text.
-const enquire = (label = 'Enquire about a place', cls = 'btn btn-primary', q = '') =>
-  `<a class="${cls}" href="/contact/${q ? `?about=${encodeURIComponent(q)}` : ''}">${esc(label)}</a>`
+const enquire = (label = 'Enquire about a place', cls = 'btn btn-primary', q = '', path = '') =>
+  `<a class="${cls}" href="/contact/${q ? `?about=${encodeURIComponent(q)}` : ''}"${path ? ed(path) : ''}>${esc(label)}</a>`
 
 // -------------------------------------------------------------------- icons
 // Drawn inline rather than loaded: a dozen icons as one external font or
@@ -244,28 +258,28 @@ const homeBody = `
 <section class="hero">
   <div class="wrap">
     <img class="hero-logo" src="/logo.svg" alt="${esc(cfg.business.name)}" width="300" height="113">
-    <h1>${esc(cfg.business.tagline)}</h1>
-    <p class="lede">${esc(cfg.business.heroLede)}</p>
+    <h1${ed('business.tagline')}>${esc(cfg.business.tagline)}</h1>
+    <p class="lede"${ed('business.heroLede')}>${esc(cfg.business.heroLede)}</p>
     <p class="hero-cta">
-      ${enquire('Enquire about a place')}
-      <a class="btn btn-ghost" href="/courses/">See the courses</a>
+      ${enquire(cfg.home.heroCta, 'btn btn-primary', '', 'home.heroCta')}
+      <a class="btn btn-ghost" href="/courses/"${ed('home.heroCtaAlt')}>${esc(cfg.home.heroCtaAlt)}</a>
     </p>
   </div>
 </section>
 
 <section class="band">
   <div class="wrap">
-    <h2>Two tests, four years, one preparation</h2>
+    <h2${ed('home.tests.heading')}>${esc(cfg.home.tests.heading)}</h2>
     <div class="cards">
       <article class="card">
-        <h3>Opportunity Class</h3>
-        <p>Sat in <strong>Year 4</strong> for entry to an OC class in Year 5. Reading, mathematical reasoning and thinking skills, all under time.</p>
-        <p class="card-cta"><a class="btn btn-primary btn-sm" href="${esc(mockTestUrl)}">Sit a free OC mock test</a></p>
+        <h3${ed('home.tests.ocTitle')}>${esc(cfg.home.tests.ocTitle)}</h3>
+        <p${ed('home.tests.ocBody')}>${rich(cfg.home.tests.ocBody)}</p>
+        <p class="card-cta"><a class="btn btn-primary btn-sm" href="${esc(mockTestUrl)}"${ed('home.tests.ocCta')}>${esc(cfg.home.tests.ocCta)}</a></p>
       </article>
       <article class="card">
-        <h3>Selective High School</h3>
-        <p>Sat in <strong>Year 6</strong> for entry in Year 7. The same three papers plus writing, and a far larger field.</p>
-        <p class="card-cta"><a class="btn btn-primary btn-sm" href="${esc(mockTestUrl)}">Sit a free Selective mock test</a></p>
+        <h3${ed('home.tests.selectiveTitle')}>${esc(cfg.home.tests.selectiveTitle)}</h3>
+        <p${ed('home.tests.selectiveBody')}>${rich(cfg.home.tests.selectiveBody)}</p>
+        <p class="card-cta"><a class="btn btn-primary btn-sm" href="${esc(mockTestUrl)}"${ed('home.tests.selectiveCta')}>${esc(cfg.home.tests.selectiveCta)}</a></p>
       </article>
     </div>
   </div>
@@ -273,33 +287,33 @@ const homeBody = `
 
 <section class="band band-alt">
   <div class="wrap">
-    <h2>What we teach</h2>
+    <h2${ed('home.teach.heading')}>${esc(cfg.home.teach.heading)}</h2>
     <div class="cards">
-      ${cfg.courses.map((c) => `
+      ${cfg.courses.map((c, i) => `
       <article class="card card-link">
         ${icon(c.icon, 'icon icon-lg')}
-        <h3><a href="/courses/#${esc(c.slug)}">${esc(c.name)}</a></h3>
-        <p class="card-years">${esc(c.years)}</p>
-        <p>${esc(c.summary)}</p>
+        <h3><a href="/courses/#${esc(c.slug)}"${ed(`courses.${i}.name`)}>${esc(c.name)}</a></h3>
+        <p class="card-years"${ed(`courses.${i}.years`)}>${esc(c.years)}</p>
+        <p${ed(`courses.${i}.summary`)}>${esc(c.summary)}</p>
       </article>`).join('')}
     </div>
     <p class="band-actions">
-      <a class="more" href="/courses/">All courses and class times &rarr;</a>
-      <a class="more" href="${esc(mockTestUrl)}">Sit a free mock test &rarr;</a>
+      <a class="more" href="/courses/"><span${ed('home.teach.allCourses')}>${esc(cfg.home.teach.allCourses)}</span> &rarr;</a>
+      <a class="more" href="${esc(mockTestUrl)}"><span${ed('home.teach.mockTest')}>${esc(cfg.home.teach.mockTest)}</span> &rarr;</a>
     </p>
   </div>
 </section>
 
 <section class="band">
   <div class="wrap">
-    <h2>${esc(cfg.advantages.heading)}</h2>
-    <p class="lede">${esc(cfg.advantages.lede)}</p>
+    <h2${ed('advantages.heading')}>${esc(cfg.advantages.heading)}</h2>
+    <p class="lede"${ed('advantages.lede')}>${esc(cfg.advantages.lede)}</p>
     <div class="cards">
-      ${(cfg.advantages.items || []).map((a) => `
+      ${(cfg.advantages.items || []).map((a, i) => `
       <article class="card card-link">
         ${icon(a.icon, 'icon icon-lg')}
-        <h3><a href="/why/${esc(a.slug)}/">${esc(a.title)}</a></h3>
-        <p>${esc(a.body)}</p>
+        <h3><a href="/why/${esc(a.slug)}/"${ed(`advantages.items.${i}.title`)}>${esc(a.title)}</a></h3>
+        <p${ed(`advantages.items.${i}.body`)}>${esc(a.body)}</p>
         <p class="card-more"><a href="/why/${esc(a.slug)}/">More on this &rarr;</a></p>
       </article>`).join('')}
     </div>
@@ -308,9 +322,9 @@ const homeBody = `
 
 <section class="band cta-band">
   <div class="wrap">
-    <h2>Come and see a class</h2>
-    <p class="lede">Tell us your child's year and what you are preparing for, and we will tell you honestly whether we can help.</p>
-    ${enquire('Contact us')}
+    <h2${ed('home.cta.heading')}>${esc(cfg.home.cta.heading)}</h2>
+    <p class="lede"${ed('home.cta.lede')}>${esc(cfg.home.cta.lede)}</p>
+    ${enquire(cfg.home.cta.button, 'btn btn-primary', '', 'home.cta.button')}
   </div>
 </section>
 `
@@ -319,26 +333,26 @@ const homeBody = `
 const coursesBody = `
 <section class="page-head">
   <div class="wrap">
-    <h1>Courses</h1>
-    <p class="lede">${esc(cfg.business.description)}</p>
+    <h1${ed('coursesPage.heading')}>${esc(cfg.coursesPage.heading)}</h1>
+    <p class="lede"${ed('business.description')}>${esc(cfg.business.description)}</p>
     ${showPrices && cfg.pricing.note ? `<p class="note">${esc(cfg.pricing.note)}</p>` : ''}
   </div>
 </section>
 
 <section class="band">
   <div class="wrap course-list">
-    ${cfg.courses.map((c) => `
+    ${cfg.courses.map((c, i) => `
     <article class="course" id="${esc(c.slug)}">
       <div class="course-head">
-        <h2>${esc(c.name)}</h2>
-        <p class="card-years">${esc(c.years)}</p>
-        ${showPrices ? `<p class="price">${esc(isTodo(c.price) ? SAMPLE.price : c.price)}</p>` : ''}
+        <h2${ed(`courses.${i}.name`)}>${esc(c.name)}</h2>
+        <p class="card-years"${ed(`courses.${i}.years`)}>${esc(c.years)}</p>
+        ${showPrices ? `<p class="price"${ed(`courses.${i}.price`)}>${esc(isTodo(c.price) ? SAMPLE.price : c.price)}</p>` : ''}
       </div>
-      <p class="course-summary">${esc(c.summary)}</p>
+      <p class="course-summary"${ed(`courses.${i}.summary`)}>${esc(c.summary)}</p>
       <h3 class="course-sub">What it covers</h3>
-      <ul class="ticks">${(c.covers || []).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+      <ul class="ticks">${(c.covers || []).map((x, j) => `<li${ed(`courses.${i}.covers.${j}`)}>${esc(x)}</li>`).join('')}</ul>
       <h3 class="course-sub">Class times</h3>
-      <ul class="times">${(c.times || []).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+      <ul class="times">${(c.times || []).map((x, j) => `<li${ed(`courses.${i}.times.${j}`)}>${esc(x)}</li>`).join('')}</ul>
       ${enquire(`Enquire about ${c.name}`, 'btn btn-primary btn-sm', c.name)}
     </article>`).join('')}
   </div>
@@ -378,8 +392,8 @@ const reviewsBody = `
 const contactBody = `
 <section class="page-head">
   <div class="wrap">
-    <h1>${esc(cfg.contact.heading)}</h1>
-    <p class="lede">${esc(cfg.contact.lede)}</p>
+    <h1${ed('contact.heading')}>${esc(cfg.contact.heading)}</h1>
+    <p class="lede"${ed('contact.lede')}>${esc(cfg.contact.lede)}</p>
   </div>
 </section>
 <section class="band">
@@ -465,9 +479,9 @@ const contactBody = `
 const bookshopBody = `
 <section class="page-head">
   <div class="wrap">
-    <h1>${esc(cfg.bookshop.heading)}</h1>
-    <p class="lede">${esc(cfg.bookshop.lede)}</p>
-    ${cfg.bookshop.note ? `<p class="note">${esc(cfg.bookshop.note)}</p>` : ''}
+    <h1${ed('bookshop.heading')}>${esc(cfg.bookshop.heading)}</h1>
+    <p class="lede"${ed('bookshop.lede')}>${esc(cfg.bookshop.lede)}</p>
+    ${cfg.bookshop.note ? `<p class="note"${ed('bookshop.note')}>${esc(cfg.bookshop.note)}</p>` : ''}
   </div>
 </section>
 <section class="band">
@@ -492,18 +506,19 @@ const bookshopBody = `
 // question a parent arrives with, which is how somebody searching for "small
 // class tutoring Eastwood" finds us at all, and they give the home page six
 // internal links worth following.
+const advIndex = (a) => (cfg.advantages.items || []).findIndex((o) => o.slug === a.slug)
 const whyPage = (a) => `
 <section class="page-head">
   <div class="wrap">
     <p class="crumb"><a href="/">Home</a> <span aria-hidden="true">&rsaquo;</span> ${esc(cfg.advantages.heading)}</p>
     ${icon(a.icon, 'icon icon-xl')}
-    <h1>${esc(a.title)}</h1>
+    <h1${ed(`advantages.items.${advIndex(a)}.title`)}>${esc(a.title)}</h1>
   </div>
 </section>
 <section class="band">
   <div class="wrap">
     <div class="prose">
-      ${(a.page || [a.body]).map((para) => `<p>${esc(para)}</p>`).join('')}
+      ${(a.page || [a.body]).map((para, j) => `<p${ed(`advantages.items.${advIndex(a)}.page.${j}`)}>${esc(para)}</p>`).join('')}
       <p class="review-actions">
         ${enquire('Contact us')}
         <a class="btn btn-ghost" href="/courses/">See the courses</a>
@@ -513,7 +528,7 @@ const whyPage = (a) => `
 </section>
 <section class="band band-alt">
   <div class="wrap">
-    <h2>The other reasons</h2>
+    <h2${ed('advantages.otherHeading')}>${esc(cfg.advantages.otherHeading)}</h2>
     <div class="cards">
       ${(cfg.advantages.items || []).filter((o) => o.slug !== a.slug).map((o) => `
       <article class="card card-link">

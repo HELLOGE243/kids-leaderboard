@@ -35,3 +35,7 @@ functions/.env
 
 # Local-only preview build of the public site (sample text, never deployed)
 site/preview/
+
+# Built by the editor, and its rolling backup of the config
+site/editing/
+site/site.config.json.bak
