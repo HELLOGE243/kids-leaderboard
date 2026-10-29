@@ -9,6 +9,20 @@ import { playCorrectChime } from '../utils/soundManager.js'
 
 const TARGET = 5
 
+/**
+ * What to say about the day's five.
+ *
+ * Deliberately not a tally of failure. A child who has just worked through
+ * the questions they are worst at should not be met with one, and the cards
+ * they missed are coming back anyway.
+ */
+function doneMessage(score, total) {
+  if (total === 0) return 'Nothing to revise today.'
+  if (score === total) return 'Every one returned. Come back tomorrow to keep the streak going.'
+  if (score === 0) return 'A hard set. Every one of these comes back, and they get easier each time.'
+  return 'Good work. The ones you kept will come back until you have them.'
+}
+
 function SessionRevision({ user, onComplete }) {
   // The deck is settled once, so that answering a card - which rewrites the
   // record - cannot reshuffle what is still to come. It has to wait for the
@@ -24,6 +38,7 @@ function SessionRevision({ user, onComplete }) {
     const build = () => {
       if (!alive || !studentRecordReady(user.id)) return false
       const all = getDojoCardsForStudent(user.id).filter((c) => !c.archived)
+      setDeckSize(all.length)
       setCards([...all].sort(() => Math.random() - 0.5).slice(0, TARGET))
       return true
     }
@@ -46,6 +61,18 @@ function SessionRevision({ user, onComplete }) {
   // of thing: that one says what happened to this answer, this one says the
   // question is finished with.
   const [cleared, setCleared] = useState(false)
+  // How many questions are in the bank this card is going back into.
+  const [deckSize, setDeckSize] = useState(0)
+  // The card is folding away into the bank. While it is, Next does nothing:
+  // pressing it twice would otherwise advance the deck underneath its own
+  // animation and file the following card by accident.
+  const [filing, setFiling] = useState(false)
+  const [bankHit, setBankHit] = useState(false)
+  const [flash, setFlash] = useState(false)
+  const deckRef = useRef(null)
+  const bankRef = useRef(null)
+  const fileTimers = useRef([])
+  const flashTimer = useRef(null)
   const [showBurst, setShowBurst] = useState(false)
   // The burst clears itself after a moment, but a student who presses Next
   // straight away used to carry the green celebration onto the next card.
@@ -67,7 +94,11 @@ function SessionRevision({ user, onComplete }) {
   // returns below rather than in the middle of the body. It was already the
   // wrong side of "no cards, render nothing"; adding a second early return
   // for "the record has not arrived" turned that into a crash on first paint.
-  useEffect(() => () => clearTimeout(burstTimer.current), [])
+  useEffect(() => () => {
+    clearTimeout(burstTimer.current)
+    clearTimeout(flashTimer.current)
+    fileTimers.current.forEach(clearTimeout)
+  }, [])
 
   if (!cards) {
     return (
@@ -153,6 +184,19 @@ function SessionRevision({ user, onComplete }) {
     setParticles([])
   }
 
+  // A wrong answer should be felt before it is read. The flash is over in
+  // half a second and sits behind the card rather than over it, so the right
+  // answer underneath is readable the whole time.
+  function flashWrong() {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    clearTimeout(flashTimer.current)
+    setFlash(false)
+    requestAnimationFrame(() => {
+      setFlash(true)
+      flashTimer.current = setTimeout(() => setFlash(false), 620)
+    })
+  }
+
   function handleSelfMark(knewIt) {
     if (answered) return
     setAnswered(true)
@@ -163,6 +207,7 @@ function SessionRevision({ user, onComplete }) {
       startBurst()
     } else {
       setFeedbackMsg('Kept in your revision deck')
+      flashWrong()
     }
     const updated = recordCompulsoryRevisionAnswer(card.id, knewIt)
     if (knewIt && updated?.archived) setCleared(true)
@@ -179,6 +224,7 @@ function SessionRevision({ user, onComplete }) {
       startBurst()
     } else {
       setFeedbackMsg('Kept in your revision deck')
+      flashWrong()
     }
     // The store archives a card on its third correct answer and hands the
     // updated card back; it was being thrown away, so nothing on the screen
@@ -187,7 +233,7 @@ function SessionRevision({ user, onComplete }) {
     if (correct && updated?.archived) setCleared(true)
   }
 
-  function handleNext() {
+  function advance() {
     if (idx + 1 >= total) {
       endBurst()
       setDone(true)
@@ -201,6 +247,47 @@ function SessionRevision({ user, onComplete }) {
     setFlipped(false)
     setFeedbackMsg(null)
     setCleared(false)
+  }
+
+  /**
+   * Folds the card away into the question bank, then moves on.
+   *
+   * The distance is measured rather than written down: the bank sits in the
+   * top bar and the card fills what is left, so where one is relative to the
+   * other depends on the window. A fixed offset lands in the right place on
+   * one screen and halfway off every other.
+   *
+   * If anything is missing, or the student has asked for less motion, the
+   * deck advances immediately. The animation is a flourish, and a flourish
+   * must never be the thing that decides whether revision works.
+   */
+  function fileAway(then) {
+    const deck = deckRef.current
+    const bank = bankRef.current
+    const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!deck || !bank || still) { then(); return }
+    const c = deck.getBoundingClientRect()
+    const b = bank.getBoundingClientRect()
+    deck.style.setProperty('--file-dx', `${(b.left + b.width / 2) - (c.left + c.width / 2)}px`)
+    deck.style.setProperty('--file-dy', `${(b.top + b.height / 2) - (c.top + c.height / 2)}px`)
+    setFiling(true)
+    fileTimers.current.forEach(clearTimeout)
+    fileTimers.current = [
+      setTimeout(() => setBankHit(true), 620),
+      setTimeout(() => {
+        setFiling(false)
+        setBankHit(false)
+        deck.style.removeProperty('--file-dx')
+        deck.style.removeProperty('--file-dy')
+        then()
+      }, 950),
+    ]
+  }
+
+  function handleNext() {
+    if (filing) return
+    if (result === 'incorrect') { fileAway(advance); return }
+    advance()
   }
 
   function handleAskForHelp() {
@@ -221,7 +308,12 @@ function SessionRevision({ user, onComplete }) {
         <div className="sr-done-card">
           <div className="sr-done-icon">&#9989;</div>
           <h2 className="sr-done-title">Revision Complete</h2>
-          <p className="sr-done-sub">Well done — keep revising daily to strengthen your memory!</p>
+          {/* It was called a results card and reported nothing. The score is
+              the one number a student - and later a parent - wants from it. */}
+          <p className="sr-done-score">
+            <strong>{score}</strong> <span className="sr-done-of">out of</span> <strong>{total}</strong>
+          </p>
+          <p className="sr-done-sub">{doneMessage(score, total)}</p>
           <button className="btn sr-continue-btn" onClick={handleFinish}>Continue to Portal</button>
         </div>
       </div>
@@ -239,12 +331,18 @@ function SessionRevision({ user, onComplete }) {
     <div className={`dojo-page${flipped ? ' dojo-focus' : ''}`}>
       <div className="sr-top-bar" style={{ width: '100%' }}>
         <span className="sr-top-title">Compulsory Daily Revision</span>
+        {/* The same slot the Revision Hall keeps its stored-question count in,
+            so a card that is kept has somewhere on screen to be kept in. */}
+        <span className={`sr-bank${bankHit ? ' sr-bank-hit' : ''}`} ref={bankRef}>
+          <span className="sr-bank-icon" aria-hidden="true" />
+          {deckSize} question{deckSize === 1 ? '' : 's'} in your bank
+        </span>
         <span className="sr-top-progress">Card {idx + 1} of {total}</span>
       </div>
 
       <div className="dojo-arena" style={{ width: '100%' }}>
         <div className="dojo-deck-wrapper">
-          <div className={`dojo-flip-container ${flipped ? 'dojo-flipped' : ''}`}>
+          <div className={`dojo-flip-container ${flipped ? 'dojo-flipped' : ''}${filing ? ' sr-filing' : ''}`} ref={deckRef}>
             <div className="dojo-flip-inner">
               <div className="dojo-flip-front">
                 <div className="dojo-card-back" onClick={handleFlip}>
@@ -355,6 +453,7 @@ function SessionRevision({ user, onComplete }) {
           </div>
         </div>
       </div>
+      {flash && <div className="sr-wrong-flash" aria-hidden="true" />}
       {showBurst && (
         <div className="sr-correct-burst">
           <div className="sr-correct-strip">

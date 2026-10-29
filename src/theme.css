@@ -9091,6 +9091,104 @@ button.hw-res-qth.active {
   font-family: var(--font-body);
   font-size: 0.85rem; color: var(--text-dim);
 }
+/* ===== Compulsory revision: filing a kept card back into the bank ===== */
+
+/* The bank sits in the top bar, in the slot the Revision Hall keeps its own
+   stored-question count in, so the two screens agree about where a student's
+   questions live. */
+.sr-bank {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 14px; border-radius: var(--radius);
+  background: rgba(255, 200, 90, 0.08);
+  border: 1px solid rgba(255, 200, 90, 0.25);
+  color: rgba(200, 220, 200, 0.85);
+  font-family: var(--font-body);
+  font-size: 0.8rem; letter-spacing: 0.3px; white-space: nowrap;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+/* A folder, drawn rather than fetched: a tab, then the body. */
+.sr-bank-icon {
+  position: relative; width: 17px; height: 13px; flex: none;
+  background: rgba(255, 200, 90, 0.55); border-radius: 1px 2px 2px 2px;
+}
+.sr-bank-icon::before {
+  content: ''; position: absolute; left: 0; top: -3px;
+  width: 7px; height: 3px; border-radius: 1px 1px 0 0;
+  background: rgba(255, 200, 90, 0.55);
+}
+.sr-bank-hit {
+  background: rgba(255, 200, 90, 0.22);
+  border-color: rgba(255, 200, 90, 0.75);
+  color: #ffe9b0;
+  animation: sr-bank-bump 0.38s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+.sr-bank-hit .sr-bank-icon, .sr-bank-hit .sr-bank-icon::before { background: #ffd36b; }
+@keyframes sr-bank-bump {
+  0%   { transform: translateY(0) scale(1); }
+  42%  { transform: translateY(3px) scale(1.09, 0.93); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+/* The fold. The card creases away from the reader on its bottom edge, the way
+   a sheet of paper is folded before it is filed, then drops into the bank.
+   --file-dx and --file-dy are measured at the moment it starts: the bank is in
+   the top bar and the card fills what is left, so the distance between them
+   depends on the window and cannot be written down here. */
+.sr-filing {
+  transform-origin: 50% 100%;
+  animation: sr-file-away 0.95s cubic-bezier(0.5, 0.02, 0.42, 1) forwards;
+  pointer-events: none;
+  z-index: 4;
+}
+@keyframes sr-file-away {
+  0% {
+    transform: perspective(1400px) translate(0, 0) scale(1) rotateX(0deg);
+    opacity: 1;
+  }
+  34% {
+    transform: perspective(1400px) translate(0, 0) scale(1) rotateX(78deg);
+    opacity: 1;
+  }
+  48% {
+    transform: perspective(1400px) translate(0, 0) scale(0.92) rotateX(84deg);
+    opacity: 1;
+  }
+  100% {
+    transform: perspective(1400px) translate(var(--file-dx, 0px), var(--file-dy, -40vh)) scale(0.1) rotateX(84deg);
+    opacity: 0.12;
+  }
+}
+
+/* Wrong answer. Behind the card, not over it: the right answer has just been
+   revealed underneath and has to stay readable while this plays. */
+.sr-wrong-flash {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background: radial-gradient(120% 90% at 50% 50%, rgba(229, 57, 53, 0.42) 0%, rgba(229, 57, 53, 0.22) 45%, rgba(229, 57, 53, 0) 78%);
+  animation: sr-wrong-flash 0.62s ease-out forwards;
+}
+@keyframes sr-wrong-flash {
+  0%   { opacity: 0; }
+  12%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.sr-done-score {
+  margin: 4px 0 10px;
+  font-family: var(--font-body);
+  font-size: 2.6rem; font-weight: 700; line-height: 1;
+  color: var(--text);
+}
+.sr-done-score .sr-done-of {
+  font-size: 1rem; font-weight: 500; color: var(--text-dim);
+  margin: 0 6px; vertical-align: middle;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sr-filing { animation: none; opacity: 0; }
+  .sr-bank-hit { animation: none; }
+  .sr-wrong-flash { display: none; }
+}
+
 .sr-done-card {
   background: #243352; border: 2px solid rgba(255,255,255,0.18);
   border-radius: 20px; padding: 48px 56px; text-align: center;
