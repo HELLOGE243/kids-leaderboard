@@ -18,8 +18,9 @@ import { getLibraryNews, getLibraryBook } from '../data/store.js'
  * @param {object} props
  * @param {{id: string, name: string, yearGroup?: string}} props.student
  * @param {() => void} props.onBack
+ * @param {boolean} [props.embedded] true when the Reading Room is drawing the header
  */
-function Library({ student, onBack }) {
+function Library({ student, onBack, embedded = false }) {
   const [shelf, setShelf] = useState('works')
   const [works, setWorks] = useState(null)
   const [open, setOpen] = useState(null)
@@ -42,11 +43,13 @@ function Library({ student, onBack }) {
 
   return (
     <div className="lib-page">
+{!embedded && (
       <header className="lib-top">
         <button className="btn btn-outline" onClick={onBack}>← Back</button>
         <h2 className="lib-title">Library</h2>
         <span className="lib-sub">What we are reading, and what we have written</span>
       </header>
+      )}
 
       <nav className="lib-tabs">
         {[

@@ -25,8 +25,9 @@ import {
  * @param {object} props
  * @param {{id: string, name: string, yearGroup?: string}} props.student
  * @param {() => void} props.onBack
+ * @param {boolean} [props.embedded] true when the Reading Room is drawing the header
  */
-function DailyReadings({ student, onBack }) {
+function DailyReadings({ student, onBack, embedded = false }) {
   const [, bump] = useState(0)
   const [open, setOpen] = useState(null)
   const [openedAt, setOpenedAt] = useState(0)
@@ -73,7 +74,8 @@ function DailyReadings({ student, onBack }) {
     const already = doneIds.has(open.id)
     return (
       <div className="dr-page">
-        <header className="dr-top">
+  {!embedded && (
+      <header className="dr-top">
           <button className="btn btn-outline" onClick={() => setOpen(null)}>← Back</button>
           <div className="dr-top-mid">
             <h2 className="dr-title">{open.title}</h2>
@@ -84,6 +86,7 @@ function DailyReadings({ student, onBack }) {
           </div>
           <SpeakButton text={plain(open.text)} speechKey={`reading-${open.id}`} label="Read it to me" />
         </header>
+      )}
 
         <article className="dr-reader" ref={bodyRef}>
           <RichText html={open.text || ''} />
