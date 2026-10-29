@@ -1,10 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { getDailyGameState, saveDailyGameState, awardDailyGameTokens, getDailyPuzzles, setDailyPuzzles } from '../../data/store.js'
+import { getDailyGameState, saveDailyGameState, awardDailyGameTokens, getDailyPuzzles, setDailyPuzzles, getDailyGameScores } from '../../data/store.js'
 import { authedFetch } from '../../data/auth.js'
 
 const GAME_DURATION = 90
 const GRID_SIZE = 4
 const MIN_WORD_LEN = 3
+// Below this the timer stops being a label and starts being a warning.
+const PANIC_AT = 15
+// How close to the middle of a cell the pointer has to come, as a fraction of
+// the cell's size. Hit-testing whole rectangles meant a diagonal drag clipped
+// the corner of the cell it passed and locked onto that instead of the one
+// being aimed at; requiring the pointer near a centre makes the diagonal
+// neighbour the nearest thing when you are heading for it.
+const CELL_HIT_RADIUS = 0.42
 
 const FALLBACK_PUZZLES = [
   {
@@ -25,6 +33,30 @@ function isAdjacent(r1, c1, r2, c2) {
   return Math.abs(r1 - r2) <= 1 && Math.abs(c1 - c2) <= 1 && !(r1 === r2 && c1 === c2)
 }
 
+/**
+ * The line through the letters being traced.
+ *
+ * Drawn as one SVG polyline over the grid rather than as a border on each
+ * cell, because the old per-cell marker could not show the segment between
+ * two cells and so there was nothing at all to follow while dragging. The
+ * last segment runs to wherever the finger is, so the line leads the eye.
+ */
+function WordHuntTrail({ points, pointer, gridRef }) {
+  if (!points.length) return null
+  const g = gridRef.current?.getBoundingClientRect()
+  const live = pointer && g ? [pointer[0] - g.left, pointer[1] - g.top] : null
+  const all = live ? [...points, live] : points
+  const d = all.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ')
+  return (
+    <svg className="wh-trail" aria-hidden="true">
+      <path className="wh-trail-line" d={d} />
+      {points.map(([x, y], i) => (
+        <circle key={i} className="wh-trail-dot" cx={x} cy={y} r="5" />
+      ))}
+    </svg>
+  )
+}
+
 function DailyWordHunt({ userId, onBack, onWin }) {
   const [puzzle, setPuzzle] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -36,9 +68,26 @@ function DailyWordHunt({ userId, onBack, onWin }) {
   const [path, setPath] = useState([])
   const [dragging, setDragging] = useState(false)
   const [lastValid, setLastValid] = useState(null)
+  // Where the finger is right now, so the trail can be drawn from the last
+  // letter to the pointer rather than stopping at the last letter.
+  const [pointer, setPointer] = useState(null)
+  const [stats, setStats] = useState(null)
   const timerRef = useRef(null)
   const gridRef = useRef(null)
   const cellRefs = useRef({})
+  // The dictionary is 387KB and belongs nowhere near the main bundle, so it
+  // is fetched while the puzzle is being generated and parked here. Until it
+  // arrives the game falls back to the generated word list, which is what it
+  // always used.
+  const dictRef = useRef(null)
+
+  useEffect(() => {
+    let alive = true
+    import('../../data/wordsEn.js')
+      .then((m) => { if (alive) dictRef.current = m.isEnglishWord })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
 
   useEffect(() => {
     async function load() {
@@ -122,8 +171,12 @@ words: 30-60 valid English words of 3+ letters that can be traced through adjace
 
   useEffect(() => {
     if (gameOver && started && puzzle) {
-      saveDailyGameState(userId, 'wordhunt', { found, gameOver: true })
+      const pts = found.reduce((sum, w) => sum + (w.length <= 3 ? 1 : w.length <= 4 ? 2 : w.length <= 5 ? 4 : 6), 0)
+      // The score is written down, not just the words, so the board can be
+      // compared against everyone else's without re-scoring each of them.
+      saveDailyGameState(userId, 'wordhunt', { found, score: pts, gameOver: true })
       awardDailyGameTokens(userId, 'wordhunt', 10)
+      setStats(getDailyGameScores('wordhunt', (st) => st.score, userId))
       if (onWin) onWin()
     }
   }, [gameOver])
@@ -138,29 +191,67 @@ words: 30-60 valid English words of 3+ letters that can be traced through adjace
     return p.map(([r, c]) => puzzle.grid[r][c]).join('').toLowerCase()
   }
 
+  /**
+   * Which letter the pointer is on.
+   *
+   * The nearest cell centre, and only if the pointer is actually near it. The
+   * old version returned whichever rectangle contained the point, so a drag
+   * from one corner of the board towards the opposite one passed through the
+   * edge of the cell between them and snapped there - which is why dragging
+   * diagonally kept flicking to a corner tile.
+   */
   function getCellFromPoint(x, y) {
+    let best = null
+    let bestDist = Infinity
+    let size = 0
     for (const key in cellRefs.current) {
       const el = cellRefs.current[key]
       if (!el) continue
       const rect = el.getBoundingClientRect()
-      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
-        const [r, c] = key.split('-').map(Number)
-        return [r, c]
+      size = Math.max(size, rect.width, rect.height)
+      const dx = x - (rect.left + rect.width / 2)
+      const dy = y - (rect.top + rect.height / 2)
+      const dist = Math.hypot(dx, dy)
+      if (dist < bestDist) {
+        bestDist = dist
+        best = key.split('-').map(Number)
       }
     }
-    return null
+    if (!best || bestDist > size * CELL_HIT_RADIUS) return null
+    return best
   }
 
-  function handlePointerDown(r, c) {
+  /** Centres of the traced cells, in the grid's own coordinates. */
+  function pathPoints() {
+    const grid = gridRef.current
+    if (!grid) return []
+    const g = grid.getBoundingClientRect()
+    return path.map(([r, c]) => {
+      const el = cellRefs.current[`${r}-${c}`]
+      if (!el) return null
+      const rect = el.getBoundingClientRect()
+      return [rect.left + rect.width / 2 - g.left, rect.top + rect.height / 2 - g.top]
+    }).filter(Boolean)
+  }
+
+  /** A short buzz when a letter is picked up, where the device has one. */
+  function buzz(ms) {
+    try { navigator.vibrate?.(ms) } catch { /* not every device, not every browser */ }
+  }
+
+  function handlePointerDown(r, c, e) {
     if (gameOver || !started) return
     setDragging(true)
     setPath([[r, c]])
+    if (e) setPointer([e.clientX, e.clientY])
+    buzz(12)
   }
 
   const handlePointerMove = useCallback((e) => {
     if (!dragging || gameOver) return
     e.preventDefault()
     const touch = e.touches ? e.touches[0] : e
+    setPointer([touch.clientX, touch.clientY])
     const cell = getCellFromPoint(touch.clientX, touch.clientY)
     if (!cell) return
     const [r, c] = cell
@@ -185,6 +276,7 @@ words: 30-60 valid English words of 3+ letters that can be traced through adjace
 
       if (!isAdjacent(last[0], last[1], r, c)) return prev
 
+      buzz(10)
       return [...prev, [r, c]]
     })
   }, [dragging, gameOver])
@@ -192,6 +284,7 @@ words: 30-60 valid English words of 3+ letters that can be traced through adjace
   const handlePointerUp = useCallback(() => {
     if (!dragging) return
     setDragging(false)
+    setPointer(null)
 
     const word = getWordFromPath(path)
     if (word.length < MIN_WORD_LEN) {
@@ -206,10 +299,16 @@ words: 30-60 valid English words of 3+ letters that can be traced through adjace
       return
     }
 
-    if (puzzle.words.includes(word)) {
+    // The path already proves the word can be traced on this grid. All that is
+    // left to establish is that it is English - which the generated word list
+    // was being asked to decide, and could not: it is always a fraction of
+    // what a 4x4 board contains, so real words were being rejected.
+    const inDictionary = dictRef.current ? dictRef.current(word) : false
+    if (inDictionary || puzzle.words.includes(word)) {
       const pts = word.length <= 3 ? 1 : word.length <= 4 ? 2 : word.length <= 5 ? 4 : 6
       setFound(prev => [...prev, word])
       showMsg(`${word.toUpperCase()} +${pts}`)
+      buzz(28)
     } else {
       showMsg('Not a word')
     }
@@ -311,7 +410,7 @@ words: 30-60 valid English words of 3+ letters that can be traced through adjace
       {started && (
         <>
           <div className="wb-status-bar">
-            <div className="wb-timer" style={timeLeft <= 15 ? { color: '#e94560' } : {}}>
+            <div className={`wb-timer${timeLeft <= PANIC_AT && timeLeft > 0 ? ' wh-timer-panic' : ''}`}>
               {mins}:{String(secs).padStart(2, '0')}
             </div>
             <div className="wb-score">{score} pts</div>
@@ -327,6 +426,7 @@ words: 30-60 valid English words of 3+ letters that can be traced through adjace
             ref={gridRef}
             style={{ touchAction: 'none' }}
           >
+            <WordHuntTrail points={pathPoints()} pointer={pointer} gridRef={gridRef} />
             {puzzle.grid.map((row, r) => (
               <div key={r} className="wh-grid-row">
                 {row.map((letter, c) => {
@@ -336,12 +436,11 @@ words: 30-60 valid English words of 3+ letters that can be traced through adjace
                     <div
                       key={c}
                       ref={el => cellRefs.current[`${r}-${c}`] = el}
-                      className={`wh-cell ${active ? 'wh-cell-active' : ''} ${idx === 0 ? 'wh-cell-start' : ''}`}
-                      onPointerDown={(e) => { e.preventDefault(); handlePointerDown(r, c) }}
-                      onTouchStart={(e) => { e.preventDefault(); handlePointerDown(r, c) }}
+                      className={`wh-cell${active ? ' wh-cell-active' : ''}${idx === 0 ? ' wh-cell-start' : ''}${active && idx === path.length - 1 && dragging ? ' wh-cell-held' : ''}`}
+                      onPointerDown={(e) => { e.preventDefault(); handlePointerDown(r, c, e) }}
+                      onTouchStart={(e) => { e.preventDefault(); handlePointerDown(r, c, e.touches?.[0]) }}
                     >
                       <span className="wh-cell-letter">{letter}</span>
-                      {active && idx < path.length - 1 && <div className="wh-cell-line" />}
                     </div>
                   )
                 })}
@@ -358,9 +457,26 @@ words: 30-60 valid English words of 3+ letters that can be traced through adjace
             ))}
           </div>
 
+          {gameOver && <div className="wh-timesup" role="status">Time&rsquo;s up!</div>}
+
           {gameOver && (
             <div className="wdl-result wdl-result-win">
-              {found.length} words — {score} points!
+              {found.length} word{found.length === 1 ? '' : 's'} &mdash; {score} points
+              {stats && stats.played > 1 && (
+                <div className="wh-compare">
+                  <div className="wh-compare-row">
+                    <span className="wh-compare-big">#{stats.rank}</span>
+                    <span className="wh-compare-of">of {stats.played} today</span>
+                  </div>
+                  <div className="wh-compare-bars">
+                    <span className="wh-compare-bar" style={{ width: `${stats.best ? Math.round((score / stats.best) * 100) : 0}%` }} />
+                  </div>
+                  <div className="wh-compare-meta">
+                    <span>Average {stats.average}</span>
+                    <span>Best {stats.best}</span>
+                  </div>
+                </div>
+              )}
               <div style={{ marginTop: 8, fontSize: '0.75rem', opacity: 0.7 }}>
                 Missed: {puzzle.words.filter(w => !found.includes(w)).slice(0, 12).join(', ')}
                 {puzzle.words.filter(w => !found.includes(w)).length > 12 ? '...' : ''}

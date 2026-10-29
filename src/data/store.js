@@ -5562,6 +5562,146 @@ export function awardDailyGameTokens(studentId, gameId, amount) {
   return true
 }
 
+/**
+ * How everybody else did at a daily game today.
+ *
+ * The trivia card has had this since it was built and it is the best thing on
+ * the screen: a child who gets one wrong wants to know whether it was hard or
+ * whether it was just them. Every other daily had nothing. This reads the same
+ * per-student dailyGames store they all already write to, so a game gets
+ * comparative results by passing a function that says what counts as a win.
+ *
+ * @param {string} gameId
+ * @param {(state: object) => boolean} [didWin] defaults to the `won` flag
+ * @param {string} [dayKey] defaults to today
+ */
+export function getDailyGameStats(gameId, didWin = (st) => !!st?.won, dayKey = null) {
+  const data = loadData()
+  const key = dayKey || getTodayTriviaKey()
+  let played = 0
+  let won = 0
+  for (const s of Object.values(data.students || {})) {
+    if (s.archived) continue
+    const st = s.dailyGames?.[key]?.[gameId]
+    if (!st || !st.gameOver) continue
+    played++
+    if (didWin(st)) won++
+  }
+  return { played, won, pct: played > 0 ? Math.round((won / played) * 100) : 0 }
+}
+
+/**
+ * One student's record at a daily game, back through however many days.
+ *
+ * Walks backwards a day at a time from today rather than reading whatever
+ * keys happen to exist, because a gap in the record is the thing that ends a
+ * streak and iterating the stored keys would skip straight over it.
+ *
+ * Today counts towards the streak only once it has been played: a streak
+ * should not be reported as broken at breakfast.
+ *
+ * @param {string} studentId
+ * @param {string} gameId
+ * @param {(state: object) => boolean} [didWin]
+ * @param {number} [days] how far back to look
+ */
+export function getDailyGameHistory(studentId, gameId, didWin = (st) => !!st?.won, days = 120) {
+  const data = loadData()
+  const s = data.students?.[studentId]
+  const empty = { streak: 0, best: 0, played: 0, wins: 0, winPct: 0, results: [] }
+  if (!s?.dailyGames) return empty
+
+  const results = []
+  const d = new Date()
+  for (let i = 0; i < days; i++) {
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const st = s.dailyGames[key]?.[gameId]
+    results.push({ day: key, state: st && st.gameOver ? st : null })
+    d.setDate(d.getDate() - 1)
+  }
+
+  let streak = 0
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i]
+    if (!r.state) {
+      // An unplayed today has not broken anything yet.
+      if (i === 0) continue
+      break
+    }
+    if (!didWin(r.state)) break
+    streak++
+  }
+
+  let best = 0
+  let run = 0
+  for (const r of results) {
+    if (r.state && didWin(r.state)) { run++; if (run > best) best = run }
+    else run = 0
+  }
+
+  const playedDays = results.filter((r) => r.state)
+  const wins = playedDays.filter((r) => didWin(r.state)).length
+  return {
+    streak,
+    best: Math.max(best, streak),
+    played: playedDays.length,
+    wins,
+    winPct: playedDays.length ? Math.round((wins / playedDays.length) * 100) : 0,
+    results,
+  }
+}
+
+/**
+ * How many guesses this student has needed, each time they solved the Wordle.
+ *
+ * Returned as a six-slot array so the bar chart can be drawn straight from it
+ * without the caller having to know that six is the limit.
+ */
+export function getWordleDistribution(studentId) {
+  const hist = getDailyGameHistory(studentId, 'wordle')
+  const dist = [0, 0, 0, 0, 0, 0]
+  for (const r of hist.results) {
+    if (!r.state?.won) continue
+    const n = (r.state.guesses || []).length
+    if (n >= 1 && n <= 6) dist[n - 1]++
+  }
+  return { ...hist, dist }
+}
+
+/**
+ * Everybody's score at a daily game today, and where one student sits in it.
+ *
+ * Separate from getDailyGameStats because a game scored out of points has a
+ * different question to answer than a game you either win or lose: not "did
+ * you get it" but "was that any good".
+ *
+ * @param {string} gameId
+ * @param {(state: object) => number} scoreOf
+ * @param {string} [studentId] whose rank to work out
+ */
+export function getDailyGameScores(gameId, scoreOf, studentId = null) {
+  const data = loadData()
+  const key = getTodayTriviaKey()
+  const rows = []
+  for (const [id, s] of Object.entries(data.students || {})) {
+    if (s.archived) continue
+    const st = s.dailyGames?.[key]?.[gameId]
+    if (!st || !st.gameOver) continue
+    rows.push({ id, score: count(scoreOf(st)) })
+  }
+  rows.sort((a, b) => b.score - a.score)
+  const played = rows.length
+  const total = rows.reduce((n, r) => n + r.score, 0)
+  const mine = studentId ? rows.findIndex((r) => r.id === studentId) : -1
+  return {
+    played,
+    best: played ? rows[0].score : 0,
+    average: played ? Math.round(total / played) : 0,
+    rank: mine === -1 ? null : mine + 1,
+    score: mine === -1 ? null : rows[mine].score,
+  }
+}
+
 export function getDailyPuzzles() {
   const data = loadData()
   const today = getTodayTriviaKey()

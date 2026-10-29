@@ -9091,6 +9091,97 @@ button.hw-res-qth.active {
   font-family: var(--font-body);
   font-size: 0.85rem; color: var(--text-dim);
 }
+/* ===== Word Hunt: the trace, the clock, and how you did ===== */
+
+.wh-grid { position: relative; }
+
+/* One line over the whole grid rather than a mark on each cell: a border on a
+   cell cannot draw the bit between two cells, which is the part you follow. */
+.wh-trail {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 2; overflow: visible;
+}
+.wh-trail-line {
+  fill: none;
+  stroke: rgba(255, 196, 84, 0.75);
+  stroke-width: 9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 7px rgba(255, 196, 84, 0.6));
+}
+.wh-trail-dot { fill: rgba(255, 221, 150, 0.95); }
+
+/* The letter under the finger. It shines, and it shivers just enough to say
+   "this one", without moving far enough to be read as a wobble. */
+.wh-cell-held {
+  animation: wh-held 0.45s ease-in-out infinite;
+  box-shadow: 0 0 0 3px rgba(255, 196, 84, 0.85), 0 0 22px 6px rgba(255, 196, 84, 0.55) !important;
+  z-index: 3;
+}
+@keyframes wh-held {
+  0%, 100% { transform: scale(1.1) translate(0, 0); }
+  25%      { transform: scale(1.1) translate(0.9px, -0.7px); }
+  75%      { transform: scale(1.1) translate(-0.9px, 0.7px); }
+}
+
+/* Under fifteen seconds the clock stops being a label. */
+.wh-timer-panic {
+  color: #ff4d5e !important;
+  font-size: 2.6rem !important;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  animation: wh-timer-pop 1s ease-in-out infinite;
+  text-shadow: 0 0 18px rgba(255, 77, 94, 0.7);
+}
+@keyframes wh-timer-pop {
+  0%, 100% { transform: scale(1); }
+  12%      { transform: scale(1.22); }
+  30%      { transform: scale(1); }
+}
+
+.wh-timesup {
+  position: fixed; left: 0; right: 0; top: 38%;
+  z-index: 60; pointer-events: none;
+  text-align: center;
+  font-family: var(--font-pixel, inherit);
+  font-size: clamp(1.8rem, 9vw, 4.4rem);
+  font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(90deg, rgba(233, 69, 96, 0) 0%, rgba(233, 69, 96, 0.95) 12%, rgba(233, 69, 96, 0.95) 88%, rgba(233, 69, 96, 0) 100%);
+  padding: 18px 0;
+  text-shadow: 0 3px 18px rgba(0, 0, 0, 0.6);
+  animation: wh-timesup 2.6s ease-out forwards;
+}
+@keyframes wh-timesup {
+  0%        { opacity: 0; transform: scaleY(0.4); }
+  10%       { opacity: 1; transform: scaleY(1); }
+  20%, 40%, 60% { opacity: 0.25; }
+  30%, 50%, 70% { opacity: 1; }
+  100%      { opacity: 0; }
+}
+
+.wh-compare { margin: 12px 0 4px; }
+.wh-compare-row { display: flex; align-items: baseline; justify-content: center; gap: 8px; }
+.wh-compare-big { font-size: 2rem; font-weight: 800; color: #ffd36b; line-height: 1; }
+.wh-compare-of { font-size: 0.8rem; opacity: 0.75; }
+.wh-compare-bars {
+  height: 8px; border-radius: 999px; margin: 10px auto 6px; max-width: 280px;
+  background: rgba(255, 255, 255, 0.12); overflow: hidden;
+}
+.wh-compare-bar {
+  display: block; height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, #ffc454, #ff8a3d);
+}
+.wh-compare-meta {
+  display: flex; justify-content: center; gap: 18px;
+  font-size: 0.75rem; opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wh-cell-held, .wh-timer-panic { animation: none; }
+  .wh-timesup { animation: none; opacity: 1; }
+}
+
 /* ===== Compulsory revision: filing a kept card back into the bank ===== */
 
 /* The bank sits in the top bar, in the slot the Revision Hall keeps its own
