@@ -17,12 +17,18 @@ const DAILY_CHALLENGES = [
   { id: 'vocabtrainer', name: 'Vocab Trainer', icon: '📖', desc: 'Learn words and fill the passage', reward: '10 tokens', color: '#6a5acd' },
 ]
 
+// `hidden` keeps an arena out of the hall without taking it out of the build.
+// Maths and the Arcade are the two on offer; comprehension and general ability
+// are parked, not deleted, and come back by removing the flag.
 const LIVE_ARENAS = [
   { id: 'maths', name: 'Maths Arena', icon: '➕', desc: 'Speed solve maths problems head-to-head', color: '#e94560', entry: '1 Token', bg: 'linear-gradient(135deg, #1a0a2e 0%, #3d0f3d 50%, #e94560 100%)' },
-  { id: 'comprehension', name: 'Comprehension Arena', icon: '📖', desc: 'Reading passages, inference & vocabulary duels', color: '#00d4aa', entry: '1 Token', bg: 'linear-gradient(135deg, #0a1628 0%, #0d3b3b 50%, #00d4aa 100%)', subs: ['Inference', 'Vocabulary', 'Cloze'] },
-  { id: 'general', name: 'General Ability Arena', icon: '🧠', desc: 'Logic, patterns & spatial reasoning battles', color: '#ffd700', entry: '1 Token', bg: 'linear-gradient(135deg, #1a1a0a 0%, #3d3d0f 50%, #ffd700 100%)' },
+  { id: 'comprehension', hidden: true, name: 'Comprehension Arena', icon: '📖', desc: 'Reading passages, inference & vocabulary duels', color: '#00d4aa', entry: '1 Token', bg: 'linear-gradient(135deg, #0a1628 0%, #0d3b3b 50%, #00d4aa 100%)', subs: ['Inference', 'Vocabulary', 'Cloze'] },
+  { id: 'general', hidden: true, name: 'General Ability Arena', icon: '🧠', desc: 'Logic, patterns & spatial reasoning battles', color: '#ffd700', entry: '1 Token', bg: 'linear-gradient(135deg, #1a1a0a 0%, #3d3d0f 50%, #ffd700 100%)' },
   { id: 'arcade', name: 'Arcade', icon: '🕹️', desc: 'Card games, quiz battles & party games', color: '#a86eff', entry: '2 Tokens', bg: 'linear-gradient(135deg, #1a0a28 0%, #2d1050 50%, #a86eff 100%)', isArcade: true },
 ]
+
+// What the hall actually offers today.
+const SHOWN_ARENAS = LIVE_ARENAS.filter((a) => !a.hidden)
 
 const MINIGAMES = [
   { id: 'dutch', name: 'Dutch', icon: '🃏', desc: 'Discard your hand — lowest total wins! Memory & strategy.', players: '4', color: '#2e7d32', playable: true },
@@ -120,11 +126,9 @@ function PlayerProfile({ userId, student, refresh, open, onToggle }) {
   ]
   const dailyDone = dailies.filter(d => d.done).length
 
-  const ARENAS = [
-    { id: 'maths', name: 'Maths', icon: '➕', color: '#e94560' },
-    { id: 'comprehension', name: 'Comprehension', icon: '📖', color: '#00d4aa' },
-    { id: 'general', name: 'General Ability', icon: '🧠', color: '#ffd700' },
-  ]
+  const ARENAS = SHOWN_ARENAS
+    .filter(a => !a.hidden && !a.isArcade)
+    .map(a => ({ id: a.id, name: a.name.replace(/ Arena$/, ''), icon: a.icon, color: a.color }))
 
   const arenaStats = ARENAS.map(arena => {
     const { elo, tier } = getArenaElo(userId, arena.id)
@@ -487,7 +491,7 @@ function Battlegrounds({ user, onBack }) {
 
   useEffect(() => {
     const t = setInterval(() => {
-      setCarouselIdx(i => (i + 1) % LIVE_ARENAS.length)
+      setCarouselIdx(i => (i + 1) % SHOWN_ARENAS.length)
     }, 5000)
     return () => clearInterval(t)
   }, [])
@@ -654,12 +658,12 @@ function Battlegrounds({ user, onBack }) {
         <span className="bg-section-badge">Multiplayer</span>
       </div>
       <div className="bg-carousel-wrap">
-        <button className="bg-carousel-arrow bg-carousel-prev" onClick={() => setCarouselIdx(i => (i - 1 + LIVE_ARENAS.length) % LIVE_ARENAS.length)}>‹</button>
+        <button className="bg-carousel-arrow bg-carousel-prev" onClick={() => setCarouselIdx(i => (i - 1 + SHOWN_ARENAS.length) % SHOWN_ARENAS.length)}>‹</button>
         <div className="bg-carousel-track">
-          {LIVE_ARENAS.map((arena, i) => {
-            const offset = ((i - carouselIdx) + LIVE_ARENAS.length) % LIVE_ARENAS.length
+          {SHOWN_ARENAS.map((arena, i) => {
+            const offset = ((i - carouselIdx) + SHOWN_ARENAS.length) % SHOWN_ARENAS.length
             const isCenter = offset === 0
-            const isLeft = offset === LIVE_ARENAS.length - 1
+            const isLeft = offset === SHOWN_ARENAS.length - 1
             const isRight = offset === 1
             return (
               <div
@@ -684,9 +688,9 @@ function Battlegrounds({ user, onBack }) {
             )
           })}
         </div>
-        <button className="bg-carousel-arrow bg-carousel-next" onClick={() => setCarouselIdx(i => (i + 1) % LIVE_ARENAS.length)}>›</button>
+        <button className="bg-carousel-arrow bg-carousel-next" onClick={() => setCarouselIdx(i => (i + 1) % SHOWN_ARENAS.length)}>›</button>
         <div className="bg-carousel-dots">
-          {LIVE_ARENAS.map((_, i) => (
+          {SHOWN_ARENAS.map((_, i) => (
             <button key={i} className={`bg-carousel-dot ${i === carouselIdx ? 'bg-carousel-dot-active' : ''}`} onClick={() => setCarouselIdx(i)} />
           ))}
         </div>

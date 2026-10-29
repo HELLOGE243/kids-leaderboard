@@ -1,34 +1,43 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getDailyGameState, saveDailyGameState, awardDailyGameTokens, getTodayTriviaKey, recordWordleSolve } from '../../data/store.js'
+import { isRealWord } from '../../data/words5.js'
 
+/**
+ * The pool the daily word is drawn from.
+ *
+ * Sorted, with no repeats, and every entry checked against the guess
+ * dictionary by scripts/check-wordle-answers.mjs. It used to hold HEMP, which
+ * is four letters long and made the day it came up unsolvable; JOSIE, which is
+ * a name; VOCAB, which is an abbreviation; and nine duplicates, which were
+ * twice as likely to come up as anything else.
+ */
 const WORDS = [
-  'CRANE','BRAVE','FLAME','GHOST','STORM','PLANT','DREAM','HOUSE','OCEAN','BEACH',
-  'CLOUD','EARTH','FAIRY','GIANT','HAPPY','JUICE','KNEEL','LIGHT','MAGIC','NOBLE',
-  'OLIVE','PEARL','QUEEN','ROVER','SHINY','TIGER','ULTRA','VIVID','WATCH','YIELD',
-  'APPLE','BREAD','CHESS','DANCE','EAGLE','FROST','GRAPE','HEART','IMAGE','JELLY',
-  'KNIFE','LUNAR','MAPLE','NERVE','ORBIT','PIANO','QUILT','RANCH','SOLAR','TOWER',
-  'UNITY','VALOR','WHEAT','YOUTH','ZONES','ANGEL','BLOOM','CHARM','DRIFT','ELBOW',
-  'FORGE','GLEAM','HAVEN','IVORY','JOKER','KAYAK','LEMON','MOOSE','NYLON','OPERA',
-  'PRISM','QUEST','ROBIN','SPARK','TRAIL','UNCLE','VAULT','WINDY','AXIOM','BLAZE',
-  'CIDER','DWARF','EVENT','FLUTE','GRAIN','HATCH','INGOT','JEWEL','KOALA','LILAC',
-  'MELON','NORTH','OXIDE','PLUME','RADAR','SCONE','TULIP','USHER','VENOM','WALTZ',
-  'BADGE','CAMEL','DEPTH','EMBER','FIBER','GLOBE','HASTE','IGLOO','JUDGE','KNACK',
-  'LATCH','MARSH','NUDGE','OASIS','PATCH','RIDGE','SNAIL','THIEF','UPSET','VIGOR',
-  'WRIST','BLINK','CHAIN','DODGE','EXACT','FLOUR','GRAZE','HOVER','INLET','JUMBO',
-  'PLAZA','QUAKE','RATIO','SWIRL','TOKEN','UMBRA','VERSE','WEAVE','BASIL','CLIMB',
-  'DELTA','EXPEL','FUDGE','GRILL','HAVEN','IVORY','JAUNT','LASER','MANGO','NOTCH',
-  'OTTER','PANIC','RAPID','SIEGE','TROUT','UNIFY','VOILA','WHISK','CEDAR','DOUGH',
-  'ERUPT','FABLE','GRASP','HYENA','IMPEL','LOTUS','MAIZE','NEXUS','OUNCE','PLANK',
-  'REGAL','SPICE','THORN','URBAN','VINYL','WHELP','ADORN','BRAWL','CORAL','DENIM',
-  'EASEL','FOCAL','GOLEM','HERON','IRONY','LLAMA','MORSE','NASAL','OUTDO','PIXIE',
-  'RESIN','SHAWL','TALON','USURP','VIPER','BRISK','COMET','DRAPE','EXILE','FERRY',
-  'GUAVA','HEMP','ISSUE','KRAFT','LEVER','MINOR','NOBLE','OXIDE','POISE','QUOTA',
-  'RELAY','SAVOR','TEMPO','UNITY','VIOLA','WHEAT','BRINE','CREST','DIVER','ENSUE',
-  'FLORA','GLYPH','HEIST','JOUST','KNELT','LITHE','MOCHA','OAKEN','PRANK','RIVET',
-  'STORK','TUNIC','VOCAB','WAGER','ACORN','BLISS','CHIMP','DWELT','ELEGY','FROST',
-  'GIDDY','HOIST','INLET','KNOLL','LYRIC','MULCH','NERVY','OUGHT','PLUMB','REIGN',
-  'SLEET','TRACE','USHER','VERGE','WRUNG','ABYSS','BUDGE','CLEFT','DRYAD','ELFIN',
-  'FJORD','GRIMY','HUSKY','IDIOM','JOSIE','KAPOK','LUCID','MIRTH','NICHE','OMEGA',
+  'ABYSS', 'ACORN', 'ADORN', 'ANGEL', 'APPLE', 'AXIOM', 'BADGE', 'BASIL', 'BEACH', 'BLAZE',
+  'BLINK', 'BLISS', 'BLOOM', 'BRAVE', 'BRAWL', 'BREAD', 'BRINE', 'BRISK', 'BUDGE', 'CAMEL',
+  'CEDAR', 'CHAIN', 'CHARM', 'CHESS', 'CHIMP', 'CIDER', 'CLEFT', 'CLIMB', 'CLOUD', 'COMET',
+  'CORAL', 'CRANE', 'CREST', 'DANCE', 'DELTA', 'DENIM', 'DEPTH', 'DIVER', 'DODGE', 'DOUGH',
+  'DRAPE', 'DREAM', 'DRIFT', 'DRYAD', 'DWARF', 'DWELT', 'EAGLE', 'EARTH', 'EASEL', 'ELBOW',
+  'ELEGY', 'ELFIN', 'EMBER', 'ENSUE', 'ERUPT', 'EVENT', 'EXACT', 'EXILE', 'EXPEL', 'FABLE',
+  'FAIRY', 'FERRY', 'FIBER', 'FJORD', 'FLAME', 'FLORA', 'FLOUR', 'FLUTE', 'FOCAL', 'FORGE',
+  'FROST', 'FUDGE', 'GHOST', 'GIANT', 'GIDDY', 'GLEAM', 'GLOBE', 'GLYPH', 'GOLEM', 'GRAIN',
+  'GRAPE', 'GRASP', 'GRAZE', 'GRILL', 'GRIMY', 'GUAVA', 'HAPPY', 'HASTE', 'HATCH', 'HAVEN',
+  'HEART', 'HEIST', 'HERON', 'HOIST', 'HOUSE', 'HOVER', 'HUSKY', 'HYENA', 'IDIOM', 'IGLOO',
+  'IMAGE', 'IMPEL', 'INGOT', 'INLET', 'IRONY', 'ISSUE', 'IVORY', 'JAUNT', 'JELLY', 'JEWEL',
+  'JOKER', 'JOUST', 'JUDGE', 'JUICE', 'JUMBO', 'KAPOK', 'KAYAK', 'KNACK', 'KNEEL', 'KNELT',
+  'KNIFE', 'KNOLL', 'KOALA', 'KRAFT', 'LASER', 'LATCH', 'LEMON', 'LEVER', 'LIGHT', 'LILAC',
+  'LITHE', 'LLAMA', 'LOTUS', 'LUCID', 'LUNAR', 'LYRIC', 'MAGIC', 'MAIZE', 'MANGO', 'MAPLE',
+  'MARSH', 'MELON', 'MINOR', 'MIRTH', 'MOCHA', 'MOOSE', 'MORSE', 'MULCH', 'NASAL', 'NERVE',
+  'NERVY', 'NEXUS', 'NICHE', 'NOBLE', 'NORTH', 'NOTCH', 'NUDGE', 'NYLON', 'OAKEN', 'OASIS',
+  'OCEAN', 'OLIVE', 'OMEGA', 'OPERA', 'ORBIT', 'OTTER', 'OUGHT', 'OUNCE', 'OUTDO', 'OXIDE',
+  'PANIC', 'PATCH', 'PEARL', 'PIANO', 'PIXIE', 'PLANK', 'PLANT', 'PLAZA', 'PLUMB', 'PLUME',
+  'POISE', 'PRANK', 'PRISM', 'QUAKE', 'QUEEN', 'QUEST', 'QUILT', 'QUOTA', 'RADAR', 'RANCH',
+  'RAPID', 'RATIO', 'REGAL', 'REIGN', 'RELAY', 'RESIN', 'RIDGE', 'RIVET', 'ROBIN', 'ROVER',
+  'SAVOR', 'SCONE', 'SHAWL', 'SHINY', 'SIEGE', 'SLEET', 'SNAIL', 'SOLAR', 'SPARK', 'SPICE',
+  'STORK', 'STORM', 'SWIRL', 'TALON', 'TEMPO', 'THIEF', 'THORN', 'TIGER', 'TOKEN', 'TOWER',
+  'TRACE', 'TRAIL', 'TROUT', 'TULIP', 'TUNIC', 'ULTRA', 'UMBRA', 'UNCLE', 'UNIFY', 'UNITY',
+  'UPSET', 'URBAN', 'USHER', 'USURP', 'VALOR', 'VAULT', 'VENOM', 'VERGE', 'VERSE', 'VIGOR',
+  'VINYL', 'VIOLA', 'VIPER', 'VIVID', 'VOILA', 'WAGER', 'WALTZ', 'WATCH', 'WEAVE', 'WHEAT',
+  'WHELP', 'WHISK', 'WINDY', 'WRIST', 'WRUNG', 'YIELD', 'YOUTH', 'ZONES',
 ]
 
 function seededIdx(seed, max) {
@@ -102,6 +111,16 @@ function DailyWordle({ userId, onBack, onWin }) {
       setShake(true)
       setTimeout(() => setShake(false), 500)
       showMsg('Not enough letters')
+      return
+    }
+
+    // Any five letters used to be accepted, so a player could burn all six
+    // rows on strings that are not words - and, worse, never find out that was
+    // what they were doing.
+    if (!isRealWord(current)) {
+      setShake(true)
+      setTimeout(() => setShake(false), 500)
+      showMsg('Not in the word list')
       return
     }
 

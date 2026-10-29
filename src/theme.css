@@ -11934,8 +11934,14 @@ button.hw-res-qth.active {
 }
 
 /* --- Daily Trivia Dropdown Banner --- */
+/* The banner grows on hover and the page clips its overflow to keep the star
+   field inside, so the enlarged card was being sliced off against its
+   neighbours. The wrap carries the room to grow into as padding and gives it
+   straight back as margin, so nothing else on the page moves. */
 .bg-trivia-wrap {
-  margin-bottom: 28px;
+  margin: -14px -14px 14px;
+  padding: 14px;
+  overflow: visible;
 }
 .bg-trivia-banner {
   position: relative;
@@ -11964,6 +11970,8 @@ button.hw-res-qth.active {
 .bg-trivia-banner:hover:not(.bg-trivia-banner-done) {
   transform: scale(1.02);
   box-shadow: 0 4px 24px rgba(233, 69, 96, 0.4), 0 0 40px rgba(106, 17, 203, 0.2);
+  /* Above whatever it has grown over. */
+  z-index: 4;
 }
 .bg-trivia-banner-open {
   border-radius: 14px 14px 0 0;
