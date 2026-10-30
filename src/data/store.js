@@ -574,16 +574,41 @@ function getStudentProfile(studentId) {
   return (data.students || {})[studentId] || {}
 }
 
+/**
+ * Changes a student's balances in both places they are kept.
+ *
+ * The per-student document holds the profile; the shared record holds a copy
+ * that the rest of the app reads. Both have to move together.
+ *
+ * It used to mirror by assigning the whole profile over the shared record.
+ * That is only correct while the two agree, and across this school they do
+ * not: most migrated students carry a profile of zeroes beside a shared record
+ * holding the real figures. Copying the whole profile over meant that earning
+ * a single token also wrote bonusCoins: 0 across a balance of several thousand
+ * - a student would play one game and lose every coin they had.
+ *
+ * So only the fields this call actually changed are mirrored. A field nobody
+ * touched is left exactly as it was, in both places.
+ *
+ * This stops the damage spreading. It does not reconcile the two sides, which
+ * is a decision about whose number is true and is written up in NEEDS-ROB.md.
+ */
 function mutateStudentProfile(studentId, mutateFn) {
   const sData = loadStudentData(studentId)
   if (sData && sData._migrated) {
     if (!sData.profile) sData.profile = {}
+    const before = { ...sData.profile }
     mutateFn(sData.profile)
     saveStudentData(studentId, sData)
+    const touched = {}
+    for (const key of Object.keys(sData.profile)) {
+      if (sData.profile[key] !== before[key]) touched[key] = sData.profile[key]
+    }
+    if (Object.keys(touched).length === 0) return
     const data = loadData()
     const student = (data.students || {})[studentId]
     if (student) {
-      Object.assign(student, sData.profile)
+      Object.assign(student, touched)
       saveData(data)
     }
     return

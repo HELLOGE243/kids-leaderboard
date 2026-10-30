@@ -4,7 +4,7 @@ Things I can't decide for you. Nothing here is blocking the rest of the work —
 I'm carrying on with everything else — but each of these either changes live
 data or reverses a choice I made on a reading of your words.
 
-Last updated: 2026-10-30
+Last updated: 2026-10-30 (everything not listed here is built and committed)
 
 ---
 
@@ -36,16 +36,25 @@ these students earns a token through that path, their real `bonusCoins` is
 overwritten with `0`. That's roughly 2,000–4,600 coins each, for most of the
 school.
 
-**I have not touched any of it.**
+**I have not touched any of the data.**
 
-**What I need from you:**
-- [ ] Confirm I should fix `mutateStudentProfile` to copy only the keys it
-      mutated. (This is the actual bug and I'd like to ship it regardless —
-      it stops the bleeding whatever you decide about the data.)
+**What I have done** (commit `the bleeding stops`): `mutateStudentProfile` now
+mirrors only the fields a call actually changed, instead of assigning the whole
+profile over the shared record. Earning one token no longer writes
+`bonusCoins: 0` across a balance of several thousand. This changes no stored
+value — it only stops the next game from destroying one. Five cases pass.
+
+It does **not** reconcile the two sides. That needs you:
+
 - [ ] Confirm `appData/core` holds the true balances and the zeroed profiles
-      should be backfilled from it.
-- [ ] Your own balance: what should it be? I can set it to anything. Earlier
-      working put the honest figure near **1,710**, but you should pick.
+      should be backfilled from it. (I think it does: core is where the
+      plausible numbers are, and the profiles are uniformly zero, which is the
+      signature of a migration that created the shape and never filled it.)
+- [ ] Your own balance: what should it be? Earlier working put the honest
+      figure near **1,710**, but you should pick. Your `bonusCoins` is
+      currently `3.0001e+24` and I will not guess at what it was meant to be.
+- [ ] Token drift is smaller but real — e.g. Siyan shows 320 in core and 0 in
+      the profile. Same question: core wins?
 
 ---
 
