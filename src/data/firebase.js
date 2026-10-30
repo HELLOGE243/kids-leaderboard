@@ -26,7 +26,7 @@ const UNASSIGNED_DOC = 'unassigned'
 const CHUNK_KEYS = {
   core: ['organisations', 'teachers', 'students', 'classes', '_savedAt', 'notificationPrefs', 'smsLog', 'leaderboardSnapshots'],
   content: ['topics', 'tagLibrary', 'classGroups', 'policies', 'quizzes', 'quizAttempts', 'courses', 'quizFolders', 'writingMarks', 'questionReports', 'explanationReports', 'newsfeedPosts', 'libraryNews', 'libraryBook', 'dailyReadings'],
-  activity: ['scores', 'testEvents', 'eventTemplates', 'homeworkAttempts', 'homeworkStarts', 'homeworkRedos', 'homeworkProgress', 'dailyTrivia', 'dailyPuzzles'],
+  activity: ['scores', 'testEvents', 'eventTemplates', 'homeworkAttempts', 'homeworkStarts', 'homeworkRedos', 'homeworkProgress', 'dailyTrivia', 'dailyPuzzles', 'triviaOutcomes'],
   shop: ['shopItems', 'shopCategories', 'purchases', 'avatarPool', 'shopPools', 'lootChestPool', 'voucherConfig'],
   extras: ['battlegroundsData', 'dojoCards', 'dojoClones', 'dojoKills', 'dojoCustomReview', 'vocabBank', 'wordleSolvers', 'arenaGhosts'],
 }
@@ -1084,7 +1084,7 @@ async function writeChunk(chunk, payload, forceAll) {
 // ------------------------------------------------------------
 const STUDENT_WRITABLE = {
   core: { keys: ['students', '_savedAt'], ownMaps: ['students'] },
-  activity: { keys: ['scores', 'dailyTrivia', 'dailyPuzzles'], ownMaps: [] },
+  activity: { keys: ['scores', 'dailyTrivia', 'dailyPuzzles', 'triviaOutcomes'], ownMaps: [] },
   shop: { keys: ['purchases'], ownMaps: [] },
   extras: { keys: ['wordleSolvers', 'arenaGhosts', 'dojoClones', 'dojoKills'], ownMaps: ['dojoKills'] },
   content: { keys: [], ownMaps: [] },

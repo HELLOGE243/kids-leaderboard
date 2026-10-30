@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { getStudentById, spendTokens, getBalanceLeaderboard, getBattlegroundsOnlineCount, pingBattlegroundsPresence, hasDailyTriviaBeenAnswered, completeDailyTrivia, getDailyTrivia, setDailyTrivia, getDailyTriviaStats, getDailyGameState, getWordleHistory, getWordleSolveOrder, getWordleSolverCount, getArenaElo, getArenaTier, getArenaLeaderboard } from '../data/store.js'
+import { getStudentById, spendTokens, getBalanceLeaderboard, getBattlegroundsOnlineCount, pingBattlegroundsPresence, hasDailyTriviaBeenAnswered, completeDailyTrivia, getDailyTrivia, setDailyTrivia, getDailyTriviaStats, getDailyGameState, getWordleHistory, getWordleSolveOrder, getWordleSolverCount, getArenaElo, getArenaTier, getArenaLeaderboard, pickTriviaFromBank, getRetiredTriviaIds } from '../data/store.js'
 import DailyWordle from './games/DailyWordle.jsx'
 import DailyConnections from './games/DailyConnections.jsx'
 import DailyWordHunt from './games/DailyWordHunt.jsx'
@@ -233,6 +233,22 @@ function DailyTrivia({ userId }) {
     async function fetchTrivia() {
       const existing = getDailyTrivia()
       if (existing) { setTrivia(existing); return }
+
+      // The bank first. Asking a model for a question every morning meant a
+      // failed call fell through to the same five hardcoded questions, and
+      // there was no way to tell whether any of them were any good.
+      try {
+        const { default: bank } = await import('../data/triviaBank.js')
+        const picked = pickTriviaFromBank(bank, getRetiredTriviaIds())
+        if (picked) {
+          setDailyTrivia(picked)
+          setTrivia(picked)
+          setLoading(false)
+          return
+        }
+      } catch (e) {
+        console.warn('Trivia bank unavailable:', e)
+      }
 
       setLoading(true)
       try {

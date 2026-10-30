@@ -5481,6 +5481,85 @@ export function getTodayTriviaKey() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+/**
+ * Today's trivia question, from the bank.
+ *
+ * The game used to ask a model for a question each morning and fall back to
+ * five hardcoded ones when the call failed, so a bad week showed the same five
+ * over and over. It now draws from a bank, and only asks a model if the bank
+ * has somehow run dry.
+ *
+ * The question is chosen by the date, so everybody in the school gets the same
+ * one and the comparison at the end means something. It walks forward from the
+ * seeded position rather than picking again on a collision, so a retired
+ * question costs one step rather than an unbounded retry.
+ *
+ * @param {string[]} [retired] ids to skip
+ */
+export function pickTriviaFromBank(bank, retired = []) {
+  const live = bank.filter((q) => !retired.includes(q.id))
+  if (!live.length) return null
+  const d = getTodayTriviaKey().split('-').map(Number)
+  // A plain day count, so consecutive days are consecutive questions rather
+  // than landing on the same one twice in a month.
+  const days = Math.floor(Date.UTC(d[0], d[1] - 1, d[2]) / 86400000)
+  return live[((days % live.length) + live.length) % live.length]
+}
+
+/**
+ * Which bank questions have proved useless, judged on how students did.
+ *
+ * A question nearly everybody gets right is not testing anything, and one
+ * nearly everybody gets wrong is either broken or unfair. Both are retired,
+ * but only once enough students have answered for the figure to mean
+ * something - below that threshold a run of three wrong answers would bin a
+ * perfectly good question.
+ */
+export function getRetiredTriviaIds(minAnswers = 12, tooEasy = 0.85, tooHard = 0.2) {
+  const data = loadData()
+  const log = data.triviaOutcomes || {}
+  const out = []
+  for (const [id, rec] of Object.entries(log)) {
+    const n = count(rec?.seen)
+    if (n < minAnswers) continue
+    const rate = count(rec?.correct) / n
+    if (rate >= tooEasy || rate <= tooHard) out.push(id)
+  }
+  return out
+}
+
+/** Records how one student went on one bank question. */
+export function recordTriviaOutcome(questionId, correct) {
+  if (!questionId) return
+  const data = loadData()
+  if (!data.triviaOutcomes) data.triviaOutcomes = {}
+  const rec = data.triviaOutcomes[questionId] || { seen: 0, correct: 0 }
+  rec.seen = count(rec.seen) + 1
+  if (correct) rec.correct = count(rec.correct) + 1
+  data.triviaOutcomes[questionId] = rec
+  saveData(data)
+}
+
+/** Every bank question with its live accuracy, hardest first. */
+export function getTriviaBankReport(bank) {
+  const data = loadData()
+  const log = data.triviaOutcomes || {}
+  const retired = getRetiredTriviaIds()
+  return bank.map((q) => {
+    const rec = log[q.id] || { seen: 0, correct: 0 }
+    const seen = count(rec.seen)
+    return {
+      id: q.id,
+      category: q.category,
+      question: q.question,
+      seen,
+      correct: count(rec.correct),
+      pct: seen ? Math.round((count(rec.correct) / seen) * 100) : null,
+      retired: retired.includes(q.id),
+    }
+  }).sort((a, b) => (a.pct ?? 999) - (b.pct ?? 999))
+}
+
 export function getDailyTrivia() {
   const data = loadData()
   const today = getTodayTriviaKey()
@@ -5504,6 +5583,9 @@ export function hasDailyTriviaBeenAnswered(studentId) {
 export function completeDailyTrivia(studentId, correct, chosenIndex) {
   const data = loadData()
   if (!data.students[studentId]) return false
+  // Per-question accuracy is what lets a question that turns out to be too
+  // easy or impossible retire itself.
+  const qid = data.dailyTrivia?.id
   data.students[studentId].lastTriviaDate = getTodayTriviaKey()
   data.students[studentId].lastTriviaCorrect = correct
   data.students[studentId].lastTriviaChoice = chosenIndex
@@ -5512,6 +5594,7 @@ export function completeDailyTrivia(studentId, correct, chosenIndex) {
     data.students[studentId].tokensEarned = count(data.students[studentId].tokensEarned) + 1
   }
   saveData(data)
+  if (qid) recordTriviaOutcome(qid, correct)
   return correct
 }
 
