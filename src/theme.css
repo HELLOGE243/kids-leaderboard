@@ -9091,6 +9091,52 @@ button.hw-res-qth.active {
   font-family: var(--font-body);
   font-size: 0.85rem; color: var(--text-dim);
 }
+/* ===== Daily games: how you did, and how everyone else did ===== */
+
+/* The answer used to appear in a message that cleared itself after two
+   seconds, so a player who looked away never learned the word. It stays. */
+.wdl-answer-line {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  flex-wrap: wrap;
+}
+.wdl-answer-word {
+  font-weight: 800; letter-spacing: 0.16em; font-size: 1.5rem;
+  padding: 4px 14px; border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.wdl-summary {
+  margin-top: 16px; padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 0.85rem;
+}
+.wdl-summary-today { margin: 0 0 12px; opacity: 0.9; }
+.wdl-summary-today strong { font-size: 1.1rem; color: #ffd36b; }
+
+.wdl-stat-row { display: flex; justify-content: center; gap: 22px; margin-bottom: 14px; }
+.wdl-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.wdl-stat b { font-size: 1.4rem; font-weight: 800; line-height: 1; }
+.wdl-stat i {
+  font-style: normal; font-size: 0.62rem; letter-spacing: 0.08em;
+  text-transform: uppercase; opacity: 0.65;
+}
+
+.wdl-dist { text-align: left; max-width: 300px; margin: 0 auto; }
+.wdl-dist-title {
+  display: block; font-size: 0.62rem; letter-spacing: 0.08em;
+  text-transform: uppercase; opacity: 0.65; margin-bottom: 6px;
+}
+.wdl-dist-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.wdl-dist-n { width: 10px; font-size: 0.78rem; opacity: 0.8; }
+.wdl-dist-bar {
+  display: inline-block; padding: 2px 8px; border-radius: 3px;
+  background: rgba(255, 255, 255, 0.22);
+  font-size: 0.75rem; font-weight: 700; text-align: right;
+  min-width: 26px; box-sizing: border-box;
+}
+/* Today's row, so a player can find their own result in the chart. */
+.wdl-dist-bar-now { background: #5aab5e; color: #fff; }
+
 /* ===== Word Hunt: the trace, the clock, and how you did ===== */
 
 .wh-grid { position: relative; }

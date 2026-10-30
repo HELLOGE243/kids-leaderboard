@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getDailyGameState, saveDailyGameState, awardDailyGameTokens, getDailyPuzzles, setDailyPuzzles } from '../../data/store.js'
+import { getDailyGameState, saveDailyGameState, awardDailyGameTokens, getDailyPuzzles, setDailyPuzzles, getDailyGameStats, getDailyGameHistory } from '../../data/store.js'
 import { authedFetch } from '../../data/auth.js'
 
 const GROUP_COLORS = ['#f9df6d', '#a0c35a', '#b0c4ef', '#ba81c5']
@@ -57,6 +57,9 @@ function DailyConnections({ userId, onBack, onWin }) {
   const [solved, setSolved] = useState([])
   const [mistakes, setMistakes] = useState(0)
   const [gameOver, setGameOver] = useState(false)
+  // Gathered when the board closes, because today's figures move as the rest
+  // of the school plays.
+  const [summary, setSummary] = useState(null)
   const [won, setWon] = useState(false)
   const [shake, setShake] = useState(false)
   const [message, setMessage] = useState('')
@@ -122,6 +125,17 @@ Each word should be a single word (no spaces). Make the connections tricky — s
     }
     load()
   }, [userId])
+
+  // Both ways the board can close end up here, including reopening a board
+  // that was finished earlier today, so the summary is read off gameOver
+  // rather than written at each of the two places that sets it.
+  useEffect(() => {
+    if (!gameOver) return
+    setSummary({
+      today: getDailyGameStats('connections'),
+      history: getDailyGameHistory(userId, 'connections'),
+    })
+  }, [gameOver, userId])
 
   const shuffledWords = useCallback(() => {
     if (!puzzle) return []
@@ -270,7 +284,26 @@ Each word should be a single word (no spaces). Make the connections tricky — s
 
       {gameOver && (
         <div className={`wdl-result ${won ? 'wdl-result-win' : 'wdl-result-lose'}`}>
-          {won ? `Solved with ${mistakes} mistake${mistakes !== 1 ? 's' : ''}!` : 'Better luck tomorrow!'}
+          <div className="wdl-answer-line">
+            {won ? `Solved with ${mistakes} mistake${mistakes !== 1 ? 's' : ''}` : 'Not today'}
+          </div>
+
+          {summary && (
+            <div className="wdl-summary">
+              {summary.today.played > 1 && (
+                <p className="wdl-summary-today">
+                  <strong>{summary.today.pct}%</strong> of the {summary.today.played} who
+                  {' '}played today got it
+                </p>
+              )}
+              <div className="wdl-stat-row">
+                <span className="wdl-stat"><b>{summary.history.played}</b><i>played</i></span>
+                <span className="wdl-stat"><b>{summary.history.winPct}%</b><i>solved</i></span>
+                <span className="wdl-stat"><b>{summary.history.streak}</b><i>streak</i></span>
+                <span className="wdl-stat"><b>{summary.history.best}</b><i>best</i></span>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

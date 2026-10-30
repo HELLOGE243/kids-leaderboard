@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getDailyGameState, saveDailyGameState, awardDailyGameTokens, getTodayTriviaKey, recordWordleSolve } from '../../data/store.js'
+import { getDailyGameState, saveDailyGameState, awardDailyGameTokens, getTodayTriviaKey, recordWordleSolve, getDailyGameStats, getWordleDistribution } from '../../data/store.js'
 import { isRealWord } from '../../data/words5.js'
 
 /**
@@ -71,6 +71,9 @@ function DailyWordle({ userId, onBack, onWin }) {
   const [won, setWon] = useState(saved?.won || false)
   const [revealRow, setRevealRow] = useState(-1)
   const [message, setMessage] = useState('')
+  // Read once the game is over rather than on mount: today's numbers change
+  // as other students play, and the useful moment to look is the end.
+  const [summary, setSummary] = useState(null)
 
   const maxGuesses = 6
 
@@ -138,17 +141,20 @@ function DailyWordle({ userId, onBack, onWin }) {
       setTimeout(() => {
         setGameOver(true)
         setWon(isWin)
-        const state = { guesses: newGuesses, gameOver: true, won: isWin }
+        const state = { guesses: newGuesses, gameOver: true, won: isWin, answer }
         saveDailyGameState(userId, 'wordle', state)
         if (isWin) {
           awardDailyGameTokens(userId, 'wordle', 10)
           recordWordleSolve(userId)
           if (onWin) onWin()
           showMsg('You got it! +10 Tokens!')
-        } else {
-          saveDailyGameState(userId, 'wordle', { ...state, answer })
-          showMsg(`The word was ${answer}`)
         }
+        // Both outcomes get the same summary. A student who missed it has
+        // more reason to want to know how everyone else went, not less.
+        setSummary({
+          today: getDailyGameStats('wordle'),
+          history: getWordleDistribution(userId),
+        })
       }, 1600)
     } else {
       saveDailyGameState(userId, 'wordle', { guesses: newGuesses, gameOver: false, won: false })
@@ -210,7 +216,8 @@ function DailyWordle({ userId, onBack, onWin }) {
         <button className="btn btn-outline" onClick={onBack}>Back</button>
         <div className="game-title">Wordle</div>
         <div className="game-reward">
-          <img src="/coin.png" alt="" style={{ width: 16, height: 16 }} />
+          {/* Pays tokens, and said coins. */}
+          <img src="/token.png" alt="" style={{ width: 16, height: 16 }} />
           <span>10</span>
         </div>
       </div>
@@ -221,7 +228,48 @@ function DailyWordle({ userId, onBack, onWin }) {
 
       {gameOver && (
         <div className={`wdl-result ${won ? 'wdl-result-win' : 'wdl-result-lose'}`}>
-          {won ? `Solved in ${guesses.length}/6!` : `The word was ${answer}`}
+          {/* The word stays on the screen. It used to be shown for two seconds
+              in a message that then cleared itself, so a player who looked
+              away never found out what the answer was. */}
+          <div className="wdl-answer-line">
+            {won ? `Solved in ${guesses.length}/6` : 'Not today'}
+            <span className="wdl-answer-word">{answer}</span>
+          </div>
+
+          {summary && (
+            <div className="wdl-summary">
+              {summary.today.played > 1 && (
+                <p className="wdl-summary-today">
+                  <strong>{summary.today.pct}%</strong> of the {summary.today.played} who
+                  {' '}played today got it
+                </p>
+              )}
+
+              <div className="wdl-stat-row">
+                <span className="wdl-stat"><b>{summary.history.played}</b><i>played</i></span>
+                <span className="wdl-stat"><b>{summary.history.winPct}%</b><i>solved</i></span>
+                <span className="wdl-stat"><b>{summary.history.streak}</b><i>streak</i></span>
+                <span className="wdl-stat"><b>{summary.history.best}</b><i>best</i></span>
+              </div>
+
+              <div className="wdl-dist">
+                <span className="wdl-dist-title">Guess distribution</span>
+                {summary.history.dist.map((n, i) => {
+                  const top = Math.max(1, ...summary.history.dist)
+                  const isToday = won && guesses.length === i + 1
+                  return (
+                    <div key={i} className="wdl-dist-row">
+                      <span className="wdl-dist-n">{i + 1}</span>
+                      <span
+                        className={`wdl-dist-bar${isToday ? ' wdl-dist-bar-now' : ''}`}
+                        style={{ width: `${Math.max(8, Math.round((n / top) * 100))}%` }}
+                      >{n}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
