@@ -44,7 +44,26 @@ profile over the shared record. Earning one token no longer writes
 `bonusCoins: 0` across a balance of several thousand. This changes no stored
 value — it only stops the next game from destroying one. Five cases pass.
 
-It does **not** reconcile the two sides. That needs you:
+It does **not** reconcile the two sides. The repair is **written and tested**
+but has never been pointed at the database:
+
+```
+node scripts/repair-balances.mjs                          # dry run, writes nothing
+node scripts/repair-balances.mjs --apply
+node scripts/repair-balances.mjs --apply --set-bonus 61864531=1710
+```
+
+It needs `CS_TEACHER_NAME`, `CS_TEACHER_PASSWORD` and `CS_API_KEY` in the
+environment — I deliberately did not run it, because doing so would have
+required putting a live credential into a shell command. It copies core into
+the empty profiles and **refuses any student whose core figure is itself
+absurd** (anything at or above 1e9), so your 3.0001e+24 cannot be propagated by
+accident; `--set-bonus` is the only way to decide that number.
+
+`node scripts/test-balance-plan.mjs` checks the rule against the real record
+shapes — Siyan's, yours, EMILY's — without credentials or a network. 8 cases pass.
+
+That leaves three decisions:
 
 - [ ] Confirm `appData/core` holds the true balances and the zeroed profiles
       should be backfilled from it. (I think it does: core is where the
@@ -108,8 +127,26 @@ Generating 2,000 is easy; keeping them hard is the whole job. What I'd build:
 4. Seed with ~300 and let the live stats sort them rather than trying to
    guarantee 2,000 good ones up front.
 
-- [ ] Want me to build this? It's its own session, and it costs API tokens to
-      generate. Say roughly how many to start with.
+**Built.** `src/data/triviaBank.js` holds **60 hand-written questions**, drawn by
+date so the whole school sees the same one. Every answer is now recorded against
+the question, and one that more than 85% or fewer than 20% get right retires
+itself once a dozen students have answered it.
+
+The generator is written and gated but **not run** — it spends API tokens:
+
+```
+node scripts/generate-trivia.mjs --dry --count 300    # shows what it would do
+node scripts/generate-trivia.mjs --count 300          # needs ANTHROPIC_API_KEY
+node scripts/balance-trivia.mjs                       # run after any batch
+```
+
+- [ ] Say the word and how many, and I'll run it to get you towards 2,000.
+
+One thing worth knowing: the first draft of the hand-written bank had the correct
+answer in position B for **44 of 60** questions. Always pressing the second button
+would have scored 73% without reading anything. `scripts/balance-trivia.mjs`
+fixes that and `--check` fails on drift. Generated batches will have the same
+bias, so that script has to run after every one.
 
 ---
 
