@@ -31,7 +31,7 @@ function generateQuestions(count = 12) {
 }
 
 const QUESTION_TIME = 12
-const ARENA_NAMES = { maths: 'Maths Arena', comprehension: 'Comprehension Arena', general: 'General Ability Arena' }
+const ARENA_NAMES = { maths: 'Maths Arena', comprehension: 'Comprehension Arena' }
 
 function Arena({ arenaId, userId, onBack }) {
   const student = getStudentById(userId)

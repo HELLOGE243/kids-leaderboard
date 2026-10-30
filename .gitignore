@@ -43,3 +43,4 @@ site/site.config.json.bak
 # Credentials and balance backups, never committed
 creds.json
 balances-before-*.json
+core-students-before-*.json

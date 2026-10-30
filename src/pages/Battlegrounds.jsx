@@ -18,12 +18,11 @@ const DAILY_CHALLENGES = [
 ]
 
 // `hidden` keeps an arena out of the hall without taking it out of the build.
-// Maths and the Arcade are the two on offer; comprehension and general ability
-// are parked, not deleted, and come back by removing the flag.
+// Maths and the Arcade are the two on offer. Comprehension is parked rather
+// than deleted, and comes back by removing the flag. General Ability is gone.
 const LIVE_ARENAS = [
   { id: 'maths', name: 'Maths Arena', icon: '➕', desc: 'Speed solve maths problems head-to-head', color: '#e94560', entry: '1 Token', bg: 'linear-gradient(135deg, #1a0a2e 0%, #3d0f3d 50%, #e94560 100%)' },
   { id: 'comprehension', hidden: true, name: 'Comprehension Arena', icon: '📖', desc: 'Reading passages, inference & vocabulary duels', color: '#00d4aa', entry: '1 Token', bg: 'linear-gradient(135deg, #0a1628 0%, #0d3b3b 50%, #00d4aa 100%)', subs: ['Inference', 'Vocabulary', 'Cloze'] },
-  { id: 'general', hidden: true, name: 'General Ability Arena', icon: '🧠', desc: 'Logic, patterns & spatial reasoning battles', color: '#ffd700', entry: '1 Token', bg: 'linear-gradient(135deg, #1a1a0a 0%, #3d3d0f 50%, #ffd700 100%)' },
   { id: 'arcade', name: 'Arcade', icon: '🕹️', desc: 'Card games, quiz battles & party games', color: '#a86eff', entry: '2 Tokens', bg: 'linear-gradient(135deg, #1a0a28 0%, #2d1050 50%, #a86eff 100%)', isArcade: true },
 ]
 

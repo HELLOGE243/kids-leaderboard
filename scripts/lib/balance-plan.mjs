@@ -30,27 +30,37 @@ export function num(field) {
 /**
  * What, if anything, to change for one student.
  *
+ * Normally only the profile is wrong and core holds the truth, so `changes`
+ * describes a profile write and `core` is null. Where an override has been
+ * supplied, it is core that was wrong - that is the only reason to override -
+ * so the figure has to be written to both, or the app goes on reading the
+ * broken one. `core` carries that second write.
+ *
  * @param {object} coreFields their fields on appData/core
  * @param {object} profileFields their profile map in studentData
  * @param {number} [bonusOverride] what to write instead of a core bonusCoins
- * @returns {{changes: object, refuse: string|null}}
+ * @returns {{changes: object, core: object|null, refuse: string|null}}
  */
 export function planFor(coreFields, profileFields, bonusOverride) {
   const changes = {}
+  let core = null
   let refuse = null
   for (const key of PROFILE_KEYS) {
-    const coreVal = bonusOverride !== undefined && key === 'bonusCoins'
-      ? bonusOverride
-      : num(coreFields[key])
+    const overridden = bonusOverride !== undefined && key === 'bonusCoins'
+    const coreStored = num(coreFields[key])
+    const coreVal = overridden ? bonusOverride : coreStored
     const profVal = num(profileFields[key])
     if (coreVal === null) continue
     if (Math.abs(coreVal) >= ABSURD) {
       refuse = `${key} in core is ${coreVal}, which is not a balance`
       continue
     }
+    if (overridden && coreStored !== coreVal) {
+      core = { ...core, [key]: { from: coreStored, to: coreVal } }
+    }
     // A missing profile field is a zero, not "leave it alone": that is exactly
     // the state most of these records are in.
     if (coreVal !== (profVal ?? 0)) changes[key] = { from: profVal ?? 0, to: coreVal }
   }
-  return { changes, refuse }
+  return { changes, core, refuse }
 }

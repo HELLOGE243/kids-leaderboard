@@ -1,7 +1,9 @@
 /**
  * Grows the daily trivia bank, with a quality gate.
  *
+ *   node scripts/generate-trivia.mjs            # fills the bank to 2,000
  *   node scripts/generate-trivia.mjs --count 200 [--dry]
+ *   node scripts/generate-trivia.mjs --to 500 --concurrency 6
  *
  * Generating trivia is easy and generating *hard* trivia is not, so most of
  * this script is the rejecting rather than the asking.
@@ -20,6 +22,11 @@
  *
  * Needs ANTHROPIC_API_KEY. Writes src/data/triviaBank.js. Existing questions
  * are kept; this only ever appends.
+ *
+ * The bank is written after every wave rather than at the end, because a run
+ * to 2,000 is a few hundred model calls and losing an hour of them to a
+ * dropped connection would be absurd. Interrupt it whenever; run it again and
+ * it picks up from what is on disk, skipping any stem it already has.
  */
 import { writeFileSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
@@ -33,10 +40,14 @@ const argOf = (name, fallback) => {
   const i = args.indexOf(`--${name}`)
   return i === -1 ? fallback : args[i + 1]
 }
-const WANT = Number(argOf('count', 100))
+// The bank is sized so that no child sees a repeat: one question a day is
+// 2,000 days, and retiring the ones that turn out too easy or too hard eats
+// into that. --count adds that many; --to fills up to that total.
+const TARGET_TOTAL = 2000
 const DRY = args.includes('--dry')
-const MODEL = argOf('model', 'claude-sonnet-5')
+const MODEL = argOf('model', 'claude-sonnet-5-5')
 const BATCH = 12
+const CONCURRENCY = Number(argOf('concurrency', 4))
 
 const KEY = process.env.ANTHROPIC_API_KEY
 if (!KEY && !DRY) {
@@ -63,12 +74,16 @@ const TOPICS = [
   'history before 1900', 'history after 1900', 'inventions and how they work',
   'food and cooking', 'language and word origins', 'weather and climate',
   'maths in the real world', 'music and sound', 'plants and growing things',
-  'money and how things are priced',
+  'money and how things are priced', 'sport and how bodies move',
+  'buildings and bridges', 'oceans and rivers', 'computers and networks',
+  'myths, legends and where they came from', 'art and how it was made',
+  'measurement and units', 'light, colour and seeing', 'rocks and the deep past',
+  'transport and travel', 'law, rules and fairness', 'farming and where food comes from',
 ]
 
 const pick = (a) => a[Math.floor(Math.random() * a.length)]
 
-async function ask(messages, maxTokens = 1600) {
+async function ask(messages, maxTokens = 1600, effort = 'medium') {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -76,11 +91,19 @@ async function ask(messages, maxTokens = 1600) {
       'x-api-key': KEY,
       'anthropic-version': '2023-06-01',
     },
-    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, messages }),
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: maxTokens,
+      output_config: { effort },
+      messages,
+    }),
   })
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
   const data = await res.json()
-  return data.content?.[0]?.text || ''
+  // These models think before they answer, so the first content block is a
+  // thinking block, not the reply. Take the first text block instead - and
+  // leave room in max_tokens for the thinking, or the reply never arrives.
+  return (data.content || []).find((b) => b.type === 'text')?.text || ''
 }
 
 function parseJsonArray(text) {
@@ -129,26 +152,47 @@ async function optionsGiveItAway(q) {
 ${shown.map((o, i) => `${i}: ${o}`).join('\n')}
 
 Which one is most likely the correct answer, judged only on how the options look - length, specificity, how plausible each is as a "right answer"? Reply with the single digit and nothing else.`,
-  }], 8)
+  }], 512, 'low')
   const guess = parseInt(String(text).trim().match(/\d/)?.[0] ?? '-1', 10)
   return guess === correctShown
+}
+
+/**
+ * Stems already written on this topic, to be named in the prompt.
+ *
+ * Eight angles across twenty-eight topics is a few hundred distinct briefs,
+ * and the bank wants two thousand questions, so the same brief is given many
+ * times over. Without showing the model what it has already written, a later
+ * run spends most of its calls rediscovering the first run's questions and
+ * having them thrown out as duplicate stems.
+ */
+function stemsOn(topic, limit = 24) {
+  const all = [...existing, ...kept]
+  return all
+    .filter((q) => String(q.category || '').toLowerCase() === topic.toLowerCase())
+    .slice(-limit)
+    .map((q) => q.question)
 }
 
 async function generateBatch() {
   const angle = pick(ANGLES)
   const topic = pick(TOPICS)
+  const avoid = stemsOn(topic)
   const text = await ask([{
     role: 'user',
     content: `Write ${BATCH} multiple-choice trivia questions for a bright 11-to-12-year-old preparing for a selective school test.
 
 Topic: ${topic}
 Each one should be ${angle}.
-
+${avoid.length ? `
+These questions are already in the bank. Do not write anything that asks the same thing, even in different words:
+${avoid.map((q) => `- ${q}`).join(String.fromCharCode(10))}
+` : ''}
 They must be genuinely hard. A well-read 12-year-old should get roughly half of them right. Avoid anything answerable by recognising the longest or most technical-sounding option: make every distractor something a reasonable person might choose.
 
 Return ONLY a JSON array, no other text:
 [{"question":"...","options":["A","B","C","D"],"correct":0,"category":"${topic}","explanation":"one sentence on why the answer is right"}]`,
-  }], 4000)
+  }], 12000)
   return parseJsonArray(text)
 }
 
@@ -159,47 +203,89 @@ const existing = existsSync(BANK_PATH)
   ? (await import('../src/data/triviaBank.js')).default
   : []
 const seenStems = new Set(existing.map((q) => q.question.trim().toLowerCase().replace(/\s+/g, ' ')))
-console.log(`bank holds ${existing.length} questions; aiming to add ${WANT}`)
 
-if (DRY) {
-  console.log('--dry: nothing will be generated or written.')
-  console.log(`would run ~${Math.ceil(WANT / BATCH)} generation calls of ${BATCH},`)
-  console.log('plus one cheap options-only check per surviving candidate.')
-  console.log(`angles: ${ANGLES.length}, topics: ${TOPICS.length}`)
+const TO = argOf('to', null)
+const WANT = argOf('count', null) !== null
+  ? Number(argOf('count'))
+  : Math.max(0, (TO === null ? TARGET_TOTAL : Number(TO)) - existing.length)
+
+console.log(`bank holds ${existing.length} questions; aiming to add ${WANT} (total ${existing.length + WANT})`)
+
+if (!WANT) {
+  console.log('nothing to do.')
   process.exit(0)
 }
 
+if (DRY) {
+  const waves = Math.ceil(WANT / (BATCH * CONCURRENCY))
+  console.log('--dry: nothing will be generated or written.')
+  console.log(`would run ~${Math.ceil(WANT / BATCH)} generation calls of ${BATCH}, ${CONCURRENCY} at a time,`)
+  console.log(`so about ${waves} waves, plus one cheap options-only check per surviving candidate.`)
+  console.log(`angles: ${ANGLES.length}, topics: ${TOPICS.length}`)
+  console.log('the bank is rewritten after each wave, so the run can be interrupted.')
+  process.exit(0)
+}
+
+// Ids continue from the highest already in the bank rather than from its
+// length, so a bank that has had anything removed cannot reissue an id - the
+// per-question answer statistics are keyed by it.
+const highest = existing.reduce((m, q) => {
+  const n = parseInt(String(q.id).replace(/[^0-9]/g, ''), 10)
+  return Number.isFinite(n) && n > m ? n : m
+}, 0)
+let nextNum = highest + 1
+const nextId = () => `t${String(nextNum++).padStart(4, '0')}`
+
 const kept = []
 const rejected = { structure: 0, giveaway: 0, parse: 0 }
-let guard = 0
-while (kept.length < WANT && guard < Math.ceil((WANT / BATCH) * 4)) {
-  guard++
+
+/** One generation call, structurally filtered, then quality-gated in parallel. */
+async function harvest() {
   let batch = []
-  try { batch = await generateBatch() } catch (e) { console.warn('  generation failed:', e.message); continue }
-  if (!batch.length) { rejected.parse++; continue }
+  try { batch = await generateBatch() } catch (e) { console.warn('  generation failed:', e.message); return [] }
+  if (!batch.length) { rejected.parse++; return [] }
+
+  const sound = []
   for (const q of batch) {
-    if (kept.length >= WANT) break
     const why = structurallyOk(q, seenStems)
     if (why) { rejected.structure++; continue }
-    let giveaway = false
-    try { giveaway = await optionsGiveItAway(q) } catch { /* a failed check is not a rejection */ }
-    if (giveaway) { rejected.giveaway++; continue }
-    kept.push({
-      id: `t${(existing.length + kept.length + 1).toString().padStart(4, '0')}`,
+    sound.push(q)
+  }
+  // A failed check is not a rejection: the gate is there to throw away easy
+  // questions, not to throw away questions when the network hiccups.
+  const verdicts = await Promise.all(sound.map((q) =>
+    optionsGiveItAway(q).catch(() => false)))
+
+  const out = []
+  sound.forEach((q, i) => {
+    if (verdicts[i]) { rejected.giveaway++; return }
+    out.push({
       question: q.question.trim(),
       options: q.options.map((o) => o.trim()),
       correct: q.correct,
       category: String(q.category || 'General').trim(),
       explanation: q.explanation.trim(),
     })
-  }
-  process.stdout.write(`\r  kept ${kept.length}/${WANT}  (rejected: ${rejected.structure} structural, ${rejected.giveaway} giveaway)`)
+  })
+  return out
 }
-console.log()
 
-const all = [...existing, ...kept]
-writeFileSync(BANK_PATH, renderBank(all))
-console.log(`wrote ${all.length} questions to src/data/triviaBank.js (+${kept.length})`)
+const MAX_WAVES = Math.ceil((WANT / (BATCH * CONCURRENCY)) * 4)
+for (let wave = 0; wave < MAX_WAVES && kept.length < WANT; wave++) {
+  const waves = await Promise.all(
+    Array.from({ length: CONCURRENCY }, () => harvest()))
+  for (const q of waves.flat()) {
+    if (kept.length >= WANT) break
+    kept.push({ id: nextId(), ...q })
+  }
+  // Checkpoint. Everything kept so far is on disk before the next wave runs.
+  writeFileSync(BANK_PATH, renderBank([...existing, ...kept]))
+  console.log(`  wave ${wave + 1}: kept ${kept.length}/${WANT}`
+    + `  (rejected ${rejected.structure} structural, ${rejected.giveaway} giveaway)`)
+}
+
+console.log(`wrote ${existing.length + kept.length} questions to src/data/triviaBank.js (+${kept.length})`)
+console.log('now run: node scripts/balance-trivia.mjs   (answers cluster in one position otherwise)')
 
 function renderBank(questions) {
   return `/**

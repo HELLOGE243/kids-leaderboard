@@ -37,6 +37,7 @@ check('zeroed profile is filled from core',
       tokensEarned: { from: 0, to: 320 },
       bonusCoins: { from: 0, to: 3810 },
     },
+    core: null,
     refuse: null,
   })
 
@@ -58,6 +59,7 @@ check('--set-bonus supplies the number and unblocks it',
       tokensEarned: { from: 0, to: 11 },
       bonusCoins: { from: 0, to: 1710 },
     },
+    core: { bonusCoins: { from: 3.00010038013016e24, to: 1710 } },
     refuse: null,
   })
 
@@ -67,17 +69,17 @@ check('matching records produce no changes',
     { tokens: int(5), tokensEarned: int(5), coinsSpent: int(10), bonusCoins: int(200) },
     { tokens: int(5), tokensEarned: int(5), coinsSpent: int(10), bonusCoins: int(200) },
   ),
-  { changes: {}, refuse: null })
+  { changes: {}, core: null, refuse: null })
 
 // --- a missing profile field counts as zero, which is the state most are in ---
 check('a missing profile field is treated as zero, not skipped',
   planFor({ bonusCoins: int(640) }, {}),
-  { changes: { bonusCoins: { from: 0, to: 640 } }, refuse: null })
+  { changes: { bonusCoins: { from: 0, to: 640 } }, core: null, refuse: null })
 
 // --- a field absent from core is not invented in the profile ---
 check('a field core does not have is left alone',
   planFor({ tokens: int(3) }, { bonusCoins: int(99) }),
-  { changes: { tokens: { from: 0, to: 3 } }, refuse: null })
+  { changes: { tokens: { from: 0, to: 3 } }, core: null, refuse: null })
 
 // --- EMILY: no tokens either side, but real coins to restore ---
 check('coins restored where tokens were always zero',
@@ -85,12 +87,29 @@ check('coins restored where tokens were always zero',
     { tokens: int(0), tokensEarned: int(0), coinsSpent: int(0), bonusCoins: int(110) },
     { tokens: int(0), tokensEarned: int(0), coinsSpent: int(0), bonusCoins: int(0) },
   ),
-  { changes: { bonusCoins: { from: 0, to: 110 } }, refuse: null })
+  { changes: { bonusCoins: { from: 0, to: 110 } }, core: null, refuse: null })
 
 // --- never silently raise someone's spend ---
 check('coinsSpent is reconciled like any other field',
   planFor({ coinsSpent: int(50) }, { coinsSpent: int(0) }),
-  { changes: { coinsSpent: { from: 0, to: 50 } }, refuse: null })
+  { changes: { coinsSpent: { from: 0, to: 50 } }, core: null, refuse: null })
 
-console.log(failed ? `\n${failed} FAILED` : '\nall 8 pass')
+// --- Rob chose zero. A zero override has to reach core too, or the app goes
+// --- on reading 3.0001e+24 and his coin display never changes.
+const robZero = planFor(rob, robProfile, 0)
+check('a zero override still repairs core',
+  robZero.core, { bonusCoins: { from: 3.00010038013016e24, to: 0 } })
+check('  and proposes no profile change, the profile already being zero',
+  Object.keys(robZero.changes).includes('bonusCoins'), false)
+check('  and does not refuse',
+  robZero.refuse, null)
+check('  while still reconciling his tokens',
+  robZero.changes.tokens, { from: 0, to: 11 })
+
+// --- an override that agrees with core leaves core alone ---
+check('an override matching core writes nothing to core',
+  planFor({ bonusCoins: int(200) }, { bonusCoins: int(0) }, 200),
+  { changes: { bonusCoins: { from: 0, to: 200 } }, core: null, refuse: null })
+
+console.log(failed ? `\n${failed} FAILED` : '\nall 13 pass')
 process.exit(failed ? 1 : 0)
