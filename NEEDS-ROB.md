@@ -81,9 +81,18 @@ reads — `--apply` first saves all 84 core records to
 `core-students-before-<timestamp>.json`, and after the write it re-reads the
 document and stops dead if the number of students has changed.
 
-Rather than putting the key on the command line, you can write
-`creds.json` holding `{"name": "...", "password": "...", "apiKey": "..."}`
-and pass `--creds creds.json`. Keep it out of the repo.
+The only real credential there is your password. `CS_API_KEY` is the Firebase
+**web** key, which is public by design — it is in `src/data/firebase.js` and
+shipped to every browser that loads the site — so the script now reads it from
+there and you can leave it out:
+
+```bash
+CS_TEACHER_NAME='Rob' CS_TEACHER_PASSWORD='...'   node scripts/repair-balances.mjs --set-bonus 61864531=0
+```
+
+Rather than putting anything on the command line, write `creds.json` holding
+`{"name": "...", "password": "..."}` and pass `--creds creds.json`. It is
+gitignored.
 
 `--apply` writes `balances-before-<timestamp>.json` first, holding every
 profile exactly as it was, so the whole thing can be undone.
@@ -191,10 +200,47 @@ node scripts/generate-trivia.mjs           # fills to 2,000
 node scripts/balance-trivia.mjs            # then this, always
 ```
 
-### I cannot run this either, and for the same reason
+### Better still: it now fills itself, and needs nothing from you
+
+You asked why not generate one a night and keep it. You were right, and it is
+built — `exports.triviaTopUp` in `functions/index.js`, 2am Sydney.
+
+The reason it is better than the bulk run is not the trickle, it is **where it
+runs**. These functions already reach Claude through workload identity
+federation, so there is no key to hand anybody: the thing I could not do, the
+server can do unattended. Each night it adds what survives the gate, stops at
+2,000, and then picks the day's question and writes it to one small document.
+
+Two faults it fixes that the bulk run would not have:
+
+- **Every browser was asking for its own question.** The old fallback called
+  Claude from the browser, so each student answered a *different* question, and
+  "how many of the school got today's one" cannot mean anything when that is
+  true. Now the night chooses, everyone reads the same document, and a student
+  cannot write it.
+- **Nothing was ever kept.** Every one of those calls was paid for and the
+  question thrown away after one answer. Now each night's questions are banked
+  whether or not they are used.
+
+It also rotates each answer to a position taken in turn, because this is the
+mistake I have already made once: the hand-written bank's first draft had the
+right answer second in 44 of 60, which is 73% for a child who reads nothing and
+always presses the second button.
+
+- [ ] **Deploy it** — `firebase deploy --only functions:triviaTopUp,functions:triviaTopUpRun`
+      and `firebase deploy --only firestore:rules`. The first run seeds the bank
+      with the 60 hand-written questions. `triviaTopUpRun` is a POST for an
+      admin, so you don't have to wait for 2am to see it work.
+- [ ] Decide whether you still want the bulk run. The nightly job reaches 2,000
+      in roughly two months at ~30 a night, free of your involvement. The bulk
+      script below gets there in an hour but needs a key in a shell. My advice:
+      deploy the nightly job, leave the script alone, and look at the bank in a
+      week.
+
+### The bulk script, if you want 2,000 this week
 
 It needs a live API key in this shell, which is the exact thing the sandbox
-refused twice over the balance repair. So the run is yours. What I did instead
+refused twice over the balance repair. So that run would be yours. What I did
 was make it a run you can walk away from and come back to:
 
 - **The bank is written after every wave**, not at the end. 1,940 questions is

@@ -1,0 +1,782 @@
+[
+  {
+    "id": "t0001",
+    "category": "physics",
+    "question": "A helium balloon released indoors rises to the ceiling. If you released the same balloon inside a sealed lift that was accelerating downwards, what would it do?",
+    "options": [
+      "Rise more slowly than before",
+      "Rise faster than before",
+      "Sink towards the floor",
+      "Stay exactly where it was released"
+    ],
+    "correct": 0,
+    "explanation": "The balloon rises because the air around it is pulled down harder than the balloon is. Weaker effective gravity means a weaker push upwards."
+  },
+  {
+    "id": "t0002",
+    "category": "chemistry",
+    "question": "A cut apple turns brown, but one rubbed with lemon juice does not. Why does the lemon juice work?",
+    "options": [
+      "It kills the bacteria that cause browning",
+      "It is acidic, and the enzyme that causes browning works poorly in acid",
+      "It replaces the water lost from the cut surface",
+      "It seals the surface against the air"
+    ],
+    "correct": 1,
+    "explanation": "Browning is driven by an enzyme that barely works in acidic conditions."
+  },
+  {
+    "id": "t0003",
+    "category": "physics",
+    "question": "A boat floats in a swimming pool with a heavy anchor on board. The anchor is thrown overboard and sinks to the bottom. What happens to the water level in the pool?",
+    "options": [
+      "It rises, then settles back",
+      "It rises",
+      "It falls",
+      "It stays the same"
+    ],
+    "correct": 2,
+    "explanation": "On the boat the anchor displaced its own weight in water; on the bottom it displaces only its own volume, which is less."
+  },
+  {
+    "id": "t0004",
+    "category": "physics",
+    "question": "Violet light is scattered by the atmosphere even more strongly than blue. So why is the sky blue?",
+    "options": [
+      "Violet light is scattered upwards rather than downwards",
+      "Violet light is absorbed by water vapour",
+      "Violet light is absorbed by the ozone layer",
+      "Sunlight contains less violet, and our eyes respond far more strongly to blue"
+    ],
+    "correct": 3,
+    "explanation": "There is less violet in sunlight to begin with, and human colour vision is much more sensitive to blue."
+  },
+  {
+    "id": "t0005",
+    "category": "animals",
+    "question": "A desert fox has far larger ears than an arctic fox. What is the main reason?",
+    "options": [
+      "To shed body heat through a large surface area",
+      "To shade the eyes from the sun",
+      "To help it balance when running on soft sand",
+      "To hear prey moving under the sand"
+    ],
+    "correct": 0,
+    "explanation": "Large thin ears carry a lot of blood close to the surface, which sheds heat efficiently."
+  },
+  {
+    "id": "t0006",
+    "category": "cooking",
+    "question": "Yeast makes bread dough rise by producing carbon dioxide. Why does the loaf keep its shape after baking, once that gas has escaped?",
+    "options": [
+      "Trapped steam replaces the gas",
+      "Heat sets the proteins and starch into a rigid structure around the bubbles",
+      "The crust forms first and holds everything in",
+      "The dough contracts onto the bubbles as it cools"
+    ],
+    "correct": 1,
+    "explanation": "Baking sets the gluten and gelatinises the starch, turning a stretchy dough into a solid foam."
+  },
+  {
+    "id": "t0007",
+    "category": "language",
+    "question": "The English word \"salary\" comes from the Latin word for which substance?",
+    "options": [
+      "Sulphur",
+      "Silver",
+      "Salt",
+      "Soil"
+    ],
+    "correct": 2,
+    "explanation": "Roman soldiers were paid an allowance connected with salt, the salarium."
+  },
+  {
+    "id": "t0008",
+    "category": "weather",
+    "question": "The top of a mountain is closer to the Sun than the valley below. Why is it colder up there?",
+    "options": [
+      "Wind at altitude carries the heat away faster",
+      "Thin air cannot absorb sunlight",
+      "Snow at the summit reflects the heat away",
+      "The Sun heats the ground, and the ground heats the air next to it"
+    ],
+    "correct": 3,
+    "explanation": "Air is warmed from below by the ground, so air further from the ground is cooler. A few kilometres towards a Sun 150 million kilometres away changes nothing."
+  },
+  {
+    "id": "t0009",
+    "category": "physics",
+    "question": "You cannot get sunburnt through a closed window. What does that tell you?",
+    "options": [
+      "Sunburn is caused by ultraviolet, which ordinary glass absorbs",
+      "Glass filters out heat as well as light",
+      "Light that passes through glass is too weak to burn",
+      "Glass reflects all harmful radiation"
+    ],
+    "correct": 0,
+    "explanation": "Sunburn is caused specifically by ultraviolet, and ordinary window glass is opaque to it."
+  },
+  {
+    "id": "t0010",
+    "category": "maths",
+    "question": "If you double the radius of a circle, what happens to its area?",
+    "options": [
+      "It triples",
+      "It quadruples",
+      "It increases by half again",
+      "It doubles"
+    ],
+    "correct": 1,
+    "explanation": "Area depends on the radius squared, so doubling the radius multiplies the area by four."
+  },
+  {
+    "id": "t0011",
+    "category": "chemistry",
+    "question": "Why does cutting an onion make you cry, when holding a whole one does not?",
+    "options": [
+      "Cutting releases heat that dries out your eyes",
+      "Juice splashes directly into your eye",
+      "Cutting releases a compound that reacts with the water in your eyes",
+      "The smell is only strong enough once the skin is broken"
+    ],
+    "correct": 2,
+    "explanation": "Damaged cells release a volatile compound that drifts up and forms a mild irritant on contact with moisture."
+  },
+  {
+    "id": "t0012",
+    "category": "space",
+    "question": "The Great Wall of China is often said to be visible from the Moon. Why is that wrong?",
+    "options": [
+      "Cloud cover over China is almost permanent",
+      "Its colour is too close to that of the surrounding ground",
+      "That side of the Earth faces away from the Moon",
+      "It is long, but only a few metres wide, which is far too narrow to resolve"
+    ],
+    "correct": 3,
+    "explanation": "What matters is width, not length, and a few metres is far below what an eye can resolve from that distance."
+  },
+  {
+    "id": "t0013",
+    "category": "history",
+    "question": "An eighteenth-century navigator could find latitude fairly easily but struggled badly with longitude. What made longitude so much harder?",
+    "options": [
+      "Finding it requires knowing the current time at a fixed reference place",
+      "Lines of longitude are not parallel to one another",
+      "The stars do not move from east to west",
+      "Compasses do not indicate east or west"
+    ],
+    "correct": 0,
+    "explanation": "Longitude is a difference in local time, so it needs a clock that keeps the time back home accurately through a long voyage."
+  },
+  {
+    "id": "t0014",
+    "category": "physics",
+    "question": "A kilogram of feathers and a kilogram of iron are weighed on a scale in open air. Which contains more matter?",
+    "options": [
+      "They contain exactly the same",
+      "The feathers",
+      "The iron",
+      "It depends on the air temperature"
+    ],
+    "correct": 1,
+    "explanation": "Feathers take up far more space and so are buoyed up more by the air, meaning they need slightly more mass to register the same reading."
+  },
+  {
+    "id": "t0015",
+    "category": "physics",
+    "question": "Why does a mirror appear to reverse left and right, but not up and down?",
+    "options": [
+      "Light reflects horizontally more readily than vertically",
+      "Our eyes are side by side rather than one above the other",
+      "It reverses front and back, which we read as left-right because we imagine turning to face it",
+      "Mirror glass is manufactured with a horizontal grain"
+    ],
+    "correct": 2,
+    "explanation": "A mirror reverses the axis pointing into it. We describe that as left-right because we picture turning round rather than tipping over."
+  },
+  {
+    "id": "t0016",
+    "category": "geography",
+    "question": "Antarctica is classified as a desert. What qualifies it as one?",
+    "options": [
+      "It has no permanent rivers",
+      "Its temperature varies enormously between seasons",
+      "It supports almost no plant life",
+      "It receives very little precipitation"
+    ],
+    "correct": 3,
+    "explanation": "A desert is defined by how little precipitation it receives, not by heat or sand."
+  },
+  {
+    "id": "t0017",
+    "category": "cooking",
+    "question": "You add a spoonful of salt to a pot of water before boiling pasta. What does that do to the boiling point?",
+    "options": [
+      "Raises it slightly, by well under a degree",
+      "Nothing at all; salt only adds flavour",
+      "Raises it by several degrees, cutting the cooking time noticeably",
+      "Lowers it slightly, so the water boils sooner"
+    ],
+    "correct": 0,
+    "explanation": "Dissolved salt does raise the boiling point, but at cooking quantities the change is a fraction of a degree."
+  },
+  {
+    "id": "t0018",
+    "category": "physics",
+    "question": "Why can a distant train often be heard more clearly at night than during the day?",
+    "options": [
+      "There is less background noise to compete with",
+      "Cold air near the ground bends sound waves back downwards",
+      "Sound travels faster through cold air",
+      "Night air is denser and carries sound further"
+    ],
+    "correct": 1,
+    "explanation": "At night the air near the ground is colder than the air above it, which refracts sound back down instead of letting it escape upwards."
+  },
+  {
+    "id": "t0019",
+    "category": "history",
+    "question": "In which city were the first modern Olympic Games held, in 1896?",
+    "options": [
+      "Rome",
+      "Paris",
+      "Athens",
+      "London"
+    ],
+    "correct": 2,
+    "explanation": "Athens was chosen in acknowledgement of the ancient origin of the Games."
+  },
+  {
+    "id": "t0020",
+    "category": "plants",
+    "question": "A seedling kept in complete darkness grows taller and thinner than one grown in light. Why?",
+    "options": [
+      "Darkness speeds up growth of every kind",
+      "It burns stored energy inefficiently without light",
+      "Cooler air in the dark causes stems to stretch",
+      "It is putting everything into vertical growth, as it would to escape shade"
+    ],
+    "correct": 3,
+    "explanation": "A shaded plant reallocates its resources to height, a response that would normally carry it out from under whatever is blocking the light."
+  },
+  {
+    "id": "t0021",
+    "category": "the human body",
+    "question": "Why do your fingers wrinkle after a long bath, when the rest of your skin does not?",
+    "options": [
+      "The nervous system constricts blood vessels, pulling the skin into ridges",
+      "Soap dissolves the outer layer of skin",
+      "Warm water causes the skin to expand unevenly",
+      "The skin absorbs water and swells"
+    ],
+    "correct": 0,
+    "explanation": "It is an active nervous response, not swelling - which is why it does not happen in a hand whose nerves have been damaged."
+  },
+  {
+    "id": "t0022",
+    "category": "physics",
+    "question": "Why is the inside of a vacuum flask silvered?",
+    "options": [
+      "To make the vacuum easier to maintain",
+      "To stop heat escaping as radiation",
+      "To stop heat escaping by conduction",
+      "To stop the contents reacting with the flask"
+    ],
+    "correct": 1,
+    "explanation": "The vacuum already stops conduction and convection; silvering reflects radiated heat back in, which a vacuum alone does not block."
+  },
+  {
+    "id": "t0023",
+    "category": "maths",
+    "question": "A shirt is reduced by 20%, then the sale price is reduced by a further 20%. What is the total discount from the original price?",
+    "options": [
+      "44%",
+      "40%",
+      "36%",
+      "38%"
+    ],
+    "correct": 2,
+    "explanation": "The second reduction applies to 80% of the original, so the final price is 0.8 x 0.8 = 64% of it."
+  },
+  {
+    "id": "t0024",
+    "category": "animals",
+    "question": "Why does a cat almost always land on its feet after a fall?",
+    "options": [
+      "It pushes against the air with its paws",
+      "Its inner ear makes it rigid during the fall",
+      "Its tail acts as a parachute",
+      "It twists its front and back halves in opposite directions, which needs no outside push"
+    ],
+    "correct": 3,
+    "explanation": "Counter-rotating the two halves of the body changes its orientation without needing anything to push against."
+  },
+  {
+    "id": "t0025",
+    "category": "language",
+    "question": "Which of these words entered English from Arabic?",
+    "options": [
+      "Algebra",
+      "Alphabet",
+      "Album",
+      "Alpine"
+    ],
+    "correct": 0,
+    "explanation": "Algebra comes from al-jabr, a term in a ninth-century Arabic mathematical treatise."
+  },
+  {
+    "id": "t0026",
+    "category": "space",
+    "question": "Why does the same side of the Moon always face the Earth?",
+    "options": [
+      "The Moon does not rotate at all",
+      "The Moon rotates once for every orbit it makes",
+      "The Earth’s magnetic field holds it in place",
+      "The far side is heavier and swings outwards"
+    ],
+    "correct": 1,
+    "explanation": "Its rotation period and orbital period are equal, so it turns exactly once per circuit and keeps one face towards us."
+  },
+  {
+    "id": "t0027",
+    "category": "chemistry",
+    "question": "Why does a bicycle left outside rust, while one kept in a dry shed does not?",
+    "options": [
+      "Rust needs cold temperatures to form",
+      "Rust is caused by air pollution alone",
+      "Rust needs both oxygen and water",
+      "Rust is caused by sunlight on metal"
+    ],
+    "correct": 2,
+    "explanation": "Iron oxidises only in the presence of both oxygen and water; remove either and the reaction effectively stops."
+  },
+  {
+    "id": "t0028",
+    "category": "weather",
+    "question": "You see lightning, then hear thunder five seconds later. Roughly how far away was the strike?",
+    "options": [
+      "About 5 kilometres",
+      "About 15 kilometres",
+      "About 500 metres",
+      "About 1.7 kilometres"
+    ],
+    "correct": 3,
+    "explanation": "Sound covers roughly 340 metres a second, so five seconds is about 1.7 kilometres. Light arrives essentially instantly."
+  },
+  {
+    "id": "t0029",
+    "category": "history",
+    "question": "The Rosetta Stone was so valuable to scholars because it carried the same text in three scripts. Which known language let them decipher the other two?",
+    "options": [
+      "Ancient Greek",
+      "Hebrew",
+      "Aramaic",
+      "Latin"
+    ],
+    "correct": 0,
+    "explanation": "Scholars could already read Ancient Greek, which gave them a way into the hieroglyphic and demotic versions."
+  },
+  {
+    "id": "t0030",
+    "category": "physics",
+    "question": "Why does a heavy ship made of steel float, when a steel bar of the same mass sinks?",
+    "options": [
+      "The ship’s engines provide upward thrust",
+      "The ship is hollow, so it displaces far more water than the bar",
+      "Ship steel is a lighter alloy",
+      "The ship’s shape reduces the pull of gravity on it"
+    ],
+    "correct": 1,
+    "explanation": "Floating depends on displacing a weight of water equal to your own, and a hollow hull displaces vastly more than a solid bar."
+  },
+  {
+    "id": "t0031",
+    "category": "the human body",
+    "question": "Why does your voice sound different to you on a recording?",
+    "options": [
+      "Microphones exaggerate higher frequencies",
+      "Recordings always lose the lower frequencies",
+      "When you speak you also hear yourself through the bones of your skull",
+      "You hear your own voice with a slight delay"
+    ],
+    "correct": 2,
+    "explanation": "Bone conduction adds lower frequencies that nobody else hears, so a recording sounds thinner than you expect."
+  },
+  {
+    "id": "t0032",
+    "category": "geography",
+    "question": "Which of these countries has the most time zones?",
+    "options": [
+      "The United States",
+      "Russia",
+      "China",
+      "France"
+    ],
+    "correct": 3,
+    "explanation": "Counting its overseas territories, France spans more time zones than any other country, despite its small size in Europe."
+  },
+  {
+    "id": "t0033",
+    "category": "maths",
+    "question": "A rope is wrapped tightly around the Earth at the equator. You add one metre to its length and lift it evenly all the way round. Roughly how high does it sit above the ground?",
+    "options": [
+      "About 16 centimetres",
+      "About 2 metres",
+      "It depends on the Earth’s radius",
+      "A fraction of a millimetre"
+    ],
+    "correct": 0,
+    "explanation": "The gap is the extra length divided by 2 pi, which is about 16 centimetres - and the planet’s size does not enter into it."
+  },
+  {
+    "id": "t0034",
+    "category": "animals",
+    "question": "Octopuses have blue blood rather than red. Why?",
+    "options": [
+      "Their blood contains a blue pigment for camouflage",
+      "They carry oxygen with a copper-based molecule instead of an iron-based one",
+      "Their blood is cooled by sea water",
+      "They have no need to carry oxygen in the blood"
+    ],
+    "correct": 1,
+    "explanation": "Haemocyanin uses copper and appears blue, where our haemoglobin uses iron and appears red."
+  },
+  {
+    "id": "t0035",
+    "category": "inventions",
+    "question": "Early bicycles had an enormous front wheel. What did that achieve, before gears existed?",
+    "options": [
+      "It allowed the rider to sit further from the mud",
+      "It made the ride more comfortable on rough roads",
+      "One turn of the pedals covered more ground",
+      "It made the bicycle easier to balance"
+    ],
+    "correct": 2,
+    "explanation": "With the pedals fixed directly to the wheel, the only way to go further per pedal stroke was to make the wheel bigger."
+  },
+  {
+    "id": "t0036",
+    "category": "physics",
+    "question": "Why does ice float on water, when almost every other solid sinks in its own liquid?",
+    "options": [
+      "Ice is colder and therefore lighter",
+      "The surface tension of water supports it",
+      "Ice traps air bubbles as it freezes",
+      "Water molecules lock into an open structure that takes up more space"
+    ],
+    "correct": 3,
+    "explanation": "Hydrogen bonding forces water into a surprisingly roomy crystal, so ice is less dense than the liquid it came from."
+  },
+  {
+    "id": "t0037",
+    "category": "language",
+    "question": "A word that reads the same forwards and backwards is a palindrome. What is a word formed by rearranging the letters of another?",
+    "options": [
+      "An anagram",
+      "A synonym",
+      "An acronym",
+      "A homonym"
+    ],
+    "correct": 0,
+    "explanation": "An anagram uses exactly the same letters in a different order."
+  },
+  {
+    "id": "t0038",
+    "category": "chemistry",
+    "question": "Why does a fizzy drink go flat faster once it has been opened?",
+    "options": [
+      "The gas reacts with the air",
+      "Releasing the pressure lets dissolved gas escape",
+      "Light breaks down the bubbles",
+      "The drink warms up and the sugar absorbs the gas"
+    ],
+    "correct": 1,
+    "explanation": "Gas stays dissolved under pressure; opening the bottle removes that pressure and the gas leaves the liquid."
+  },
+  {
+    "id": "t0039",
+    "category": "history",
+    "question": "Why did the Great Fire of London in 1666 spread so quickly?",
+    "options": [
+      "A strong storm carried burning debris across the river",
+      "The city had no fire service of any kind",
+      "The city was built largely of timber, with upper storeys that nearly met across the streets",
+      "There was no water supply within the city walls"
+    ],
+    "correct": 2,
+    "explanation": "Closely packed timber buildings whose upper floors overhung the street gave the fire an almost continuous path."
+  },
+  {
+    "id": "t0040",
+    "category": "the human body",
+    "question": "Why can you not tickle yourself?",
+    "options": [
+      "You cannot reach the most sensitive areas",
+      "You apply too much pressure unconsciously",
+      "Your hands are the wrong temperature",
+      "Your brain predicts the sensation and suppresses the response"
+    ],
+    "correct": 3,
+    "explanation": "The brain anticipates the consequences of your own movements and damps down the resulting sensation."
+  },
+  {
+    "id": "t0041",
+    "category": "space",
+    "question": "Why is there no sound in space?",
+    "options": [
+      "Sound needs a medium to travel through, and space is nearly empty",
+      "Sound is absorbed by cosmic radiation",
+      "Sound travels too slowly to be detected",
+      "Space is too cold for sound to travel"
+    ],
+    "correct": 0,
+    "explanation": "Sound is a vibration passed between particles; with almost no particles there is nothing to carry it."
+  },
+  {
+    "id": "t0042",
+    "category": "maths",
+    "question": "How many different ways can four people be seated in a row of four chairs?",
+    "options": [
+      "16",
+      "24",
+      "12",
+      "64"
+    ],
+    "correct": 1,
+    "explanation": "Four choices for the first chair, three for the next, then two, then one: 4 x 3 x 2 x 1 = 24."
+  },
+  {
+    "id": "t0043",
+    "category": "weather",
+    "question": "What is the difference between a cyclone, a hurricane and a typhoon?",
+    "options": [
+      "The direction in which they rotate",
+      "Their wind speeds",
+      "The part of the world they occur in",
+      "Whether they form over land or sea"
+    ],
+    "correct": 2,
+    "explanation": "They are the same kind of storm under three regional names."
+  },
+  {
+    "id": "t0044",
+    "category": "animals",
+    "question": "Why do flamingos turn pink?",
+    "options": [
+      "It is caused by prolonged exposure to sunlight",
+      "Their skin reflects the colour of the water they wade in",
+      "They develop the colour as they reach adulthood",
+      "Pigments from the food they eat accumulate in their feathers"
+    ],
+    "correct": 3,
+    "explanation": "Carotenoid pigments from the algae and crustaceans they eat build up in their feathers; a flamingo on a different diet stays pale."
+  },
+  {
+    "id": "t0045",
+    "category": "physics",
+    "question": "Why does a spinning ice skater speed up when she pulls her arms in?",
+    "options": [
+      "Her mass is concentrated nearer the axis, so she must spin faster",
+      "Pulling her arms in reduces air resistance",
+      "Her centre of gravity drops",
+      "She pushes off the ice as she moves her arms"
+    ],
+    "correct": 0,
+    "explanation": "Angular momentum is conserved, so bringing mass closer to the axis of rotation increases the rate of spin."
+  },
+  {
+    "id": "t0046",
+    "category": "food",
+    "question": "Why is honey one of the very few foods that never spoils?",
+    "options": [
+      "It is sterilised by the bees before storage",
+      "Its very low water content and acidity prevent microbes from growing",
+      "It contains a natural preservative added by bees",
+      "It is sealed airtight in the comb"
+    ],
+    "correct": 1,
+    "explanation": "There is too little available water for bacteria or moulds to grow, and it is mildly acidic as well."
+  },
+  {
+    "id": "t0047",
+    "category": "geography",
+    "question": "The Dead Sea is famous for how easily swimmers float in it. Why?",
+    "options": [
+      "Its water is unusually cold and therefore denser",
+      "It is extremely deep",
+      "Its very high salt content makes the water much denser",
+      "It lies below sea level, so gravity is weaker"
+    ],
+    "correct": 2,
+    "explanation": "Dissolved salt makes the water considerably denser than a body, so a swimmer displaces their own weight while barely submerged."
+  },
+  {
+    "id": "t0048",
+    "category": "inventions",
+    "question": "Why were early photographic portraits taken with the sitter’s head in a clamp?",
+    "options": [
+      "The chemicals gave off fumes that made people faint",
+      "To keep the sitter at a fixed distance from the lens",
+      "To ensure the correct posture for the fashion of the time",
+      "Exposures took many seconds, and any movement blurred the image"
+    ],
+    "correct": 3,
+    "explanation": "Early emulsions were so insensitive that an exposure could run to half a minute, and a clamp was the only way to hold still that long."
+  },
+  {
+    "id": "t0049",
+    "category": "language",
+    "question": "Which of these is the only English word in common use that contains three consecutive double letters?",
+    "options": [
+      "Bookkeeper",
+      "Successful",
+      "Possessed",
+      "Committee"
+    ],
+    "correct": 0,
+    "explanation": "Bookkeeper runs oo, kk and ee one after another."
+  },
+  {
+    "id": "t0050",
+    "category": "history",
+    "question": "Cleopatra lived closer in time to which of these?",
+    "options": [
+      "The building of the Great Pyramid",
+      "The first Moon landing",
+      "The founding of Rome",
+      "The reign of Tutankhamun"
+    ],
+    "correct": 1,
+    "explanation": "The Great Pyramid was already more than two thousand years old in her lifetime, while the Moon landing was about two thousand years after it."
+  },
+  {
+    "id": "t0051",
+    "category": "chemistry",
+    "question": "Why does a cup of tea cool faster if you pour the milk in straight away rather than ten minutes later?",
+    "options": [
+      "Milk forms a skin that traps heat",
+      "Milk conducts heat away from the tea",
+      "A hotter cup loses heat faster, so cooling it early means less total loss",
+      "The milk raises the surface area of the liquid"
+    ],
+    "correct": 2,
+    "explanation": "Heat is lost faster the bigger the temperature difference, so a cup kept hotter for longer loses more overall."
+  },
+  {
+    "id": "t0052",
+    "category": "physics",
+    "question": "Why do aircraft windows have a small hole in them?",
+    "options": [
+      "To equalise pressure so the window does not shatter",
+      "To allow air to circulate and prevent icing",
+      "To let condensation drain away",
+      "To let the middle pane carry the pressure difference while keeping the outer as a backup"
+    ],
+    "correct": 3,
+    "explanation": "The hole makes the middle pane bear the load, leaving the outer pane intact and in reserve."
+  },
+  {
+    "id": "t0053",
+    "category": "the human body",
+    "question": "Why does your stomach not digest itself?",
+    "options": [
+      "A layer of mucus is continuously produced to protect the lining",
+      "The lining is made of a material acid cannot dissolve",
+      "Food neutralises the acid before it reaches the wall",
+      "Stomach acid is too weak to harm living tissue"
+    ],
+    "correct": 0,
+    "explanation": "The lining secretes mucus constantly and replaces its own cells every few days."
+  },
+  {
+    "id": "t0054",
+    "category": "maths",
+    "question": "What is the next number in the sequence 1, 11, 21, 1211, 111221?",
+    "options": [
+      "211211",
+      "312211",
+      "122111",
+      "111222"
+    ],
+    "correct": 1,
+    "explanation": "Each term describes the one before it aloud: 111221 is \"three ones, two twos, one one\", which is 312211."
+  },
+  {
+    "id": "t0055",
+    "category": "animals",
+    "question": "Why do many birds stand on one leg in cold weather?",
+    "options": [
+      "To keep better balance in wind",
+      "To stay ready to take off quickly",
+      "To reduce the surface area losing heat",
+      "To rest one leg while the other works"
+    ],
+    "correct": 2,
+    "explanation": "Tucking one leg into the feathers halves the amount of bare skin exposed to the cold."
+  },
+  {
+    "id": "t0056",
+    "category": "space",
+    "question": "A year on Venus is shorter than a day on Venus. How can that be?",
+    "options": [
+      "Venus rotates backwards, which shortens its year",
+      "Venus has no axial tilt",
+      "Its orbit is unusually elliptical",
+      "Venus orbits the Sun faster than it rotates on its axis"
+    ],
+    "correct": 3,
+    "explanation": "Venus takes about 225 Earth days to orbit the Sun but about 243 to turn once on its axis."
+  },
+  {
+    "id": "t0057",
+    "category": "weather",
+    "question": "Why does hail form in summer thunderstorms rather than in winter?",
+    "options": [
+      "Strong summer updraughts carry droplets high enough to freeze and keep them aloft",
+      "Winter clouds are too cold for hail to form",
+      "Hail requires warm ground to form above",
+      "Summer air holds more moisture to freeze"
+    ],
+    "correct": 0,
+    "explanation": "Hail needs violent updraughts to cycle droplets repeatedly through freezing air, and those come with summer convection."
+  },
+  {
+    "id": "t0058",
+    "category": "geography",
+    "question": "Which of these rivers flows northwards?",
+    "options": [
+      "The Amazon",
+      "The Nile",
+      "The Mississippi",
+      "The Danube"
+    ],
+    "correct": 1,
+    "explanation": "The Nile rises in east Africa and flows north to the Mediterranean - rivers follow the slope of the land, not the compass."
+  },
+  {
+    "id": "t0059",
+    "category": "physics",
+    "question": "Why is it harder to cut with a blunt knife than a sharp one, when you push just as hard?",
+    "options": [
+      "A blunt knife generates more friction along its sides",
+      "A sharp knife vibrates at a higher frequency",
+      "A blunt edge spreads the same force over a larger area, lowering the pressure",
+      "A blunt edge is heavier and so harder to control"
+    ],
+    "correct": 2,
+    "explanation": "Cutting depends on pressure, which is force divided by area, so a thinner edge concentrates the same push far more."
+  },
+  {
+    "id": "t0060",
+    "category": "history",
+    "question": "Why was the Titanic’s sinking in 1912 so costly in lives, despite the ship carrying lifeboats?",
+    "options": [
+      "The crew could not reach the lifeboats in time",
+      "The lifeboats capsized in the cold water",
+      "The lifeboats were damaged in the collision",
+      "There were lifeboats for only about half those aboard, and many left partly empty"
+    ],
+    "correct": 3,
+    "explanation": "Regulations of the day set lifeboat numbers by tonnage rather than by the number of people carried."
+  }
+]

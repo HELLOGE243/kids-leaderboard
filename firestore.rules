@@ -231,6 +231,23 @@ service cloud.firestore {
     // Written only by the Claude proxy, which counts a call before it makes
     // it. No client may read or write it: a counter a student could reset is
     // not a counter.
+    // --- Daily trivia -----------------------------------------------------
+    // The bank is written only by the nightly job, through the Admin SDK,
+    // which these rules do not apply to. No browser reads it: what a browser
+    // reads is the one small document for the day, so that the whole school is
+    // asked the same question and "how many got it today" means something.
+    // Nobody writes either from a browser - a student who could write the day's
+    // document could write themselves the answer.
+    match /triviaBank/{questionId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /dailyTrivia/{day} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
     match /aiUsage/{entry} {
       allow read, write: if false;
     }

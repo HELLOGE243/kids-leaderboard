@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { getStudentById, spendTokens, getBalanceLeaderboard, getBattlegroundsOnlineCount, pingBattlegroundsPresence, hasDailyTriviaBeenAnswered, completeDailyTrivia, getDailyTrivia, setDailyTrivia, getDailyTriviaStats, getDailyGameState, getWordleHistory, getWordleSolveOrder, getWordleSolverCount, getArenaElo, getArenaTier, getArenaLeaderboard, pickTriviaFromBank, getRetiredTriviaIds } from '../data/store.js'
+import { getStudentById, spendTokens, getBalanceLeaderboard, getBattlegroundsOnlineCount, pingBattlegroundsPresence, hasDailyTriviaBeenAnswered, completeDailyTrivia, getDailyTrivia, setDailyTrivia, getDailyTriviaStats, getDailyGameState, getWordleHistory, getWordleSolveOrder, getWordleSolverCount, getArenaElo, getArenaTier, getArenaLeaderboard, pickTriviaFromBank, getRetiredTriviaIds, getTodayTriviaKey } from '../data/store.js'
+import { loadDailyTrivia } from '../data/firebase.js'
 import DailyWordle from './games/DailyWordle.jsx'
 import DailyConnections from './games/DailyConnections.jsx'
 import DailyWordHunt from './games/DailyWordHunt.jsx'
@@ -233,9 +234,24 @@ function DailyTrivia({ userId }) {
       const existing = getDailyTrivia()
       if (existing) { setTrivia(existing); return }
 
-      // The bank first. Asking a model for a question every morning meant a
-      // failed call fell through to the same five hardcoded questions, and
-      // there was no way to tell whether any of them were any good.
+      // The night's choice first, because it is the only source every browser
+      // agrees on. A question generated per browser cannot be compared across
+      // the school, however good it is.
+      try {
+        const shared = await loadDailyTrivia(getTodayTriviaKey())
+        if (shared) {
+          setDailyTrivia(shared)
+          setTrivia(shared)
+          setLoading(false)
+          return
+        }
+      } catch (e) {
+        console.warn('Shared trivia unavailable:', e)
+      }
+
+      // Then the bundled bank. Asking a model for a question every morning
+      // meant a failed call fell through to the same five hardcoded questions,
+      // and there was no way to tell whether any of them were any good.
       try {
         const { default: bank } = await import('../data/triviaBank.js')
         const picked = pickTriviaFromBank(bank, getRetiredTriviaIds())

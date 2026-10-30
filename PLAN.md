@@ -31,7 +31,10 @@ rules also have test harnesses, run during development rather than on release.
 |---|---|---|
 | No question bank | One model call a morning, falling back to **5 hardcoded questions** cycled by day-of-month | `src/data/triviaBank.js`, 60 hand-written questions, drawn by date |
 | No sense of quality | Nothing recorded whether a question was any good | Every answer logged per question; >85% or <20% correct retires it, once 12 have answered |
-| Scaling to 2,000 | — | `scripts/generate-trivia.mjs`, with a gate that discards any question answerable from the options alone. Resumable, four calls at a time, and it shows the model what it has already written. Count agreed at 2,000. **I cannot run it** — it needs a live API key, NEEDS-ROB §4 |
+| Scaling to 2,000 | — | **`exports.triviaTopUp`**, nightly at 2am: generates, gates, banks, stops at 2,000. Needs no key — the functions already use workload identity federation. Waiting only to be deployed |
+| A question per browser | The daily fallback called Claude from each browser, so every student answered a different question and the school-wide percentage was meaningless. Each call was also paid for and then thrown away | The night picks one question into `dailyTrivia/{day}`; every browser reads it, nobody can write it, and every generated question is banked |
+| Answer position in generated questions | `balance-trivia.mjs` only ever fixed the static file, so a nightly bank would have drifted straight back into the bias | Each kept question is rotated to a position taken in turn, at the moment it is written. 16 rotation cases pass |
+| Scaling in an hour instead | — | `scripts/generate-trivia.mjs` still does it, resumable and concurrent. **I cannot run it** — a live API key, NEEDS-ROB §4. Probably unnecessary now |
 | Positional bias | First draft had the answer in position B for 44 of 60 | `scripts/balance-trivia.mjs`; now 15/15/15/15, and `--check` fails on drift |
 
 ### Wordle
@@ -93,7 +96,7 @@ provider decision.
 | Item | Why |
 |---|---|
 | **Balance reconciliation** | **I am not permitted to run it.** The sandbox refused twice — once for a key on a command line, once for copying it to a file — and was right both times. It is one command for you: NEEDS-ROB §1 |
-| **Trivia bank to 2,000** | **Also not permitted.** Same reason: a live API key in this shell. Count and go-ahead settled; the run is one command, resumable, under $10 — NEEDS-ROB §4 |
+| **Trivia bank to 2,000** | Now fills itself nightly and needs no key, but the function has to be **deployed** — NEEDS-ROB §4. The bulk script remains the only part I cannot run |
 | Weekly parent email — sending | The recording half is now built and tested. Nothing can send until a provider is chosen |
 | Token to coin conversion | Rate undecided — NEEDS-ROB §7 |
 | Public site phone and address | Yours to supply |

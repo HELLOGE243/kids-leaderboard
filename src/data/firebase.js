@@ -493,6 +493,40 @@ export async function loadAttemptDrafts() {
 // question reads the first one's answer. Keyed by quiz set, with one entry per
 // question, so a set's explanations arrive in a single read.
 // ------------------------------------------------------------
+const DAILY_TRIVIA_COLLECTION = 'dailyTrivia'
+
+/**
+ * The day's trivia question, chosen for the whole school by the nightly job.
+ *
+ * One document, read by every browser. It used to be a Claude call made by
+ * each browser for itself, which meant every student answered a different
+ * question - and "how many of the school got today's one" cannot mean anything
+ * when that is true.
+ *
+ * Returns null when the night's job has not written one, and the caller falls
+ * back to the bundled bank.
+ */
+export async function loadDailyTrivia(dayKey) {
+  if (!dayKey) return null
+  try {
+    const snap = await getDoc(doc(db, DAILY_TRIVIA_COLLECTION, String(dayKey)))
+    if (!snap.exists()) return null
+    const d = snap.data() || {}
+    if (!d.question || !Array.isArray(d.options)) return null
+    return {
+      id: d.questionId || null,
+      question: d.question,
+      options: d.options,
+      correct: d.correct,
+      category: d.category || 'General',
+      explanation: d.explanation || '',
+    }
+  } catch (e) {
+    console.warn('Firestore: failed to load the day\'s trivia:', e)
+    return null
+  }
+}
+
 const AI_EXPLANATIONS_COLLECTION = 'aiExplanations'
 const _aiExpCache = new Map() // setId -> { [questionKey]: { general, options } }
 

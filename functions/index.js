@@ -3108,3 +3108,363 @@ async function deleteStudentAccount(req, res) {
   Object.assign(removed, await purgeStudentFigures(studentId, Object.keys(classes)))
   return sendJson(res, 200, { ok: true, removed })
 }
+
+/* ---------------------------------------------------------------------------
+ * Daily trivia: generated a little each night, kept forever
+ *
+ * The browser used to ask Claude for a question itself whenever the static
+ * bank had none. That has two faults. Each browser got a *different* question,
+ * so "how many of the school got today's one" meant nothing; and the question
+ * was thrown away after being answered, so the bank never grew however many
+ * times it was paid for.
+ *
+ * This job runs once a night instead. It tops the bank up by a few dozen
+ * questions, discards the ones that do not survive the quality gate, and then
+ * picks the day's question and writes it to one small document that every
+ * browser reads. One question a night asked of everyone, and a bank that only
+ * ever grows.
+ *
+ * It needs no key: these functions already reach Claude through workload
+ * identity federation, which is why this can run unattended where a script on
+ * somebody's laptop cannot.
+ * ------------------------------------------------------------------------- */
+
+const TRIVIA_BANK = 'triviaBank'
+const DAILY_TRIVIA = 'dailyTrivia'
+
+/** Stop generating here. One a day is five and a half years of questions. */
+const TRIVIA_TARGET = 2000
+
+/** Per night: four calls of twelve, which a nine-minute function finishes. */
+const TRIVIA_BATCH = 12
+const TRIVIA_CALLS = 4
+const TRIVIA_MODEL = 'claude-sonnet-5-5'
+
+// Naming the reasoning move matters more than naming the topic: "a science
+// question" produces a fact lookup, and a fact lookup is not hard, only
+// unknown.
+const TRIVIA_ANGLES = [
+  'a question where the intuitive answer is wrong for a reason that can be explained in one sentence',
+  'a question that requires combining two facts the student probably knows separately',
+  'a question about an everyday object whose workings are rarely thought about',
+  'a question where all four options are true statements but only one answers the question asked',
+  'a question requiring an order-of-magnitude estimate rather than a remembered figure',
+  'a question about why something is the way it is, not what it is',
+  'a question where the common misconception is one of the options',
+  'a question that turns on the precise meaning of one word in the stem',
+]
+const TRIVIA_TOPICS = [
+  'space and astronomy', 'the human body', 'animals and their behaviour',
+  'chemistry in everyday life', 'physics you can see', 'world geography',
+  'history before 1900', 'history after 1900', 'inventions and how they work',
+  'food and cooking', 'language and word origins', 'weather and climate',
+  'maths in the real world', 'music and sound', 'plants and growing things',
+  'money and how things are priced', 'sport and how bodies move',
+  'buildings and bridges', 'oceans and rivers', 'computers and networks',
+  'myths, legends and where they came from', 'art and how it was made',
+  'measurement and units', 'light, colour and seeing', 'rocks and the deep past',
+  'transport and travel', 'law, rules and fairness', 'farming and where food comes from',
+]
+
+const NL = String.fromCharCode(10)
+const pickOne = (a) => a[Math.floor(Math.random() * a.length)]
+
+/** Two questions asking the same thing in different words share a stem. */
+function triviaStem(question) {
+  return String(question || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
+/** The reply, from the first text block: the first block is Claude thinking. */
+async function askTrivia(prompt, maxTokens, effort) {
+  const { status, body } = await callClaude({
+    model: TRIVIA_MODEL,
+    max_tokens: maxTokens,
+    output_config: { effort },
+    messages: [{ role: 'user', content: prompt }],
+  })
+  if (status !== 200) throw new Error(`Claude ${status}: ${String(body).slice(0, 300)}`)
+  const data = JSON.parse(body)
+  const text = (data.content || []).find((b) => b.type === 'text')
+  return (text && text.text) || ''
+}
+
+/** A JSON array out of a reply, without a regex that can run away on it. */
+function firstJsonArray(text) {
+  const open = String(text).indexOf('[')
+  const close = String(text).lastIndexOf(']')
+  if (open === -1 || close <= open) return []
+  try {
+    const parsed = JSON.parse(String(text).slice(open, close + 1))
+    return Array.isArray(parsed) ? parsed : []
+  } catch (e) {
+    return []
+  }
+}
+
+/** Cheap rejections, before anything is spent on judging quality. */
+function triviaStructurallyOk(q, seenStems) {
+  if (!q || typeof q.question !== 'string') return 'not an object'
+  if (!Array.isArray(q.options) || q.options.length !== 4) return 'not four options'
+  if (q.options.some((o) => typeof o !== 'string' || !o.trim())) return 'blank option'
+  if (!Number.isInteger(q.correct) || q.correct < 0 || q.correct > 3) return 'bad correct index'
+  if (typeof q.explanation !== 'string' || q.explanation.length < 15) return 'no explanation'
+  if (q.question.length < 25) return 'stem too short'
+  const lower = q.options.map((o) => o.trim().toLowerCase())
+  if (new Set(lower).size !== 4) return 'duplicate options'
+  if (lower.some((o) => o.includes('above') && (o.includes('all') || o.includes('none')))) return 'all/none of the above'
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 4; j++) {
+      // An option contained in another is a giveaway pair.
+      if (i !== j && lower[i].length > 3 && lower[j].includes(lower[i])) return 'one option contains another'
+    }
+  }
+  const stem = triviaStem(q.question)
+  if (!stem) return 'empty stem'
+  if (seenStems.has(stem)) return 'already in the bank'
+  seenStems.add(stem)
+  return ''
+}
+
+/**
+ * The gate that matters: can the answer be found without the question?
+ *
+ * Three silly distractors and one sensible one makes a question a child answers
+ * correctly while learning nothing. So the four options go to Claude with the
+ * stem withheld, shuffled so position says nothing. If it picks the right one,
+ * the distractors were doing the work and the question is thrown away.
+ */
+async function triviaOptionsGiveItAway(q) {
+  const order = q.options.map((_, i) => i).sort(() => Math.random() - 0.5)
+  const shown = order.map((i) => q.options[i])
+  const correctShown = order.indexOf(q.correct)
+  const lines = shown.map((o, i) => `${i}: ${o}`).join(NL)
+  const text = await askTrivia(
+    'Here are four answer options from a multiple-choice question. The question itself has been withheld.'
+    + NL + NL + lines + NL + NL
+    + 'Which one is most likely the correct answer, judged only on how the options look - length, specificity, how plausible each is as a "right answer"? Reply with the single digit and nothing else.',
+    512, 'low')
+  const digit = Array.from(String(text)).find((c) => c >= '0' && c <= '9')
+  return digit !== undefined && Number(digit) === correctShown
+}
+
+async function generateTriviaBatch(avoidByTopic) {
+  const angle = pickOne(TRIVIA_ANGLES)
+  const topic = pickOne(TRIVIA_TOPICS)
+  const avoid = (avoidByTopic[topic] || []).slice(-24)
+  // Showing what has already been written on the topic is what stops a run
+  // months in from rediscovering its own first week and throwing it all away.
+  const already = avoid.length
+    ? NL + 'These questions are already in the bank. Do not write anything that asks the same thing, even in different words:'
+      + NL + avoid.map((a) => `- ${a}`).join(NL) + NL
+    : ''
+  const text = await askTrivia(
+    `Write ${TRIVIA_BATCH} multiple-choice trivia questions for a bright 11-to-12-year-old preparing for a selective school test.`
+    + NL + NL + `Topic: ${topic}` + NL + `Each one should be ${angle}.` + NL + already
+    + NL + 'They must be genuinely hard. A well-read 12-year-old should get roughly half of them right. Avoid anything answerable by recognising the longest or most technical-sounding option: make every distractor something a reasonable person might choose.'
+    + NL + NL + 'Return ONLY a JSON array, no other text:'
+    + NL + `[{"question":"...","options":["A","B","C","D"],"correct":0,"category":"${topic}","explanation":"one sentence on why the answer is right"}]`,
+    12000, 'medium')
+  return firstJsonArray(text)
+}
+
+/** Every stem in the bank, and the questions grouped by topic for the prompt. */
+async function readTriviaIndex() {
+  const snap = await db.collection(TRIVIA_BANK).select('stem', 'question', 'category').get()
+  const stems = new Set()
+  const byTopic = {}
+  snap.forEach((docSnap) => {
+    const d = docSnap.data() || {}
+    if (d.stem) stems.add(d.stem)
+    const topic = String(d.category || '').toLowerCase()
+    if (d.question) (byTopic[topic] = byTopic[topic] || []).push(d.question)
+  })
+  return { stems, byTopic, count: snap.size }
+}
+
+/**
+ * The 60 hand-written questions, written in once.
+ *
+ * Without them the bank starts empty and the first nights are free to write
+ * the same questions again, there being nothing to compare against.
+ */
+async function seedTriviaBank() {
+  const seed = require('./triviaSeed.json')
+  const batch = db.batch()
+  for (const q of seed) {
+    batch.set(db.collection(TRIVIA_BANK).doc(String(q.id)), {
+      id: String(q.id),
+      stem: triviaStem(q.question),
+      question: q.question,
+      options: q.options,
+      correct: q.correct,
+      category: q.category || 'General',
+      explanation: q.explanation || '',
+      source: 'seed',
+      createdAt: Date.now(),
+      usedOn: null,
+    })
+  }
+  await batch.commit()
+  return seed.length
+}
+
+/**
+ * The same question with the right answer moved to `target`.
+ *
+ * A rotation rather than a shuffle, so options written as a sequence - four
+ * dates, four quantities - stay in the order they were written in.
+ */
+function rotateAnswerTo(q, target) {
+  const options = q.options.map((o) => String(o).trim())
+  const shift = ((target - q.correct) % 4 + 4) % 4
+  if (shift === 0) return { options, correct: q.correct }
+  const moved = new Array(4)
+  for (let i = 0; i < 4; i++) moved[(i + shift) % 4] = options[i]
+  return { options: moved, correct: target }
+}
+
+/** Adds a night's worth, and says what it kept and what it threw away. */
+async function topUpTriviaBank() {
+  let index = await readTriviaIndex()
+  if (index.count === 0) {
+    const seeded = await seedTriviaBank()
+    console.info(`triviaTopUp: seeded the bank with ${seeded} hand-written questions`)
+    index = await readTriviaIndex()
+  }
+  if (index.count >= TRIVIA_TARGET) return { kept: 0, held: index.count, full: true }
+
+  const batches = await Promise.all(
+    Array.from({ length: TRIVIA_CALLS }, () =>
+      generateTriviaBatch(index.byTopic).catch((e) => {
+        console.warn('triviaTopUp: a generation call failed:', e.message)
+        return []
+      })))
+
+  const rejected = { structure: 0, giveaway: 0 }
+  const sound = []
+  for (const q of batches.flat()) {
+    if (index.count + sound.length >= TRIVIA_TARGET) break
+    const why = triviaStructurallyOk(q, index.stems)
+    if (why) { rejected.structure++; continue }
+    sound.push(q)
+  }
+  // A failed check is not a rejection: the gate is there to throw away easy
+  // questions, not questions that happened to meet a network error.
+  const verdicts = await Promise.all(sound.map((q) =>
+    triviaOptionsGiveItAway(q).catch(() => false)))
+
+  const batch = db.batch()
+  let kept = 0
+  sound.forEach((q, i) => {
+    if (verdicts[i]) { rejected.giveaway++; return }
+    // Ids are never reused: the per-question accuracy statistics are keyed by
+    // them, so an id that came round again would inherit another question's
+    // record.
+    const id = `n${Date.now().toString(36)}${i.toString(36)}`
+    // Models put the right answer in the same place far too often - the
+    // hand-written bank's first draft had it second in 44 of 60, which is 73%
+    // for a child who reads nothing and always presses the second button. So
+    // every question is rotated to a position taken in turn.
+    const rotated = rotateAnswerTo(q, (index.count + kept) % 4)
+    batch.set(db.collection(TRIVIA_BANK).doc(id), {
+      id,
+      stem: triviaStem(q.question),
+      question: String(q.question).trim(),
+      options: rotated.options,
+      correct: rotated.correct,
+      category: String(q.category || 'General').trim(),
+      explanation: String(q.explanation).trim(),
+      source: 'nightly',
+      createdAt: Date.now(),
+      usedOn: null,
+    })
+    kept++
+  })
+  if (kept) await batch.commit()
+  return { kept, held: index.count + kept, rejected }
+}
+
+/**
+ * One day's question, written where every browser can read it.
+ *
+ * Marking the question used in the same transaction is what keeps the whole
+ * school on the same question and stops it coming round again next month.
+ */
+async function pickTriviaForDay(dayKey) {
+  const dayRef = db.collection(DAILY_TRIVIA).doc(dayKey)
+  if ((await dayRef.get()).exists) return { already: true }
+
+  const unused = await db.collection(TRIVIA_BANK).where('usedOn', '==', null).limit(300).get()
+  if (unused.empty) {
+    console.warn(`triviaTopUp: nothing unused left in the bank for ${dayKey}`)
+    return { none: true }
+  }
+  const chosen = unused.docs[Math.floor(Math.random() * unused.size)]
+  const q = chosen.data()
+  await db.runTransaction(async (tx) => {
+    if ((await tx.get(dayRef)).exists) return
+    tx.set(dayRef, {
+      questionId: q.id,
+      question: q.question,
+      options: q.options,
+      correct: q.correct,
+      category: q.category,
+      explanation: q.explanation,
+      day: dayKey,
+      pickedAt: Date.now(),
+    })
+    tx.update(chosen.ref, { usedOn: dayKey })
+  })
+  return { questionId: q.id }
+}
+
+/** A day key in Sydney time, which is the day the school is living in. */
+function sydneyDayKey(offsetDays = 0) {
+  const when = new Date(Date.now() + offsetDays * 86400000)
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(when)
+}
+
+exports.triviaTopUp = functions
+  .region('australia-southeast1')
+  .runWith({ timeoutSeconds: 540, memory: '512MB' })
+  .pubsub.schedule('0 2 * * *')
+  .timeZone(TZ)
+  .onRun(async () => {
+    // The day's question first, the top-up after. If generation fails or runs
+    // out of time, the school still has a question in the morning.
+    try {
+      console.log('triviaTopUp: today', await pickTriviaForDay(sydneyDayKey(0)))
+      console.log('triviaTopUp: tomorrow', await pickTriviaForDay(sydneyDayKey(1)))
+    } catch (e) {
+      console.error('triviaTopUp: picking the day failed:', e)
+    }
+    try {
+      console.log('triviaTopUp:', await topUpTriviaBank())
+    } catch (e) {
+      console.error('triviaTopUp: topping up failed:', e)
+    }
+    return null
+  })
+
+/** A teacher-triggered run, so the first night does not have to be waited for. */
+exports.triviaTopUpRun = functions
+  .region('australia-southeast1')
+  .runWith({ timeoutSeconds: 540, memory: '512MB' })
+  .https.onRequest((req, res) => {
+    cors(req, res, async () => {
+      if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+      const caller = await verifyCaller(req)
+      if (!caller || caller.admin !== true) return res.status(403).json({ error: 'Admin sign-in required' })
+      try {
+        const today = await pickTriviaForDay(sydneyDayKey(0))
+        const tomorrow = await pickTriviaForDay(sydneyDayKey(1))
+        const topUp = await topUpTriviaBank()
+        return res.json({ today, tomorrow, topUp })
+      } catch (e) {
+        console.error('triviaTopUpRun failed:', e)
+        return res.status(500).json({ error: String(e.message || e) })
+      }
+    })
+  })

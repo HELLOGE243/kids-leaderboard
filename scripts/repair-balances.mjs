@@ -24,8 +24,10 @@
  *
  * It writes nothing without --apply, and prints exactly what it would do.
  *
- * Authentication: set CS_TEACHER_NAME and CS_TEACHER_PASSWORD, and CS_API_KEY
- * for the Firebase web key. Nothing is read from the repo.
+ * Authentication: set CS_TEACHER_NAME and CS_TEACHER_PASSWORD. The Firebase
+ * web key is read from src/data/firebase.js, which is where the app keeps it -
+ * it is public by design, shipped to every browser - so CS_API_KEY is only
+ * needed to override it. Your password is the one real credential here.
  */
 const args = process.argv.slice(2)
 const APPLY = args.includes('--apply')
@@ -54,18 +56,41 @@ const DOCS = 'https://firestore.googleapis.com/v1/projects/cleverspacev2/databas
 let creds = {
   name: process.env.CS_TEACHER_NAME,
   password: process.env.CS_TEACHER_PASSWORD,
-  apiKey: process.env.CS_API_KEY,
+  apiKey: process.env.CS_API_KEY || webApiKey(),
 }
 const CREDS_FILE = argOf('creds')
 if (CREDS_FILE) {
   creds = { ...creds, ...JSON.parse(readFileSync(CREDS_FILE, 'utf8')) }
 }
 const { name: CS_TEACHER_NAME, password: CS_TEACHER_PASSWORD, apiKey: CS_API_KEY } = creds
-if (!CS_TEACHER_NAME || !CS_TEACHER_PASSWORD || !CS_API_KEY) {
-  console.error('Credentials missing. Either set CS_TEACHER_NAME, CS_TEACHER_PASSWORD')
-  console.error('and CS_API_KEY, or pass --creds path/to/creds.json holding')
-  console.error('{"name": "...", "password": "...", "apiKey": "..."}')
+if (!CS_TEACHER_NAME || !CS_TEACHER_PASSWORD) {
+  console.error('Your teacher sign-in is missing. Either:')
+  console.error("  CS_TEACHER_NAME='Rob' CS_TEACHER_PASSWORD='...' node scripts/repair-balances.mjs")
+  console.error('  node scripts/repair-balances.mjs --creds creds.json')
+  console.error('where creds.json holds {"name": "...", "password": "..."}.')
   process.exit(1)
+}
+if (!CS_API_KEY) {
+  console.error('Could not read the Firebase web key from src/data/firebase.js.')
+  console.error('Pass CS_API_KEY, or apiKey in --creds.')
+  process.exit(1)
+}
+
+/**
+ * The Firebase web API key, read out of the app's own source.
+ *
+ * This one is not a secret - it is shipped to every browser that loads the
+ * site, and it identifies the project rather than authorising anything. Only
+ * the teacher password below is a credential. Reading it from here means one
+ * less thing to paste, and one less live-looking string in a shell history.
+ */
+function webApiKey() {
+  try {
+    const src = readFileSync(new URL('../src/data/firebase.js', import.meta.url), 'utf8')
+    return src.match(/apiKey:\s*"([^"]+)"/)?.[1] || undefined
+  } catch {
+    return undefined
+  }
 }
 
 const post = async (url, body) => {
