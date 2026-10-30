@@ -50,7 +50,24 @@ let creds = {
   apiKey: process.env.CS_API_KEY || webApiKey(),
 }
 const CREDS_FILE = argOf('creds')
-if (CREDS_FILE) creds = { ...creds, ...JSON.parse(readFileSync(CREDS_FILE, 'utf8')) }
+/**
+ * Reads the credentials file, tolerating what a Windows editor leaves behind.
+ *
+ * PowerShell's Out-File and Notepad both write a UTF-8 byte-order mark, and
+ * JSON.parse rejects one with "Unexpected token" - a failure that reads as a
+ * wrong password rather than a wrong file.
+ */
+function readCreds(path) {
+  const raw = readFileSync(path, 'utf8').replace(/^﻿/, '').trim()
+  try {
+    return JSON.parse(raw)
+  } catch (e) {
+    console.error(`${path} is not readable as JSON: ${e.message}`)
+    console.error('It should hold exactly: {"name": "Rob", "password": "..."}')
+    process.exit(1)
+  }
+}
+if (CREDS_FILE) creds = { ...creds, ...readCreds(CREDS_FILE) }
 if (!creds.name || !creds.password) {
   console.error('Your teacher sign-in is missing - CS_TEACHER_NAME and CS_TEACHER_PASSWORD, or --creds creds.json.')
   process.exit(1)
