@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { getDailyGameState, saveDailyGameState, awardDailyGameTokens } from '../../data/store.js'
+import { getDailyGameState, saveDailyGameState, awardDailyGameTokens, getDailyGameScores } from '../../data/store.js'
 import { authedFetch } from '../../data/auth.js'
 
 const FALLBACK_SETS = [
@@ -151,6 +151,15 @@ Return ONLY the JSON object, no other text.` }],
         <div className="vt-loading">
           <span className="vt-loading-icon">📖</span>
           <p>Generating vocabulary challenge...</p>
+          {/* The wait is a model call of unknown length, so the bar cannot
+              report real progress without lying about it. It crawls towards
+              the end and never reaches it, which is the honest version of
+              the same reassurance: something is happening, it is not stuck. */}
+          <div className="vt-loadbar" role="progressbar" aria-label="Generating">
+            <span className="vt-loadbar-fill" />
+            <span className="vt-loadbar-shine" />
+          </div>
+          <div className="vt-loadbar-dots"><i /><i /><i /></div>
         </div>
       </div>
     )
@@ -202,6 +211,16 @@ Return ONLY the JSON object, no other text.` }],
               return (
                 <span key={i} className={`vt-blank ${answer ? 'vt-blank-filled' : ''}`}>
                   {answer || `(${blankIdx + 1})`}
+                  {/* Clearing a word meant finding its row in the list below
+                      the passage. The word you want to take out is the one
+                      you are looking at, so the cross is on that one too. */}
+                  {answer && (
+                    <button
+                      className="vt-blank-x"
+                      aria-label={`Remove ${answer}`}
+                      onClick={() => { const next = [...answers]; next[blankIdx] = ''; setAnswers(next) }}
+                    >&#10005;</button>
+                  )}
                 </span>
               )
             }
@@ -248,6 +267,7 @@ Return ONLY the JSON object, no other text.` }],
   const correct = state.correct ?? answers.filter((a, i) => a.toLowerCase() === state.blanks[i]?.toLowerCase()).length
   const score = state.score ?? Math.round((correct / state.blanks.length) * 100)
   const coins = state.coins ?? 0
+  const compare = getDailyGameScores('vocabtrainer', (st) => st.score ?? 0, userId)
 
   return (
     <div className="vt-page">
@@ -259,6 +279,21 @@ Return ONLY the JSON object, no other text.` }],
         <div className="vt-result-score" style={{ color: score >= 80 ? '#66bb6a' : score >= 50 ? '#ffab00' : '#ff1744' }}>{correct}/{state.blanks.length}</div>
         <p className="vt-result-label">{score === 100 ? 'Perfect!' : score >= 80 ? 'Great job!' : score >= 50 ? 'Good effort!' : 'Keep practising!'}</p>
         {coins > 0 && <p className="vt-result-coins">+{coins} tokens earned!</p>}
+        {compare.played > 1 && (
+          <div className="wh-compare">
+            <div className="wh-compare-row">
+              <span className="wh-compare-big">#{compare.rank}</span>
+              <span className="wh-compare-of">of {compare.played} today</span>
+            </div>
+            <div className="wh-compare-bars">
+              <span className="wh-compare-bar" style={{ width: `${Math.max(2, Math.min(100, score))}%` }} />
+            </div>
+            <div className="wh-compare-meta">
+              <span>Average {compare.average}%</span>
+              <span>Best {compare.best}%</span>
+            </div>
+          </div>
+        )}
       </div>
       <div className="vt-result-review">
         {state.blanks.map((blank, i) => {

@@ -9091,6 +9091,73 @@ button.hw-res-qth.active {
   font-family: var(--font-body);
   font-size: 0.85rem; color: var(--text-dim);
 }
+/* ===== Vocab trainer: the wait, and taking a word back out ===== */
+
+.vt-loadbar {
+  position: relative; width: min(340px, 78vw); height: 18px;
+  margin: 18px auto 10px;
+  border: 2px solid rgba(255, 200, 90, 0.55);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  box-shadow: 0 0 14px rgba(255, 200, 90, 0.25), inset 0 0 10px rgba(0, 0, 0, 0.6);
+}
+/* Eases towards the end and stops short, because nothing here knows how long
+   a model call will take and a bar that completes before the thing it is
+   measuring is a lie told to a child. */
+.vt-loadbar-fill {
+  position: absolute; inset: 2px auto 2px 2px; width: 4%;
+  background: repeating-linear-gradient(
+    90deg, #ffc454 0 8px, #ff9d3d 8px 16px
+  );
+  border-radius: 2px;
+  animation: vt-loadbar 14s cubic-bezier(0.1, 0.75, 0.2, 1) forwards;
+}
+@keyframes vt-loadbar {
+  0%   { width: 4%; }
+  18%  { width: 38%; }
+  42%  { width: 61%; }
+  70%  { width: 78%; }
+  100% { width: 92%; }
+}
+.vt-loadbar-shine {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  animation: vt-loadbar-shine 1.5s linear infinite;
+}
+@keyframes vt-loadbar-shine {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.vt-loadbar-dots { display: flex; gap: 7px; justify-content: center; }
+.vt-loadbar-dots i {
+  width: 7px; height: 7px; background: #ffc454; border-radius: 1px;
+  animation: vt-dot 1.1s ease-in-out infinite;
+}
+.vt-loadbar-dots i:nth-child(2) { animation-delay: 0.16s; }
+.vt-loadbar-dots i:nth-child(3) { animation-delay: 0.32s; }
+@keyframes vt-dot {
+  0%, 100% { opacity: 0.25; transform: translateY(0); }
+  40%      { opacity: 1; transform: translateY(-4px); }
+}
+
+/* The cross on the filled blank itself. */
+.vt-blank { position: relative; }
+.vt-blank-x {
+  margin-left: 6px; padding: 0 3px;
+  border: 0; background: none; cursor: pointer;
+  font-size: 0.72em; line-height: 1; vertical-align: middle;
+  color: currentColor; opacity: 0.5;
+  border-radius: 3px;
+}
+.vt-blank-x:hover { opacity: 1; background: rgba(255, 0, 0, 0.16); }
+.vt-blank-x:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .vt-loadbar-fill { animation-duration: 0.01ms; width: 92%; }
+  .vt-loadbar-shine, .vt-loadbar-dots i { animation: none; }
+}
+
 /* ===== Daily games: how you did, and how everyone else did ===== */
 
 /* The answer used to appear in a message that cleared itself after two
