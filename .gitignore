@@ -39,3 +39,7 @@ site/preview/
 # Built by the editor, and its rolling backup of the config
 site/editing/
 site/site.config.json.bak
+
+# Credentials and balance backups, never committed
+creds.json
+balances-before-*.json

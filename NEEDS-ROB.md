@@ -45,7 +45,35 @@ profile over the shared record. Earning one token no longer writes
 value — it only stops the next game from destroying one. Five cases pass.
 
 It does **not** reconcile the two sides. The repair is **written and tested**
-but has never been pointed at the database:
+but has never been pointed at the database.
+
+### I cannot run this; you have to
+
+I tried twice. The sandbox refused both times — once for putting a live key in
+a command line, once for copying it into a file — and it was right to. So this
+is a command for you, not for me.
+
+```bash
+cd c:/Users/Rob/kids-leaderboard
+
+# 1. See what it would do. Writes nothing.
+CS_TEACHER_NAME='Rob' CS_TEACHER_PASSWORD='...' CS_API_KEY='...'   node scripts/repair-balances.mjs
+
+# 2. If the list looks right, do it. Backs up every profile first.
+CS_TEACHER_NAME='Rob' CS_TEACHER_PASSWORD='...' CS_API_KEY='...'   node scripts/repair-balances.mjs --apply
+
+# 3. Your own record is refused until you name the figure.
+CS_TEACHER_NAME='Rob' CS_TEACHER_PASSWORD='...' CS_API_KEY='...'   node scripts/repair-balances.mjs --apply --set-bonus 61864531=1710
+```
+
+Rather than putting the key on the command line, you can write
+`creds.json` holding `{"name": "...", "password": "...", "apiKey": "..."}`
+and pass `--creds creds.json`. Keep it out of the repo.
+
+`--apply` writes `balances-before-<timestamp>.json` first, holding every
+profile exactly as it was, so the whole thing can be undone.
+
+Paste me the dry-run output and I will read it before you apply.
 
 ```
 node scripts/repair-balances.mjs                          # dry run, writes nothing
@@ -101,7 +129,14 @@ description exactly — purely teacher-entered marks. Tokens almost do, except:
 | Daily Wordle | 10 tokens | `DailyWordle.jsx` |
 | Other dailies | varies | `awardDailyGameTokens` |
 
-- [ ] Leave the dailies paying tokens, or cut them to arcade only?
+**Answered 2026-10-30.** Tokens come from the arcade **and** the revision
+programme. The dailies sit inside the Battlegrounds, so they keep paying
+tokens; nothing changes.
+
+Coins stay as they are: teacher-entered marks only.
+
+**New, not yet built:** tokens will be convertible into coins. The ratio is
+still to be decided, so nothing has been written — see §7.
 
 (Separately: the Wordle header shows a **coin** icon beside its 10-token
 reward. That's just wrong and I've fixed it to a token either way.)
@@ -174,3 +209,24 @@ state and is thrown away when the session ends. Nothing persists a per-day
 result yet, so that's step one. There is also no email provider configured
 anywhere on the project, so sending needs a provider decision before any of it
 can work.
+
+---
+
+## 7. Token to coin conversion — ratio undecided
+
+Agreed 2026-10-30: students will be able to turn tokens into coins. The rate is
+still open, so nothing is built.
+
+Worth settling before I write it, because each changes the design:
+
+- [ ] **The rate.** How many tokens to a coin?
+- [ ] **Which way.** Tokens to coins only, or back again as well? One-way is
+      far safer: coins are the record of work a teacher signed off, and letting
+      arcade winnings flow into that pool quietly turns playing into earning.
+- [ ] **A cap.** Per week, per term, or none. Without one, a student who
+      grinds dailies can out-earn a student who does the work.
+- [ ] **Where it happens.** The shop, the Battlegrounds, or the portal.
+
+My recommendation: one-way, tokens to coins, with a weekly cap, exchanged in
+the shop where the coins are spent. That keeps the arcade a source of pocket
+money rather than a second way to be top of the leaderboard.

@@ -37,14 +37,30 @@ for (let i = 0; i < args.length; i++) {
   }
 }
 
+import { readFileSync, writeFileSync } from 'node:fs'
 import { planFor } from './lib/balance-plan.mjs'
 
 const FN = 'https://australia-southeast1-cleverspacev2.cloudfunctions.net'
 const DOCS = 'https://firestore.googleapis.com/v1/projects/cleverspacev2/databases/(default)/documents'
 
-const { CS_TEACHER_NAME, CS_TEACHER_PASSWORD, CS_API_KEY } = process.env
+// Credentials come from the environment, or from a JSON file given with
+// --creds. The file is the safer of the two: a key on a command line ends up
+// in shell history and in the transcript of whatever ran it, and this one
+// unlocks the whole database.
+let creds = {
+  name: process.env.CS_TEACHER_NAME,
+  password: process.env.CS_TEACHER_PASSWORD,
+  apiKey: process.env.CS_API_KEY,
+}
+const CREDS_FILE = argOf('creds')
+if (CREDS_FILE) {
+  creds = { ...creds, ...JSON.parse(readFileSync(CREDS_FILE, 'utf8')) }
+}
+const { name: CS_TEACHER_NAME, password: CS_TEACHER_PASSWORD, apiKey: CS_API_KEY } = creds
 if (!CS_TEACHER_NAME || !CS_TEACHER_PASSWORD || !CS_API_KEY) {
-  console.error('Set CS_TEACHER_NAME, CS_TEACHER_PASSWORD and CS_API_KEY in the environment.')
+  console.error('Credentials missing. Either set CS_TEACHER_NAME, CS_TEACHER_PASSWORD')
+  console.error('and CS_API_KEY, or pass --creds path/to/creds.json holding')
+  console.error('{"name": "...", "password": "...", "apiKey": "..."}')
   process.exit(1)
 }
 
@@ -108,6 +124,15 @@ if (!APPLY) {
   console.log('\nRun again with --apply to write these.')
   process.exit(0)
 }
+
+// Everything about to change, as it stands now, written down first. The
+// repair is reversible only if what it overwrote was recorded.
+const BACKUP = argOf('backup') || `balances-before-${Date.now()}.json`
+writeFileSync(BACKUP, JSON.stringify(
+  plan.map(({ id, name, changes, profile }) => ({ id, name, changes, profileBefore: profile })),
+  null, 2))
+console.log(`
+backed up ${plan.length} profiles to ${BACKUP}`)
 
 let done = 0
 for (const { id, changes, profile } of plan) {
