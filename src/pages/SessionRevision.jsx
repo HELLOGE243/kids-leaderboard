@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { renderMath } from '../utils/renderMath.js'
 import { prepareMath } from '../utils/mathify.js'
-import { getDojoCardsForStudent, recordCompulsoryRevisionAnswer, markDojoAskTeacher, askTeacherAboutCard, reportQuestionError, studentRecordReady, onDataChange } from '../data/store.js'
+import { getDojoCardsForStudent, recordCompulsoryRevisionAnswer, markDojoAskTeacher, askTeacherAboutCard, reportQuestionError, studentRecordReady, onDataChange, recordDailyRevision } from '../data/store.js'
 import ReportIssueModal from '../components/ReportIssueModal.jsx'
 import { RichText } from '../components/RichTextEditor.jsx'
 import { resolveImages } from '../data/imageStore.js'
@@ -94,6 +94,14 @@ function SessionRevision({ user, onComplete }) {
   // returns below rather than in the middle of the body. It was already the
   // wrong side of "no cards, render nothing"; adding a second early return
   // for "the record has not arrived" turned that into a crash on first paint.
+  // The day's result is written down when the deck is finished, not when the
+  // student presses Continue: they may never press it, and the record of
+  // whether revision was done should not depend on that.
+  useEffect(() => {
+    if (!done || !cards?.length) return
+    recordDailyRevision(user.id, score, cards.length, cards.map((c) => c.id))
+  }, [done])
+
   useEffect(() => () => {
     clearTimeout(burstTimer.current)
     clearTimeout(flashTimer.current)

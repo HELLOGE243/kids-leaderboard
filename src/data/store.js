@@ -5810,6 +5810,75 @@ export function getDailyGameScores(gameId, scoreOf, studentId = null) {
   }
 }
 
+/**
+ * Writes down how a student's compulsory revision went today.
+ *
+ * The score has been on the results card since it was added, but only as
+ * React state, which is thrown away the moment the session ends. Nothing
+ * anywhere recorded that a child did their five cards, let alone how they
+ * went - so the weekly summary for parents had nothing to summarise.
+ *
+ * Stored in the same per-day shape the daily games use, so the history and
+ * streak helpers already work on it without changes.
+ *
+ * @param {string} studentId
+ * @param {number} score how many were returned correctly
+ * @param {number} total how many cards were in the deck
+ * @param {string[]} [cardIds] which cards, for a teacher looking at a bad week
+ */
+export function recordDailyRevision(studentId, score, total, cardIds = []) {
+  const data = loadData()
+  const student = data.students?.[studentId]
+  if (!student) return
+  const key = getTodayTriviaKey()
+  if (!student.dailyGames) student.dailyGames = {}
+  if (!student.dailyGames[key]) student.dailyGames[key] = {}
+  // Re-running the day must not overwrite a real result with a later, emptier
+  // one; the first completed run of the day is the one that counts.
+  const existing = student.dailyGames[key].revision
+  if (existing?.gameOver) return
+  student.dailyGames[key].revision = {
+    score: count(score),
+    total: count(total),
+    cardIds,
+    gameOver: true,
+    won: count(total) > 0 && count(score) === count(total),
+    at: new Date().toISOString(),
+  }
+  saveData(data)
+}
+
+/**
+ * A week of revision for one student, for the summary that goes to parents.
+ *
+ * Returns the days in order, oldest first, with nulls for days not done -
+ * a parent wants to see the gaps as much as the scores.
+ *
+ * @param {string} studentId
+ * @param {number} [days]
+ */
+export function getRevisionWeek(studentId, days = 7) {
+  const hist = getDailyGameHistory(studentId, 'revision', (st) => st.total > 0 && st.score === st.total, days)
+  const rows = hist.results.slice(0, days).reverse().map((r) => ({
+    day: r.day,
+    done: !!r.state,
+    score: r.state ? count(r.state.score) : null,
+    total: r.state ? count(r.state.total) : null,
+  }))
+  const done = rows.filter((r) => r.done)
+  const score = done.reduce((n, r) => n + r.score, 0)
+  const outOf = done.reduce((n, r) => n + r.total, 0)
+  return {
+    rows,
+    daysDone: done.length,
+    daysMissed: rows.length - done.length,
+    score,
+    outOf,
+    pct: outOf ? Math.round((score / outOf) * 100) : null,
+    streak: hist.streak,
+  }
+}
+
 export function getDailyPuzzles() {
   const data = loadData()
   const today = getTodayTriviaKey()

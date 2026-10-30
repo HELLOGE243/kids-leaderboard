@@ -202,13 +202,32 @@ bias, so that script has to run after every one.
 
 ---
 
-## 6. Weekly parent email — noted, not started
+## 6. Weekly parent email — half built
 
-The daily revision score now shows on the results card, but it is only React
-state and is thrown away when the session ends. Nothing persists a per-day
-result yet, so that's step one. There is also no email provider configured
-anywhere on the project, so sending needs a provider decision before any of it
-can work.
+**Done 2026-10-30.** The score is now written down. `recordDailyRevision`
+stores each day's result on the student in the same per-day shape the daily
+games use, so the streak and history helpers work on it unchanged, and
+`getRevisionWeek(studentId)` returns the seven days a parent would want to
+read: the score each day, the days missed, the total, and the streak. Six
+cases pass, covering gaps, an empty week and uneven deck sizes.
+
+It writes when the deck is finished, not when the student presses Continue —
+they may never press it, and whether revision was done should not depend on
+that.
+
+**What is left is the sending**, and it needs a decision:
+
+- [ ] **Which provider.** There is nothing configured anywhere on this project
+      — the public site's contact form deliberately composes a `mailto:` rather
+      than posting anywhere. Options, cheapest first: Resend (simple, free
+      under 3,000/month), SendGrid, or Firebase's Trigger Email extension,
+      which is the least work here because it is already a Firebase project.
+- [ ] **Parent addresses.** `studentContacts` exists in Firestore. Is it
+      populated, and is it the right source?
+- [ ] **When.** Sunday evening? And what should it say for a child who did
+      none — silence, or a gentle note?
+
+Nothing sends until you pick a provider.
 
 ---
 
