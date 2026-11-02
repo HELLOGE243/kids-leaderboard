@@ -3308,20 +3308,10 @@ async function seedTriviaBank() {
   return seed.length
 }
 
-/**
- * The same question with the right answer moved to `target`.
- *
- * A rotation rather than a shuffle, so options written as a sequence - four
- * dates, four quantities - stay in the order they were written in.
- */
-function rotateAnswerTo(q, target) {
-  const options = q.options.map((o) => String(o).trim())
-  const shift = ((target - q.correct) % 4 + 4) % 4
-  if (shift === 0) return { options, correct: q.correct }
-  const moved = new Array(4)
-  for (let i = 0; i < 4; i++) moved[(i + shift) % 4] = options[i]
-  return { options: moved, correct: target }
-}
+// One implementation of the rotation, shared with the reading quest and
+// covered by scripts/test-quest-logic.mjs across all sixteen cases. Two copies
+// of a rule about where the right answer sits is one copy too many.
+const { rotateAnswerTo } = require('./questLogic')
 
 /** Adds a night's worth, and says what it kept and what it threw away. */
 async function topUpTriviaBank() {
