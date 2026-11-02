@@ -291,8 +291,10 @@ says there is no reading today.
 ```bash
 cd c:/Users/Rob/kids-leaderboard
 
-# 1. The rules, or every browser gets a permission error reading the quest
-firebase deploy --only firestore:rules
+# 1. The rules AND the index. The rules let a browser read the day's quest;
+#    the index lets the job fall back to the bank when a night goes wrong.
+#    Without the index that fallback throws, on exactly the night it matters.
+firebase deploy --only firestore:rules,firestore:indexes
 
 # 2. The night's job, the admin trigger, and the Pull endpoint
 firebase deploy --only functions:questNightly,functions:questNightlyRun,functions:questPull
@@ -309,6 +311,10 @@ six.
 
 Note that `firestore:rules` is still owed from the trivia work as well — the
 same command covers both, since the rules file holds all of it.
+
+The index takes a few minutes to build after the deploy returns, and Firestore
+builds it in the background. It is only read when a night fails and the job
+falls back to the bank, so a first run before it finishes will not notice.
 
 ### What it does
 

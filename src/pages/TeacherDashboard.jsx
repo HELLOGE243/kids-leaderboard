@@ -1011,6 +1011,7 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
               <LibraryAdmin onChanged={forceRefresh} />
             </details>
 
+            {isAdmin && (
             <details className="td2-card" style={{ marginTop: 16 }}>
               <summary className="td2-h2">Today&rsquo;s quest · the three reading tasks</summary>
               <p className="td2-muted td2-small" style={{ margin: '8px 0 12px' }}>
@@ -1023,6 +1024,7 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
               </p>
               <QuestAdmin onChanged={forceRefresh} />
             </details>
+            )}
 
             <details className="td2-card" style={{ marginTop: 16 }}>
               <summary className="td2-h2">Daily readings · the reading challenge</summary>

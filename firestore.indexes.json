@@ -4,25 +4,64 @@
       "collectionGroup": "askedQuestions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "studentId", "order": "ASCENDING" },
-        { "fieldPath": "askedAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "studentId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "askedAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "askedQuestions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "groupIds", "arrayConfig": "CONTAINS" },
-        { "fieldPath": "askedAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "groupIds",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "askedAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "askedQuestions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "groupIds", "arrayConfig": "CONTAINS" },
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "askedAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "groupIds",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "askedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "readingQuests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "genre",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "band",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastSetOn",
+          "order": "ASCENDING"
+        }
       ]
     }
   ],

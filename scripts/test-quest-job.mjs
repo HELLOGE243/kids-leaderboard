@@ -11,6 +11,13 @@
  *
  * What it cannot tell you is whether the questions are any good. That needs a
  * real model and a teacher reading a week of them.
+ *
+ * Nor can it tell you whether a query will run. The fake store filters and
+ * sorts in memory and asks nothing of indexes, so the bank fallback passed
+ * here while the real query - two equality filters and an order-by - would
+ * have failed with FAILED_PRECONDITION on the first night it was needed. The
+ * composite index is declared in firestore.indexes.json; nothing in this file
+ * would notice if it were removed.
  */
 import { createRequire } from 'node:module'
 const require = createRequire(import.meta.url)
