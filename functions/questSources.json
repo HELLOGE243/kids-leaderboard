@@ -1,0 +1,1172 @@
+[
+  {
+    "id": 120,
+    "title": "Treasure Island",
+    "author": "Robert Louis Stevenson",
+    "died": 1894,
+    "genre": "fiction",
+    "sections": 34,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 550,
+        "fk": 7.9
+      },
+      "y9": {
+        "words": 835,
+        "fk": 11.3
+      }
+    }
+  },
+  {
+    "id": 1661,
+    "title": "The Adventures of Sherlock Holmes",
+    "author": "Arthur Conan Doyle",
+    "died": 1930,
+    "genre": "fiction",
+    "sections": 12,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 559,
+        "fk": 6.9
+      },
+      "y9": {
+        "words": 777,
+        "fk": 9.7
+      }
+    }
+  },
+  {
+    "id": 35,
+    "title": "The Time Machine",
+    "author": "H. G. Wells",
+    "died": 1946,
+    "genre": "fiction",
+    "sections": 16,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 628,
+        "fk": 7.5
+      },
+      "y9": {
+        "words": 804,
+        "fk": 9.5
+      }
+    }
+  },
+  {
+    "id": 36,
+    "title": "The War of the Worlds",
+    "author": "H. G. Wells",
+    "died": 1946,
+    "genre": "fiction",
+    "sections": 27,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 601,
+        "fk": 6.8
+      },
+      "y9": {
+        "words": 788,
+        "fk": 11.3
+      }
+    }
+  },
+  {
+    "id": 43,
+    "title": "The Strange Case of Dr. Jekyll and Mr. Hyde",
+    "author": "Robert Louis Stevenson",
+    "died": 1894,
+    "genre": "fiction",
+    "sections": 1,
+    "fits": {
+      "y6": false,
+      "y9": true
+    },
+    "seen": {
+      "y6": null,
+      "y9": {
+        "words": 758,
+        "fk": 9.1
+      }
+    }
+  },
+  {
+    "id": 1342,
+    "title": "Pride and Prejudice",
+    "author": "Jane Austen",
+    "died": 1817,
+    "genre": "fiction",
+    "sections": 60,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 574,
+        "fk": 7
+      },
+      "y9": {
+        "words": 758,
+        "fk": 9.6
+      }
+    }
+  },
+  {
+    "id": 161,
+    "title": "Sense and Sensibility",
+    "author": "Jane Austen",
+    "died": 1817,
+    "genre": "fiction",
+    "sections": 50,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 547,
+        "fk": 7.4
+      },
+      "y9": {
+        "words": 769,
+        "fk": 10.5
+      }
+    }
+  },
+  {
+    "id": 1260,
+    "title": "Jane Eyre",
+    "author": "Charlotte Bronte",
+    "died": 1855,
+    "genre": "fiction",
+    "sections": 38,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 474,
+        "fk": 7.3
+      },
+      "y9": {
+        "words": 754,
+        "fk": 10.8
+      }
+    }
+  },
+  {
+    "id": 768,
+    "title": "Wuthering Heights",
+    "author": "Emily Bronte",
+    "died": 1848,
+    "genre": "fiction",
+    "sections": 35,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 530,
+        "fk": 5.5
+      },
+      "y9": {
+        "words": 805,
+        "fk": 9.9
+      }
+    }
+  },
+  {
+    "id": 11,
+    "title": "Alice's Adventures in Wonderland",
+    "author": "Lewis Carroll",
+    "died": 1898,
+    "genre": "fiction",
+    "sections": 12,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 609,
+        "fk": 7.7
+      },
+      "y9": {
+        "words": 837,
+        "fk": 10.1
+      }
+    }
+  },
+  {
+    "id": 12,
+    "title": "Through the Looking-Glass",
+    "author": "Lewis Carroll",
+    "died": 1898,
+    "genre": "fiction",
+    "sections": 11,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 587,
+        "fk": 6.8
+      },
+      "y9": {
+        "words": 824,
+        "fk": 8.4
+      }
+    }
+  },
+  {
+    "id": 16,
+    "title": "Peter Pan",
+    "author": "J. M. Barrie",
+    "died": 1937,
+    "genre": "fiction",
+    "sections": 17,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 526,
+        "fk": 7.4
+      },
+      "y9": {
+        "words": 777,
+        "fk": 9.8
+      }
+    }
+  },
+  {
+    "id": 74,
+    "title": "The Adventures of Tom Sawyer",
+    "author": "Mark Twain",
+    "died": 1910,
+    "genre": "fiction",
+    "sections": 36,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 598,
+        "fk": 6
+      },
+      "y9": {
+        "words": 812,
+        "fk": 8.2
+      }
+    }
+  },
+  {
+    "id": 76,
+    "title": "Adventures of Huckleberry Finn",
+    "author": "Mark Twain",
+    "died": 1910,
+    "genre": "fiction",
+    "sections": 44,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 628,
+        "fk": 7.4
+      },
+      "y9": {
+        "words": 817,
+        "fk": 10.8
+      }
+    }
+  },
+  {
+    "id": 84,
+    "title": "Frankenstein",
+    "author": "Mary Shelley",
+    "died": 1851,
+    "genre": "fiction",
+    "sections": 30,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 540,
+        "fk": 7.8
+      },
+      "y9": {
+        "words": 754,
+        "fk": 11
+      }
+    }
+  },
+  {
+    "id": 345,
+    "title": "Dracula",
+    "author": "Bram Stoker",
+    "died": 1912,
+    "genre": "fiction",
+    "sections": 29,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 607,
+        "fk": 7.4
+      },
+      "y9": {
+        "words": 883,
+        "fk": 11.5
+      }
+    }
+  },
+  {
+    "id": 46,
+    "title": "A Christmas Carol",
+    "author": "Charles Dickens",
+    "died": 1870,
+    "genre": "fiction",
+    "sections": 1,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 604,
+        "fk": 7.4
+      },
+      "y9": {
+        "words": 753,
+        "fk": 9.3
+      }
+    }
+  },
+  {
+    "id": 98,
+    "title": "A Tale of Two Cities",
+    "author": "Charles Dickens",
+    "died": 1870,
+    "genre": "fiction",
+    "sections": 45,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 532,
+        "fk": 7.7
+      },
+      "y9": {
+        "words": 819,
+        "fk": 8.4
+      }
+    }
+  },
+  {
+    "id": 1400,
+    "title": "Great Expectations",
+    "author": "Charles Dickens",
+    "died": 1870,
+    "genre": "fiction",
+    "sections": 60,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 527,
+        "fk": 6.8
+      },
+      "y9": {
+        "words": 777,
+        "fk": 11.3
+      }
+    }
+  },
+  {
+    "id": 730,
+    "title": "Oliver Twist",
+    "author": "Charles Dickens",
+    "died": 1870,
+    "genre": "fiction",
+    "sections": 53,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 443,
+        "fk": 7.8
+      },
+      "y9": {
+        "words": 653,
+        "fk": 10
+      }
+    }
+  },
+  {
+    "id": 215,
+    "title": "The Call of the Wild",
+    "author": "Jack London",
+    "died": 1916,
+    "genre": "fiction",
+    "sections": 7,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 533,
+        "fk": 7.5
+      },
+      "y9": {
+        "words": 794,
+        "fk": 10.2
+      }
+    }
+  },
+  {
+    "id": 910,
+    "title": "White Fang",
+    "author": "Jack London",
+    "died": 1916,
+    "genre": "fiction",
+    "sections": 25,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 527,
+        "fk": 5.4
+      },
+      "y9": {
+        "words": 793,
+        "fk": 8.4
+      }
+    }
+  },
+  {
+    "id": 236,
+    "title": "The Jungle Book",
+    "author": "Rudyard Kipling",
+    "died": 1936,
+    "genre": "fiction",
+    "sections": 1,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 594,
+        "fk": 7.8
+      },
+      "y9": {
+        "words": 780,
+        "fk": 9
+      }
+    }
+  },
+  {
+    "id": 55,
+    "title": "The Wonderful Wizard of Oz",
+    "author": "L. Frank Baum",
+    "died": 1919,
+    "genre": "fiction",
+    "sections": 24,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 551,
+        "fk": 7.4
+      },
+      "y9": {
+        "words": 756,
+        "fk": 8.1
+      }
+    }
+  },
+  {
+    "id": 113,
+    "title": "The Secret Garden",
+    "author": "Frances Hodgson Burnett",
+    "died": 1924,
+    "genre": "fiction",
+    "sections": 27,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 552,
+        "fk": 6.4
+      },
+      "y9": {
+        "words": 779,
+        "fk": 9.7
+      }
+    }
+  },
+  {
+    "id": 271,
+    "title": "Black Beauty",
+    "author": "Anna Sewell",
+    "died": 1878,
+    "genre": "fiction",
+    "sections": 4,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 581,
+        "fk": 6.1
+      },
+      "y9": {
+        "words": 805,
+        "fk": 11.4
+      }
+    }
+  },
+  {
+    "id": 289,
+    "title": "The Wind in the Willows",
+    "author": "Kenneth Grahame",
+    "died": 1932,
+    "genre": "fiction",
+    "sections": 12,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 554,
+        "fk": 6.8
+      },
+      "y9": {
+        "words": 837,
+        "fk": 11
+      }
+    }
+  },
+  {
+    "id": 514,
+    "title": "Little Women",
+    "author": "Louisa May Alcott",
+    "died": 1888,
+    "genre": "fiction",
+    "sections": 1,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 533,
+        "fk": 7.8
+      },
+      "y9": {
+        "words": 763,
+        "fk": 10.8
+      }
+    }
+  },
+  {
+    "id": 45,
+    "title": "Anne of Green Gables",
+    "author": "L. M. Montgomery",
+    "died": 1942,
+    "genre": "fiction",
+    "sections": 38,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 588,
+        "fk": 6.1
+      },
+      "y9": {
+        "words": 777,
+        "fk": 10.6
+      }
+    }
+  },
+  {
+    "id": 174,
+    "title": "The Picture of Dorian Gray",
+    "author": "Oscar Wilde",
+    "died": 1900,
+    "genre": "fiction",
+    "sections": 21,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 605,
+        "fk": 6.5
+      },
+      "y9": {
+        "words": 888,
+        "fk": 10.1
+      }
+    }
+  },
+  {
+    "id": 2814,
+    "title": "Dubliners",
+    "author": "James Joyce",
+    "died": 1941,
+    "genre": "fiction",
+    "sections": 1,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 533,
+        "fk": 6.8
+      },
+      "y9": {
+        "words": 784,
+        "fk": 9.2
+      }
+    }
+  },
+  {
+    "id": 1184,
+    "title": "The Count of Monte Cristo",
+    "author": "Alexandre Dumas",
+    "died": 1870,
+    "genre": "fiction",
+    "sections": 168,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 541,
+        "fk": 7.4
+      },
+      "y9": {
+        "words": 750,
+        "fk": 8.5
+      }
+    }
+  },
+  {
+    "id": 2591,
+    "title": "Grimms' Fairy Tales",
+    "author": "Jacob and Wilhelm Grimm",
+    "died": 1863,
+    "genre": "fiction",
+    "sections": 4,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 557,
+        "fk": 7.1
+      },
+      "y9": {
+        "words": 794,
+        "fk": 9
+      }
+    }
+  },
+  {
+    "id": 219,
+    "title": "Heart of Darkness",
+    "author": "Joseph Conrad",
+    "died": 1924,
+    "genre": "fiction",
+    "sections": 3,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 612,
+        "fk": 6.7
+      },
+      "y9": {
+        "words": 894,
+        "fk": 9.7
+      }
+    }
+  },
+  {
+    "id": 1952,
+    "title": "The Yellow Wallpaper",
+    "author": "Charlotte Perkins Gilman",
+    "died": 1935,
+    "genre": "fiction",
+    "sections": 1,
+    "fits": {
+      "y6": true,
+      "y9": false
+    },
+    "seen": {
+      "y6": {
+        "words": 531,
+        "fk": 7.8
+      },
+      "y9": null
+    }
+  },
+  {
+    "id": 575,
+    "title": "Essays",
+    "author": "Francis Bacon",
+    "died": 1626,
+    "genre": "essay",
+    "sections": 1,
+    "fits": {
+      "y6": false,
+      "y9": true
+    },
+    "seen": {
+      "y6": null,
+      "y9": {
+        "words": 761,
+        "fk": 9.9
+      }
+    }
+  },
+  {
+    "id": 205,
+    "title": "Walden",
+    "author": "Henry David Thoreau",
+    "died": 1862,
+    "genre": "essay",
+    "sections": 1,
+    "fits": {
+      "y6": false,
+      "y9": true
+    },
+    "seen": {
+      "y6": null,
+      "y9": {
+        "words": 774,
+        "fk": 10.4
+      }
+    }
+  },
+  {
+    "id": 71,
+    "title": "On the Duty of Civil Disobedience",
+    "author": "Henry David Thoreau",
+    "died": 1862,
+    "genre": "essay",
+    "sections": 1,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 587,
+        "fk": 7.3
+      },
+      "y9": {
+        "words": 856,
+        "fk": 11.3
+      }
+    }
+  },
+  {
+    "id": 132,
+    "title": "The Art of War",
+    "author": "Sun Tzu",
+    "died": -496,
+    "genre": "essay",
+    "sections": 81,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 583,
+        "fk": 5.5
+      },
+      "y9": {
+        "words": 867,
+        "fk": 11.4
+      }
+    }
+  },
+  {
+    "id": 1232,
+    "title": "The Prince",
+    "author": "Niccolo Machiavelli",
+    "died": 1527,
+    "genre": "essay",
+    "sections": 28,
+    "fits": {
+      "y6": false,
+      "y9": true
+    },
+    "seen": {
+      "y6": null,
+      "y9": {
+        "words": 610,
+        "fk": 9.8
+      }
+    }
+  },
+  {
+    "id": 2680,
+    "title": "Meditations",
+    "author": "Marcus Aurelius",
+    "died": 180,
+    "genre": "essay",
+    "sections": 131,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 525,
+        "fk": 6.1
+      },
+      "y9": {
+        "words": 763,
+        "fk": 8.4
+      }
+    }
+  },
+  {
+    "id": 944,
+    "title": "The Voyage of the Beagle",
+    "author": "Charles Darwin",
+    "died": 1882,
+    "genre": "essay",
+    "sections": 23,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 448,
+        "fk": 6.1
+      },
+      "y9": {
+        "words": 844,
+        "fk": 10.6
+      }
+    }
+  },
+  {
+    "id": 23,
+    "title": "Narrative of the Life of Frederick Douglass",
+    "author": "Frederick Douglass",
+    "died": 1895,
+    "genre": "essay",
+    "sections": 12,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 543,
+        "fk": 7.9
+      },
+      "y9": {
+        "words": 756,
+        "fk": 11.1
+      }
+    }
+  },
+  {
+    "id": 3600,
+    "title": "Essays of Michel de Montaigne",
+    "author": "Michel de Montaigne",
+    "died": 1592,
+    "genre": "essay",
+    "sections": 113,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 649,
+        "fk": 7.1
+      },
+      "y9": {
+        "words": 777,
+        "fk": 10.1
+      }
+    }
+  },
+  {
+    "id": 1497,
+    "title": "The Republic",
+    "author": "Plato",
+    "died": -348,
+    "genre": "essay",
+    "sections": 39,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 630,
+        "fk": 7.6
+      },
+      "y9": {
+        "words": 801,
+        "fk": 11.2
+      }
+    }
+  },
+  {
+    "id": 5000,
+    "title": "The Notebooks of Leonardo Da Vinci",
+    "author": "Leonardo da Vinci",
+    "died": 1519,
+    "genre": "essay",
+    "sections": 55,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 587,
+        "fk": 7.1
+      },
+      "y9": {
+        "words": 751,
+        "fk": 8.3
+      }
+    }
+  },
+  {
+    "id": 3300,
+    "title": "An Inquiry into the Nature and Causes of the Wealth of Nations",
+    "author": "Adam Smith",
+    "died": 1790,
+    "genre": "essay",
+    "sections": 50,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 547,
+        "fk": 7.7
+      },
+      "y9": {
+        "words": 778,
+        "fk": 9.1
+      }
+    }
+  },
+  {
+    "id": 2852,
+    "title": "The Hound of the Baskervilles",
+    "author": "Arthur Conan Doyle",
+    "died": 1930,
+    "genre": "fiction",
+    "sections": 17,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 529,
+        "fk": 7.4
+      },
+      "y9": {
+        "words": 773,
+        "fk": 11.4
+      }
+    }
+  },
+  {
+    "id": 1727,
+    "title": "The Odyssey",
+    "author": "Homer",
+    "died": -701,
+    "genre": "fiction",
+    "sections": 25,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 565,
+        "fk": 7.8
+      },
+      "y9": {
+        "words": 765,
+        "fk": 10.6
+      }
+    }
+  },
+  {
+    "id": 996,
+    "title": "Don Quixote",
+    "author": "Miguel de Cervantes",
+    "died": 1616,
+    "genre": "fiction",
+    "sections": 130,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 565,
+        "fk": 7.5
+      },
+      "y9": {
+        "words": 794,
+        "fk": 10.1
+      }
+    }
+  },
+  {
+    "id": 203,
+    "title": "Uncle Tom's Cabin",
+    "author": "Harriet Beecher Stowe",
+    "died": 1896,
+    "genre": "fiction",
+    "sections": 47,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 644,
+        "fk": 7.2
+      },
+      "y9": {
+        "words": 789,
+        "fk": 10.2
+      }
+    }
+  },
+  {
+    "id": 1322,
+    "title": "Leaves of Grass",
+    "author": "Walt Whitman",
+    "died": 1892,
+    "genre": "essay",
+    "sections": 35,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 605,
+        "fk": 5.9
+      },
+      "y9": {
+        "words": 756,
+        "fk": 9.9
+      }
+    }
+  },
+  {
+    "id": 8800,
+    "title": "The Divine Comedy",
+    "author": "Dante Alighieri",
+    "died": 1321,
+    "genre": "fiction",
+    "sections": 100,
+    "fits": {
+      "y6": true,
+      "y9": true
+    },
+    "seen": {
+      "y6": {
+        "words": 582,
+        "fk": 7.9
+      },
+      "y9": {
+        "words": 854,
+        "fk": 9.6
+      }
+    }
+  },
+  {
+    "id": 2199,
+    "title": "The Iliad",
+    "author": "Homer",
+    "died": -701,
+    "genre": "fiction",
+    "sections": 24,
+    "fits": {
+      "y6": false,
+      "y9": true
+    },
+    "seen": {
+      "y6": null,
+      "y9": {
+        "words": 890,
+        "fk": 10.6
+      }
+    }
+  }
+]
