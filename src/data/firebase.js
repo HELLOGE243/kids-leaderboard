@@ -562,6 +562,9 @@ export async function loadDailyQuest(dayKey) {
         text: p.text,
         wordCount: Number(p.wordCount) || 0,
         minutes: Number(p.minutes) || 1,
+        // The grade that was measured, not the one the model claimed. A
+        // teacher looking at the day wants to see it.
+        readability: p.readability || null,
         sources: Array.isArray(p.sources) ? p.sources : [],
         questions: p.questions.map((q) => ({
           type: q.type || '',
@@ -575,6 +578,56 @@ export async function loadDailyQuest(dayKey) {
   } catch (e) {
     console.warn("Firestore: failed to load the day's reading quest:", e)
     return { day: String(dayKey), papers: [] }
+  }
+}
+
+/**
+ * A teacher taking one of today's reading papers down.
+ *
+ * Goes through a function rather than writing Firestore, because the rules
+ * forbid writing dailyQuest from a browser at all - a student who could edit
+ * that document could edit themselves the answers. The function checks the
+ * caller is an admin before it touches anything.
+ *
+ * Returns what happened, including what the slot was refilled with, or an
+ * object with `pulled: false` and a reason.
+ */
+export async function pullQuestPaper(dayKey, paperId) {
+  try {
+    const { authedFetch, FUNCTIONS_BASE } = await import('./auth.js')
+    const res = await authedFetch(`${FUNCTIONS_BASE}/questPull`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ day: String(dayKey), paperId: String(paperId) }),
+    })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) return { pulled: false, why: body.error || `the server said ${res.status}` }
+    return body
+  } catch (e) {
+    console.warn('pullQuestPaper failed:', e)
+    return { pulled: false, why: String(e.message || e) }
+  }
+}
+
+/**
+ * Runs tonight's quest now, rather than waiting for half past two.
+ *
+ * Admin only, and slow - it generates six papers and gates every question -
+ * so the caller should expect to wait a minute or two.
+ */
+export async function runQuestNight(dayKey) {
+  try {
+    const { authedFetch, FUNCTIONS_BASE } = await import('./auth.js')
+    const res = await authedFetch(`${FUNCTIONS_BASE}/questNightlyRun`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dayKey ? { day: String(dayKey) } : {}),
+    })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) return { error: body.error || `the server said ${res.status}` }
+    return body
+  } catch (e) {
+    return { error: String(e.message || e) }
   }
 }
 

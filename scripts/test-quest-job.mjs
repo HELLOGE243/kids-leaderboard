@@ -368,6 +368,49 @@ const run = async (behaviour) => {
   eq('a reused paper records being set again', reset, 6)
 }
 
+// --- a teacher pulling a paper ------------------------------------------
+
+{
+  const db = fakeDb()
+  const job = questJob.make({ db, callClaude: fakeClaude().call })
+  await job.runNight('2026-11-03')
+  // A second day, so the bank holds more than the six currently set and a
+  // pulled slot has something to be refilled from.
+  await job.runNight('2026-11-04')
+
+  const before = db.store.get('dailyQuest/2026-11-04')
+  const victim = before.papers.find((p) => p.genre === 'fiction')
+  const out = await job.pullPaper('2026-11-04', victim.id)
+
+  ok('the paper is pulled', out.pulled === true, JSON.stringify(out))
+  eq('the slot is named', out.slot, `fiction/${victim.band}`)
+
+  const after = db.store.get('dailyQuest/2026-11-04')
+  ok('the pulled paper is gone from the day', after.papers.every((p) => p.id !== victim.id))
+  eq('the day still holds six papers', after.papers.length, 6)
+  ok('it was replaced rather than left short', !!out.replacedWith, JSON.stringify(out))
+
+  // Marked, not deleted: the bank is the record of what was made.
+  const banked = db.store.get(`readingQuests/${victim.id}`)
+  ok('the paper is still in the bank', !!banked)
+  ok('the bank records that it was pulled', banked.pulled === true && banked.pulledOn === '2026-11-04',
+    JSON.stringify({ pulled: banked.pulled, on: banked.pulledOn }))
+
+  // And it must not come back, as a replacement or on a later night.
+  const again = await job.pullPaper('2026-11-04', victim.id)
+  eq('pulling it twice does nothing', again.pulled, false)
+  ok('the second attempt says why', /not set for that day/.test(again.why), again.why)
+
+  const third = questJob.make({ db, callClaude: fakeClaude({ badQuestionJson: true }).call })
+  const report = await third.runNight('2026-11-05')
+  const day3 = db.store.get('dailyQuest/2026-11-05')
+  ok('a pulled paper is never set again', (day3?.papers || []).every((p) => p.id !== victim.id),
+    JSON.stringify(report.reused))
+
+  eq('pulling from a day with no quest is refused', (await job.pullPaper('2026-01-01', 'rq-nope')).pulled, false)
+  eq('pulling a paper that is not set is refused', (await job.pullPaper('2026-11-04', 'rq-nope')).pulled, false)
+}
+
 // --- the copyright rule is applied to the list, not trusted from it -----
 
 {

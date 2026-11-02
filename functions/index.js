@@ -3509,3 +3509,28 @@ exports.questNightlyRun = functions
       }
     })
   })
+
+// A teacher taking a paper down. The rules forbid writing dailyQuest from a
+// browser at all, so this is the only route - which is deliberate: a student
+// who could edit that document could edit themselves the answers.
+exports.questPull = functions
+  .region('australia-southeast1')
+  .runWith({ timeoutSeconds: 60, memory: '256MB' })
+  .https.onRequest((req, res) => {
+    cors(req, res, async () => {
+      if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+      const caller = await verifyCaller(req)
+      if (!caller || caller.admin !== true) return res.status(403).json({ error: 'Admin sign-in required' })
+      const day = String((req.body && req.body.day) || '')
+      const paperId = String((req.body && req.body.paperId) || '')
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !paperId) {
+        return res.status(400).json({ error: 'A day and a paper id are needed' })
+      }
+      try {
+        return res.json(await questJob.pullPaper(day, paperId))
+      } catch (e) {
+        console.error('questPull failed:', e)
+        return res.status(500).json({ error: String(e.message || e) })
+      }
+    })
+  })

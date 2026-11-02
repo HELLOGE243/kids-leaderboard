@@ -17,6 +17,7 @@ import ClassDashboard from './ClassDashboard.jsx'
 import AdminTeacherPanel from '../components/AdminTeacherPanel.jsx'
 import QuestionInbox from '../components/QuestionInbox.jsx'
 import LibraryAdmin from '../components/LibraryAdmin.jsx'
+import QuestAdmin from '../components/QuestAdmin.jsx'
 import ReadingsAdmin from '../components/ReadingsAdmin.jsx'
 import { adminAction } from '../data/auth.js'
 import SubmissionArchive from '../components/SubmissionArchive.jsx'
@@ -1008,6 +1009,19 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                 own screen. Pieces of writing go on the shelf from the marking screen.
               </p>
               <LibraryAdmin onChanged={forceRefresh} />
+            </details>
+
+            <details className="td2-card" style={{ marginTop: 16 }}>
+              <summary className="td2-h2">Today&rsquo;s quest · the three reading tasks</summary>
+              <p className="td2-muted td2-small" style={{ margin: '8px 0 12px' }}>
+                Written overnight: a news piece, an essay and a chapter of fiction, at a Year 6 and a
+                Year 9 level, with six comprehension questions each. The reading level is measured
+                rather than taken on trust, every question is checked to be unanswerable without the
+                passage, and every piece is checked for suitability &mdash; but that last check is a
+                model&rsquo;s opinion, so <strong>Pull</strong> takes a paper down at once and it is
+                never set again.
+              </p>
+              <QuestAdmin onChanged={forceRefresh} />
             </details>
 
             <details className="td2-card" style={{ marginTop: 16 }}>

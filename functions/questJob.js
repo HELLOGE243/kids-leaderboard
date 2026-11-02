@@ -435,11 +435,15 @@ function make(deps) {
       .where('genre', '==', genre)
       .where('band', '==', band)
       .orderBy('lastSetOn', 'asc')
-      .limit(5)
+      .limit(20)
       .get()
     for (const docSnap of snap.docs) {
       const paper = docSnap.data()
-      if (paper && paper.id && !exclude.has(paper.id)) return paper
+      if (!paper || !paper.id) continue
+      if (exclude.has(paper.id)) continue
+      // A paper a teacher took down does not come back, here or anywhere.
+      if (paper.pulled) continue
+      return paper
     }
     return null
   }
@@ -545,9 +549,79 @@ function make(deps) {
     return { ...report, set: papers.length }
   }
 
+  /**
+   * A teacher taking one of today's papers down.
+   *
+   * The gates are automatic and the suitability check is a model's opinion, so
+   * there has to be a way for a person who disagrees to remove a paper from
+   * the day in one press. The paper is marked pulled rather than deleted - the
+   * bank is the record of what was made, and a paper removed without a trace
+   * cannot be learned from - and the slot is refilled from the bank where
+   * anything is available.
+   *
+   * Students cannot do this: the rules forbid writing dailyQuest from a
+   * browser at all, which is the point of it being here.
+   */
+  async function pullPaper(dayKey, paperId) {
+    const ref = db.collection(DAILY_QUEST).doc(String(dayKey))
+    const snap = await ref.get()
+    if (!snap.exists) return { pulled: false, why: 'no quest is set for that day' }
+
+    const doc = snap.data() || {}
+    const papers = Array.isArray(doc.papers) ? doc.papers : []
+    const gone = papers.find((p) => p && p.id === paperId)
+    if (!gone) return { pulled: false, why: 'that paper is not set for that day' }
+
+    const kept = papers.filter((p) => p && p.id !== paperId)
+
+    // Marked, not deleted. A pulled paper must never come back on its own.
+    await db.collection(QUEST_BANK).doc(String(paperId)).set(
+      { pulled: true, pulledOn: dayKey, pulledAt: Date.now() },
+      { merge: true },
+    )
+
+    const inUse = new Set(kept.map((p) => p.id))
+    inUse.add(paperId)
+    // fromBank skips pulled papers, so the one just taken down cannot come
+    // back as its own replacement.
+    const replacement = await fromBank(gone.genre, gone.band, inUse)
+
+    if (replacement) {
+      await db.collection(QUEST_BANK).doc(replacement.id).set(
+        { lastSetOn: dayKey, timesSet: (Number(replacement.timesSet) || 1) + 1 },
+        { merge: true },
+      )
+      kept.push({
+        id: replacement.id,
+        genre: replacement.genre,
+        band: replacement.band,
+        title: replacement.title,
+        source: replacement.source,
+        sourceUrl: replacement.sourceUrl,
+        attribution: replacement.attribution,
+        licence: replacement.licence,
+        text: replacement.text,
+        wordCount: replacement.wordCount,
+        minutes: replacement.minutes,
+        readability: replacement.readability,
+        sources: replacement.sources || null,
+        questions: replacement.questions,
+      })
+    }
+
+    await ref.set({ ...doc, papers: kept, pulledAt: Date.now() })
+    return {
+      pulled: true,
+      slot: `${gone.genre}/${gone.band}`,
+      replacedWith: replacement ? replacement.title : null,
+      papersLeft: kept.length,
+    }
+  }
+
   return {
     sydneyDayKey,
     runNight,
+    pullPaper,
     buildPaper,
     readIndex,
     candidateWorks,

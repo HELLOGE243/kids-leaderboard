@@ -20355,3 +20355,44 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
   .dq-reader { grid-template-columns: 1fr; }
   .dq-questions { position: static; }
 }
+
+/* The teacher's view of today's quest. A dense table rather than cards: the
+   question is "is anything here wrong", which is read down a column. */
+.qa-wrap { font-size: 0.82rem; }
+.qa-bar { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 12px; }
+.qa-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.72rem; }
+.qa-field .input { padding: 6px 8px; font-size: 0.8rem; }
+.qa-note {
+  margin: 0 0 12px; padding: 8px 11px; border-radius: 8px; font-size: 0.78rem;
+  background: rgba(229, 163, 61, 0.12); border: 1px solid rgba(229, 163, 61, 0.3);
+}
+.qa-table { width: 100%; border-collapse: collapse; }
+.qa-table th {
+  text-align: left; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 6px 8px; color: var(--text-dim);
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
+}
+.qa-table td {
+  padding: 8px; vertical-align: top;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+}
+.qa-slot { font-weight: 700; text-transform: capitalize; white-space: nowrap; }
+.qa-slot span { font-weight: 400; font-size: 0.7rem; color: var(--text-dim); text-transform: none; }
+.qa-licence { font-size: 0.72rem; color: var(--text-dim); white-space: nowrap; }
+.qa-link {
+  padding: 0; border: 0; background: none; cursor: pointer; text-align: left;
+  font-size: 0.84rem; font-weight: 600; color: var(--text); text-decoration: underline;
+}
+.qa-pull { padding: 4px 11px; font-size: 0.74rem; }
+.qa-preview {
+  margin-top: 10px; padding: 12px; border-radius: 8px; max-height: 460px; overflow-y: auto;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+  font-size: 0.8rem; line-height: 1.6;
+}
+.qa-attrib { margin: 0 0 8px; font-size: 0.72rem; color: var(--text-dim); }
+.qa-qs { margin: 12px 0 0; padding-left: 18px; }
+.qa-qs > li { margin-bottom: 10px; }
+.qa-qs ul { margin: 4px 0; padding-left: 16px; list-style: none; }
+.qa-qs em { display: block; margin-top: 4px; font-size: 0.74rem; color: var(--text-dim); }
+.qa-right { font-weight: 700; color: #5fbf6a; }
