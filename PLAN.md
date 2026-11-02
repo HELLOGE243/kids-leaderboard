@@ -10,9 +10,12 @@ npx vite build                        # the app compiles
 node scripts/check-wordle-answers.mjs # every daily word is a real 5-letter word
 node scripts/balance-trivia.mjs --check  # trivia answers are not all in one position
 node scripts/test-balance-plan.mjs    # the balance repair rule
+node scripts/test-quest-logic.mjs     # reading level, question mix, answer position
+node scripts/test-quest-text.mjs      # getting an extract out of a Gutenberg file
+node scripts/test-quest-job.mjs       # a whole night of the quest, against fakes
 ```
 
-All four pass as of this commit. The streak, revision-week and trivia-pick
+All seven pass as of this commit. The streak, revision-week and trivia-pick
 rules also have test harnesses, run during development rather than on release.
 
 ---

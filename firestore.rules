@@ -248,6 +248,23 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // The reading quest's long-term bank: every paper ever generated, with
+    // its answers. Readable by a teacher looking through it, never by a
+    // student - the answers to today's questions are in here.
+    match /readingQuests/{paperId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // The three tasks set for one day. Any signed-in student reads it, and
+    // nobody writes it: a student who could write this document could write
+    // themselves the answers. Only the nightly function puts anything here,
+    // and it goes through the admin SDK, which these rules do not govern.
+    match /dailyQuest/{day} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
     match /aiUsage/{entry} {
       allow read, write: if false;
     }

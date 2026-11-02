@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import DailyQuest from './DailyQuest.jsx'
 import DailyReadings from './DailyReadings.jsx'
 import Library from './Library.jsx'
 import { getReadingStreak } from '../data/store.js'
@@ -20,8 +21,8 @@ import { getReadingStreak } from '../data/store.js'
  * @param {() => void} props.onBack
  */
 function ReadingRoom({ student, due = 0, onBack }) {
-  // Today's reading first, because it is the thing with a deadline on it.
-  const [tab, setTab] = useState('today')
+  // The quest first, because it is the thing with a deadline on it.
+  const [tab, setTab] = useState('quest')
   const streak = getReadingStreak(student?.id)
 
   return (
@@ -30,7 +31,7 @@ function ReadingRoom({ student, due = 0, onBack }) {
         <button className="btn btn-outline" onClick={onBack}>&larr; Back</button>
         <div className="rr-top-mid">
           <h2 className="rr-title">Reading</h2>
-          <span className="rr-sub">Today&rsquo;s piece, and everything else worth reading</span>
+          <span className="rr-sub">Today&rsquo;s three, what is still owed, and the shelf</span>
         </div>
         <div className={`dr-streak${streak > 0 ? ' is-on' : ''}`} title="Days in a row">
           <span className="dr-streak-num">{streak}</span>
@@ -40,10 +41,16 @@ function ReadingRoom({ student, due = 0, onBack }) {
 
       <nav className="rr-tabs">
         <button
+          className={`rr-tab${tab === 'quest' ? ' rr-tab-on' : ''}`}
+          onClick={() => setTab('quest')}
+        >
+          Today&rsquo;s Quest
+        </button>
+        <button
           className={`rr-tab${tab === 'today' ? ' rr-tab-on' : ''}`}
           onClick={() => setTab('today')}
         >
-          Daily Readings
+          Set Readings
           {due > 0 && <span className="rr-tab-badge">{due}</span>}
         </button>
         <button
@@ -55,9 +62,9 @@ function ReadingRoom({ student, due = 0, onBack }) {
       </nav>
 
       <div className="rr-body">
-        {tab === 'today'
-          ? <DailyReadings student={student} onBack={onBack} embedded />
-          : <Library student={student} onBack={onBack} embedded />}
+        {tab === 'quest' && <DailyQuest student={student} onBack={onBack} embedded />}
+        {tab === 'today' && <DailyReadings student={student} onBack={onBack} embedded />}
+        {tab === 'library' && <Library student={student} onBack={onBack} embedded />}
       </div>
     </div>
   )

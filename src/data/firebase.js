@@ -527,6 +527,57 @@ export async function loadDailyTrivia(dayKey) {
   }
 }
 
+const DAILY_QUEST_COLLECTION = 'dailyQuest'
+
+/**
+ * The day's three reading tasks, set for the whole school by the nightly job.
+ *
+ * One document per day holding up to six papers - news, essay and fiction, at
+ * a Year 6 and a Year 9 level - and the caller picks the ones for the band the
+ * student reads. Read by every browser, written by none: a student who could
+ * write this document could write themselves the answers.
+ *
+ * Returns an empty list rather than throwing when the night set nothing, so a
+ * day with no quest shows as a quiet card instead of a broken screen.
+ */
+export async function loadDailyQuest(dayKey) {
+  if (!dayKey) return { day: null, papers: [] }
+  try {
+    const snap = await getDoc(doc(db, DAILY_QUEST_COLLECTION, String(dayKey)))
+    if (!snap.exists()) return { day: String(dayKey), papers: [] }
+    const d = snap.data() || {}
+    const papers = (Array.isArray(d.papers) ? d.papers : [])
+      // A paper without its questions is half a task, and a paper without its
+      // text is none of one.
+      .filter((p) => p && p.text && Array.isArray(p.questions) && p.questions.length)
+      .map((p) => ({
+        id: p.id,
+        genre: p.genre,
+        band: p.band,
+        title: p.title || '',
+        source: p.source || '',
+        sourceUrl: p.sourceUrl || '',
+        attribution: p.attribution || '',
+        licence: p.licence || '',
+        text: p.text,
+        wordCount: Number(p.wordCount) || 0,
+        minutes: Number(p.minutes) || 1,
+        sources: Array.isArray(p.sources) ? p.sources : [],
+        questions: p.questions.map((q) => ({
+          type: q.type || '',
+          question: q.question || '',
+          options: Array.isArray(q.options) ? q.options : [],
+          correct: Number(q.correct),
+          explanation: q.explanation || '',
+        })),
+      }))
+    return { day: String(dayKey), papers }
+  } catch (e) {
+    console.warn("Firestore: failed to load the day's reading quest:", e)
+    return { day: String(dayKey), papers: [] }
+  }
+}
+
 const AI_EXPLANATIONS_COLLECTION = 'aiExplanations'
 const _aiExpCache = new Map() // setId -> { [questionKey]: { general, options } }
 

@@ -3458,3 +3458,54 @@ exports.triviaTopUpRun = functions
       }
     })
   })
+
+// --- The daily reading quest -------------------------------------------------
+//
+// Three reading tasks a day at two levels, each with six comprehension
+// questions. The work is in questJob.js; this is only where it is wired to a
+// clock and to an admin button.
+
+const questJob = require('./questJob').make({ db, callClaude })
+
+exports.questNightly = functions
+  .region('australia-southeast1')
+  .runWith({ timeoutSeconds: 540, memory: '1GB' })
+  // After the trivia top-up, so the two are not competing for the same
+  // minute of Claude's attention or the same function instance.
+  .pubsub.schedule('30 2 * * *')
+  .timeZone(TZ)
+  .onRun(async () => {
+    const dayKey = questJob.sydneyDayKey(0)
+    try {
+      const report = await questJob.runNight(dayKey)
+      console.info(`questNightly ${dayKey}: set ${report.set}, made ${report.made.length}, `
+        + `reused ${report.reused.length}, missed ${report.missed.length}`)
+      for (const m of report.missed) console.warn(`questNightly missed ${m.slot}: ${m.why.join('; ')}`)
+      return null
+    } catch (e) {
+      console.error('questNightly failed:', e)
+      return null
+    }
+  })
+
+// The same work on demand, so the first run need not wait for half past two.
+exports.questNightlyRun = functions
+  .region('australia-southeast1')
+  .runWith({ timeoutSeconds: 540, memory: '1GB' })
+  .https.onRequest((req, res) => {
+    cors(req, res, async () => {
+      if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+      const caller = await verifyCaller(req)
+      if (!caller || caller.admin !== true) return res.status(403).json({ error: 'Admin sign-in required' })
+      try {
+        const dayKey = String((req.body && req.body.day) || '').match(/^\d{4}-\d{2}-\d{2}$/)
+          ? req.body.day
+          : questJob.sydneyDayKey(0)
+        const report = await questJob.runNight(dayKey)
+        return res.json(report)
+      } catch (e) {
+        console.error('questNightlyRun failed:', e)
+        return res.status(500).json({ error: String(e.message || e) })
+      }
+    })
+  })

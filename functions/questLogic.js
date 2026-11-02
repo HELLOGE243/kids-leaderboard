@@ -249,13 +249,23 @@ function rotateAnswerTo(q, target) {
  * What makes two papers the same source.
  *
  * A book may be drawn from many times, so the chapter is part of the key; a
- * news story may not, so for news the title alone is the key and a second
- * report of the same event collides with the first.
+ * news story may not, so for news the headline is the key and a second report
+ * of the same event collides with the first.
+ *
+ * The band is part of it too, and that is a decision rather than a detail.
+ * The same event written for Year 6 and for Year 9 is two papers, not one
+ * repeated - one school reading one story at two levels is the better outcome,
+ * and it is what the night naturally produces when both slots search at the
+ * same time. Without the band in the key the two collide and the second is
+ * thrown away, leaving one level with no news.
  */
 function sourceKey(paper) {
   const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-  if (paper.genre === 'fiction') return `fiction:${norm(paper.workTitle || paper.title)}:${norm(paper.chapter)}`
-  return `${paper.genre}:${norm(paper.title)}`
+  const band = paper.band || 'any'
+  if (paper.genre === 'fiction') {
+    return `fiction:${band}:${norm(paper.workTitle || paper.title)}:${norm(paper.chapter)}`
+  }
+  return `${paper.genre}:${band}:${norm(paper.title)}`
 }
 
 module.exports = {
