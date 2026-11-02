@@ -15,6 +15,13 @@ node scripts/test-quest-text.mjs      # getting an extract out of a Gutenberg fi
 node scripts/test-quest-job.mjs       # a whole night of the quest, against fakes
 ```
 
+And one that needs the network but no credentials, worth running before a
+deploy and whenever a reading slot starts coming up empty:
+
+```
+node scripts/smoke-quest-sourcing.mjs # real books, real extracts, real levels
+```
+
 All seven pass as of this commit. The streak, revision-week and trivia-pick
 rules also have test harnesses, run during development rather than on release.
 
