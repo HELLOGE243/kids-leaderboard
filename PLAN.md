@@ -20,7 +20,15 @@ deploy and whenever a reading slot starts coming up empty:
 
 ```
 node scripts/smoke-quest-sourcing.mjs # real books, real extracts, real levels
+node scripts/test-quest-model-contract.mjs  # the job's prompts against a reply written by hand
 ```
+
+The last of those is the nearest thing to a real night that can be run
+without a deploy: eight questions written by hand to the job's own prompt,
+about a real extract of Treasure Island, put through the real parser, gates
+and rotation. What it cannot judge is whether the giveaway gate is any
+good - the author of a question cannot sit their own test - and that is the
+one thing only a deployed job and a real model can settle.
 
 All seven pass as of this commit. The streak, revision-week and trivia-pick
 rules also have test harnesses, run during development rather than on release.
