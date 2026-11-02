@@ -40,6 +40,17 @@ rules also have test harnesses, run during development rather than on release.
 | Scaling in an hour instead | — | `scripts/generate-trivia.mjs` still does it, resumable and concurrent. **I cannot run it** — a live API key, NEEDS-ROB §4. Probably unnecessary now |
 | Positional bias | First draft had the answer in position B for 44 of 60 | `scripts/balance-trivia.mjs`; now 15/15/15/15, and `--check` fails on drift |
 
+### Daily reading quest
+| Item | What was wrong | What changed |
+|---|---|---|
+| Three tasks a day | There was one reading a day, set by hand, with nothing to answer | **`exports.questNightly`**, 2.30am: six papers - news, essay, fiction at a Y6 and a Y9 level - each with six comprehension questions. Needs deploying, NEEDS-ROB §8 |
+| Where the text comes from | — | Fiction and essays from Project Gutenberg; the news piece written by the job from sources it reads, because somebody's article is not ours to serve |
+| Reading level | — | Measured by Flesch-Kincaid on the server and re-rolled if outside the band. What the model claims about the level counts for nothing |
+| Question quality | — | The Cambridge mix is specified rather than requested, and every question is put to a model with the passage withheld - if it still gets it right, the question was never about the reading |
+| Suitability | — | A concrete exclusion list in the brief, then a separate check that can veto. A check that cannot run is a passage that does not get published |
+| A teacher disagreeing | — | **Pull**, in the teacher dashboard: takes a paper off the day at once, refills the slot from the bank, and the paper is never set again |
+| The reading list | — | 54 public-domain works, 1,861 chapters, every one verified by fetching it. Australian life+70, not Gutenberg's US rule |
+
 ### Wordle
 | Item | What was wrong | What changed |
 |---|---|---|
@@ -100,6 +111,7 @@ provider decision.
 |---|---|
 | **Balance reconciliation** | **I am not permitted to run it.** The sandbox refused twice — once for a key on a command line, once for copying it to a file — and was right both times. It is one command for you: NEEDS-ROB §1 |
 | **Trivia bank to 2,000** | Now fills itself nightly and needs no key, but the function has to be **deployed** — NEEDS-ROB §4. The bulk script remains the only part I cannot run |
+| **The reading quest running** | Built end to end and pushed. Every deploy is refused to me as a production deploy, by name - four commands in NEEDS-ROB §8 |
 | Weekly parent email — sending | The recording half is now built and tested. Nothing can send until a provider is chosen |
 | Token to coin conversion | Rate undecided — NEEDS-ROB §7 |
 | Public site phone and address | Yours to supply |

@@ -275,6 +275,105 @@ bias, so that script has to run after every one.
 
 ---
 
+## 8. The daily reading quest — built, waiting on three deploys — URGENT
+
+Three reading tasks a day, two reading levels, six comprehension questions
+each. All of it is written, tested and pushed. **None of it is running**,
+because every deploy is blocked for me: the sandbox refuses production deploys,
+and it named that as the reason rather than leaving me guessing. These four
+commands are yours.
+
+**Run them in this order.** The order matters: the rules let the browser read
+the day's quest, the functions write it, and the hosting deploy puts the screen
+in front of students. Deploying hosting first gives eighty children a tab that
+says there is no reading today.
+
+```bash
+cd c:/Users/Rob/kids-leaderboard
+
+# 1. The rules, or every browser gets a permission error reading the quest
+firebase deploy --only firestore:rules
+
+# 2. The night's job, the admin trigger, and the Pull endpoint
+firebase deploy --only functions:questNightly,functions:questNightlyRun,functions:questPull
+
+# 3. The screen
+npx vite build && firebase deploy --only hosting
+```
+
+Then **4.** open the teacher dashboard, find *Today's quest · the three reading
+tasks*, and press **Generate now**. That does the whole night's work
+immediately, so you do not have to wait for 2.30am to see whether it works. It
+takes a minute or two: six papers, each with eight questions generated to keep
+six.
+
+Note that `firestore:rules` is still owed from the trivia work as well — the
+same command covers both, since the rules file holds all of it.
+
+### What it does
+
+| | |
+|---|---|
+| **When** | 2.30am Sydney, after the trivia top-up |
+| **What** | 6 papers: news, essay, fiction, at a Year 6 and a Year 9 level |
+| **Questions** | 6 each, in the Cambridge mix: gist, two detail, inference, vocabulary-in-context, author's purpose |
+| **Where students see it** | Reading → Today's Quest, three cards, their own level chosen from their year group |
+| **Pay** | 5 tokens for reading, 2 coins an answer, 15 more for all six |
+| **Cost** | roughly $0.30–0.50 a night, plus web search on the news slot only |
+
+### The decisions I made so we could finish
+
+You said to tweak later, so these are mine and all of them are reversible:
+
+- **News is written by us, not quoted.** The model searches, reads at least
+  three sources, and writes its own report; every source is linked under the
+  piece so you can check it. We may not store and serve somebody's article, and
+  three quoted sentences will not carry six real questions. **The risk is that
+  a model gets a fact wrong**, and a wrong fact is a question with no correct
+  answer.
+- **Essays come from Project Gutenberg, not The Conversation.** My own plan
+  said The Conversation under CC BY-ND, and the ND is why it does not: their
+  writing is pitched at adults, most of it fails the Year 6 level gate, and
+  trimming it to pass is the derivative the licence forbids.
+- **Reading level is measured, not claimed.** Flesch-Kincaid, computed on the
+  server. Year 6 accepts grade 5.0–7.9 at 400–650 words; Year 9 accepts
+  8.0–11.5 at 600–900. Anything outside is thrown away and re-rolled. The model
+  saying "I wrote this for Year 6" counts for nothing.
+- **Year 8 is the line** between the two levels, and a student can press one
+  link to read the other level instead.
+- **A streak needs one of the three**, not all three. Eighteen questions a day
+  on top of revision, trivia, Wordle and homework is a lot.
+- **Publish-then-pull, not approve-then-publish.** If it needed your approval
+  each morning, the first morning you were busy there would be no reading.
+
+### What I would watch in week one
+
+- **Whether three a day is too much.** Watch the completion rate. If most
+  students do one, make it one required and two offered — that is a small
+  change, not a rebuild.
+- **Whether the questions are actually hard enough.** Every one is checked to
+  be unanswerable without the passage, which is the fault that matters most,
+  but "as discriminating as a real proficiency paper" is a judgement only you
+  can make by reading a week of them.
+- **The news slot's facts**, for the first few days, against the linked
+  sources.
+
+### The copyright position, written down
+
+54 works, 1,861 chapters, every one checked by fetching it rather than trusted
+from memory — which caught two catalogue numbers that fetched an entirely
+different book.
+
+**Australian copyright is not Gutenberg's copyright.** Gutenberg clears for the
+United States, where the test is publication before 1929. Ours is the author's
+life plus seventy years. Every work in the list carries the year its author
+died, nothing after 1955 is allowed in, and the test is applied again in the
+job rather than trusted from the file. The latest death in the shipped list is
+1946. That is why there is no Orwell in it, even though he is out of copyright
+here: Gutenberg cannot serve him, because he is not out of copyright there.
+
+---
+
 ## 5. Public site — still outstanding from earlier
 
 - [ ] **Phone number** and **street address** for Eastwood. Both go into the
