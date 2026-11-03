@@ -1022,7 +1022,10 @@ function TeacherDashboard({ teacher, isAdmin, onLogout }) {
                 model&rsquo;s opinion, so <strong>Pull</strong> takes a paper down at once and it is
                 never set again.
               </p>
-              <QuestAdmin onChanged={forceRefresh} />
+              <QuestAdmin
+                onChanged={forceRefresh}
+                onEditQuiz={(quizSetId) => { setEditQuizId(quizSetId); setShowQuizBuilder(true) }}
+              />
             </details>
             )}
 

@@ -303,6 +303,10 @@ firebase deploy --only functions:questNightly,functions:questNightlyRun,function
 npx vite build && firebase deploy --only hosting
 ```
 
+Steps 1 and 2 already went out once. The job has changed since: each paper is
+now written out as an ordinary quiz set, so step 2 has to go out again. Step 1
+has not changed and will say so.
+
 Then **4.** open the teacher dashboard, find *Today's quest · the three reading
 tasks*, and press **Generate now**. That does the whole night's work
 immediately, so you do not have to wait for 2.30am to see whether it works. It

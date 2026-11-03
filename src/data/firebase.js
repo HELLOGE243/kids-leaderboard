@@ -547,11 +547,13 @@ export async function loadDailyQuest(dayKey) {
     if (!snap.exists()) return { day: String(dayKey), papers: [] }
     const d = snap.data() || {}
     const papers = (Array.isArray(d.papers) ? d.papers : [])
-      // A paper without its questions is half a task, and a paper without its
-      // text is none of one.
-      .filter((p) => p && p.text && Array.isArray(p.questions) && p.questions.length)
+      // A card whose quiz set is unnamed opens nothing, so it is not a task.
+      // The passage and the questions live in that set rather than here:
+      // one copy, the one a teacher edits and a student sits.
+      .filter((p) => p && p.quizSetId)
       .map((p) => ({
         id: p.id,
+        quizSetId: p.quizSetId,
         genre: p.genre,
         band: p.band,
         title: p.title || '',
@@ -559,21 +561,18 @@ export async function loadDailyQuest(dayKey) {
         sourceUrl: p.sourceUrl || '',
         attribution: p.attribution || '',
         licence: p.licence || '',
-        text: p.text,
         wordCount: Number(p.wordCount) || 0,
         minutes: Number(p.minutes) || 1,
+        questionCount: Number(p.questionCount) || 0,
         // The grade that was measured, not the one the model claimed. A
         // teacher looking at the day wants to see it.
         readability: p.readability || null,
         sources: Array.isArray(p.sources) ? p.sources : [],
-        questions: p.questions.map((q) => ({
-          type: q.type || '',
-          question: q.question || '',
-          options: Array.isArray(q.options) ? q.options : [],
-          correct: Number(q.correct),
-          explanation: q.explanation || '',
-        })),
       }))
+    // The cards name their papers; the sets behind them have to be in the
+    // cache before one can be opened, and a student only downloads the sets
+    // assigned to them at sign-in.
+    if (papers.length) await ensureQuizSetsLoaded(papers.map((p) => p.quizSetId))
     return { day: String(dayKey), papers }
   } catch (e) {
     console.warn("Firestore: failed to load the day's reading quest:", e)

@@ -237,16 +237,53 @@ const run = async (behaviour) => {
   eq('one paper per genre and band', slots,
     ['essay/y6', 'essay/y9', 'fiction/y6', 'fiction/y9', 'news/y6', 'news/y9'])
 
+  // The day's document is an index now: a card's worth of each paper, and the
+  // id of the quiz set that holds the passage and the questions. Everything
+  // below that needs the paper itself reads the banked copy, and everything
+  // that needs what a student will sit reads the set.
+  const banked = (entry) => db.store.get(`readingQuests/${entry.id}`)
+  const setFor = (entry) => db.store.get(`quizSets/${entry.quizSetId}`)
+
+  ok('no paper carries its questions in the day index',
+    daily.papers.every((p) => p.questions === undefined && p.text === undefined))
+  ok('every card names its quiz set', daily.papers.every((p) => p.quizSetId === `quest-${p.id}`))
+  eq('every card says how many questions', daily.papers.map((p) => p.questionCount), [6, 6, 6, 6, 6, 6])
+
   // Every paper must survive the same check the job applies before banking.
-  const faults = daily.papers.flatMap((p) => QL.paperStructurallyOk(p).map((f) => `${p.genre}/${p.band}: ${f}`))
+  const faults = daily.papers.flatMap((p) => QL.paperStructurallyOk(banked(p)).map((f) => `${p.genre}/${p.band}: ${f}`))
   eq('every paper passes the structural check', faults, [])
 
-  eq('every paper has six questions', daily.papers.map((p) => p.questions.length), [6, 6, 6, 6, 6, 6])
+  eq('every paper has six questions', daily.papers.map((p) => banked(p).questions.length), [6, 6, 6, 6, 6, 6])
 
   // The answer is rotated to a position taken in turn as each is written, so a
   // child pressing the same button every time scores a quarter.
-  const positions = daily.papers.flatMap((p) => p.questions.map((q) => q.correct)).sort()
+  const positions = daily.papers.flatMap((p) => banked(p).questions.map((q) => q.correct)).sort()
   eq('answers are spread across the four positions', [...new Set(positions)], [0, 1, 2, 3])
+
+  // --- the quiz set is the paper a student actually sits ------------------
+  eq('one quiz set per paper',
+    [...db.store.keys()].filter((k) => k.startsWith('quizSets/')).length, 6)
+  ok('every set is marked as a quest paper', daily.papers.every((p) => setFor(p).questPaper === true))
+  ok('every set is untimed and resumable', daily.papers.every((p) => setFor(p).homeworkMode === true))
+  ok('every set is dated', daily.papers.every((p) => setFor(p).questDay === '2026-11-03'))
+  eq('every set has six questions', daily.papers.map((p) => setFor(p).questions.length), [6, 6, 6, 6, 6, 6])
+  ok('every question is multiple choice',
+    daily.papers.every((p) => setFor(p).questions.every((q) => q.type === 'multiple-choice')))
+  ok('every question carries the passage',
+    daily.papers.every((p) => setFor(p).questions.every((q) => q.text.includes(banked(p).text.slice(0, 60)))))
+  ok('the passage credits its source',
+    daily.papers.every((p) => setFor(p).questions[0].text.includes(banked(p).attribution)))
+  // The generator says `question`/`correct`; a quiz set says `prompt`/
+  // `correctIndex`, and the whole point of the mapping is that nothing
+  // downstream has to know about the first pair.
+  ok('the question travels as the prompt',
+    daily.papers.every((p) => setFor(p).questions.every((q, i) => q.prompt === banked(p).questions[i].question)))
+  ok('the answer travels as the index',
+    daily.papers.every((p) => setFor(p).questions.every((q, i) => q.correctIndex === banked(p).questions[i].correct)))
+  ok('every question has a stable id',
+    daily.papers.every((p) => setFor(p).questions.every((q, i) => q.id === `${p.id}-q${i + 1}`)))
+  ok('the explanations come across',
+    daily.papers.every((p) => setFor(p).questions.every((q) => q.explanation.length > 0)))
 
   const news = daily.papers.filter((p) => p.genre === 'news')
   ok('the news pieces are our own text', news.every((p) => p.licence === 'original'))
@@ -257,8 +294,9 @@ const run = async (behaviour) => {
   ok('book extracts name the author', books.every((p) => /\.\s*Public domain\.$/.test(p.attribution)),
     books.map((p) => p.attribution).join(' | '))
 
-  ok('every passage is at its own band', daily.papers.every((p) => !QL.passageFitsBand(p.text, p.band)),
-    daily.papers.map((p) => `${p.band}:${QL.passageFitsBand(p.text, p.band)}`).join(' | '))
+  ok('every passage is at its own band',
+    daily.papers.every((p) => !QL.passageFitsBand(banked(p).text, p.band)),
+    daily.papers.map((p) => `${p.band}:${QL.passageFitsBand(banked(p).text, p.band)}`).join(' | '))
 
   // Web search is for the news slot and nowhere else: a book extract needs no
   // search, and a search on every call is a bill nobody asked for.
@@ -373,6 +411,43 @@ const run = async (behaviour) => {
   eq('no paper is set twice in one day', new Set(daily.papers.map((p) => p.id)).size, 6)
   const reset = [...db.store.values()].filter((p) => p.timesSet === 2).length
   eq('a reused paper records being set again', reset, 6)
+
+  // A reused paper lands on the quiz set it already had, because the attempts
+  // sat against it and the teacher's edits are both keyed to that id.
+  eq('reuse writes no second set',
+    [...db.store.keys()].filter((k) => k.startsWith('quizSets/')).length, 6)
+  ok('a reused set is dated to the day it is set again',
+    daily.papers.every((p) => db.store.get(`quizSets/${p.quizSetId}`).questDay === '2026-11-04'))
+}
+
+// --- a teacher's edit survives the paper being set again -----------------
+
+{
+  const db = fakeDb()
+  const job = questJob.make({ db, callClaude: fakeClaude().call })
+  await job.runNight('2026-11-03')
+
+  const first = db.store.get('dailyQuest/2026-11-03').papers[0]
+  const key = `quizSets/${first.quizSetId}`
+
+  // A teacher finds a wrong answer and fixes it, the way they would fix any
+  // other paper: in the quiz editor, on the quiz set.
+  const edited = db.store.get(key)
+  edited.questions[0].prompt = 'What did the teacher decide this should ask?'
+  edited.questions[0].correctIndex = 3
+  edited.friendlyTitle = 'Renamed by a teacher'
+  db.store.set(key, edited)
+
+  // Months later the bank fills a slot with that same paper.
+  const bad = questJob.make({ db, callClaude: fakeClaude({ badQuestionJson: true }).call })
+  await bad.runNight('2026-11-04')
+
+  const after = db.store.get(key)
+  eq("the teacher's question is still there", after.questions[0].prompt,
+    'What did the teacher decide this should ask?')
+  eq("the teacher's answer is still there", after.questions[0].correctIndex, 3)
+  eq("the teacher's title is still there", after.friendlyTitle, 'Renamed by a teacher')
+  eq('but the set knows which day it is set for', after.questDay, '2026-11-04')
 }
 
 // --- a teacher pulling a paper ------------------------------------------

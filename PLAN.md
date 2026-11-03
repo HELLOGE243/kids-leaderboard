@@ -65,6 +65,9 @@ rules also have test harnesses, run during development rather than on release.
 | Suitability | — | A concrete exclusion list in the brief, then a separate check that can veto. A check that cannot run is a passage that does not get published |
 | A teacher disagreeing | — | **Pull**, in the teacher dashboard: takes a paper off the day at once, refills the slot from the bank, and the paper is never set again |
 | The reading list | — | 54 public-domain works, 1,861 chapters, every one verified by fetching it. Australian life+70, not Gutenberg's US rule |
+| A paper is a quiz | The quest had its own reader, question panel and result screen - a second, worse copy of the homework player | Every paper is written out as a real quiz set (`quizSets/quest-<paperId>`). The Reading Room hands it to the homework player, so it gets the timer rules, resume after a closed tab, the answer grid, flagging, review, the archive, asking a teacher and the coin award, none of it written twice |
+| Editing the questions | A wrong answer could only be fixed by pulling the whole paper | **Edit**, beside Pull: opens the ordinary quiz editor on that paper. A teacher's correction survives the paper being set again from the bank - the night writes a set once and afterwards only re-dates it |
+| Two records of one attempt | The quest kept its own log, tokens and coin award beside the homework record | Gone. The homework attempt is the only record, so "has this been done" has one answer |
 
 ### Wordle
 | Item | What was wrong | What changed |

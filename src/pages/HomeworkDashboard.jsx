@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { loadOwnContact, refreshSharedData } from '../data/firebase.js'
+import { loadOwnContact, refreshSharedData, ensureQuizSetsLoaded } from '../data/firebase.js'
 import { extractTabLabel } from '../utils/extractLabel.js'
 import { renderMath } from '../utils/renderMath.js'
 import { prepareMath } from '../utils/mathify.js'
@@ -766,6 +766,41 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
       }
     }
   }
+
+  // A card in the Reading Room hands one of today's reading papers straight to
+  // this player, which is how a quest paper is sat without the quest owning a
+  // reader of its own.
+  //
+  // Two things have to arrive before the door can open, and neither is here on
+  // the first render. A quest set is assigned to nobody, so sign-in does not
+  // download it; and the student's own record is what decides whether the paper
+  // has already been sat, which handleQuizCardClick refuses to guess at. So
+  // this waits for both, and gives up after ten seconds rather than spinning.
+  const handedOver = useRef(false)
+  useEffect(() => {
+    const wanted = initialNav?.openQuizSetId
+    if (!wanted || handedOver.current) return
+    let alive = true
+    let tries = 0
+    const tryOpen = async () => {
+      if (!alive || handedOver.current) return
+      if (!studentRecordReady(user.id)) {
+        if (++tries < 40) setTimeout(tryOpen, 250)
+        return
+      }
+      await ensureQuizSetsLoaded([wanted])
+      const set = getImportedQuizSet(wanted)
+      if (!set) {
+        if (++tries < 40) setTimeout(tryOpen, 250)
+        else console.warn(`homework: ${wanted} was handed over but could not be found`)
+        return
+      }
+      handedOver.current = true
+      handleQuizCardClick(set, !!getHomeworkAttempt(wanted, user.id))
+    }
+    tryOpen()
+    return () => { alive = false }
+  }, [initialNav?.openQuizSetId])
 
   // Quizzes are downloaded at sign-in, so a teacher's change since then - a new
   // time limit, a fixed answer - has not reached this device. Re-read the paper

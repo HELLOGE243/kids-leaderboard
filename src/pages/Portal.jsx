@@ -359,7 +359,7 @@ function Portal({ user, onLogout }) {
   if (showReport) return <div className={themeWrap}>{muteBtn}<ReportPage studentId={user.id} initialCourseId={reportLink && reportLink !== 'all' ? reportLink : null} onBack={() => { setShowReport(false); if (reportLink) window.history.replaceState(null, '', window.location.pathname) }} /></div>
   if (showShop) return <div className={themeWrap}>{muteBtn}<Shop user={user} onBack={() => setShowShop(false)} /></div>
   if (showVocab) return <div className={themeWrap}>{muteBtn}<VocabularyBank user={user} onBack={() => setShowVocab(false)} /></div>
-  if (showReading) return <div className={themeWrap}>{muteBtn}<ReadingRoom student={student} due={readingsDue} onBack={() => { setShowReading(false); forceRefresh() }} /></div>
+  if (showReading) return <div className={themeWrap}>{muteBtn}<ReadingRoom student={student} due={readingsDue} onBack={() => { setShowReading(false); forceRefresh() }} onOpenQuiz={(quizSetId) => { setShowReading(false); setHomeworkNav({ openQuizSetId: quizSetId }); setShowHomework(true) }} /></div>
 
   if (activeNewsPost) return (
     <div className={`portal-page ${themeWrap}`}>

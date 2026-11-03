@@ -19,8 +19,10 @@ import { getReadingStreak } from '../data/store.js'
  * @param {object} props.student
  * @param {number} props.due how many readings are outstanding, for the badge
  * @param {() => void} props.onBack
+ * @param {(quizSetId: string) => void} props.onOpenQuiz opens one of today's
+ *   papers in the homework player, which is what sits a quest paper
  */
-function ReadingRoom({ student, due = 0, onBack }) {
+function ReadingRoom({ student, due = 0, onBack, onOpenQuiz }) {
   // The quest first, because it is the thing with a deadline on it.
   const [tab, setTab] = useState('quest')
   const streak = getReadingStreak(student?.id)
@@ -62,7 +64,7 @@ function ReadingRoom({ student, due = 0, onBack }) {
       </nav>
 
       <div className="rr-body">
-        {tab === 'quest' && <DailyQuest student={student} onBack={onBack} embedded />}
+        {tab === 'quest' && <DailyQuest student={student} onBack={onBack} onOpenQuiz={onOpenQuiz} embedded />}
         {tab === 'today' && <DailyReadings student={student} onBack={onBack} embedded />}
         {tab === 'library' && <Library student={student} onBack={onBack} embedded />}
       </div>

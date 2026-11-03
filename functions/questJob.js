@@ -18,7 +18,10 @@ const QL = require('./questLogic')
 const QT = require('./questText')
 const SOURCES = require('./questSources.json')
 
+const QQ = require('./questQuiz')
+
 const QUEST_BANK = 'readingQuests'
+const QUIZ_SETS = 'quizSets'
 const DAILY_QUEST = 'dailyQuest'
 const QUEST_MODEL = 'claude-sonnet-5-5'
 
@@ -449,6 +452,29 @@ function make(deps) {
   }
 
   /** Tonight's six, banked, and set for the day. */
+  /**
+   * Writes a paper out as a quiz set, which is what a student actually sits.
+   *
+   * Written once and then left alone. A paper reused from the bank in March
+   * may by then have had a wrong answer corrected or a clumsy question
+   * reworded by a teacher, and re-deriving the set from the generator's
+   * original would silently undo that work. So an existing set keeps its
+   * questions and is only told which day it is set for.
+   *
+   * @returns {Promise<string>} the quiz set id
+   */
+  async function publishQuizSet(paper, dayKey) {
+    const id = QQ.quizSetIdFor(paper.id)
+    const ref = db.collection(QUIZ_SETS).doc(id)
+    const existing = await ref.get()
+    if (existing.exists) {
+      await ref.set({ questDay: String(dayKey) }, { merge: true })
+      return id
+    }
+    await ref.set(QQ.quizSetFromPaper(paper, dayKey))
+    return id
+  }
+
   async function runNight(dayKey) {
     const index = await readIndex()
     const slots = []
@@ -525,25 +551,14 @@ function make(deps) {
       return { ...report, set: 0 }
     }
 
+    // Each paper becomes a quiz set before the day's index names it, so a
+    // card can never point at a paper a student cannot open.
+    for (const p of papers) await publishQuizSet(p, dayKey)
+
     await db.collection(DAILY_QUEST).doc(dayKey).set({
       day: dayKey,
       setAt: Date.now(),
-      papers: papers.map((p) => ({
-        id: p.id,
-        genre: p.genre,
-        band: p.band,
-        title: p.title,
-        source: p.source,
-        sourceUrl: p.sourceUrl,
-        attribution: p.attribution,
-        licence: p.licence,
-        text: p.text,
-        wordCount: p.wordCount,
-        minutes: p.minutes,
-        readability: p.readability,
-        sources: p.sources || null,
-        questions: p.questions,
-      })),
+      papers: papers.map((p) => QQ.dayEntryFromPaper(p, dayKey)),
     })
 
     return { ...report, set: papers.length }
@@ -591,22 +606,8 @@ function make(deps) {
         { lastSetOn: dayKey, timesSet: (Number(replacement.timesSet) || 1) + 1 },
         { merge: true },
       )
-      kept.push({
-        id: replacement.id,
-        genre: replacement.genre,
-        band: replacement.band,
-        title: replacement.title,
-        source: replacement.source,
-        sourceUrl: replacement.sourceUrl,
-        attribution: replacement.attribution,
-        licence: replacement.licence,
-        text: replacement.text,
-        wordCount: replacement.wordCount,
-        minutes: replacement.minutes,
-        readability: replacement.readability,
-        sources: replacement.sources || null,
-        questions: replacement.questions,
-      })
+      await publishQuizSet(replacement, dayKey)
+      kept.push(QQ.dayEntryFromPaper(replacement, dayKey))
     }
 
     await ref.set({ ...doc, papers: kept, pulledAt: Date.now() })
@@ -622,6 +623,7 @@ function make(deps) {
     sydneyDayKey,
     runNight,
     pullPaper,
+    publishQuizSet,
     buildPaper,
     readIndex,
     candidateWorks,
@@ -632,6 +634,7 @@ function make(deps) {
     suitableForSchool,
     QUEST_BANK,
     DAILY_QUEST,
+    QUIZ_SETS,
   }
 }
 

@@ -7820,7 +7820,6 @@ button.hw-res-qth.active {
   background: rgba(233, 69, 96, 0.05);
 }
 
-
 /* Homework button on portal */
 .btn-homework {
   display: block;
@@ -17391,7 +17390,6 @@ button.hw-res-qth.active {
   50% { text-shadow: 0 0 24px var(--accent-glow), 0 0 60px rgba(233, 69, 96, 0.6), 0 0 80px rgba(233, 69, 96, 0.3); }
 }
 
-
 /* ============================================================
    GRAPHICS ACCELERATION NOTICE
    ============================================================ */
@@ -17666,7 +17664,6 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 
 .theme-light .pq-row { border-color: rgba(0, 0, 0, 0.1); }
 
-
 @media (max-width: 640px) {
   .pq-row { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: 8px; }
   .pq-row .pq-row-badge-empty { display: none; }
@@ -17674,7 +17671,6 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
   .pq-quiz-row { grid-template-columns: auto minmax(0, 1fr) auto; }
 }
 @media (prefers-reduced-motion: reduce) {
-
 
 }
 
@@ -20225,15 +20221,6 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .dq-top-mid { flex: 1; min-width: 0; }
 .dq-title { margin: 0; font-family: var(--font-body); font-size: 1.5rem; font-weight: 700; color: var(--text); }
 .dq-sub { font-size: 0.85rem; color: var(--text-dim); }
-.dq-streak {
-  display: flex; flex-direction: column; align-items: center; flex: none;
-  padding: 6px 12px; border-radius: 10px;
-  background: color-mix(in srgb, var(--text) 5%, transparent);
-  border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
-}
-.dq-streak.is-on { border-color: #d4953f; color: #d4953f; }
-.dq-streak-num { font-size: 1.2rem; font-weight: 800; line-height: 1; }
-.dq-streak-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.75; }
 
 .dq-board-head {
   display: flex; align-items: baseline; justify-content: space-between;
@@ -20278,88 +20265,6 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .dq-empty { padding: 32px 8px; text-align: center; color: var(--text); }
 .dq-empty p { margin: 0 0 8px; }
 
-/* --- the reader --- */
-.dq-reader { display: grid; gap: 18px; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
-.dq-passage {
-  padding: 18px; border-radius: var(--radius);
-  background: color-mix(in srgb, var(--text) 3%, transparent);
-  border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
-}
-.dq-passage-head h3 { margin: 6px 0 2px; font-size: 1.15rem; color: var(--text); }
-.dq-passage-meta { margin: 0 0 10px; font-size: 0.75rem; color: var(--text-dim); }
-.dq-passage-body { font-size: 1.02rem; line-height: 1.7; color: var(--text); }
-.dq-passage-body p { margin: 0 0 1em; }
-.dq-attrib {
-  margin-top: 16px; padding-top: 12px;
-  border-top: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
-  font-size: 0.76rem; color: var(--text-dim);
-}
-.dq-attrib p { margin: 0 0 4px; }
-.dq-sources { margin: 6px 0 0; padding-left: 18px; display: flex; gap: 12px; flex-wrap: wrap; list-style: none; }
-
-.dq-questions {
-  position: sticky; top: 16px; align-self: start;
-  padding: 18px; border-radius: var(--radius);
-  background: color-mix(in srgb, var(--text) 5%, transparent);
-  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
-}
-.dq-q-progress {
-  display: flex; justify-content: space-between; gap: 10px;
-  font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
-  color: var(--text-dim); margin-bottom: 10px;
-}
-.dq-q-text { margin: 0 0 14px; font-size: 1rem; font-weight: 600; line-height: 1.45; color: var(--text); }
-.dq-q-options { display: flex; flex-direction: column; gap: 8px; }
-.dq-option {
-  display: flex; gap: 10px; align-items: flex-start; text-align: left;
-  padding: 11px 13px; border-radius: 10px; cursor: pointer;
-  font-size: 0.92rem; line-height: 1.4;
-  background: color-mix(in srgb, var(--text) 4%, transparent);
-  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
-  color: var(--text);
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-.dq-option:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
-.dq-option.is-picked {
-  border-color: #e5a33d; background: rgba(229, 163, 61, 0.14); color: #ffe9b0;
-}
-.dq-option-letter { font-weight: 800; opacity: 0.6; flex: none; }
-.dq-q-nav { display: flex; gap: 8px; margin-top: 14px; }
-.dq-q-nav .btn { flex: 1; }
-.dq-leave {
-  display: block; margin: 12px auto 0; padding: 0; border: 0; background: none;
-  font-size: 0.76rem; color: var(--text-dim); text-decoration: underline; cursor: pointer;
-}
-
-/* --- the result --- */
-.dq-result { max-width: 640px; margin: 0 auto; text-align: center; }
-.dq-result-score { margin: 0; font-size: 3rem; font-weight: 800; line-height: 1; color: var(--text); }
-.dq-result-score span { font-size: 1.4rem; font-weight: 600; color: var(--text-dim); }
-.dq-result-pct { margin: 4px 0 0; font-size: 1rem; color: var(--text-dim); }
-.dq-result-paid { margin: 10px 0 20px; font-size: 0.92rem; font-weight: 600; color: #d4953f; }
-.dq-review { margin: 0 0 20px; padding: 0; list-style: none; text-align: left; }
-.dq-review li {
-  padding: 12px 14px; margin-bottom: 10px; border-radius: 10px;
-  background: color-mix(in srgb, var(--text) 4%, transparent);
-  border-left: 3px solid transparent;
-}
-.dq-review-right { border-left-color: #5fbf6a; }
-.dq-review-wrong { border-left-color: #e06a5a; }
-.dq-review-q { margin: 0 0 6px; font-weight: 600; font-size: 0.94rem; color: var(--text); }
-.dq-review-given { margin: 0; font-size: 0.88rem; color: var(--text); }
-.dq-review-mark { font-weight: 800; margin-right: 7px; }
-.dq-review-right .dq-review-mark { color: #5fbf6a; }
-.dq-review-wrong .dq-review-mark { color: #e06a5a; }
-.dq-review-answer { margin: 4px 0 0; font-size: 0.88rem; color: #5fbf6a; }
-.dq-review-why { margin: 6px 0 0; font-size: 0.82rem; line-height: 1.5; color: var(--text-dim); }
-
-/* One column on a phone: the passage is read first, then the questions, which
-   is the only order that works when they cannot sit side by side. */
-@media (max-width: 860px) {
-  .dq-reader { grid-template-columns: 1fr; }
-  .dq-questions { position: static; }
-}
-
 /* The teacher's view of today's quest. A dense table rather than cards: the
    question is "is anything here wrong", which is read down a column. */
 .qa-wrap { font-size: 0.82rem; }
@@ -20400,3 +20305,6 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .qa-qs ul { margin: 4px 0; padding-left: 16px; list-style: none; }
 .qa-qs em { display: block; margin-top: 4px; font-size: 0.74rem; color: var(--text-dim); }
 .qa-right { font-weight: 700; color: #5fbf6a; }
+
+/* Edit and Pull sit together on a paper's row. */
+.qa-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }

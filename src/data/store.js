@@ -1060,14 +1060,11 @@ export const READING_TOKENS = 5
 
 // --- The daily reading quest ---
 
-/** Finishing one of the day's three reading tasks pays this in tokens. */
-export const QUEST_TOKENS = 5
-
-/** Each correct comprehension answer pays this in coins. */
-export const QUEST_COIN_PER_CORRECT = 2
-
-/** All six right pays this on top, because all six is worth reaching for. */
-export const QUEST_COIN_BONUS = 15
+// A quest paper is a quiz set, sat in the homework player, so it is paid for
+// the way every other paper is paid for and keeps no log of its own. It had
+// both for a while - its own tokens, its own coin award, its own record of
+// what had been finished - and two records of one attempt disagree the first
+// time either of them fails to save.
 
 /**
  * Which of the two reading levels a student is set.
@@ -1092,86 +1089,6 @@ export function questPapersFor(papers, yearGroup) {
   return (papers || [])
     .filter((p) => p && p.band === band)
     .sort((a, b) => (order[a.genre] ?? 9) - (order[b.genre] ?? 9))
-}
-
-/** Every quest paper this student has finished. */
-export function getQuestLog(studentId) {
-  return getStudentArray(studentId, 'questLog')
-}
-
-/**
- * A finished reading task.
- *
- * Reading is paid in tokens and comprehension in coins, which keeps the
- * reading worth doing for a child who then answers badly - the piece was
- * still read. Returns null if this paper has already been logged, so a
- * refreshed page cannot be paid twice.
- */
-export function recordQuestDone(studentId, paper, answers, dayKey) {
-  if (!studentId || !paper || !paper.id) return null
-  const already = getQuestLog(studentId).some((r) => r.paperId === paper.id)
-  if (already) return null
-
-  const questions = Array.isArray(paper.questions) ? paper.questions : []
-  const given = Array.isArray(answers) ? answers : []
-  const correct = questions.reduce(
-    (n, q, i) => n + (given[i] === q.correct ? 1 : 0), 0)
-
-  const coins = correct * QUEST_COIN_PER_CORRECT
-    + (questions.length && correct === questions.length ? QUEST_COIN_BONUS : 0)
-
-  mutateStudentArray(studentId, 'questLog', (arr) => {
-    arr.push({
-      paperId: paper.id,
-      genre: paper.genre || '',
-      band: paper.band || '',
-      title: paper.title || '',
-      day: String(dayKey || paper.day || new Date().toISOString().slice(0, 10)).slice(0, 10),
-      correct,
-      total: questions.length,
-      answers: given,
-      at: new Date().toISOString(),
-    })
-  })
-
-  addTokens(studentId, QUEST_TOKENS)
-  if (coins > 0) addCoins(studentId, coins)
-
-  return { correct, total: questions.length, tokens: QUEST_TOKENS, coins }
-}
-
-/**
- * Days in a row with at least one of the three tasks finished.
- *
- * One of three rather than all three: eighteen questions a day on top of
- * revision, trivia and homework is a lot, and a streak that breaks constantly
- * stops motivating anybody.
- *
- * Counted by stepping through the days actually finished rather than by
- * walking the calendar backwards. getReadingStreak carries a scar from doing
- * the latter - with one reading ever set, the walk never met a day that could
- * stop it and ran back until the date overflowed and toISOString threw.
- */
-export function getQuestStreak(studentId) {
-  const days = [...new Set(getQuestLog(studentId).map((r) => String(r.day || '').slice(0, 10)))]
-    .filter(Boolean)
-    .sort()
-    .reverse()
-  if (!days.length) return 0
-
-  const apart = (a, b) => Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86400000)
-  const today = new Date().toISOString().slice(0, 10)
-
-  // Today not being done yet does not break a run that reached yesterday.
-  const gap = apart(today, days[0])
-  if (gap > 1) return 0
-
-  let streak = 1
-  for (let i = 1; i < days.length; i++) {
-    if (apart(days[i - 1], days[i]) !== 1) break
-    streak += 1
-  }
-  return streak
 }
 
 export function getReadingLog(studentId) {
@@ -2455,9 +2372,23 @@ export async function refreshQuizSetFromCloud(quizSetId) {
   return fresh || getImportedQuizSet(quizSetId)
 }
 
-export function getImportedQuizSets(termFilter) {
+/**
+ * The quiz sets a teacher built, newest meta filled in.
+ *
+ * The daily reading quest writes six sets a night, which over a year is two
+ * thousand of them. They are left out unless asked for, so a library of
+ * papers somebody chose to make does not drown in papers nobody chose. The
+ * quest's own panel lists today's and opens the editor on them directly.
+ *
+ * @param {string} [termFilter]
+ * @param {{includeQuest?: boolean}} [opts]
+ */
+export function getImportedQuizSets(termFilter, opts = {}) {
   const data = loadData()
-  const sets = (data.importedQuizSets || []).map((s) => {
+  const pool = opts.includeQuest
+    ? (data.importedQuizSets || [])
+    : (data.importedQuizSets || []).filter((s) => s && !s.questPaper)
+  const sets = pool.map((s) => {
     if (s.year === undefined || s.week === undefined) {
       const meta = parseQuizMeta(s.rawTitle || '')
       if (!s.year) s.year = meta.year
