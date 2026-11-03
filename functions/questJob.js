@@ -36,6 +36,15 @@ const QUESTIONS_ASKED = 8
 const SOURCE_ATTEMPTS = 4
 
 /**
+ * How many giveaway checks run at once within one paper.
+ *
+ * Six slots are already running in parallel, so this is multiplied by six
+ * before it reaches the API. Four is twenty-four in flight, which is quick
+ * without being a burst worth throttling.
+ */
+const GIVEAWAY_AT_ONCE = 4
+
+/**
  * What the news slot may not be about.
  *
  * A model told to find today's news will find a murder trial, because that is
@@ -78,6 +87,29 @@ function make(deps) {
   }
 
   /** The reply's first text block: on current models the first block is thinking. */
+  /**
+   * Maps over a list with at most `limit` promises in flight.
+   *
+   * The giveaway check is one model call per question and the questions do
+   * not depend on each other, so running them in turn was costing about
+   * half a minute a paper for nothing. Six slots run at once, though, so
+   * letting every question go at once would put forty-eight requests in
+   * flight and earn a rate limit instead of a speed-up.
+   */
+  async function mapLimit(items, limit, fn) {
+    const out = new Array(items.length)
+    let next = 0
+    const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+      for (;;) {
+        const i = next++
+        if (i >= items.length) return
+        out[i] = await fn(items[i], i)
+      }
+    })
+    await Promise.all(workers)
+    return out
+  }
+
   async function ask(body) {
     const { status, body: raw } = await callClaude({ model: QUEST_MODEL, ...body })
     if (status !== 200) throw new Error(`Claude ${status}: ${String(raw).slice(0, 300)}`)
@@ -87,15 +119,43 @@ function make(deps) {
   }
 
   /** A JSON value out of a reply, without a regex that can run away on it. */
+  /**
+   * The first JSON value in a reply, however the model dressed it up.
+   *
+   * "Reply with JSON only" is a request, not a guarantee. A fenced block, a
+   * sentence of preamble, or a closing remark are all common, and a preamble
+   * that happens to contain a bracket used to move the start of the slice and
+   * fail the parse - which reads downstream as "no questions came back", with
+   * nothing to say that the questions were there and perfectly good.
+   *
+   * So the fences come off, and then every candidate opening bracket is tried
+   * in turn against every closing one, nearest first.
+   */
   function firstJson(text, open, close) {
-    const a = String(text).indexOf(open)
-    const b = String(text).lastIndexOf(close)
-    if (a === -1 || b <= a) return null
-    try {
-      return JSON.parse(String(text).slice(a, b + 1))
-    } catch (e) {
-      return null
+    const raw = String(text)
+      // ```json ... ``` and plain ``` ... ```
+      .replace(/```[a-zA-Z]*\\n?/g, '')
+      .replace(/```/g, '')
+
+    // Every caller wants either an object or a list of objects, and saying so
+    // is what stops "See [1] and [2]." being read as a list of questions:
+    // [1] parses perfectly well, and a parse that succeeds is not the same
+    // thing as an answer.
+    const useful = (v) => {
+      if (!v || typeof v !== 'object') return false
+      if (Array.isArray(v)) return v.length > 0 && !!v[0] && typeof v[0] === 'object'
+      return true
     }
+
+    for (let a = raw.indexOf(open); a !== -1; a = raw.indexOf(open, a + 1)) {
+      for (let b = raw.lastIndexOf(close); b > a; b = raw.lastIndexOf(close, b - 1)) {
+        try {
+          const parsed = JSON.parse(raw.slice(a, b + 1))
+          if (useful(parsed)) return parsed
+        } catch (e) { /* try a shorter slice */ }
+      }
+    }
+    return null
   }
 
   async function fetchBook(id) {
@@ -414,17 +474,48 @@ function make(deps) {
     const seen = new Set()
     const kept = []
 
-    /** Puts a batch of questions past both gates, keeping what survives. */
+    // One verdict per question, so the top-up's second look at a batch does
+    // not pay for the same checks again.
+    const verdicts = new Map()
+    const giveaway = async (q) => {
+      const key = QL.questionStem(q.question)
+      if (!verdicts.has(key)) verdicts.set(key, await answerableWithoutReading(q))
+      return verdicts.get(key)
+    }
+
+    /**
+     * Puts a batch of questions past both gates, keeping what survives.
+     *
+     * Two passes rather than one. The structural check is free and has to run
+     * in order, because it is what decides that two questions ask the same
+     * thing. The giveaway check is a model call each and the questions are
+     * independent, so those go together.
+     */
     const sift = async (batch) => {
+      const candidates = []
+      // Within this batch only: a near-duplicate is dropped before it costs a
+      // call, but a question the giveaway gate later refuses must not have
+      // taken a stem with it, so `seen` is only added to on the way in.
+      const local = new Set(seen)
       for (const q of batch) {
-        if (kept.length >= QUESTIONS_WANTED) break
-        const bad = QL.questionStructurallyOk(q, seen)
+        const bad = QL.questionStructurallyOk(q, local)
         if (bad) { why.push(`dropped a ${q && q.type} question: ${bad}`); continue }
-        if (await answerableWithoutReading(q)) {
+        local.add(QL.questionStem(q.question))
+        candidates.push(q)
+      }
+
+      const given = await mapLimit(candidates, GIVEAWAY_AT_ONCE, giveaway)
+
+      for (let i = 0; i < candidates.length; i++) {
+        if (kept.length >= QUESTIONS_WANTED) break
+        const q = candidates[i]
+        const stem = QL.questionStem(q.question)
+        if (seen.has(stem)) continue
+        if (given[i]) {
           why.push(`dropped a ${q.type} question: answerable without the passage`)
           continue
         }
-        seen.add(QL.questionStem(q.question))
+        seen.add(stem)
         // Rotated as it is written, so the bank cannot drift into a position.
         const rotated = QL.rotateAnswerTo(q, kept.length % 4)
         kept.push({
@@ -543,7 +634,41 @@ function make(deps) {
     return id
   }
 
+  /**
+   * One tiny call, to find out whether there is any point in the rest.
+   *
+   * The suitability check is the first model call every slot makes, and a
+   * failed check refuses the passage rather than publishing it unchecked - so
+   * an unreachable model does not look like an unreachable model. It looks
+   * like all six papers being unsuitable, after four and a half minutes and
+   * sixty-odd calls. This asks once, costs about nothing, and says the status
+   * and the body it got back.
+   */
+  async function modelReachable() {
+    try {
+      const reply = await ask({
+        max_tokens: 16,
+        messages: [{ role: 'user', content: 'Reply with one word: ready' }],
+      })
+      if (!/ready/i.test(String(reply))) {
+        return { ok: false, why: `it replied "${String(reply).slice(0, 120)}" rather than "ready"` }
+      }
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, why: String(e.message || e) }
+    }
+  }
+
   async function runNight(dayKey) {
+    const reach = await modelReachable()
+    if (!reach.ok) {
+      const error = `the model could not be reached: ${reach.why}`
+      console.error(`questNightly: ${dayKey} ${error}`)
+      // Returned as an error rather than six missed slots, because they are
+      // not the same thing and the teacher's panel should not say they are.
+      return { day: dayKey, made: [], reused: [], missed: [], set: 0, error }
+    }
+
     const index = await readIndex()
     const slots = []
     for (const genre of QL.GENRES) {
@@ -704,6 +829,8 @@ function make(deps) {
     runNight,
     pullPaper,
     publishQuizSet,
+    firstJson,
+    modelReachable,
     buildPaper,
     readIndex,
     candidateWorks,

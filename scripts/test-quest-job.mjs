@@ -171,6 +171,12 @@ function fakeClaude(behaviour) {
       const prompt = String(body.messages[0].content)
       log.push({ prompt: prompt.slice(0, 60), tools: (body.tools || []).map((t) => t.type) })
 
+      // The one call the job makes before anything else, to find out whether
+      // the model is reachable at all.
+      if (/Reply with one word: ready/.test(prompt)) {
+        if (b.unreachable) return { status: 404, body: '{"error":{"message":"model not found"}}' }
+        return reply('ready')
+      }
       if (/Is it suitable/.test(prompt)) {
         if (b.unsuitable) return reply('{"suitable": false, "why": "a character is injured in detail"}')
         return reply('{"suitable": true}')
@@ -430,6 +436,47 @@ const run = async (behaviour) => {
   ok('the top-up is recorded as tried',
     report.missed.every((m) => m.why.join(' ').includes('topping up')),
     JSON.stringify(report.missed.slice(0, 1)))
+}
+
+// --- the reply is JSON, dressed up ---------------------------------------
+
+// "Reply with JSON only" is a request, not a guarantee. A model that fences
+// its reply or writes a sentence first is being perfectly reasonable, and the
+// old extractor read a bracket in the preamble as the start of the array and
+// then reported that no questions came back.
+{
+  const job = questJob.make({ db: fakeDb(), callClaude: async () => {} })
+  const fj = job.firstJson
+  eq('a bare array', fj('[{"a":1}]', '[', ']'), [{ a: 1 }])
+  eq('a fenced array', fj('```json\n[{"a":1}]\n```', '[', ']'), [{ a: 1 }])
+  eq('a preamble that contains a bracket',
+    fj('Here are the questions [as requested]:\n[{"a":1}]', '[', ']'), [{ a: 1 }])
+  eq('a closing remark', fj('[{"a":1}]\nHope that helps [truly].', '[', ']'), [{ a: 1 }])
+  eq('an object after a sentence', fj('Sure. {"suitable": true}', '{', '}'), { suitable: true })
+  eq('no JSON at all', fj('I would rather not.', '[', ']'), null)
+  // [1] parses, but a list of numbers is not a list of questions.
+  eq('a sentence with brackets but no JSON', fj('See [1] and [2].', '[', ']'), null)
+  eq('an empty array is no answer either', fj('[]', '[', ']'), null)
+}
+
+// --- the model cannot be reached at all ---------------------------------
+
+// This is what the first real night looked like from the outside: six papers
+// refused as unsuitable. An unreachable model must not be reported as six
+// unsuitable passages, and must not cost sixty calls to discover.
+{
+  const db = fakeDb()
+  const claude = fakeClaude({ unreachable: true })
+  const job = questJob.make({ db, callClaude: claude.call })
+  const report = await job.runNight('2026-11-03')
+
+  eq('nothing is set', report.set, 0)
+  ok('it is reported as an error, not as missed slots', /could not be reached/.test(report.error || ''),
+    JSON.stringify(report))
+  ok('the status comes through', /404/.test(report.error || ''), report.error)
+  eq('no slot is blamed', report.missed, [])
+  eq('it costs one call, not sixty', claude.log.length, 1)
+  eq('nothing is written', [...db.store.keys()], [])
 }
 
 // --- a model that does not reply with JSON ------------------------------
