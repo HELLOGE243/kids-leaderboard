@@ -44,6 +44,7 @@ function QuestAdmin({ onChanged, onEditQuiz }) {
   const [state, setState] = useState({ loading: true, papers: [] })
   const [busy, setBusy] = useState('')
   const [note, setNote] = useState('')
+  const [report, setReport] = useState(null)
   const [open, setOpen] = useState(null)
 
   function load(forDay) {
@@ -72,9 +73,15 @@ function QuestAdmin({ onChanged, onEditQuiz }) {
 
   async function runNow() {
     setBusy('run')
+    setReport(null)
     setNote('Generating six papers. This takes a minute or two.')
     const out = await runQuestNight(day)
     setBusy('')
+    // A night that sets nothing is the night you most need to read, and the
+    // reasons are the only thing that says which gate refused. They came back
+    // in the reply all along and were being thrown away here, so a run that
+    // failed said "missed 6" and nothing else.
+    setReport(out && !out.error ? out : null)
     setNote(out.error
       ? `It failed: ${out.error}`
       : `Set ${out.set} of 6. Generated ${out.made?.length ?? 0}, reused ${out.reused?.length ?? 0}, `
@@ -99,6 +106,41 @@ function QuestAdmin({ onChanged, onEditQuiz }) {
       </div>
 
       {note && <p className="qa-note">{note}</p>}
+
+      {!!report?.missed?.length && (
+        <div className="qa-misses">
+          <p className="qa-misses-head">Why {report.missed.length} slot(s) came back empty</p>
+          <ul>
+            {report.missed.map((m, i) => (
+              <li key={i}>
+                <strong>{m.slot}</strong>
+                <ul>
+                  {(Array.isArray(m.why) ? m.why : [String(m.why)]).map((w, wi) => (
+                    <li key={wi}>{w}</li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* A slot that was filled may still have thrown questions away on the
+          way, and six kept out of eight asked is normal. Many dropped from
+          one paper is a prompt that has drifted. */}
+      {!!report?.made?.some((m) => m.dropped?.length) && (
+        <details className="qa-misses">
+          <summary>What was dropped from the papers that worked</summary>
+          <ul>
+            {report.made.filter((m) => m.dropped?.length).map((m, i) => (
+              <li key={i}>
+                <strong>{m.slot}</strong>
+                <ul>{m.dropped.map((w, wi) => <li key={wi}>{w}</li>)}</ul>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       {state.loading && <p className="td2-muted td2-small">Loading…</p>}
 

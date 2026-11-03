@@ -20308,3 +20308,18 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 
 /* Edit and Pull sit together on a paper's row. */
 .qa-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* Why a night came back empty. Loud, because a quest that set nothing is the
+   one thing on this panel that needs reading rather than glancing at. */
+.qa-misses {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--danger, #ff1744);
+  border-radius: 8px;
+  background: rgba(255, 23, 68, 0.06);
+  font-size: 0.78rem;
+}
+.qa-misses-head { margin: 0 0 6px; font-weight: 700; }
+.qa-misses ul { margin: 0; padding-left: 18px; }
+.qa-misses ul ul { padding-left: 14px; opacity: 0.85; }
+.qa-misses summary { cursor: pointer; font-weight: 700; }

@@ -144,6 +144,17 @@ function fakeClaude(behaviour) {
     body: JSON.stringify({ content: [{ type: 'thinking', thinking: '...' }, { type: 'text', text }] }),
   })
 
+  /** Questions of exactly the types named, in that order. */
+  const ofTypes = (types) => JSON.stringify(
+    types.map((t, i) => ({
+      type: t,
+      question: `A ${t} question, number ${i + 1}: what does the passage say about the lamp?`,
+      options: [`One ${t} ${i}`, `Two ${t} ${i}`, `Three ${t} ${i}`, `Four ${t} ${i}`],
+      correct: i % 4,
+      explanation: `The paragraph about the stairs settles this ${t} question, number ${i + 1}.`,
+    })),
+  )
+
   const questions = (count) => JSON.stringify(
     Array.from({ length: count }, (_, i) => ({
       type: QL.QUESTION_PLAN[i % QL.QUESTION_PLAN.length],
@@ -175,6 +186,24 @@ function fakeClaude(behaviour) {
       }
       if (/multiple-choice questions/.test(prompt)) {
         if (b.badQuestionJson) return reply('I could not write those questions.')
+        // A top-up round names its types and says why it is being asked.
+        const topUp = /could be answered without reading/.test(prompt)
+        if (topUp) {
+          b.topUps = (b.topUps || 0) + 1
+          if (b.topUpFails) return reply('I could not write those either.')
+          const types = QL.REQUIRED_TYPES.filter((t) => new RegExp(`two ${t} questions`).test(prompt))
+          b.toppedUpTypes = types
+          return reply(ofTypes(types.flatMap((t) => [t, t])))
+        }
+        // An exact set of types for the first round, to build the awkward
+        // case: six good questions that between them still miss a type the
+        // paper check demands.
+        if (b.firstRoundTypes) return reply(ofTypes(b.firstRoundTypes))
+        if (b.withhold) {
+          // Everything except the withheld type, which is what the giveaway
+          // gate taking the only inference question looks like from here.
+          return reply(ofTypes(QL.QUESTION_PLAN.filter((t) => t !== b.withhold)))
+        }
         return reply(questions(b.fewQuestions ? 3 : 8))
       }
       if (/Write a short news report/.test(prompt)) {
@@ -359,12 +388,47 @@ const run = async (behaviour) => {
     JSON.stringify(dropped.slice(0, 2)))
 }
 
-// --- too few questions to make a paper ----------------------------------
+// --- a short first round is topped up rather than thrown away -----------
 
+// A passage that has been downloaded, measured and passed as suitable is too
+// expensive to discard because the first round of questions came back short.
 {
   const { report } = await run({ fewQuestions: true })
-  eq('three questions is not a paper', report.set, 0)
+  eq('three questions becomes a paper after a top-up', report.set, 6)
+  const notes = report.made.flatMap((m) => m.dropped || []).join(' ')
+  ok('the top-up is recorded', /topping up: 3 kept/.test(notes), notes.slice(0, 200))
+}
+
+// The failure this exists to prevent: the giveaway gate takes the only
+// question of a required type, and a perfectly good passage dies for it.
+{
+  const { report } = await run({ withhold: 'inference' })
+  eq('a missing required type is asked for again, not fatal', report.set, 6)
+  const notes = report.made.flatMap((m) => m.dropped || []).join(' ')
+  ok('the missing type is named', /missing inference/.test(notes), notes.slice(0, 200))
+}
+
+// A full paper that still misses a required type has to drop something to
+// make room, and the thing it drops must be the kind there is a spare of.
+{
+  const { report } = await run({
+    firstRoundTypes: ['gist', 'detail', 'detail', 'detail', 'inference', 'vocabulary'],
+  })
+  eq('a full paper missing a type is still set', report.set, 6)
+  const notes = report.made.flatMap((m) => m.dropped || []).join(' ')
+  ok('room was made by dropping a detail question',
+    /made room for a purpose question by dropping a detail one/.test(notes), notes.slice(0, 300))
+}
+
+// --- too few questions, and the top-up cannot help ----------------------
+
+{
+  const { report } = await run({ fewQuestions: true, topUpFails: true })
+  eq('three questions is not a paper when the top-up fails too', report.set, 0)
   ok('the shortfall is named', report.missed.every((m) => m.why.join(' ').includes('questions, want 6')),
+    JSON.stringify(report.missed.slice(0, 1)))
+  ok('the top-up is recorded as tried',
+    report.missed.every((m) => m.why.join(' ').includes('topping up')),
     JSON.stringify(report.missed.slice(0, 1)))
 }
 

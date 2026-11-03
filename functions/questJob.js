@@ -263,8 +263,19 @@ function make(deps) {
   }
 
   /** Six questions in the Cambridge mix, written from the passage. */
-  async function writeQuestions(paper) {
-    const plan = QL.QUESTION_PLAN.map((t, i) => `${i + 1}. ${t}`).join('\n')
+  /**
+   * Questions for a passage, or replacements for the ones a gate threw out.
+   *
+   * @param {object} paper
+   * @param {string[]} [onlyTypes] when given, ask for these types and nothing
+   *   else: a top-up round after the giveaway gate has emptied a required slot
+   */
+  async function writeQuestions(paper, onlyTypes) {
+    const topUp = !!(onlyTypes && onlyTypes.length)
+    const wanted = topUp ? onlyTypes.length * 2 : QUESTIONS_ASKED
+    const plan = topUp
+      ? onlyTypes.map((t) => `- two ${t} questions`).join('\n')
+      : QL.QUESTION_PLAN.map((t, i) => `${i + 1}. ${t}`).join('\n')
     const prompt = [
       'Here is a passage set for a school reading comprehension paper.',
       '',
@@ -274,11 +285,17 @@ function make(deps) {
       QL.stripHtml(paper.text),
       '--- end of passage ---',
       '',
-      `Write ${QUESTIONS_ASKED} multiple-choice questions about it, in the style of a`,
+      `Write ${wanted} multiple-choice questions about it, in the style of a`,
       'Cambridge English proficiency reading paper. Cover these types, in about',
       'this proportion:',
       plan,
-      `and two more of any of those types, to make ${QUESTIONS_ASKED}.`,
+      topUp
+        // A top-up round is asked because the first questions of these
+        // types were answerable without the passage. Saying so is the only
+        // thing that makes the second attempt differ from the first.
+        ? 'The earlier attempts at these types could be answered without reading'
+          + ' the passage. Anchor each of these in a specific sentence.'
+        : `and two more of any of those types, to make ${wanted}.`,
       '',
       'Rules, all of which matter:',
       '- Every question must be answerable ONLY by reading this passage. If a',
@@ -396,24 +413,75 @@ function make(deps) {
 
     const seen = new Set()
     const kept = []
-    for (const q of written) {
-      if (kept.length >= QUESTIONS_WANTED) break
-      const bad = QL.questionStructurallyOk(q, seen)
-      if (bad) { why.push(`dropped a ${q && q.type} question: ${bad}`); continue }
-      if (await answerableWithoutReading(q)) {
-        why.push(`dropped a ${q.type} question: answerable without the passage`)
-        continue
+
+    /** Puts a batch of questions past both gates, keeping what survives. */
+    const sift = async (batch) => {
+      for (const q of batch) {
+        if (kept.length >= QUESTIONS_WANTED) break
+        const bad = QL.questionStructurallyOk(q, seen)
+        if (bad) { why.push(`dropped a ${q && q.type} question: ${bad}`); continue }
+        if (await answerableWithoutReading(q)) {
+          why.push(`dropped a ${q.type} question: answerable without the passage`)
+          continue
+        }
+        seen.add(QL.questionStem(q.question))
+        // Rotated as it is written, so the bank cannot drift into a position.
+        const rotated = QL.rotateAnswerTo(q, kept.length % 4)
+        kept.push({
+          type: q.type,
+          question: q.question.trim(),
+          options: rotated.options,
+          correct: rotated.correct,
+          explanation: q.explanation.trim(),
+        })
       }
-      seen.add(QL.questionStem(q.question))
-      // Rotated as it is written, so the bank cannot drift into a position.
-      const rotated = QL.rotateAnswerTo(q, kept.length % 4)
-      kept.push({
-        type: q.type,
-        question: q.question.trim(),
-        options: rotated.options,
-        correct: rotated.correct,
-        explanation: q.explanation.trim(),
-      })
+    }
+
+    await sift(written)
+
+    // A passage that has been downloaded, measured and passed as suitable is
+    // too expensive to throw away because the giveaway gate happened to take
+    // the only inference question. Eight asked to keep six leaves room for
+    // two refusals and no more, and the paper check demands one of each of
+    // four types - so one unlucky drop used to cost the whole passage.
+    //
+    // So the types actually missing are asked for again, once. A second round
+    // that fails costs one call; a discarded passage costs a book download,
+    // a suitability check and eight questions.
+    const missingTypes = () => QL.REQUIRED_TYPES.filter((t) => !kept.some((q) => q.type === t))
+    const missing = missingTypes()
+    if (missing.length || kept.length < QUESTIONS_WANTED) {
+      why.push(`topping up: ${kept.length} kept, missing ${missing.join(', ') || 'nothing but short'}`)
+      try {
+        const more = await writeQuestions(paper, missing.length ? missing : QL.REQUIRED_TYPES)
+        const batch = Array.isArray(more) ? more : []
+
+        // One of each missing type before any second helping. Sifting the
+        // batch straight through filled the six places with two inference
+        // questions and two vocabulary ones and left purpose empty, which
+        // fails the paper check for the same reason it was short to begin
+        // with.
+        for (const type of missing) {
+          for (const q of batch.filter((c) => c && c.type === type)) {
+            if (kept.some((k) => k.type === type)) break
+            if (kept.length >= QUESTIONS_WANTED) {
+              // Full, and still missing a type the paper must have. A detail
+              // question is the one kind there is more than one of by design,
+              // so that is what makes way.
+              const spare = kept.findIndex((k) => !QL.REQUIRED_TYPES.includes(k.type))
+              if (spare < 0) break
+              why.push(`made room for a ${type} question by dropping a ${kept[spare].type} one`)
+              kept.splice(spare, 1)
+            }
+            await sift([q])
+          }
+        }
+
+        // Then anything still unused fills whatever space is left.
+        await sift(batch)
+      } catch (e) {
+        why.push(`the top-up round failed: ${e.message || e}`)
+      }
     }
 
     paper.questions = kept
@@ -491,8 +559,13 @@ function make(deps) {
         try {
           const got = await buildPaper(slot.genre, slot.band, index)
           if (got.paper) return { slot, paper: got.paper, why: got.why }
+          console.warn(`quest: ${slot.genre}/${slot.band} attempt ${attempt} refused: ${JSON.stringify(got.why)}`)
           if (attempt === 2) return { slot, paper: null, why: got.why }
         } catch (e) {
+          // Written out per slot as well as in the report: a nine-minute
+          // function that runs out of time never reaches the report at all,
+          // and then the only trace of what went wrong is this line.
+          console.warn(`quest: ${slot.genre}/${slot.band} attempt ${attempt} threw: ${e.message || e}`)
           if (attempt === 2) return { slot, paper: null, why: [String(e.message || e)] }
         }
       }
@@ -544,10 +617,17 @@ function make(deps) {
       }
     }
 
+    // Logged as JSON rather than handed to console.error as an object.
+    // Node's inspector stops at two levels deep and prints the rest as
+    // "[Array]" - and the reasons are three deep, one list per slot. The
+    // first night this failed, every slot came back as { slot, why: [Array] }
+    // and the only record of why was the reply to the browser.
+    console.log(`questNightly: ${dayKey} ${JSON.stringify(report)}`)
+
     // Nothing at all leaves yesterday's quest standing, which is better than
     // an empty card that says there is no reading today.
     if (!papers.length) {
-      console.error('questNightly: nothing could be set for', dayKey, report)
+      console.error(`questNightly: nothing could be set for ${dayKey}`)
       return { ...report, set: 0 }
     }
 
