@@ -15498,10 +15498,14 @@ button.hw-res-qth.active {
   border-color: var(--danger, #ff1744) !important;
   color: var(--danger, #ff1744) !important;
   background: rgba(255, 23, 68, 0.1) !important;
+  /* .btn-logout carries an accent glow, which over the red of a warning read
+     as an alarm rather than a caution. The outline says enough. */
+  box-shadow: none !important;
 }
 .btn-signout:hover {
   background: rgba(255, 23, 68, 0.2) !important;
   border-color: var(--danger, #ff1744) !important;
+  box-shadow: none !important;
 }
 .hw-cards-loading {
   padding: 18px 4px;
