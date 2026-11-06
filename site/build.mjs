@@ -32,6 +32,17 @@ const cssText = readFileSync(join(here, 'styles.css'), 'utf8')
 const cssVersion = createHash('sha1').update(cssText).digest('hex').slice(0, 8)
 
 const isTodo = (v) => typeof v === 'string' && v.trim().toUpperCase().startsWith('TODO')
+
+// Name, address and phone have to read the same everywhere they appear - on
+// the page, in the schema, and in the Google listing - or the listing is
+// trusted less. Built once here.
+const live = (v) => v && !String(v).trim().toUpperCase().startsWith('TODO')
+const postalLine = [
+  live(cfg.business.street) ? `${cfg.business.street},` : '',
+  cfg.business.suburb,
+  cfg.business.region,
+  cfg.business.postcode,
+].filter(live).join(' ')
 const warnings = []
 
 // `node site/build.mjs --preview` fills the gaps with sample text so the
@@ -195,7 +206,7 @@ ${body}
 </main>
 <footer class="site-foot">
   <div class="wrap foot-row">
-    <p>&copy; ${new Date().getFullYear()} ${esc(cfg.business.name)}${cfg.business.suburb ? ` &middot; ${esc(cfg.business.suburb)}, ${esc(cfg.business.region)}` : ''}</p>
+    <p>&copy; ${new Date().getFullYear()} ${esc(cfg.business.name)}${postalLine ? ` &middot; ${esc(postalLine)}` : ''}</p>
     <p class="foot-links">
       ${email ? `<a href="mailto:${esc(email)}">${esc(email)}</a>` : ''}
       ${cfg.business.phone ? `<a href="tel:${esc(cfg.business.phone.replace(/\s/g, ''))}">${esc(cfg.business.phone)}</a>` : ''}
@@ -232,11 +243,16 @@ const orgLd = {
   ...(cfg.business.suburb ? {
     address: {
       '@type': 'PostalAddress',
+      // A LocalBusiness without a street and a postcode is not a place, and
+      // the local pack that "tutoring in Eastwood" returns is made of places.
+      ...(cfg.business.street ? { streetAddress: cfg.business.street } : {}),
       addressLocality: cfg.business.suburb,
       addressRegion: cfg.business.region,
+      ...(cfg.business.postcode ? { postalCode: cfg.business.postcode } : {}),
       addressCountry: cfg.business.country,
     },
   } : {}),
+  ...(cfg.business.openingHours?.length ? { openingHoursSpecification: cfg.business.openingHours } : {}),
   ...(cfg.business.areaServed?.length
     ? { areaServed: cfg.business.areaServed.map((a) => ({ '@type': 'Place', name: a })) }
     : {}),
@@ -480,6 +496,10 @@ const contactBody = `
       <h2>Or reach us directly</h2>
       ${email ? `<p><a href="mailto:${esc(email)}">${esc(email)}</a></p>` : '<p class="note">An enquiry address has not been set yet.</p>'}
       ${cfg.business.phone ? `<p><a href="tel:${esc(cfg.business.phone.replace(/\s/g, ''))}">${esc(cfg.business.phone)}</a></p>` : ''}
+      ${cfg.business.phoneAlt ? `<p><a href="tel:${esc(cfg.business.phoneAlt.replace(/\s/g, ''))}">${esc(cfg.business.phoneAlt)}</a></p>` : ''}
+      ${cfg.business.hoursText ? `<p class="note">${esc(cfg.business.hoursText)}</p>` : ''}
+      ${postalLine ? `<p>${esc(postalLine)}</p>` : ''}
+      ${cfg.business.wechat ? `<p class="note">WeChat: ${esc(cfg.business.wechat)}</p>` : ''}
     </div>
   </div>
 </section>

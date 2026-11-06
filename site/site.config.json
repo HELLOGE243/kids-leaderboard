@@ -6,7 +6,7 @@
     "tagline": "We accelerate students to reach their full potential.",
     "description": "OC and Selective test preparation in Eastwood, Sydney. Small-group coaching for the NSW Opportunity Class and Selective High School tests for Years 3 to 6, with a practice platform students use between lessons.",
     "email": "hello.avantacademy@gmail.com",
-    "phone": "",
+    "phone": "0404 396 186",
     "suburb": "Eastwood",
     "region": "NSW",
     "country": "AU",
@@ -21,6 +21,25 @@
       "West Ryde",
       "North Sydney",
       "Sydney"
+    ],
+    "phoneAlt": "0430 732 988",
+    "street": "243 Hillview Lane",
+    "postcode": "2122",
+    "wechat": "AvantAcademyNSW",
+    "hoursText": "Monday to Friday, 9am to 9pm",
+    "openingHours": [
+      {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday"
+        ],
+        "opens": "09:00",
+        "closes": "21:00"
+      }
     ]
   },
   "site": {
@@ -122,7 +141,7 @@
       "name": "OC and Selective Trial Testing",
       "years": "Y3-Y6",
       "price": "$750 per term",
-      "summary": "Full timed papers sat under test conditions along with a detailed breakdown of diffcult questions. Students are offered opportunities for 1-on-1 review for individual questions.",
+      "summary": "Full timed papers sat under test conditions along with a detailed breakdown of difficult questions. Students are offered opportunities for 1-on-1 review for individual questions.",
       "covers": [
         "Full-length papers to the real format and timing",
         "Sat under exam conditions",
@@ -137,23 +156,23 @@
     }
   ],
   "reviews": {
-    "show": false,
+    "show": true,
     "_showNote": "Set true only when every entry below is a real quote from a real family, copied from a review they actually left. Invented testimonials are misleading conduct under Australian Consumer Law, and the build refuses to publish any entry still marked TODO.",
     "items": [
       {
-        "quote": "TODO - paste a real parent quote here",
-        "author": "TODO - first name or initials",
-        "context": "TODO - e.g. Parent, Year 4 OC"
+        "quote": "All of the explanations are crystal clear, as the teacher, Robert, thoroughly goes through all of the questions. Robert makes the classes very engaging, and all of the students love his fun and intriguing method of teaching.",
+        "author": "Gabriel Yoon",
+        "context": "Beecroft Public School (OC)"
       },
       {
-        "quote": "TODO - paste a real parent quote here",
-        "author": "TODO",
-        "context": "TODO"
+        "quote": "The way you teach our classes in an engaging and realistic hands on experience is great. The class is also always open to new methods to answer questions.",
+        "author": "Richard Zhang",
+        "context": "Beecroft Public School (OC)"
       },
       {
-        "quote": "TODO - paste a real parent quote here",
-        "author": "TODO",
-        "context": "TODO"
+        "quote": "Avant Academy classes are engaging and helpful. The Thinking Skills trial explanations I attended were concise and easy to understand.",
+        "author": "Alisa Zeng",
+        "context": "Artarmon Public School (OC)"
       }
     ],
     "label": "Testimonies",
@@ -233,11 +252,11 @@
       },
       {
         "title": "Small classes, on purpose",
-        "body": "Focused and intense, with enough room for a teacher to notice what one child in particular has not understood.",
+        "body": "Eight students to a class, so there is room for a teacher to notice what one child in particular has not understood.",
         "slug": "small-classes",
         "icon": "users",
         "page": [
-          "Our classes are deliberately small, and we hold them that way even when there is a waiting list.",
+          "Our classes are capped at eight students, and we hold them there even when there is a waiting list.",
           "The reason is simple arithmetic. In a room of thirty, a teacher can mark the room's average. In a room of a handful, a teacher notices that one particular child has quietly stopped attempting the second half of the reasoning paper, and can do something about it that week rather than at the end of term.",
           "Small does not mean gentle. The pace is intense and the material is hard, which is the point; a child who is never stretched in the room will be stretched for the first time in the exam hall."
         ],
