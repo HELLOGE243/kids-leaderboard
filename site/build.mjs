@@ -161,7 +161,24 @@ const icon = (name, cls = 'icon') => ICONS[name]
   ? `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICONS[name]}</svg>`
   : ''
 
+/**
+ * A meta description cut to what a search result will actually print.
+ *
+ * Google shows about 155 characters and drops the rest mid-word, so a longer
+ * one is not more information, it is a sentence that ends in an ellipsis. Cut
+ * at a sentence end where there is one within range, otherwise at a word.
+ */
+function metaDesc(text) {
+  const t = String(text || '').replace(/\s+/g, ' ').trim()
+  if (t.length <= 155) return t
+  const stop = t.lastIndexOf('. ', 155)
+  if (stop > 90) return t.slice(0, stop + 1)
+  const space = t.lastIndexOf(' ', 152)
+  return `${t.slice(0, space > 0 ? space : 152).replace(/[,;:]$/, '')}...`
+}
+
 function page({ title, description, path, body, jsonLd }) {
+  description = metaDesc(description)
   const canonical = `${origin}${path}`
   return `<!doctype html>
 <html lang="en-AU">
@@ -576,7 +593,7 @@ mkdirSync(join(out, 'courses'), { recursive: true })
 
 writeFileSync(join(out, 'index.html'), page({
   title: `OC & Selective Tutoring in ${cfg.business.suburb || 'Sydney'} | ${cfg.business.name}`,
-  description: cfg.business.description,
+  description: cfg.business.metaDescription || cfg.business.description,
   path: '/',
   body: homeBody,
   jsonLd: orgLd,
