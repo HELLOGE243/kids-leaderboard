@@ -21,6 +21,7 @@ import { readFileSync, existsSync, statSync, writeFileSync, copyFileSync } from 
 import { execFileSync } from 'node:child_process'
 import { dirname, join, normalize, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { adminPage, applySessions } from './timetable.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, 'editing')
@@ -89,6 +90,7 @@ const CLIENT = `
   }
   #ed-bar button:disabled { opacity: .4; cursor: default; }
   #ed-bar .ed-ghost { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.5); }
+  #ed-bar a.ed-link { padding: 8px 16px; border-radius: 7px; text-decoration: none; font: inherit; }
   #ed-count { margin-right: auto; font-weight: 500; }
   #ed-note { font-weight: 500; opacity: .85; }
   body { padding-bottom: 60px; }
@@ -96,6 +98,7 @@ const CLIENT = `
 <div id="ed-bar">
   <span id="ed-count">Click any outlined text to edit it</span>
   <span id="ed-note"></span>
+  <a class="ed-ghost ed-link" href="/__timetable">Class timetable</a>
   <button class="ed-ghost" id="ed-revert" disabled>Discard</button>
   <button id="ed-save" disabled>Save and rebuild</button>
 </div>
@@ -224,6 +227,33 @@ const server = createServer((req, res) => {
     return
   }
 
+  if (req.method === 'GET' && req.url === '/__timetable') {
+    return send(res, 200, adminPage(readConfig()), TYPES['.html'])
+  }
+
+  if (req.method === 'POST' && req.url === '/__timetable/save') {
+    let raw = ''
+    req.on('data', (c) => { raw += c; if (raw.length > 512 * 1024) req.destroy() })
+    req.on('end', () => {
+      try {
+        const cfg = readConfig()
+        // Nothing is written unless every course passed, so one bad row
+        // cannot leave half a timetable saved.
+        const out = applySessions(cfg, JSON.parse(raw))
+        if (!out.ok) return send(res, 400, JSON.stringify(out), TYPES['.json'])
+        copyFileSync(configPath, configPath + '.bak')
+        writeFileSync(configPath, JSON.stringify(cfg, null, 2) + '\n')
+        const log = rebuild()
+        console.log(`saved ${out.saved} class time(s)`)
+        for (const line of log.split('\n')) if (line.trim()) console.log('  ' + line.trim())
+        send(res, 200, JSON.stringify(out), TYPES['.json'])
+      } catch (err) {
+        send(res, 500, JSON.stringify({ ok: false, error: String(err.message || err) }), TYPES['.json'])
+      }
+    })
+    return
+  }
+
   // Everything else is a static read out of site/editing.
   const url = decodeURIComponent((req.url || '/').split('?')[0])
   let file = normalize(join(root, url))
@@ -250,4 +280,5 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`editor on http://127.0.0.1:${PORT}`)
   console.log(`editing ${configPath}`)
   console.log('click any outlined text, then Save and rebuild (or Ctrl+S)')
+  console.log(`class times: http://127.0.0.1:${PORT}/__timetable`)
 })

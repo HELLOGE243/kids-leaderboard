@@ -3,7 +3,7 @@
   "business": {
     "name": "AVANT OC & Selective",
     "shortName": "AVANT",
-    "tagline": "We accelerate students to reach their full potential.",
+    "tagline": "We’re experts in helping students realise their full potential.",
     "description": "OC and Selective test preparation in Eastwood, Sydney. Small-group coaching for the NSW Opportunity Class and Selective High School tests for Years 3 to 6, with a practice platform students use between lessons.",
     "metaDescription": "OC and Selective test preparation in Eastwood, Sydney. Small classes of eight for the NSW Opportunity Class and Selective High School tests, Years 3 to 6.",
     "email": "hello.avantacademy@gmail.com",
@@ -57,13 +57,14 @@
   "pricing": {
     "show": true,
     "_showNote": "Set true once the figures below are right. While false, each course shows an enquiry link instead of a price.",
-    "note": "Prices are per term of 10 weeks."
+    "note": "",
+    "_noteNote": "Shown under the courses heading when prices are on. Empty means no note."
   },
   "courses": [
     {
       "slug": "reading",
       "name": "Reading and Comprehension",
-      "years": "Y1 - y6",
+      "years": "Y1 - Y6",
       "price": "$750 per term",
       "summary": "Reading for meaning under time pressure: inference, author's purpose, tone, and the close reading the OC and Selective papers are built on.",
       "covers": [
@@ -73,12 +74,10 @@
         "Cloze and sentence-completion passages",
         "Matching extracts to statements under timed conditions"
       ],
-      "times": [
-        "Saturday 10:30am - 12:00pm",
-        "Saturday 12:00pm - 2:00pm",
-        "Sunday 10:00am - 11:30am"
-      ],
-      "icon": "book-open"
+      "icon": "book-open",
+      "sessions": [],
+      "timesNote": "",
+      "colour": "red"
     },
     {
       "slug": "thinking-skills",
@@ -93,12 +92,66 @@
         "Spatial reasoning, nets and rotations",
         "Problem solving against the clock"
       ],
-      "times": [
-        "Tuesday 7:00pm - 9:00pm",
-        "Sunday 11:15am - 1:15pm",
-        "Sunday 1:45pm - 3:45pm"
+      "icon": "lightbulb",
+      "sessions": [
+        {
+          "id": "thinking-skills-mon-1630",
+          "years": [
+            4
+          ],
+          "day": 1,
+          "start": "16:30",
+          "end": "18:30",
+          "capacity": 8,
+          "enrolled": null
+        },
+        {
+          "id": "thinking-skills-tue-1930",
+          "years": [
+            5
+          ],
+          "day": 2,
+          "start": "19:30",
+          "end": "21:30",
+          "capacity": 8,
+          "enrolled": null
+        },
+        {
+          "id": "thinking-skills-wed-1630",
+          "years": [
+            6
+          ],
+          "day": 3,
+          "start": "16:30",
+          "end": "18:30",
+          "capacity": 8,
+          "enrolled": null
+        },
+        {
+          "id": "thinking-skills-wed-1900",
+          "years": [
+            4
+          ],
+          "day": 3,
+          "start": "19:00",
+          "end": "21:00",
+          "capacity": 8,
+          "enrolled": null
+        },
+        {
+          "id": "thinking-skills-sun-1130",
+          "years": [
+            5
+          ],
+          "day": 7,
+          "start": "11:30",
+          "end": "13:30",
+          "capacity": 8,
+          "enrolled": null
+        }
       ],
-      "icon": "lightbulb"
+      "timesNote": "",
+      "colour": "purple"
     },
     {
       "slug": "mathematical-reasoning",
@@ -113,16 +166,60 @@
         "Working backwards and checking an answer is sensible",
         "Showing a method that survives a second look"
       ],
-      "times": [
-        "Tuesday 7:00pm - 9:00pm",
-        "Sunday 1:45pm - 3:45pm"
+      "icon": "calculator",
+      "sessions": [
+        {
+          "id": "mathematical-reasoning-tue-1630",
+          "years": [
+            4
+          ],
+          "day": 2,
+          "start": "16:30",
+          "end": "18:30",
+          "capacity": 8,
+          "enrolled": null
+        },
+        {
+          "id": "mathematical-reasoning-fri-1930",
+          "years": [
+            6
+          ],
+          "day": 5,
+          "start": "19:30",
+          "end": "21:30",
+          "capacity": 8,
+          "enrolled": null
+        },
+        {
+          "id": "mathematical-reasoning-sat-0915",
+          "years": [
+            6
+          ],
+          "day": 6,
+          "start": "09:15",
+          "end": "11:15",
+          "capacity": 8,
+          "enrolled": null
+        },
+        {
+          "id": "mathematical-reasoning-sun-0900",
+          "years": [
+            5
+          ],
+          "day": 7,
+          "start": "09:00",
+          "end": "11:00",
+          "capacity": 8,
+          "enrolled": null
+        }
       ],
-      "icon": "calculator"
+      "timesNote": "",
+      "colour": "blue"
     },
     {
       "slug": "writing",
       "name": "Writing",
-      "years": "Y3 - y6",
+      "years": "Y3 - Y6",
       "price": "$750 per term",
       "summary": "Narrative and persuasive writing to a brief, marked against the criteria the tests use, with the craft taught rather than assumed.",
       "covers": [
@@ -132,10 +229,10 @@
         "Openings, structure and endings that land",
         "Marked feedback on content, structure, vocabulary, fluency and mechanics"
       ],
-      "times": [
-        "Included within each class"
-      ],
-      "icon": "pen"
+      "icon": "pen",
+      "sessions": [],
+      "timesNote": "Included within each class",
+      "colour": "orange"
     },
     {
       "slug": "trial-testing",
@@ -150,10 +247,10 @@
         "A written report for parents after each sitting",
         "Every wrong answer becomes revision in the portal"
       ],
-      "times": [
-        "Scheduled through the term - ask for the current calendar"
-      ],
-      "icon": "clipboard-check"
+      "icon": "clipboard-check",
+      "sessions": [],
+      "timesNote": "Scheduled through the term - ask for the current calendar",
+      "colour": "cream"
     }
   ],
   "reviews": {
@@ -178,12 +275,11 @@
     ],
     "label": "Testimonies",
     "path": "/testimonials/",
-    "googleUrl": "https://www.google.com/maps/search/?api=1&query=AVANT%20OC%20%26%20Selective%20Eastwood",
-    "_googleNote": "Google licences review text and does not allow it to be republished wholesale, so the site links to the listing instead. With no quotes in items[] the Testimonies nav item is this link; add real quotes and it becomes a page that links on to Google for the rest."
+    "googleUrl": "https://www.google.com/search?kgmid=/g/11ty4f35fd",
+    "_googleNote": "Resolved from the share link to the listing's Knowledge Graph id, which does not change when the listing is edited. Google licences review text and its Places policy restricts storing it, so the site shows the score and the count - facts, not Google's copy - and links out for the words."
   },
   "advantages": {
     "heading": "Why families choose us",
-    "lede": "Six things that are hard to find together anywhere else in Sydney.",
     "items": [
       {
         "title": "Teachers who sat these tests and won",
@@ -196,7 +292,36 @@
           "It also sets the ceiling of the conversation. A child who asks a hard question gets a real answer, not a redirection to the answer key."
         ],
         "cta": "Meet the teachers",
-        "ctaAbout": ""
+        "ctaAbout": "",
+        "evidence": {
+          "kind": "people",
+          "people": [
+            {
+              "name": "TODO - teacher name",
+              "role": "TODO - what they teach",
+              "note": "TODO - one line: the school, the prize, the placing",
+              "photo": "people/teacher-01.webp"
+            },
+            {
+              "name": "TODO - teacher name",
+              "role": "TODO - what they teach",
+              "note": "TODO - one line: the school, the prize, the placing",
+              "photo": "people/teacher-02.webp"
+            },
+            {
+              "name": "TODO - teacher name",
+              "role": "TODO - what they teach",
+              "note": "TODO - one line: the school, the prize, the placing",
+              "photo": "people/teacher-03.webp"
+            },
+            {
+              "name": "TODO - teacher name",
+              "role": "TODO - what they teach",
+              "note": "TODO - one line: the school, the prize, the placing",
+              "photo": "people/teacher-04.webp"
+            }
+          ]
+        }
       },
       {
         "title": "Material you cannot buy anywhere else",
@@ -209,7 +334,29 @@
           "Our questions are multi-step on purpose. A single question will ask a child to extract a fact, hold it, and use it against a second constraint - because that is what the real papers do, and because a question with one move in it cannot tell you anything useful about a strong child."
         ],
         "cta": "See how our material differs",
-        "ctaAbout": ""
+        "ctaAbout": "",
+        "evidence": {
+          "kind": "sample",
+          "label": "Thinking Skills · Week 4 Classbook · Problem Solving IV · Year 4 OC stream",
+          "stem": "Gerald has 30 fish which he kept in 5 fish bowls.",
+          "figure": "material/bowls.webp",
+          "lines": [
+            "There are more than one fish in each bowl.",
+            "There are different numbers of fish in each bowl.",
+            "The total number of fish in the two smallest bowls is less than half a dozen.",
+            "The first bowl on the left does not have the least number of fish.",
+            "The biggest bowl has three times as many fish as the bowl in the middle.",
+            "The bowl with the widest opening has as many fish as the total number of fish in the three tanks to the left of it."
+          ],
+          "ask": "How many fish are there in the last bowl on the right?",
+          "note": "TODO - one line on what makes this question ours",
+          "pages": [
+            "material/page-01.webp",
+            "material/page-02.webp",
+            "material/page-03.webp"
+          ],
+          "pagesNote": "Week 4 of the Year 4 OC Thinking Skills classbook, as it is handed out."
+        }
       },
       {
         "title": "The best study platform in NSW",
@@ -222,8 +369,22 @@
           "There is guided writing that asks for a plan, reads what has been written and says what is working and what is missing without writing it for them. There is a line straight to their own teacher when they are stuck on a question, and the question comes back to be tried again once it is answered.",
           "And there are reports you can actually read: where your child sits against the cohort, which topics are weak, and what was handed in late."
         ],
-        "cta": "Contact us for a demo",
-        "ctaAbout": "A demo of the platform"
+        "cta": "",
+        "ctaAbout": "A demo of the platform",
+        "evidence": {
+          "kind": "actions",
+          "lead": "",
+          "actions": [
+            {
+              "label": "Take a Demo OC Test",
+              "href": "https://cleverspacev2.web.app"
+            },
+            {
+              "label": "Take a Demo Selective Test",
+              "href": "https://cleverspacev2.web.app"
+            }
+          ]
+        }
       },
       {
         "title": "A track record over five years",
@@ -236,7 +397,30 @@
           "If you want to know how children like yours have gone specifically, ask us. We will tell you honestly, including when we think another centre or another year would suit you better."
         ],
         "cta": "Read the record",
-        "ctaAbout": ""
+        "ctaAbout": "",
+        "evidence": {
+          "kind": "figures",
+          "figures": [
+            {
+              "value": "150+",
+              "label": "students placed at selective schools"
+            },
+            {
+              "value": "5",
+              "label": "years of results"
+            }
+          ],
+          "photos": [
+            "record/class-01.webp",
+            "record/class-02.webp",
+            "record/class-03.webp"
+          ],
+          "google": {
+            "rating": "5.0",
+            "count": "56",
+            "url": "https://www.google.com/search?kgmid=/g/11ty4f35fd"
+          }
+        }
       },
       {
         "title": "In-depth explanations for every question",
@@ -249,7 +433,13 @@
           "Those explanations sit in the portal next to the question, so a child working at home on a Tuesday night has the same explanation in front of them that they would get in class."
         ],
         "cta": "See what an explanation looks like",
-        "ctaAbout": ""
+        "ctaAbout": "",
+        "evidence": {
+          "kind": "video",
+          "id": "HFy9PX4eFgQ",
+          "poster": "video/explanation.webp",
+          "title": "TODO - one line on what this video walks through"
+        }
       },
       {
         "title": "Small classes, on purpose",
@@ -262,12 +452,18 @@
           "Small does not mean gentle. The pace is intense and the material is hard, which is the point; a child who is never stretched in the room will be stretched for the first time in the exam hall."
         ],
         "cta": "Ask about class sizes",
-        "ctaAbout": "Class sizes"
+        "ctaAbout": "Class sizes",
+        "evidence": {
+          "kind": "photo",
+          "file": "rooms/class-room.webp",
+          "caption": "TODO - one line"
+        }
       }
     ],
     "_pageNote": "Each strength also gets its own page at /why/<slug>/. 'body' is the card on the home page, 'page' is the paragraphs on that page. These are claims about the school - read them before they go live and change anything that overstates what we actually do.",
     "otherHeading": "The other reasons",
-    "_ctaNote": "Each card's link text. Leave ctaAbout empty and it goes to that strength's own page; put a subject in it and the link goes to the contact form with that subject pre-selected, and the subject is added to the form's dropdown."
+    "_ctaNote": "Each card's link text. Leave ctaAbout empty and it goes to that strength's own page; put a subject in it and the link goes to the contact form with that subject pre-selected, and the subject is added to the form's dropdown.",
+    "_evidenceNote": "Each reason shows something as well as saying it. Anything left TODO is dropped from the real build and shown as a labelled placeholder in `node site/build.mjs --preview`, so nothing half-finished reaches a parent."
   },
   "contact": {
     "heading": "Contact us",
@@ -303,9 +499,9 @@
   "home": {
     "_note": "Copy for the front page. **double asterisks** make bold; nothing else is markup.",
     "heroCta": "Make an enquiry",
-    "heroCtaAlt": "See our courses",
+    "heroCtaAlt": "See our classes",
     "tests": {
-      "heading": "Two tests, four years, one chance to prep.",
+      "heading": "Two tests, four years, one chance to prep",
       "ocTitle": "Opportunity Class",
       "ocBody": "Sat in **Year 4** for entry to an OC class in Year 5. Reading, mathematical reasoning and thinking skills, all under time.",
       "ocCta": "Try our OC trial quiz",
@@ -319,12 +515,24 @@
       "mockTest": "Sit a free mock test"
     },
     "cta": {
-      "heading": "Consult us or book a trial class today.",
+      "heading": "Consult us or book a trial class today",
       "lede": "We're here to help. Tell us your child's year and what you are preparing for, and we will give you our honest recommendation on what's best for you.",
       "button": "Contact us"
     }
   },
   "coursesPage": {
     "heading": "Courses"
-  }
+  },
+  "yearsOffered": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "_yearsOfferedNote": "Every year group the school teaches, for the filter at the top of the courses page. A year with no class in the timetable still gets a chip, and selecting it says so and offers the enquiry form."
 }

@@ -12,7 +12,7 @@
  *
  *   node site/build.mjs
  */
-import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync, readdirSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createHash } from 'node:crypto'
@@ -30,6 +30,32 @@ const cfg = JSON.parse(readFileSync(join(here, 'site.config.json'), 'utf8'))
 // an unchanged one stays cached.
 const cssText = readFileSync(join(here, 'styles.css'), 'utf8')
 const cssVersion = createHash('sha1').update(cssText).digest('hex').slice(0, 8)
+const cartText = readFileSync(join(here, 'cart.js'), 'utf8')
+const cartVersion = createHash('sha1').update(cartText).digest('hex').slice(0, 8)
+
+// Anything in site/assets is published as-is under /assets. Dropping a file
+// in is the whole publishing step - there is no manifest to keep in step with
+// the folder, which is the thing that always drifts.
+const assetPath = (name) => join(here, 'assets', name)
+
+// The hero plays footage behind the words when there is footage to play.
+// webm first because it is the smaller of the two for the same picture, mp4
+// second because Safari wants it. No file and the hero is exactly what it is
+// today - so the front page is never held up waiting on a shoot.
+const heroSources = [['hero.webm', 'video/webm'], ['hero.mp4', 'video/mp4']]
+  .filter(([f]) => existsSync(assetPath(f)))
+const heroPoster = ['hero-poster.webp', 'hero-poster.jpg', 'hero-poster.png']
+  .find((f) => existsSync(assetPath(f)))
+
+// Photographs in site/assets/hero are shown behind the words, in filename
+// order, until there is footage to replace them. Named rather than listed in
+// the config on purpose: a list that has to be kept in step with a folder is
+// a list that goes stale, and this one is meant to be temporary.
+const heroShots = existsSync(assetPath('hero'))
+  ? readdirSync(assetPath('hero'))
+    .filter((f) => /\.(webp|jpe?g|png)$/i.test(f))
+    .sort()
+  : []
 
 const isTodo = (v) => typeof v === 'string' && v.trim().toUpperCase().startsWith('TODO')
 
@@ -57,6 +83,18 @@ const editMode = process.argv.includes('--edit')
 // A marker on the element holding a value, naming its path in the config.
 // Dotted path, array index as a number: `courses.2.summary`.
 const ed = (path) => (editMode ? ` data-edit="${path}"` : '')
+// The mark at the end of a section heading belongs to the last word rather
+// than to the heading, so it is wrapped: the two can then never be split by
+// a line break, and the strokes can be struck off that word's own corner
+// instead of floating at the end of the block.
+const popped = (text) => {
+  const t = String(text || '').trim()
+  const at = t.lastIndexOf(' ')
+  return at < 0
+    ? `<span class="pop">${esc(t)}</span>`
+    : `${esc(t.slice(0, at))} <span class="pop">${esc(t.slice(at + 1))}</span>`
+}
+
 // **bold** and nothing else. Escaped first, so the config cannot inject markup.
 const rich = (v) => esc(v).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
 
@@ -177,7 +215,7 @@ function metaDesc(text) {
   return `${t.slice(0, space > 0 ? space : 152).replace(/[,;:]$/, '')}...`
 }
 
-function page({ title, description, path, body, jsonLd }) {
+function page({ title, description, path, body, jsonLd, pageName = '', scripts = [], noindex = false }) {
   description = metaDesc(description)
   const canonical = `${origin}${path}`
   return `<!doctype html>
@@ -188,6 +226,7 @@ function page({ title, description, path, body, jsonLd }) {
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
 <link rel="canonical" href="${canonical}">
+${noindex ? '<meta name="robots" content="noindex">' : ''}
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="${esc(cfg.business.name)}">
 <meta property="og:title" content="${esc(title)}">
@@ -195,11 +234,13 @@ function page({ title, description, path, body, jsonLd }) {
 <meta property="og:url" content="${canonical}">
 <meta property="og:locale" content="en_AU">
 <meta name="twitter:card" content="summary">
-<link rel="icon" href="/logo.png">
+<link rel="icon" href="/icon-32.png" sizes="32x32">
+<link rel="icon" href="/icon-512.png" sizes="512x512">
+<link rel="apple-touch-icon" href="/icon-180.png">
 <link rel="stylesheet" href="/styles.css?v=${cssVersion}">
 ${[].concat(jsonLd || []).filter(Boolean).map((d) => `<script type="application/ld+json">${JSON.stringify(d)}</script>`).join('')}
 </head>
-<body>
+<body${pageName ? ` data-page="${pageName}"` : ''}>
 <a class="skip" href="#main">Skip to content</a>
 ${preview ? '<p class="preview-flag">Preview &mdash; prices and reviews below are sample text, not real</p>' : ''}
 <header class="site-head">
@@ -231,6 +272,7 @@ ${body}
     </p>
   </div>
 </footer>
+${scripts.map((src) => `<script src="${src}" defer></script>`).join('')}
 </body>
 </html>
 `
@@ -294,23 +336,225 @@ const crumbs = (trail) => ({
   })),
 })
 
+// ------------------------------------------------- showing, not telling
+// Each reason carries something as well as saying something: who teaches is
+// settled by faces and records, what the material is like is settled by a
+// question. Two of the six need no photography at all - a question and an
+// explanation are stronger set as live text than as a screenshot of text,
+// because they stay sharp, stay readable on a phone, and cannot drift out
+// of step with the stylesheet.
+//
+// Anything still TODO is dropped from the real build and drawn as a
+// labelled placeholder in `--preview`, so a parent never meets a half-built
+// panel while the person filling it in can see the shape waiting for them.
+const evFile = (name) => `/assets/${String(name).replace(/^\/+/, '')}`
+const todoCount = { n: 0 }
+// `counts` is false for a gap inside a reason that already shows something:
+// the track record has its numbers, and the missing photograph should not
+// make the build report it as a reason with no evidence at all.
+const hole = (what, counts = true) => {
+  if (counts) todoCount.n += 1
+  return preview ? `<p class="hole"><span>TO COME</span>${esc(what)}</p>` : ''
+}
+
+function showPeople(ev) {
+  // A portrait with no name yet still belongs here - the gallery is the
+  // point, and the names can arrive later without the panel disappearing.
+  const real = (ev.people || []).filter((x) => !isTodo(x.name) || !isTodo(x.photo))
+  if (!real.length) return hole('Four teachers: a photograph, a name and one line of record each')
+  return `<ul class="faces">${real.map((x) => `
+    <li class="face">
+      ${isTodo(x.photo)
+        ? '<span class="face-blank" aria-hidden="true"></span>'
+        : `<img src="${esc(evFile(x.photo))}" alt="${esc(x.name)}" loading="lazy" width="160" height="160">`}
+      ${isTodo(x.name) ? '' : `<span class="face-name">${esc(x.name)}</span>`}
+      ${isTodo(x.role) ? '' : `<span class="face-role">${esc(x.role)}</span>`}
+      ${isTodo(x.note) ? '' : `<span class="face-note">${esc(x.note)}</span>`}
+    </li>`).join('')}</ul>`
+}
+
+function showSample(ev) {
+  const pages = (ev.pages || []).filter((f) => !isTodo(f))
+  const lines = (ev.lines || []).filter((x) => !isTodo(x))
+  const hasQ = !isTodo(ev.stem)
+  if (!hasQ && !pages.length) return hole('A real question, set exactly as a student meets it')
+
+  // Set as a page, not a card: the margin, the rule under the heading and the
+  // stacked clues are what a classbook looks like, and a parent recognises
+  // the thing their child brings home before they have read a word of it.
+  //
+  // The options are gone on purpose. Five lettered choices turn a question
+  // into something you can guess; without them the reader has to feel the
+  // problem, which is the point of showing it. The answer is not printed
+  // either - a page that prints the answer beside the question has given the
+  // question away.
+  const paper = !hasQ ? '' : `<figure class="paper">
+    ${isTodo(ev.label) ? '' : `<figcaption class="paper-tag">${esc(ev.label)}</figcaption>`}
+    <p class="paper-stem">${esc(ev.stem)}</p>
+    ${isTodo(ev.figure) ? '' : `<img class="paper-fig" src="${esc(evFile(ev.figure))}" alt="" loading="lazy">`}
+    ${lines.length ? `<ul class="paper-lines">${lines.map((x) => `
+      <li>${esc(x)}</li>`).join('')}</ul>` : ''}
+    ${isTodo(ev.ask) ? '' : `<p class="paper-ask">${esc(ev.ask)}</p>`}
+    ${isTodo(ev.note) ? '' : `<p class="paper-note">${esc(ev.note)}</p>`}
+  </figure>`
+
+  // The pages themselves, as they are handed out. A rendered question proves
+  // the questions are ours; a photograph of the book proves the book is.
+  const sheets = !pages.length ? '' : `<div class="sheets">
+    ${pages.map((f, i) => `<figure class="sheet">
+      <img src="${esc(evFile(f))}" alt="Page ${i + 1} of the classbook" loading="lazy" width="900">
+    </figure>`).join('')}
+    ${isTodo(ev.pagesNote) ? '' : `<p class="sheets-note">${esc(ev.pagesNote)}</p>`}
+  </div>`
+
+  return paper + sheets
+}
+
+function showScreens(ev) {
+  const real = (ev.shots || []).filter((x) => !isTodo(x.file))
+  if (!real.length) return hole('Two screens from the platform itself')
+  return `<div class="screens">${real.map((x) => `
+    <figure class="screen">
+      <img src="${esc(evFile(x.file))}" alt="${isTodo(x.caption) ? '' : esc(x.caption)}" loading="lazy">
+      ${isTodo(x.caption) ? '' : `<figcaption>${esc(x.caption)}</figcaption>`}
+    </figure>`).join('')}</div>`
+}
+
+function showFigures(ev) {
+  const figs = (ev.figures || []).filter((f) => !isTodo(f.value))
+  const pics = (ev.photos || []).filter((f) => !isTodo(f))
+  if (!figs.length && !pics.length) return hole('The numbers, and a photograph of the year they happened')
+  return `<div class="tally">
+    ${figs.length ? `<dl class="figures">${figs.map((f) => `
+      <div><dt>${esc(f.value)}</dt><dd>${esc(f.label)}</dd></div>`).join('')}</dl>` : ''}
+    ${pics.length ? `<div class="tally-pics">${pics.map((f) => `
+      <img src="${esc(evFile(f))}" alt="" loading="lazy">`).join('')}</div>`
+      : hole('A photograph from a results day', false)}
+    ${showGoogle(ev.google)}
+  </div>`
+}
+
+
+// The rating out of five, as five stars with the last one part-filled, so a
+// 4.6 is not quietly rounded up to a 5.
+function starBar(rating) {
+  const r = Math.max(0, Math.min(5, Number(rating) || 0))
+  return `<span class="stars" role="img" aria-label="${r} out of 5">
+    <span class="stars-on" style="width:${((r / 5) * 100).toFixed(1)}%"></span></span>`
+}
+
+// Google licences the words in a review and its Places policy restricts
+// storing them, so this shows the two things that are plain fact - the score
+// and how many families left one - and sends the reader to Google for the
+// words themselves. Nothing is fetched at page load: no key to leak, no bill
+// to run, and no request telling Google who is reading this page.
+function showGoogle(g) {
+  if (!g || isTodo(g.rating) || isTodo(g.count) || isTodo(g.url)) {
+    return hole('The Google rating and how many families left one', false)
+  }
+  return `<a class="grev" href="${esc(g.url)}" rel="noopener">
+    <svg class="grev-mark" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+      <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
+      <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/>
+      <path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/>
+      <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
+    </svg>
+    <span class="grev-score">${esc(g.rating)}</span>
+    ${starBar(g.rating)}
+    <span class="grev-count">${esc(g.count)} Google reviews</span>
+    <span class="grev-go">Read them on Google &rarr;</span>
+  </a>`
+}
+
+function showPhoto(ev) {
+  if (isTodo(ev.file)) return hole('One photograph of a class in progress')
+  return `<figure class="shot">
+    <img src="${esc(evFile(ev.file))}" alt="${isTodo(ev.caption) ? '' : esc(ev.caption)}" loading="lazy">
+    ${isTodo(ev.caption) ? '' : `<figcaption>${esc(ev.caption)}</figcaption>`}
+  </figure>`
+}
+
+// An invitation to go and use the thing beats a photograph of the thing.
+function showActions(ev) {
+  const real = (ev.actions || []).filter((a) => !isTodo(a.label) && !isTodo(a.href))
+  if (!real.length) return hole('Two ways into the platform')
+  return `<div class="tryit">
+    ${isTodo(ev.lead) || !ev.lead ? '' : `<p class="tryit-lead">${esc(ev.lead)}</p>`}
+    <p class="tryit-acts">${real.map((a) => `
+      <a class="btn btn-primary" href="${esc(a.href)}">${esc(a.label)}</a>`).join('')}</p>
+  </div>`
+}
+
+// A still and a play button, not an iframe. YouTube's embed loads a few
+// hundred kilobytes and sets cookies on everyone who scrolls past; this
+// loads neither until somebody actually asks for the video. The thumbnail
+// is served from here rather than from YouTube for the same reason.
+function showVideo(ev) {
+  if (isTodo(ev.id)) return hole('A teacher walking through one question')
+  return `<div class="vid">
+    <button type="button" class="vid-play" data-video="${esc(ev.id)}"
+            aria-label="Play: ${esc(isTodo(ev.title) ? 'explanation video' : ev.title)}">
+      ${isTodo(ev.poster) ? '' : `<img src="${esc(evFile(ev.poster))}" alt="" loading="lazy" width="960" height="540">`}
+      <span class="vid-mark" aria-hidden="true"></span>
+    </button>
+    ${isTodo(ev.title) ? '' : `<p class="vid-cap">${esc(ev.title)}</p>`}
+  </div>`
+}
+
+const SHOW = {
+  people: showPeople, sample: showSample, screens: showScreens,
+  figures: showFigures, photo: showPhoto, actions: showActions, video: showVideo,
+}
+const evidenceOf = (a) =>
+  (a.evidence && SHOW[a.evidence.kind]) ? SHOW[a.evidence.kind](a.evidence) : ''
+
+// The only script the front page carries for the reasons: swap the still
+// for the real player when, and only when, somebody presses it.
+const videoScript = `<script>
+(function () {
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('.vid-play')
+    if (!b) return
+    var f = document.createElement('iframe')
+    f.src = 'https://www.youtube-nocookie.com/embed/' + b.dataset.video
+      + '?autoplay=1&rel=0'
+    f.title = b.getAttribute('aria-label') || 'Video'
+    f.allow = 'accelerometer; autoplay; encrypted-media; picture-in-picture'
+    f.allowFullscreen = true
+    f.className = 'vid-frame'
+    b.replaceWith(f)
+  })
+})()
+</script>`
+
 // -------------------------------------------------------------------- home
 const homeBody = `
-<section class="hero">
+<section class="hero${heroSources.length || heroShots.length ? ' hero-filmed' : ''}">
+  ${heroSources.length ? `
+  <video class="hero-video" muted loop playsinline preload="none"
+         ${heroPoster ? `poster="/assets/${heroPoster}"` : ''} aria-hidden="true" tabindex="-1">
+    ${heroSources.map(([f, type]) => `<source src="/assets/${f}" type="${type}">`).join('')}
+  </video>` : heroShots.length ? `
+  <div class="hero-shots" aria-hidden="true">
+    ${heroShots.map((f, i) => `<img class="hero-shot${i === 0 ? ' is-on' : ''}"
+      ${i === 0 ? `src="/assets/hero/${f}"` : `data-src="/assets/hero/${f}"`}
+      alt="" width="1600" height="900" decoding="async">`).join('')}
+  </div>` : ''}
+  ${heroSources.length || heroShots.length ? '<div class="hero-veil" aria-hidden="true"></div>' : ''}
   <div class="wrap">
     <img class="hero-logo" src="/logo.svg" alt="${esc(cfg.business.name)}" width="300" height="113">
     <h1${ed('business.tagline')}>${esc(cfg.business.tagline)}</h1>
     <p class="lede"${ed('business.heroLede')}>${esc(cfg.business.heroLede)}</p>
     <p class="hero-cta">
+      <a class="btn btn-go" href="/courses/"${ed('home.heroCtaAlt')}>${esc(cfg.home.heroCtaAlt)}</a>
       ${enquire(cfg.home.heroCta, 'btn btn-primary', '', 'home.heroCta')}
-      <a class="btn btn-ghost" href="/courses/"${ed('home.heroCtaAlt')}>${esc(cfg.home.heroCtaAlt)}</a>
     </p>
   </div>
 </section>
 
-<section class="band">
+<section class="band band-journey">
   <div class="wrap">
-    <h2${ed('home.tests.heading')}>${esc(cfg.home.tests.heading)}</h2>
+    <h2${ed('home.tests.heading')}>${popped(cfg.home.tests.heading)}</h2>
     <div class="cards">
       <article class="card">
         <h3${ed('home.tests.ocTitle')}>${esc(cfg.home.tests.ocTitle)}</h3>
@@ -328,23 +572,29 @@ const homeBody = `
 
 <section class="band band-alt">
   <div class="wrap">
-    <h2${ed('advantages.heading')}>${esc(cfg.advantages.heading)}</h2>
-    <p class="lede"${ed('advantages.lede')}>${esc(cfg.advantages.lede)}</p>
-    <div class="cards">
-      ${(cfg.advantages.items || []).map((a, i) => `
-      <article class="card card-link">
-        ${icon(a.icon, 'icon icon-lg')}
-        <h3><a href="/why/${esc(a.slug)}/"${ed(`advantages.items.${i}.title`)}>${esc(a.title)}</a></h3>
-        <p${ed(`advantages.items.${i}.body`)}>${esc(a.body)}</p>
-        <p class="card-more"><a href="${advLink(a)}"><span${ed(`advantages.items.${i}.cta`)}>${esc(a.cta || 'More on this')}</span> &rarr;</a></p>
-      </article>`).join('')}
-    </div>
+    <h2${ed('advantages.heading')}>${popped(cfg.advantages.heading)}</h2>
+    <ol class="chapters">
+      ${(cfg.advantages.items || []).map((a, i) => {
+        const show = evidenceOf(a)
+        return `
+      <li class="chapter${show ? '' : ' is-bare'}" id="${esc(a.slug)}">
+        <p class="chapter-no" aria-hidden="true">${String(i + 1).padStart(2, '0')}</p>
+        <div class="chapter-say">
+          ${icon(a.icon, 'icon icon-lg')}
+          <h3><a href="/why/${esc(a.slug)}/"${ed(`advantages.items.${i}.title`)}>${esc(a.title)}</a></h3>
+          <p${ed(`advantages.items.${i}.body`)}>${esc(a.body)}</p>
+          ${isTodo(a.cta) || !a.cta ? '' : `<p class="chapter-cta"><a href="${advLink(a)}"><span${ed(`advantages.items.${i}.cta`)}>${esc(a.cta)}</span> &rarr;</a></p>`}
+        </div>
+        ${show ? `<div class="chapter-show">${show}</div>` : ''}
+      </li>`
+      }).join('')}
+    </ol>
   </div>
 </section>
 
 <section class="band">
   <div class="wrap">
-    <h2${ed('home.teach.heading')}>${esc(cfg.home.teach.heading)}</h2>
+    <h2${ed('home.teach.heading')}>${popped(cfg.home.teach.heading)}</h2>
     <div class="cards">
       ${cfg.courses.map((c, i) => `
       <article class="card card-link">
@@ -363,39 +613,326 @@ const homeBody = `
 
 <section class="band cta-band">
   <div class="wrap">
-    <h2${ed('home.cta.heading')}>${esc(cfg.home.cta.heading)}</h2>
+    <h2${ed('home.cta.heading')}>${popped(cfg.home.cta.heading)}</h2>
     <p class="lede"${ed('home.cta.lede')}>${esc(cfg.home.cta.lede)}</p>
     ${enquire(cfg.home.cta.button, 'btn btn-primary', '', 'home.cta.button')}
   </div>
 </section>
+
+${cfg.advantages.items.some((a) => a.evidence && a.evidence.kind === 'video' && !isTodo(a.evidence.id)) ? videoScript : ''}
+${heroSources.length || heroShots.length ? `<script>
+(function () {
+  var conn = navigator.connection || {}
+  // Moving pictures are not worth a metered connection, a data-saver
+  // setting, or someone who has asked for less movement. The gradient and
+  // the first photograph are the design rather than a fallback, so stopping
+  // here costs the page nothing - which is why nothing further is fetched
+  // until this has decided to run.
+  var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    || conn.saveData || /(^|[^4])2g/.test(conn.effectiveType || '')
+
+  var v = document.querySelector('.hero-video')
+  if (v) {
+    if (still || window.innerWidth < 700) return
+    v.preload = 'auto'
+    v.load()
+    var go = v.play()
+    // Autoplay refused is an ordinary outcome, not an error worth a console.
+    if (go && go.catch) go.catch(function () {})
+    return
+  }
+
+  var shots = document.querySelectorAll('.hero-shot')
+  if (shots.length < 2 || still) return
+  // The first photograph is already in the markup and already painted. The
+  // rest are fetched only once the page has finished loading, so a gallery
+  // nobody has scrolled past yet never competes with the page itself.
+  function begin() {
+    for (var i = 1; i < shots.length; i++) {
+      if (shots[i].dataset.src) shots[i].src = shots[i].dataset.src
+    }
+    var at = 0
+    setInterval(function () {
+      shots[at].classList.remove('is-on')
+      at = (at + 1) % shots.length
+      shots[at].classList.add('is-on')
+    }, 5000)
+  }
+  if (document.readyState === 'complete') begin()
+  else window.addEventListener('load', begin)
+})()
+</script>` : ''}
 `
+
+// ------------------------------------------------------------- class times
+// A class time is structured data now - a day number, a start and an end -
+// rather than the string "Tuesday 7:00pm - 9:00pm". All the ordering,
+// grouping and clash-checking below depends on that, and none of it was
+// possible while the time was prose.
+const DAY_SHORT = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const DAY_LONG = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+// 24-hour in the config because that is what sorts; 12-hour on the page
+// because that is what a parent reads.
+function clock(hhmm) {
+  const [h, m] = String(hhmm).split(':').map(Number)
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return `${h12}:${String(m).padStart(2, '0')}${h >= 12 ? 'pm' : 'am'}`
+}
+const atMinute = (hhmm) => {
+  const [h, m] = String(hhmm).split(':').map(Number)
+  return h * 60 + m
+}
+const spanOf = (s) => `${clock(s.start)} – ${clock(s.end)}`
+
+// Monday first, the weekend last, then earliest start. Deliberately not the
+// order they happen to be typed in: a parent scanning for "a weeknight that
+// works" should not have to read the list twice to be sure.
+const byDayThenTime = (a, b) => (a.day - b.day) || (atMinute(a.start) - atMinute(b.start))
+
+const courseYears = (c) => [...new Set((c.sessions || []).flatMap((s) => s.years || []))]
+  .map(Number).sort((a, b) => a - b)
+const yearsLabel = (ys) => {
+  if (!ys.length) return ''
+  if (ys.length === 1) return `Year ${ys[0]}`
+  const run = ys[ys.length - 1] - ys[0] === ys.length - 1
+  return run ? `Years ${ys[0]}–${ys[ys.length - 1]}` : `Years ${ys.join(', ')}`
+}
+
+// Every class in the school, flattened out of the subjects and grouped by the
+// day it runs on. The page used to be a list of subjects, each carrying its
+// own times; a parent is not choosing a subject, they are choosing what fits
+// around Saturday sport and a Tuesday evening, and they could not see two
+// subjects at once to compare. Grouped by day, the whole week a child could
+// have is one screen - and two subjects sharing a slot, which used to be
+// invisible between two cards, now sit side by side.
+function weekByDay() {
+  const days = new Map()
+  for (const c of cfg.courses) {
+    for (const session of c.sessions || []) {
+      if (!days.has(session.day)) days.set(session.day, [])
+      days.get(session.day).push({ session, course: c })
+    }
+  }
+  return [...days.keys()].sort((a, b) => a - b).map((day) => ({
+    day,
+    slots: days.get(day).sort((p, q) =>
+      (atMinute(p.session.start) - atMinute(q.session.start))
+      || p.course.name.localeCompare(q.course.name)),
+  }))
+}
+
+// Every year the school teaches, for the filter at the top of the page.
+// Deliberately not just the years the timetable happens to mention: a year
+// with no class on yet is still a year a parent can ask about, and a chip
+// that answers "not yet, ask us" is worth more than a chip that is missing.
+const ALL_YEARS = [...new Set([
+  ...(cfg.yearsOffered || []).map(Number),
+  ...cfg.courses.flatMap(courseYears),
+])].filter((y) => Number.isFinite(y)).sort((a, b) => a - b)
+
+// One colour per subject. A parent scanning a day should be able to tell
+// Reading from Maths before reading either word; the colour is a second,
+// faster channel for the thing the label already says, never the only one.
+const SUBJECT_COLOURS = new Set(['red', 'blue', 'purple', 'orange', 'cream'])
+const colourOf = (c) =>
+  SUBJECT_COLOURS.has(c && c.colour) ? c.colour : 'cream'
+
+// "$750 per term" -> 750. A course priced in words rather than numbers is
+// still bookable; it just contributes nothing to the total, which is honest.
+const priceOf = (c) => {
+  const n = Number(String(c.price || '').replace(/[^\d.]/g, ''))
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
+// What the browser is handed. The same timetable that is already printed into
+// the HTML, in the shape the basket needs - so the page renders and indexes
+// without JavaScript, and the basket needs no second request to name a class.
+/* Whether any class on the timetable can be paid for on the site.
+   The enrolment page promises in so many words that nothing is paid there,
+   and that promise has to stop being made the moment a Pay button can
+   appear on it - a page that says "nothing is paid here" above a payment
+   button is worse than one that never said it. */
+const anyPay = cfg.courses.some((c) => (c.sessions || [])
+  .some((s) => /^https:\/\/buy\.stripe\.com\//.test(String(s.pay || ''))))
+
+const catalogue = {
+  email,
+  courses: cfg.courses.map((c) => ({
+    slug: c.slug,
+    name: c.name,
+    price: showPrices ? priceOf(c) : 0,
+    sessions: (c.sessions || []).map((s) => ({
+      id: s.id,
+      years: (s.years || []).map(Number),
+      day: s.day,
+      start: s.start,
+      end: s.end,
+      capacity: s.capacity || null,
+      // A class may set its own price; a blank one is the subject's.
+      price: showPrices ? (s.price == null ? priceOf(c) : s.price) : 0,
+      // Checked again on the way out, not just on the way in: the config
+      // file can be hand-edited, and a payment button is the one control here
+      // where the wrong address costs a parent money.
+      pay: /^https:\/\/buy\.stripe\.com\//.test(String(s.pay || '')) ? s.pay : '',
+      label: `${DAY_LONG[s.day]} ${spanOf(s)}`,
+      short: `${DAY_SHORT[s.day]} ${spanOf(s)}`,
+    })),
+  })),
+}
 
 // ----------------------------------------------------------------- courses
 const coursesBody = `
 <section class="page-head">
   <div class="wrap">
     <h1${ed('coursesPage.heading')}>${esc(cfg.coursesPage.heading)}</h1>
-    <p class="lede"${ed('business.description')}>${esc(cfg.business.description)}</p>
-    ${showPrices && cfg.pricing.note ? `<p class="note">${esc(cfg.pricing.note)}</p>` : ''}
+    ${showPrices && !isTodo(cfg.pricing.note) && cfg.pricing.note
+      ? `<p class="note">${esc(cfg.pricing.note)}</p>` : ''}
+    ${ALL_YEARS.length ? `
+    <div class="year-filter">
+      <p class="year-filter-ask">
+        <span class="year-filter-label" id="yf-label">Choose your year</span>
+      </p>
+      <div class="year-chips" role="group" aria-labelledby="yf-label">
+        <button type="button" class="year-chip" data-year-filter="all" aria-pressed="true">All years</button>
+        ${ALL_YEARS.map((y) => `<button type="button" class="year-chip" data-year-filter="${y}" aria-pressed="false">Year ${y}</button>`).join('')}
+      </div>
+    </div>` : ''}
   </div>
 </section>
 
+<div class="year-note" hidden>
+  <div class="wrap year-note-row">
+    <p class="year-note-text">
+      <strong class="year-note-year"></strong>
+      <span class="year-note-rest"></span>
+    </p>
+    <button type="button" class="year-note-clear">Show all years</button>
+  </div>
+</div>
+
+<section class="band band-week">
+  <div class="wrap">
+    <div class="week show-years">
+      ${weekByDay().map(({ day, slots }) => `
+      <section class="day" data-day="${day}">
+        <h2 class="day-head">${DAY_LONG[day]}</h2>
+        <ul class="sessions">${slots.map(({ session, course }) => `
+          <li class="session sub-${colourOf(course)}" data-session="${esc(session.id)}"
+              data-subject="${esc(course.slug)}" data-years="${(session.years || []).join(',')}">
+            <button type="button" class="session-pick" aria-pressed="false">
+              <span class="session-subject">${esc(course.name)}</span>
+              <span class="session-when">${spanOf(session)}</span>
+              <span class="session-meta">
+                <span class="session-years-at">${yearsLabel((session.years || []).map(Number))}</span>
+                ${session.enrolled == null ? '' : `<span class="session-roll">${
+                  session.enrolled} ${session.enrolled === 1 ? 'student' : 'students'} enrolled</span>`}
+              </span>
+              <span class="session-state"></span>
+            </button>
+            <div class="session-years" hidden></div>
+            <p class="session-warn" hidden></p>
+          </li>`).join('')}
+        </ul>
+      </section>`).join('')}
+    </div>
+    <p class="week-none" hidden><span class="week-none-text"></span>
+      <a class="week-none-ask" href="/contact/">Make an enquiry</a></p>
+  </div>
+</section>
+
+<section class="band band-soft">
+  <div class="wrap">
+    <h2 class="subjects-head">${popped('About each subject')}</h2>
+    <div class="subject-list">
+      ${cfg.courses.map((c, i) => `
+      <details class="subject sub-${colourOf(c)}" id="${esc(c.slug)}" data-subject="${esc(c.slug)}">
+        <summary>
+          <span class="subject-name"${ed(`courses.${i}.name`)}>${esc(c.name)}</span>
+          <span class="subject-years"${ed(`courses.${i}.years`)}>${esc(c.years)}</span>
+          ${showPrices ? `<span class="subject-price"${ed(`courses.${i}.price`)}>${esc(isTodo(c.price) ? SAMPLE.price : c.price)}</span>` : ''}
+        </summary>
+        <div class="subject-body">
+          <p class="subject-summary"${ed(`courses.${i}.summary`)}>${esc(c.summary)}</p>
+          <ul class="ticks">${(c.covers || []).map((x, j) => `<li${ed(`courses.${i}.covers.${j}`)}>${esc(x)}</li>`).join('')}</ul>
+          ${c.timesNote ? `<p class="times-note"${ed(`courses.${i}.timesNote`)}>${esc(c.timesNote)}</p>` : ''}
+        </div>
+      </details>`).join('')}
+    </div>
+  </div>
+</section>
+
+<aside class="cart-bar" hidden aria-labelledby="cart-h">
+  <div class="cart-bar-row">
+    <h2 class="cart-h" id="cart-h">Your classes</h2>
+    <button type="button" class="cart-toggle" aria-expanded="false" aria-controls="cart-items">
+      <span class="cart-bar-text" aria-live="polite"></span>
+      <span class="cart-toggle-mark" aria-hidden="true"></span>
+    </button>
+    <div class="cart-items" id="cart-items">
+      <ul class="cart-list"></ul>
+      <p class="cart-total"><span>Total</span><strong class="cart-total-n"></strong></p>
+    </div>
+    <a class="btn btn-primary cart-go" href="/enrol/">Review and enrol</a>
+  </div>
+</aside>
+`
+
+// ------------------------------------------------------------------ enrol
+// The basket, reviewed. Grouped by school year because that is how a family
+// thinks about it, and because the year the parent already pressed on the
+// courses page tells us which child a class is for without stopping them
+// mid-browse to ask for a name.
+//
+// It ends in an email rather than a payment: no seat is held and nothing is
+// charged, which is how the school already works. Saying so here is cheaper
+// than explaining it later.
+const enrolBody = `
+<section class="page-head">
+  <div class="wrap">
+    <h1>The classes you have chosen</h1>
+    <p class="lede">Add a name for each child, tell us how to reach you, and send it over.
+      ${anyPay
+        ? 'We reply to confirm the place and the start date. Where a class can be paid for now, there is a Pay button beside it.'
+        : 'Nothing is paid here &mdash; we reply to confirm the place and the start date.'}</p>
+  </div>
+</section>
 <section class="band">
-  <div class="wrap course-list">
-    ${cfg.courses.map((c, i) => `
-    <article class="course" id="${esc(c.slug)}">
-      <div class="course-head">
-        <h2${ed(`courses.${i}.name`)}>${esc(c.name)}</h2>
-        <p class="card-years"${ed(`courses.${i}.years`)}>${esc(c.years)}</p>
-        ${showPrices ? `<p class="price"${ed(`courses.${i}.price`)}>${esc(isTodo(c.price) ? SAMPLE.price : c.price)}</p>` : ''}
+  <div class="wrap enrol-wrap">
+    <div class="enrol-app" id="enrol-app">
+      <noscript><p class="note">Choosing classes needs JavaScript.
+        You can <a href="/contact/">send an enquiry</a> instead${cfg.business.phone ? ` or ring ${esc(cfg.business.phone)}` : ''}.</p></noscript>
+    </div>
+
+    ${email ? `
+    <form class="enquiry enrol-form" id="enrol-form" hidden>
+      <h2>How we reach you</h2>
+      <div class="field">
+        <label for="enrol-parent">Your name</label>
+        <input id="enrol-parent" type="text" autocomplete="name" required>
       </div>
-      <p class="course-summary"${ed(`courses.${i}.summary`)}>${esc(c.summary)}</p>
-      <h3 class="course-sub">What it covers</h3>
-      <ul class="ticks">${(c.covers || []).map((x, j) => `<li${ed(`courses.${i}.covers.${j}`)}>${esc(x)}</li>`).join('')}</ul>
-      <h3 class="course-sub">Class times</h3>
-      <ul class="times">${(c.times || []).map((x, j) => `<li${ed(`courses.${i}.times.${j}`)}>${esc(x)}</li>`).join('')}</ul>
-      ${enquire(`Enquire about ${c.name}`, 'btn btn-primary btn-sm', c.name)}
-    </article>`).join('')}
+      <div class="field">
+        <label for="enrol-email">Your email</label>
+        <input id="enrol-email" type="email" autocomplete="email" required>
+      </div>
+      <div class="field">
+        <label for="enrol-phone">Phone <span class="opt">(optional)</span></label>
+        <input id="enrol-phone" type="tel" autocomplete="tel">
+      </div>
+      <div class="field">
+        <label for="enrol-start">Preferred start <span class="opt">(optional)</span></label>
+        <input id="enrol-start" type="text" placeholder="Next term, or as soon as there is a place">
+      </div>
+      <div class="field">
+        <label for="enrol-message">Anything you would like us to know <span class="opt">(optional)</span></label>
+        <textarea id="enrol-message" rows="4"></textarea>
+      </div>
+      <button class="btn btn-primary" type="submit">Send enrolment enquiry</button>
+      <p class="note form-note">This opens your own email app with everything filled in. Nothing is stored on this website.${
+        anyPay ? ' Payments are taken by Stripe on their own page, not here.' : ''}</p>
+      <p class="note enrol-sent" hidden>Your email app should have opened with the details ready to send.
+        If nothing happened, email <a href="mailto:${esc(email)}">${esc(email)}</a> instead.</p>
+    </form>` : ''}
   </div>
 </section>
 `
@@ -575,7 +1112,7 @@ const whyPage = (a) => `
 </section>
 <section class="band band-alt">
   <div class="wrap">
-    <h2${ed('advantages.otherHeading')}>${esc(cfg.advantages.otherHeading)}</h2>
+    <h2${ed('advantages.otherHeading')}>${popped(cfg.advantages.otherHeading)}</h2>
     <div class="cards">
       ${(cfg.advantages.items || []).filter((o) => o.slug !== a.slug).map((o) => `
       <article class="card card-link">
@@ -588,6 +1125,7 @@ const whyPage = (a) => `
 `
 
 // ------------------------------------------------------------------- write
+const cartScripts = [`/catalogue.js?v=${cartVersion}`, `/cart.js?v=${cartVersion}`]
 mkdirSync(out, { recursive: true })
 mkdirSync(join(out, 'courses'), { recursive: true })
 
@@ -605,6 +1143,8 @@ writeFileSync(join(out, 'courses', 'index.html'), page({
     + `${cfg.courses.map((c) => c.name).join(', ')}. Class times and fees.`,
   path: '/courses/',
   body: coursesBody,
+  pageName: 'courses',
+  scripts: cartScripts,
   jsonLd: [crumbs([{ name: 'Courses', url: '/courses/' }]), {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
@@ -623,6 +1163,28 @@ writeFileSync(join(out, 'courses', 'index.html'), page({
       },
     })),
   }],
+}))
+
+// The timetable the browser is handed, written out beside the pages. It is
+// the same data the HTML above already prints, so the basket can name a class
+// without a second request - and when the timetable moves to a database, only
+// this file changes.
+writeFileSync(join(out, 'catalogue.js'),
+  `window.AVANT_CATALOGUE=${JSON.stringify(catalogue)};
+`)
+copyFileSync(join(here, 'cart.js'), join(out, 'cart.js'))
+
+mkdirSync(join(out, 'enrol'), { recursive: true })
+writeFileSync(join(out, 'enrol', 'index.html'), page({
+  title: `Your classes | ${cfg.business.name}`,
+  description: 'Review the classes you have chosen and send us an enrolment enquiry.',
+  path: '/enrol/',
+  body: enrolBody,
+  pageName: 'enrol',
+  scripts: cartScripts,
+  // A page that renders one visitor's basket has nothing to offer a search
+  // result, and an indexed empty basket is worse than no result at all.
+  noindex: true,
 }))
 
 mkdirSync(join(out, 'contact'), { recursive: true })
@@ -691,11 +1253,46 @@ writeFileSync(join(out, 'sitemap.xml'),
   + `</urlset>\n`)
 
 copyFileSync(join(here, 'styles.css'), join(out, 'styles.css'))
+
+const assetsDir = join(here, 'assets')
+if (existsSync(assetsDir)) {
+  // Emptied first, so the published folder is a mirror of the source rather
+  // than everything that has ever been in it. Without this, taking the hero
+  // film out of site/assets would leave it on the live site, still being
+  // served and still being paid for.
+  rmSync(join(out, 'assets'), { recursive: true, force: true })
+  mkdirSync(join(out, 'assets'), { recursive: true })
+  // Recursive, because the hero gallery is a folder of its own. Notes to
+  // whoever adds the next file are not for the public site.
+  const publish = (from, to) => {
+    mkdirSync(to, { recursive: true })
+    for (const name of readdirSync(from, { withFileTypes: true })) {
+      if (name.name.startsWith('.') || name.name.toLowerCase().endsWith('.md')) continue
+      if (name.isDirectory()) publish(join(from, name.name), join(to, name.name))
+      else copyFileSync(join(from, name.name), join(to, name.name))
+    }
+  }
+  publish(assetsDir, join(out, 'assets'))
+}
 const logo = join(here, '..', 'public', 'avant-logo.png')
 if (existsSync(logo)) copyFileSync(logo, join(out, 'logo.png'))
+// The tab icon is the mark on its own square, not the wordmark. The wordmark
+// is 366x151; a browser asked for a 16x16 icon either squashes it to a smear
+// or letterboxes it, and either way nobody can tell whose tab it is.
+for (const px of [32, 180, 512]) {
+  const mark = join(here, '..', 'public', `avant-mark-${px}.png`)
+  if (existsSync(mark)) copyFileSync(mark, join(out, `icon-${px}.png`))
+}
 const logoSvg = join(here, '..', 'public', 'logo.svg')
 if (existsSync(logoSvg)) copyFileSync(logoSvg, join(out, 'logo.svg'))
 
 console.log(`built ${pages.length} page(s) for ${origin}`)
 console.log(`  prices: ${showPrices ? 'shown' : 'hidden'}   reviews: ${showReviews ? `${liveReviews.length} shown` : 'not published'}`)
+console.log(`  hero: ${heroSources.length ? heroSources.map(([f]) => f).join(' + ')
+  : heroShots.length ? `${heroShots.length} photo(s) from site/assets/hero`
+  : 'no footage or photos in site/assets, gradient only'}`)
+if (todoCount.n) {
+  warnings.push(`${todoCount.n} of the six reasons has no evidence yet`
+    + ' - run with --preview to see the gaps')
+}
 for (const w of warnings) console.warn(`  ! ${w}`)
