@@ -251,10 +251,18 @@
       ]
     }
   ],
-  "functions": {
-    "source": "functions",
-    "runtime": "nodejs22"
-  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "app",
+      "runtime": "nodejs22"
+    },
+    {
+      "source": "site/functions",
+      "codebase": "marketing",
+      "runtime": "nodejs22"
+    }
+  ],
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"

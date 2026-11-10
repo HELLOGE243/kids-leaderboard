@@ -8,7 +8,10 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "build:dictionary": "node scripts/build-dictionary.mjs"
+    "build:dictionary": "node scripts/build-dictionary.mjs",
+    "_deploy_note": "Always deploy by name. A bare `firebase deploy`, or `--only functions` without a codebase, reaches the student and teacher app.",
+    "deploy:site": "firebase deploy --only hosting:avant-oc-selective",
+    "deploy:payments": "firebase deploy --only functions:marketing"
   },
   "dependencies": {
     "firebase": "^12.18.0",
