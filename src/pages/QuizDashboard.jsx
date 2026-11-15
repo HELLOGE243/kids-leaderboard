@@ -22,6 +22,7 @@ import {
   sendQuestionToTeachers,
   getSharedExplanation,
   saveSharedExplanation,
+  effectiveTimeLimit,
 } from '../data/store.js'
 import { RichText } from '../components/RichTextEditor.jsx'
 import { useScreenGuard } from '../utils/screenGuard.js'
@@ -180,7 +181,7 @@ function QuizDashboard({ user, onBack, initialNav }) {
 
   useEffect(() => {
     if (!quizStartTime || !activeQuiz) return
-    const limitMs = (activeQuiz.timeLimit || 10) * 60 * 1000
+    const limitMs = effectiveTimeLimit(activeQuiz) * 60 * 1000
     function tick() {
       const elapsed = Date.now() - quizStartTime
       const remaining = Math.max(0, limitMs - elapsed)
@@ -356,7 +357,7 @@ function QuizDashboard({ user, onBack, initialNav }) {
 
   // Warning popup before starting
   if (showWarning) {
-    const tl = showWarning.timeLimit || 10
+    const tl = effectiveTimeLimit(showWarning)
     return (
       <div className="neon-overlay">
         <div className="neon-popup" style={{ maxWidth: 480, padding: '40px 36px' }}>
@@ -985,7 +986,7 @@ function QuizDashboard({ user, onBack, initialNav }) {
                             <span className="pq-row-check" aria-hidden="true">{!isUnlocked ? '🔒' : hasAttempt ? '✓' : quiz.number}</span>
                             <span className="pq-row-info">
                               <span className="pq-row-name">Quiz {quiz.number}</span>
-                              <span className="pq-row-meta">{quiz.questions.length} questions · {quiz.timeLimit || 10} min</span>
+                              <span className="pq-row-meta">{quiz.questions.length} questions · {effectiveTimeLimit(quiz)} min</span>
                             </span>
                             {!isUnlocked ? (
                               <span className="hw-quiz-status hw-quiz-status-locked">Locked</span>

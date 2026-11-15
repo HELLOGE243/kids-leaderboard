@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { getClassById, getCoursesForOrg, getImportedQuizSet } from '../data/store.js'
+import { getClassById, getCoursesForOrg, getImportedQuizSet, effectiveTimeLimit } from '../data/store.js'
 import ReviewedQuestion from './ReviewedQuestion.jsx'
 import { useExamGuard } from '../utils/examGuard.js'
 
@@ -104,7 +104,7 @@ function ClassQuizBrowser({ classId, orgId, onBack }) {
                       <span className="cqb-paper-name">{s.friendlyTitle || s.rawTitle}</span>
                       <span className="cqb-paper-meta">
                         {(s.questions || []).length} question{(s.questions || []).length !== 1 ? 's' : ''}
-                        {s.timeLimit ? ` · ${s.timeLimit} min` : ''}
+                        {` · ${effectiveTimeLimit(s)} min`}
                       </span>
                     </button>
                   ))}

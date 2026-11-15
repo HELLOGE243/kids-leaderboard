@@ -52,6 +52,8 @@ import {
   applyRemark,
   preloadAllStudents,
   getSharedExplanationsForSet,
+  suggestedTimeLimit,
+  effectiveTimeLimit,
 } from '../data/store.js'
 import { extractTextFromPDF, processWithAI, parseBookletMeta, getPDFPageCount } from '../utils/pdfImport.js'
 import { RichTextEditor, RichText } from '../components/RichTextEditor.jsx'
@@ -74,11 +76,6 @@ const QUESTION_TYPES = [
 
 // A sensible default for sets that have never had a limit set: about a minute
 // and a half per question, rounded to five minutes, capped at an hour.
-function suggestedTimeLimit(questionCount) {
-  const mins = Math.round((questionCount || 1) * 1.5 / 5) * 5
-  return Math.max(5, Math.min(60, mins))
-}
-
 function emptyQuestion(type = 'multiple-choice') {
   const q = { type, text: '', prompt: '', options: ['', '', '', '', '', '', '', ''], correctIndex: 0, expGeneral: '', expOptions: {}, videoUrl: '' }
   if (type === 'multi-description') q.descriptions = [{ title: 'Tab A', content: '' }, { title: 'Tab B', content: '' }]
@@ -259,7 +256,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
     )
     setEditingQuiz(quiz.id)
     setQuizNumber(quiz.number)
-    setTimeLimit(quiz.timeLimit || 10)
+    setTimeLimit(effectiveTimeLimit(quiz))
     setUnlockEventId(quiz.unlockEventId || '')
     const maxOpts = Math.max(...resolved.map((q) => q.options.length))
     setOptionCount(maxOpts)
@@ -2129,7 +2126,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                           updateImportedQuizSet(set.id, { timeLimit: raw ? Math.max(1, Math.min(180, raw)) : null })
                           forceRefresh()
                         }}
-                        title="Time limit in minutes (blank uses the suggested default)"
+                        title={`Time limit in minutes. Blank gives the suggested ${suggestedTimeLimit(set.questions.length)}, which is what a student gets.`}
                         style={{ width: 32, fontSize: '0.5rem', padding: '1px', textAlign: 'center', background: 'transparent', border: `1px solid ${set.timeLimit ? 'var(--accent)' : 'rgba(255,255,255,0.15)'}`, color: set.timeLimit ? 'var(--accent)' : 'var(--text-dim)', borderRadius: 2 }}
                       />
                     </td>
@@ -2426,7 +2423,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                               return (
                                 <div key={quiz.id} className="list-item" style={{ fontSize: '0.7rem', padding: '4px 8px', gap: 4, flexWrap: 'wrap' }}>
                                   <span className="bold" style={{ width: 55 }}>Quiz {quiz.number}</span>
-                                  <span className="text-dim" style={{ fontSize: '0.55rem', flex: 1 }}>{quiz.questions.length}q · {quiz.timeLimit || 10}m</span>
+                                  <span className="text-dim" style={{ fontSize: '0.55rem', flex: 1 }}>{quiz.questions.length}q · {effectiveTimeLimit(quiz)}m</span>
                                   {unlockEvent && (
                                     <span style={{ fontSize: '0.45rem', color: 'var(--warning)', fontFamily: 'var(--font-pixel)' }} title={`Unlocks after: ${unlockEvent.name}`}>
                                       {unlockEvent.name}

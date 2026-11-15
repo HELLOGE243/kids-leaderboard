@@ -28,6 +28,7 @@ import {
   getUnlockedModuleCount,
   snapshotAttempt,
   refreshQuizSetFromCloud,
+  effectiveTimeLimit,
   quizResultsVisible,
   courseForQuizSet,
   attemptAwaitsMarking,
@@ -580,7 +581,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     if (!quizStartTime || !takingQuiz) return
     // Revision is practice, not a sitting: no clock, and nothing auto-submits.
     if (takingQuiz.homeworkMode || isRedo) { setTimeLeft(null); return }
-    const limitMs = (takingQuiz.timeLimit || 10) * 60 * 1000
+    const limitMs = effectiveTimeLimit(takingQuiz) * 60 * 1000
     function tick() {
       const elapsed = Date.now() - quizStartTime
       const remaining = Math.max(0, limitMs - elapsed)
@@ -1318,7 +1319,7 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
 
   // ===== PRE-QUIZ WARNING POPUP =====
   if (showWarning) {
-    const tl = showWarning.timeLimit || 10
+    const tl = effectiveTimeLimit(showWarning)
     const isHwMode = showWarning.homeworkMode
     return (
       <div className="neon-overlay">

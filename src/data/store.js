@@ -1867,7 +1867,56 @@ export function deleteTopic(topicId) {
 // --- Quizzes ---
 // quiz: { id, topicId, classId, number (1-8), timeLimit (minutes), unlockEventId (test event that unlocks this quiz), questions: [{ text, options: [string], correctIndex: number }] }
 
-export function createQuiz(topicId, classId, number, questions, timeLimit = 10, unlockEventId = null) {
+/**
+ * How long a paper of this many questions should take, when nobody has said.
+ *
+ * A minute and a half a question, to the nearest five minutes, and never
+ * less than five or more than sixty.
+ *
+ * @param {number} questionCount
+ * @returns {number} minutes
+ */
+export function suggestedTimeLimit(questionCount) {
+  const mins = Math.round((Number(questionCount) || 1) * 1.5 / 5) * 5
+  return Math.max(5, Math.min(60, mins))
+}
+
+/**
+ * The minutes a student actually gets for this paper.
+ *
+ * THE BUG THIS EXISTS TO END
+ *
+ * The teacher's library shows suggestedTimeLimit() as the placeholder in the
+ * time box - a 33 question paper displays 50 - and a teacher who saw a
+ * sensible number already sitting there reasonably left it alone. Nothing was
+ * stored. The student player then fell back to a hard-coded 10, in four
+ * separate places, none of which knew suggestedTimeLimit() existed.
+ *
+ * So the teacher's screen said 50 and the paper ran for 10, and both numbers
+ * were "the default". Every screen on both sides now asks this one function,
+ * so the number a teacher is shown is the number a student is given.
+ *
+ * A stored limit always wins, which is what makes the editor inside a quiz
+ * authoritative: it writes a real number, and a real number is never
+ * overridden by this.
+ *
+ * @param {{timeLimit?: number|null, questions?: Array}} quiz
+ * @returns {number} minutes
+ */
+export function effectiveTimeLimit(quiz) {
+  const stored = Number(quiz && quiz.timeLimit)
+  if (Number.isFinite(stored) && stored > 0) return stored
+  return suggestedTimeLimit((quiz && quiz.questions && quiz.questions.length) || 1)
+}
+
+/* timeLimit defaults to null, not 10.
+ *
+ * A stored 10 is indistinguishable from a teacher who meant ten minutes, and
+ * it beats the suggestion - so a quiz created without one would be pinned to
+ * ten for ever and nothing downstream could tell it was never chosen. null
+ * says "nobody said", which is the true answer, and effectiveTimeLimit then
+ * gives the same number the teacher is shown. */
+export function createQuiz(topicId, classId, number, questions, timeLimit = null, unlockEventId = null) {
   const data = loadData()
   const id = 'quiz-' + generateId(6)
   data.quizzes.push({ id, topicId, classId, number, timeLimit, unlockEventId, questions })
