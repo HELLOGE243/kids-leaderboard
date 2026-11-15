@@ -16,35 +16,22 @@
  *
  * Pure in, pure out - no DOM, no Firestore, no clock.
  */
-import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const require = createRequire(import.meta.url)
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-/* store.js reaches for the browser the moment it is imported, so the two
-   functions are read out of the source instead. They are pure and take no
-   dependencies, which is the whole reason they are safe to lift. */
+/* store.js reaches for the browser the moment it is imported, so these two
+   are rebuilt here from their own source rather than imported. Both are pure
+   and take no dependencies, which is what makes that honest - and the greps
+   at the end of this file are what stop the copy drifting from the original.
+   */
 const src = readFileSync(join(root, 'src', 'data', 'store.js'), 'utf8')
-function lift(name) {
-  const at = src.indexOf(`export function ${name}(`)
-  if (at < 0) throw new Error(`${name} is not exported from store.js`)
-  let depth = 0
-  let i = src.indexOf('{', at)
-  const start = i
-  for (; i < src.length; i++) {
-    if (src[i] === '{') depth++
-    else if (src[i] === '}') { depth--; if (depth === 0) break }
-  }
-  const body = src.slice(start + 1, i)
-  return new Function(...['questionCount', 'quiz'], body.includes('questionCount') ? body : body)
-}
 // Rebuilt rather than lifted blind, so a rename in store.js fails loudly here.
 const suggestedTimeLimit = new Function('questionCount', `
   const mins = Math.round((Number(questionCount) || 1) * 1.5 / 5) * 5
-  return Math.max(5, Math.min(60, mins))`)
+  return Math.max(10, Math.min(60, mins))`)
 const effectiveTimeLimit = new Function('quiz', `
   const suggestedTimeLimit = ${suggestedTimeLimit.toString()}
   const stored = Number(quiz && quiz.timeLimit)
@@ -67,20 +54,40 @@ const qs = (n) => ({ questions: Array.from({ length: n }, (_, i) => ({ id: i }))
 // ------------------------------------------------- store.js still says it
 ok('store.js exports the shared suggestion',
   src.includes('export function suggestedTimeLimit('))
+/* The copy rebuilt above is only worth testing while it matches the original.
+   Asserting the two lines it was built from keeps a change to store.js from
+   being quietly tested against the old arithmetic - which would be a suite
+   that passes precisely when it should fail. */
+ok('and the arithmetic this file rebuilt is still the arithmetic it ships',
+  src.includes('const mins = Math.round((Number(questionCount) || 1) * 1.5 / 5) * 5')
+  && src.includes('return Math.max(10, Math.min(60, mins))'))
+ok('and the stored-beats-suggested rule is still written that way',
+  src.includes('if (Number.isFinite(stored) && stored > 0) return stored'))
 ok('and the one the players ask',
   src.includes('export function effectiveTimeLimit('))
 
 // ------------------------------------------------------- what a blank means
 eq('a 33 question paper suggests 50', suggestedTimeLimit(33), 50)
 eq('a 20 question paper suggests 30', suggestedTimeLimit(20), 30)
-eq('a short paper never drops below 5', suggestedTimeLimit(1), 5)
+/* Ten, not the five the arithmetic gives. Every unset paper used to run on
+   a hard-coded ten, so a floor of five would have fixed the long papers by
+   shortening the short ones - a regression a student meets mid-sitting. */
+eq('a short paper never drops below 10', suggestedTimeLimit(1), 10)
+eq('and nor does a four question one', suggestedTimeLimit(4), 10)
+eq('five questions reaches ten on the arithmetic anyway', suggestedTimeLimit(5), 10)
+eq('six is the first that could have been under the floor and is not',
+  suggestedTimeLimit(6), 10)
 eq('and a very long one is capped at 60', suggestedTimeLimit(500), 60)
-eq('no count at all is still a usable number', suggestedTimeLimit(undefined), 5)
+eq('no count at all is still a usable number', suggestedTimeLimit(undefined), 10)
 
 // ------------------------------------- a stored limit beats a suggested one
 eq('a limit the teacher typed is the limit', effectiveTimeLimit({ timeLimit: 45, ...qs(33) }), 45)
-eq('even when it is shorter than the suggestion',
+/* The floor is on the SUGGESTION, not on a teacher's decision. Somebody who
+   wants a five minute drill types five and gets five. */
+eq('a teacher who types five gets five, floor or no floor',
   effectiveTimeLimit({ timeLimit: 5, ...qs(33) }), 5)
+eq('and one minute is still one minute',
+  effectiveTimeLimit({ timeLimit: 1, ...qs(2) }), 1)
 eq('even when it is longer than the cap',
   effectiveTimeLimit({ timeLimit: 120, ...qs(10) }), 120)
 
@@ -101,10 +108,15 @@ eq('a numeric string is honoured, because an input gives one',
   effectiveTimeLimit({ timeLimit: '45', ...qs(33) }), 45)
 
 // ------------------------------------------------------------ the old bug
-ok('no paper silently runs for ten minutes any more',
+/* Named carefully now that the floor is ten: a SHORT unset paper is
+   legitimately ten minutes. What must never happen again is a long one
+   collapsing to ten while its teacher is shown fifty. */
+ok('a long paper no longer collapses to ten minutes',
   effectiveTimeLimit(qs(33)) !== 10 && effectiveTimeLimit({ timeLimit: null, ...qs(20) }) !== 10)
-eq('a paper of 6 or 7 questions may legitimately be 10',
+eq('a paper of 7 questions lands on 10 by the arithmetic',
   suggestedTimeLimit(7), 10)
+ok('no unset paper is ever shorter than it used to be',
+  [1, 2, 3, 4, 5, 8, 13, 20, 33, 40].every((n) => suggestedTimeLimit(n) >= 10))
 
 // --------------------------------------- nobody keeps a second copy of it
 for (const file of [

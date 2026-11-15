@@ -1871,14 +1871,30 @@ export function deleteTopic(topicId) {
  * How long a paper of this many questions should take, when nobody has said.
  *
  * A minute and a half a question, to the nearest five minutes, and never
- * less than five or more than sixty.
+ * less than ten or more than sixty.
+ *
+ * THE FLOOR IS TEN, NOT FIVE
+ *
+ * The arithmetic gives five for a paper of four questions or fewer, and ten
+ * is what those papers have actually been running for - every unset paper
+ * fell back to a hard-coded ten before the two sides were joined up. Keeping
+ * the floor at five would have fixed the long papers by shortening the short
+ * ones, which is a regression a student meets in the middle of a sitting.
+ *
+ * It is deliberately changed here rather than in effectiveTimeLimit. The
+ * floor has to apply to the number the teacher is SHOWN as well as the one a
+ * student is given, or the two disagree again - which is the whole bug this
+ * function was lifted out of QuizBuilder to end.
+ *
+ * A teacher who genuinely wants five minutes types it, and a stored limit is
+ * never overridden.
  *
  * @param {number} questionCount
  * @returns {number} minutes
  */
 export function suggestedTimeLimit(questionCount) {
   const mins = Math.round((Number(questionCount) || 1) * 1.5 / 5) * 5
-  return Math.max(5, Math.min(60, mins))
+  return Math.max(10, Math.min(60, mins))
 }
 
 /**
