@@ -109,7 +109,17 @@ function make(deps) {
     return out
   }
 
-  async function ask(body) {
+  /**
+   * A model call, with the reason it stopped kept alongside what it said.
+   *
+   * "The reply was not the JSON asked for" is a true sentence about a reply
+   * that ran out of room, and a useless one: the model wrote exactly what it
+   * was asked for and was cut off mid-object. One is a prompt to fix, the
+   * other is a budget to raise, and the stop reason is the only thing that
+   * tells them apart. Six slots run at once, so it cannot be stashed in a
+   * variable in this closure - it travels with the text or not at all.
+   */
+  async function askFull(body) {
     const { status, body: raw } = await callClaude({ model: QUEST_MODEL, ...body })
     if (status !== 200) throw new Error(`Claude ${status}: ${String(raw).slice(0, 300)}`)
     const data = JSON.parse(raw)
@@ -123,11 +133,17 @@ function make(deps) {
     // last. Taking the first block handed the parser the preamble, so every
     // news slot died as "the news reply was not the JSON asked for" while the
     // finished report sat further down the same reply, never read.
-    return (data.content || [])
-      .filter((b) => b && b.type === 'text' && typeof b.text === 'string')
-      .map((b) => b.text)
-      .join('\n')
+    return {
+      text: (data.content || [])
+        .filter((b) => b && b.type === 'text' && typeof b.text === 'string')
+        .map((b) => b.text)
+        .join('\n'),
+      stopReason: String(data.stop_reason || ''),
+    }
   }
+
+  /** The reply's words, for the callers that have no use for the rest. */
+  const ask = async (body) => (await askFull(body)).text
 
   /** A JSON value out of a reply, without a regex that can run away on it. */
   /**
@@ -329,15 +345,26 @@ function make(deps) {
       'Five to eight paragraphs. No markdown, no HTML.',
     ].filter((l) => l !== null).join('\n')
 
-    const reply = await ask({
-      max_tokens: 8000,
+    // Six searches' worth of reading, then eight paragraphs of writing. The
+    // budget covers the writing; it has to be generous enough that the report
+    // is never the thing that gets cut.
+    const { text: reply, stopReason } = await askFull({
+      max_tokens: 16000,
       tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 6 }],
       messages: [{ role: 'user', content: prompt }],
     })
     const parsed = firstJson(reply, '{', '}',
       (v) => Array.isArray(v.paragraphs) && v.headline)
     if (!parsed || !Array.isArray(parsed.paragraphs) || !parsed.headline) {
-      return { paper: null, tried: ['the news reply was not the JSON asked for'] }
+      // Why, in enough detail to act on. Both news slots failed here for
+      // eleven nights and the log said only that the JSON was missing, which
+      // was a description of the symptom standing in for a diagnosis.
+      return {
+        paper: null,
+        tried: [`the news reply was not the JSON asked for`
+          + ` (stopped: ${stopReason || 'unsaid'}, ${reply.length} chars)`
+          + `: ${reply.slice(-240).replace(/\s+/g, ' ')}`],
+      }
     }
     const paragraphs = parsed.paragraphs.map((p) => String(p).trim()).filter(Boolean)
     if (!paragraphs.length) return { paper: null, tried: ['the news reply had no paragraphs'] }

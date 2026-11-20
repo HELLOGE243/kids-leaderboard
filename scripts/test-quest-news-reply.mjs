@@ -49,7 +49,8 @@ const REPORT = {
 }
 
 /** A reply body as the API returns it, from a list of content blocks. */
-const reply = (content) => ({ status: 200, body: JSON.stringify({ content }) })
+const reply = (content, stop_reason = 'end_turn') =>
+  ({ status: 200, body: JSON.stringify({ content, stop_reason }) })
 
 const TEXT = (t) => ({ type: 'text', text: t })
 const SEARCH_CALL = { type: 'server_tool_use', id: 'srvtoolu_01', name: 'web_search', input: { query: 'reef survey' } }
@@ -60,9 +61,9 @@ const SEARCH_RESULT = {
 }
 
 /** A job whose every model call returns the given content blocks. */
-const jobReturning = (content) => questJob.make({
+const jobReturning = (content, stopReason) => questJob.make({
   db: null,
-  callClaude: async () => reply(content),
+  callClaude: async () => reply(content, stopReason),
 })
 
 const index = { keys: new Set(), chaptersByWork: {} }
@@ -137,8 +138,25 @@ const index = { keys: new Set(), chaptersByWork: {} }
   const job = jobReturning([TEXT('I could not find a suitable story this week.'), SEARCH_CALL, SEARCH_RESULT])
   const { paper, tried } = await job.newsPiece('y6', index)
   ok('a reply with no report in it is still refused', !paper)
-  ok('and says so in the old words',
-    tried.includes('the news reply was not the JSON asked for'), tried.join('; '))
+  ok('and still says the JSON was not there',
+    tried.some((t) => t.startsWith('the news reply was not the JSON asked for')), tried.join('; '))
+}
+
+// -------------------------------------------------- a reply that ran out
+{
+  // The refusal has to say which of the two things went wrong. A reply cut
+  // off at max_tokens is not a model that ignored the format - it is a model
+  // that was writing the right thing and ran out of room, and the fix for one
+  // is nothing like the fix for the other. Both news slots failed here for
+  // eleven nights with a message that could not tell them apart.
+  const half = JSON.stringify(REPORT).slice(0, 180)
+  const job = jobReturning([TEXT('Searching.'), SEARCH_CALL, SEARCH_RESULT, TEXT(half)], 'max_tokens')
+  const { paper, tried } = await job.newsPiece('y6', index)
+  ok('a truncated report is refused', !paper)
+  ok('and the refusal names the stop reason',
+    tried.some((t) => t.includes('stopped: max_tokens')), tried.join('; '))
+  ok('and shows the end of what did arrive',
+    tried.some((t) => t.includes(half.slice(-30).replace(/\s+/g, ' '))), tried.join('; '))
 }
 
 {
