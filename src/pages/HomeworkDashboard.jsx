@@ -304,7 +304,7 @@ function HwResults({ title, score, total, pct, coins, grade, gradeColor, rank, t
                     <span className="hw-res-qclass-val">{q.classPct}%</span>
                   </span>
                   <span className="hw-res-qcell hw-res-qcell-action">
-                    <button className="hw-res-qgo" onClick={() => onGoToQuestion(q.num - 1)}>Review</button>
+                    <button className="hw-res-qgo" onClick={() => onGoToQuestion(q.at)}>Review</button>
                   </span>
                 </div>
               ))}
@@ -498,6 +498,14 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
   // Which questions of the paper a revision sitting is made of: the ones the
   // student got wrong. Null for an ordinary attempt, which covers all of them.
   const [redoIndices, setRedoIndices] = useState(null)
+  // A screen position turned into the paper's own question number.
+  //
+  // The two are the same for an ordinary sitting. For a revision they are not:
+  // the screen holds only the questions the student got wrong, numbered from
+  // zero, while the paper - and every other student's attempt at it - still
+  // numbers them where they really are. Anything comparing this student with
+  // the cohort, or naming a question to them, has to ask in the paper's terms.
+  const paperQ = (i) => (isRedo && redoIndices ? (redoIndices[i] ?? i) : i)
   const [showReportModal, setShowReportModal] = useState(null)
   const [reportType, setReportType] = useState('')
   const [reportDetails, setReportDetails] = useState('')
@@ -1056,7 +1064,28 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
     } else {
       result = submitHomeworkAttempt(takingQuiz.id, user.id, finalAnswers, times, meta)
     }
-    setSubmittedResult(result)
+    // What the store filed and what this screen is holding are not the same
+    // shape for a revision sitting, and the results screen was reading one as
+    // if it were the other.
+    //
+    // The attempt spreads the answers back over the whole paper, with -1 where
+    // a question was not asked, so that marks and analytics line up with the
+    // paper's own question numbers. The screen is holding only the handful of
+    // questions actually asked, numbered from zero. Every read below is by
+    // screen position - submittedResult.answers[currentQ] against
+    // resolvedQuestions[currentQ] - so a student revising questions 3 and 7 of
+    // a paper had their answers looked up at positions 3 and 7 of a list where
+    // they sat at 0 and 1, and found -1: not asked, which reads as skipped.
+    //
+    // The score was always right, because the store does that from the spread
+    // copy. Everything the student saw afterwards was off: a revision sat
+    // perfectly came back "2 out of 2" above a breakdown calling both
+    // questions skipped. This is what students have been reporting as the
+    // revision quiz marking them wrong.
+    //
+    // So the screen keeps the screen's copy. The spread one has already gone
+    // to the store and the archive, which is where it belongs.
+    setSubmittedResult(isRedo ? { ...result, answers: finalAnswers } : result)
     setQuizStartTime(null)
     setTimeLeft(null)
     // Any saved progress goes, homework or a returned paper alike: a submitted
@@ -1624,10 +1653,17 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
         const answer = submittedResult.answers[qi]
         const correct = isQuestionCorrect(q, answer)
         const skipped = answer === -1 || answer === null || answer === undefined
-        const correctCount = totalStudents > 0 ? allAttempts.filter(a => isQuestionCorrect(q, a.answers?.[qi])).length : 0
+        // The cohort answered the whole paper, so their answers are looked up
+        // by the paper's question number rather than by this screen's.
+        const correctCount = totalStudents > 0 ? allAttempts.filter(a => isQuestionCorrect(q, a.answers?.[paperQ(qi)])).length : 0
         const classPct = totalStudents > 0 ? Math.round((correctCount / totalStudents) * 100) : 0
         const tag = q.tag || ''
-        return { num: qi + 1, correct, skipped, classPct, tag }
+        // Numbered as the student sat it. A revision is its own short paper -
+        // the header during the sitting says "Question 1 of 2" - so the
+        // breakdown saying Q3 and Q7 would be the only place those numbers
+        // appeared. `at` is carried separately because review is opened by
+        // position, and the two part company the moment they stop matching.
+        return { num: qi + 1, at: qi, correct, skipped, classPct, tag }
       })
 
       const enterReview = (startQ) => {
