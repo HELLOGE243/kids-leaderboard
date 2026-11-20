@@ -53,7 +53,10 @@ const STRIPS = [
 const CARD_GLYPH = {
   reading: '❝',
   math: '∑',
-  thinking: '◈',
+  // A brain, and the only one of the four that is an emoji. It brings its own
+  // colour rather than taking the card's tint the way the others do, which on
+  // a black card is the point of it: this is the one picked out of a row first.
+  thinking: '🧠',
   uncategorised: '❖',
 }
 
