@@ -343,6 +343,17 @@ function make(deps) {
       '{"headline": "...", "paragraphs": ["...", "..."], "sources": ["url", "url", "url"]}',
       '',
       'Five to eight paragraphs. No markdown, no HTML.',
+      '',
+      // Nobody is reading this reply. It runs at half past two in the morning
+      // and whatever comes back is parsed by a machine, so a question put to
+      // the sender is a slot with no reading in it: one night this came back
+      // "if you would rather choose the story yourself, send me the topic",
+      // and there is no one there to send it.
+      'Nobody will read this message or reply to it. Do not ask which story to',
+      'cover, do not offer alternatives, and do not ask for confirmation -',
+      'choose a story yourself and write the report. The JSON must be in this',
+      'reply. If a search fails or you are unsure, pick a different story and',
+      'write that one instead.',
     ].filter((l) => l !== null).join('\n')
 
     // Six searches' worth of reading, then eight paragraphs of writing. The
