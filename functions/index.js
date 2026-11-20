@@ -3438,10 +3438,20 @@ exports.triviaTopUp = functions
     return null
   })
 
-/** A teacher-triggered run, so the first night does not have to be waited for. */
+/**
+ * A teacher-triggered run, so the first night does not have to be waited for.
+ *
+ * `invoker: 'public'` is stated rather than left to the default, and it has to
+ * be. Every other HTTPS function here was created back when Google gave new
+ * ones an allUsers invoker automatically; new ones no longer get it, so this
+ * one answered a flat 401 from Google's edge, before any of our code ran, and
+ * the admin button on the dashboard did nothing. Public here means reachable,
+ * not unguarded: the first thing the handler does is verifyCaller, and it
+ * refuses anyone who is not an admin.
+ */
 exports.triviaTopUpRun = functions
   .region('australia-southeast1')
-  .runWith({ timeoutSeconds: 540, memory: '512MB' })
+  .runWith({ timeoutSeconds: 540, memory: '512MB', invoker: 'public' })
   .https.onRequest((req, res) => {
     cors(req, res, async () => {
       if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
