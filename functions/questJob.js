@@ -86,7 +86,6 @@ function make(deps) {
     }).format(now)
   }
 
-  /** The reply's first text block: on current models the first block is thinking. */
   /**
    * Maps over a list with at most `limit` promises in flight.
    *
@@ -114,8 +113,20 @@ function make(deps) {
     const { status, body: raw } = await callClaude({ model: QUEST_MODEL, ...body })
     if (status !== 200) throw new Error(`Claude ${status}: ${String(raw).slice(0, 300)}`)
     const data = JSON.parse(raw)
-    const text = (data.content || []).find((b) => b.type === 'text')
-    return (text && text.text) || ''
+    // Every text block, not the first one.
+    //
+    // A reply with no tools in it holds exactly one, so for most callers here
+    // this changes nothing. The news piece is the exception, and it was the
+    // only caller that passes tools: it searches the web, so its reply runs
+    // text, tool call, tool result, text, tool call, ... with a sentence of
+    // "I'll look that up" in the FIRST block and the JSON we asked for in the
+    // last. Taking the first block handed the parser the preamble, so every
+    // news slot died as "the news reply was not the JSON asked for" while the
+    // finished report sat further down the same reply, never read.
+    return (data.content || [])
+      .filter((b) => b && b.type === 'text' && typeof b.text === 'string')
+      .map((b) => b.text)
+      .join('\n')
   }
 
   /** A JSON value out of a reply, without a regex that can run away on it. */
@@ -131,20 +142,29 @@ function make(deps) {
    * So the fences come off, and then every candidate opening bracket is tried
    * in turn against every closing one, nearest first.
    */
-  function firstJson(text, open, close) {
+  function firstJson(text, open, close, wanted) {
     const raw = String(text)
       // ```json ... ``` and plain ``` ... ```
-      .replace(/```[a-zA-Z]*\\n?/g, '')
+      .replace(/```[a-zA-Z]*\n?/g, '')
       .replace(/```/g, '')
 
     // Every caller wants either an object or a list of objects, and saying so
     // is what stops "See [1] and [2]." being read as a list of questions:
     // [1] parses perfectly well, and a parse that succeeds is not the same
     // thing as an answer.
+    //
+    // `wanted` goes one further, and the news slot is why. A model that has
+    // been searching will think out loud on the way - "I considered
+    // {"topic": "volcanoes"} first" - and that aside parses, and is an object,
+    // so it satisfied everything asked here and was returned in place of the
+    // report further down the reply. The caller is the only one that knows
+    // which keys make a reply an answer, so the caller says.
     const useful = (v) => {
       if (!v || typeof v !== 'object') return false
-      if (Array.isArray(v)) return v.length > 0 && !!v[0] && typeof v[0] === 'object'
-      return true
+      if (Array.isArray(v)) {
+        if (!(v.length > 0 && !!v[0] && typeof v[0] === 'object')) return false
+      }
+      return wanted ? !!wanted(v) : true
     }
 
     for (let a = raw.indexOf(open); a !== -1; a = raw.indexOf(open, a + 1)) {
@@ -158,12 +178,37 @@ function make(deps) {
     return null
   }
 
+  /**
+   * The hosts a book is looked for on, in order.
+   *
+   * Project Gutenberg goes down for maintenance, and when it does it takes
+   * four of the six slots with it - both essays and both fiction pieces come
+   * from there. A whole week of nights was lost to one 503, with the job
+   * working perfectly and nothing to read.
+   *
+   * pglaf is one of Gutenberg's own mirrors and lays its files out at exactly
+   * the same paths, so the fallback is a different host and not a different
+   * format. Same books, same licence, same text.
+   */
+  const BOOK_HOSTS = [
+    'https://www.gutenberg.org',
+    'https://gutenberg.pglaf.org',
+  ]
+
   async function fetchBook(id) {
-    const res = await fetch(`https://www.gutenberg.org/cache/epub/${id}/pg${id}.txt`, {
-      headers: { 'user-agent': 'CleverSpace-EduPortal/1.0 (school reading tasks)' },
-    })
-    if (!res.ok) throw new Error(`Gutenberg ${id}: HTTP ${res.status}`)
-    return res.text()
+    const tried = []
+    for (const host of BOOK_HOSTS) {
+      try {
+        const res = await fetch(`${host}/cache/epub/${id}/pg${id}.txt`, {
+          headers: { 'user-agent': 'CleverSpace-EduPortal/1.0 (school reading tasks)' },
+        })
+        if (res.ok) return res.text()
+        tried.push(`${host}: HTTP ${res.status}`)
+      } catch (e) {
+        tried.push(`${host}: ${e.message || e}`)
+      }
+    }
+    throw new Error(`Gutenberg ${id}: ${tried.join('; ')}`)
   }
 
   /**
@@ -289,7 +334,8 @@ function make(deps) {
       tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 6 }],
       messages: [{ role: 'user', content: prompt }],
     })
-    const parsed = firstJson(reply, '{', '}')
+    const parsed = firstJson(reply, '{', '}',
+      (v) => Array.isArray(v.paragraphs) && v.headline)
     if (!parsed || !Array.isArray(parsed.paragraphs) || !parsed.headline) {
       return { paper: null, tried: ['the news reply was not the JSON asked for'] }
     }
@@ -374,7 +420,8 @@ function make(deps) {
     ].join('\n')
 
     const reply = await ask({ max_tokens: 12000, messages: [{ role: 'user', content: prompt }] })
-    const parsed = firstJson(reply, '[', ']')
+    const parsed = firstJson(reply, '[', ']',
+      (v) => v.every((q) => q && q.question && Array.isArray(q.options)))
     return Array.isArray(parsed) ? parsed : []
   }
 
@@ -439,7 +486,7 @@ function make(deps) {
         output_config: { effort: 'low' },
         messages: [{ role: 'user', content: prompt }],
       })
-      const parsed = firstJson(reply, '{', '}')
+      const parsed = firstJson(reply, '{', '}', (v) => typeof v.suitable === 'boolean')
       if (!parsed || typeof parsed.suitable !== 'boolean') return { suitable: true, why: 'check gave no answer' }
       return { suitable: parsed.suitable, why: parsed.why || '' }
     } catch (e) {
@@ -473,12 +520,21 @@ function make(deps) {
 
     const seen = new Set()
     const kept = []
+    // Which position the next question's answer is moved to. Counted over the
+    // whole paper rather than per batch, so the top-up round carries on the
+    // rotation instead of restarting it at A.
+    let rotations = 0
 
     // One verdict per question, so the top-up's second look at a batch does
     // not pay for the same checks again.
+    //
+    // Keyed by the position as well as the stem: the verdict is "did the model
+    // pick the right letter", so the same question rotated differently is a
+    // different question to this gate, and a cached answer from the other
+    // rotation would be read off the wrong one.
     const verdicts = new Map()
     const giveaway = async (q) => {
-      const key = QL.questionStem(q.question)
+      const key = `${QL.questionStem(q.question)}|${q.correct}`
       if (!verdicts.has(key)) verdicts.set(key, await answerableWithoutReading(q))
       return verdicts.get(key)
     }
@@ -501,7 +557,22 @@ function make(deps) {
         const bad = QL.questionStructurallyOk(q, local)
         if (bad) { why.push(`dropped a ${q && q.type} question: ${bad}`); continue }
         local.add(QL.questionStem(q.question))
-        candidates.push(q)
+        // Rotated BEFORE the gate sees it, rather than on the way into `kept`.
+        //
+        // The example in the generator's own prompt shows "correct": 0, and a
+        // model follows the example it is given - so questions arrived with
+        // the answer bunched in A. The checking model has its own lean towards
+        // the first option, and the two together made it land on the right
+        // letter far more often than guessing would, which this gate can only
+        // read as "answerable without the passage". It was throwing away about
+        // three quarters of what was written where a fifth was expected, and
+        // the position was doing a good deal of that work.
+        //
+        // Rotating first means the gate judges the question rather than where
+        // the answer happened to sit. The spread across the bank is unchanged
+        // - that is what the rotation was always for - it just happens one
+        // step earlier.
+        candidates.push({ ...q, ...QL.rotateAnswerTo(q, rotations++ % 4) })
       }
 
       const given = await mapLimit(candidates, GIVEAWAY_AT_ONCE, giveaway)
@@ -516,13 +587,13 @@ function make(deps) {
           continue
         }
         seen.add(stem)
-        // Rotated as it is written, so the bank cannot drift into a position.
-        const rotated = QL.rotateAnswerTo(q, kept.length % 4)
+        // Already rotated on the way in, so what the gate judged is exactly
+        // what the student sits.
         kept.push({
           type: q.type,
           question: q.question.trim(),
-          options: rotated.options,
-          correct: rotated.correct,
+          options: q.options,
+          correct: q.correct,
           explanation: q.explanation.trim(),
         })
       }
