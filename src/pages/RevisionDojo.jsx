@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { renderMath } from '../utils/renderMath.js'
 import { prepareMath } from '../utils/mathify.js'
 import {
@@ -22,12 +22,40 @@ import {
   addCustomDojoCard,
   getDojoTopics,
   getMyAskedQuestions,
+  hallStripOf,
 } from '../data/store.js'
 import { generateShadowClones } from '../utils/aiChat.js'
 import { authedFetch } from '../data/auth.js'
 import ReportIssueModal from '../components/ReportIssueModal.jsx'
 import AnsweredQuestions from '../components/AnsweredQuestions.jsx'
 
+
+/**
+ * The strips of the hall, in the order they are shown.
+ *
+ * Named as a student would say them rather than as the tag library stores
+ * them: the ids are the tag library's, the words are the school's.
+ */
+const STRIPS = [
+  { id: 'reading', name: 'Reading' },
+  { id: 'math', name: 'Mathematics' },
+  { id: 'thinking', name: 'Thinking Skills' },
+  { id: 'uncategorised', name: 'Everything else' },
+]
+
+/**
+ * The emblem on the back of each suit of card.
+ *
+ * A colour alone is not a card look, and a red card and a blue card that are
+ * otherwise identical are one design shown twice. These are what a student
+ * recognises across the room.
+ */
+const CARD_GLYPH = {
+  reading: '❝',
+  math: '∑',
+  thinking: '◈',
+  uncategorised: '❖',
+}
 
 // src: full image. placeholder: a 24px blurred copy inlined so something shows instantly.
 const WALLPAPERS = [
@@ -370,10 +398,37 @@ function RevisionDojo({ user, onBack, onNavigateToQuiz, initialTab }) {
 
 
 
+  // Everything due, before a strip narrows it. The deck below is what is being
+  // practised right now and gets replaced when a strip is chosen or a single
+  // card is picked out, so the full set has to be kept to count the strips and
+  // to go back to.
+  const [allDue, setAllDue] = useState([])
+  const [strip, setStrip] = useState(null)
+
   useEffect(() => {
-    setDueCards(getDueDojoCards(user.id))
+    const due = getDueDojoCards(user.id)
+    setAllDue(due)
+    setDueCards(due)
+    setStrip(null)
     setKills(getDojoKills(user.id))
   }, [user.id, refresh])
+
+  const dueByStrip = useMemo(() => {
+    const out = { reading: [], math: [], thinking: [], uncategorised: [] }
+    for (const c of allDue) out[hallStripOf(c)].push(c)
+    return out
+  }, [allDue])
+
+  function chooseStrip(id) {
+    const picked = id ? dueByStrip[id] : allDue
+    setStrip(id)
+    setDueCards(picked)
+    setCurrentIdx(0)
+    setCardFlipped(false)
+    setSelectedAnswer(-1)
+    setAnswered(false)
+    setResult(null)
+  }
 
   const allCards = getDojoCardsForStudent(user.id)
   const askTeacherCards = getDojoAskTeacherCards(user.id)
@@ -690,13 +745,23 @@ Return ONLY valid JSON:
     )
   }
 
-  function renderCardBack(onClick, count) {
+  /**
+   * The face-down card.
+   *
+   * `forStrip` gives it the suit of whatever is being revised, so a student
+   * sitting down to maths is looking at a maths card before they turn it over.
+   * Left off, the card keeps the hall's purple - which is what the daily five
+   * use, because that deck is dealt rather than chosen and mixes the subjects
+   * on purpose.
+   */
+  function renderCardBack(onClick, count, forStrip) {
+    const suit = forStrip ? ` dojo-card-back-${forStrip}` : ''
     return (
-      <div className="dojo-card-back" onClick={onClick}>
+      <div className={`dojo-card-back${suit}`} onClick={onClick}>
         <div className="dojo-card-back-inner">
           <div className="dojo-card-back-pattern" />
           {count != null && <span className="dojo-card-back-count">{count} cards in deck</span>}
-          <span className="dojo-card-back-icon">?</span>
+          <span className="dojo-card-back-icon">{CARD_GLYPH[forStrip] || '?'}</span>
           <span className="dojo-card-back-label">Click to reveal</span>
         </div>
       </div>
@@ -842,6 +907,38 @@ Return ONLY valid JSON:
         )}
 
         {/* ===== TRAINING TAB ===== */}
+        {/* Four strips, so revision can be aimed rather than taken as it comes.
+            A student who knows their maths is the weak one should be able to
+            sit down to maths. The daily five stay deliberately mixed and keep
+            their own purple - that deck is not chosen, it is set. */}
+        {tab === 'training' && allDue.length > 0 && (
+          <div className="dojo-strips" role="group" aria-label="Choose what to revise">
+            {STRIPS.map(({ id, name }) => {
+              const n = dueByStrip[id].length
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  className={`dojo-strip dojo-strip-${id}${strip === id ? ' dojo-strip-on' : ''}`}
+                  // Nothing due in a subject is not a reason to hide it: an
+                  // empty Mathematics strip says the maths is done, and a
+                  // missing one says nothing at all.
+                  disabled={n === 0}
+                  aria-pressed={strip === id}
+                  onClick={() => chooseStrip(strip === id ? null : id)}
+                >
+                  <span className="dojo-strip-name">{name}</span>
+                  <span className="dojo-strip-count">{n}</span>
+                </button>
+              )
+            })}
+            {strip && (
+              <button type="button" className="dojo-strip-all" onClick={() => chooseStrip(null)}>
+                Everything ({allDue.length})
+              </button>
+            )}
+          </div>
+        )}
         {tab === 'training' && (<>
           {dueCards.length === 0 ? (
             <div className="dojo-empty">
@@ -863,7 +960,7 @@ Return ONLY valid JSON:
                 <div className={`dojo-flip-container ${cardFlipped ? 'dojo-flipped' : ''}`}>
                   <div className="dojo-flip-inner">
                     <div className="dojo-flip-front">
-                      {renderCardBack(() => setCardFlipped(true), remaining)}
+                      {renderCardBack(() => setCardFlipped(true), remaining, currentCard && hallStripOf(currentCard))}
                     </div>
                     <div className="dojo-flip-back">
                       {renderQuestionCard(

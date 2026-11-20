@@ -20323,3 +20323,186 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 .qa-misses ul { margin: 0; padding-left: 18px; }
 .qa-misses ul ul { padding-left: 14px; opacity: 0.85; }
 .qa-misses summary { cursor: pointer; font-weight: 700; }
+
+/* ============================================================
+   The Revision Hall: four strips and three suits of card
+   ============================================================
+   Intentional revision is chosen, so it is sorted: a student who knows
+   their maths is the weak one sits down to maths. The daily five are not
+   chosen - they are dealt, and mixed on purpose - so they keep the hall's
+   purple and none of this applies to them.
+
+   Reading is red, Mathematics blue, Thinking Skills black. The fourth
+   strip is everything the quiz list has not been told about yet, and it is
+   deliberately the quietest of the four: it is a gap in the labelling
+   rather than a subject, and it should not look like one. */
+
+.dojo-strips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 18px;
+  align-items: stretch;
+}
+.dojo-strip {
+  flex: 1 1 150px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #f4f1ea;
+  /* The left edge carries the colour, so the four read as a set of labelled
+     drawers rather than four differently coloured buttons. */
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-left: 5px solid var(--strip, #8b8b8b);
+  background: linear-gradient(100deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03));
+  transition: background 0.18s, border-color 0.18s, transform 0.12s;
+}
+.dojo-strip:hover:not(:disabled) {
+  background: linear-gradient(100deg, rgba(255,255,255,0.16), rgba(255,255,255,0.06));
+  transform: translateY(-1px);
+}
+.dojo-strip:disabled { opacity: 0.4; cursor: default; }
+.dojo-strip-on {
+  background: linear-gradient(100deg, var(--strip-on, rgba(255,255,255,0.22)), rgba(255,255,255,0.05));
+  border-color: var(--strip, #8b8b8b);
+}
+.dojo-strip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dojo-strip-count {
+  flex: none;
+  min-width: 26px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--strip, #8b8b8b);
+  color: #0d0d12;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: center;
+}
+.dojo-strip-reading      { --strip: #d6354a; --strip-on: rgba(214, 53, 74, 0.34); }
+.dojo-strip-math         { --strip: #3d7ddc; --strip-on: rgba(61, 125, 220, 0.34); }
+.dojo-strip-thinking     { --strip: #cdd3dc; --strip-on: rgba(205, 211, 220, 0.26); }
+.dojo-strip-uncategorised{ --strip: #938a79; --strip-on: rgba(147, 138, 121, 0.26); }
+
+.dojo-strip-all {
+  flex: 0 0 auto;
+  padding: 11px 16px;
+  border-radius: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+  background: transparent;
+  color: rgba(244, 241, 234, 0.85);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.dojo-strip-all:hover { border-color: rgba(255,255,255,0.55); color: #fff; }
+
+/* --- the three suits -------------------------------------------------
+   Each is its own card rather than one card in three colours: the ground,
+   the frame, the corner mark and the emblem all change together. */
+
+/* Reading - wine and parchment, with a serif weight to it. */
+.dojo-card-back-reading {
+  background: linear-gradient(145deg, #3d0a14 0%, #23050c 45%, #3d0a14 100%);
+  border-color: #e0a9a0;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 0 60px rgba(214, 53, 74, 0.2);
+}
+.dojo-card-back-reading::before { border-color: rgba(224, 169, 160, 0.45); }
+.dojo-card-back-reading:hover {
+  border-color: #f3cdc6;
+  box-shadow: 0 0 25px rgba(214, 53, 74, 0.35), 0 8px 32px rgba(0,0,0,0.5);
+}
+.dojo-card-back-reading .dojo-card-back-pattern {
+  background:
+    repeating-linear-gradient(90deg, transparent 0, transparent 13px, rgba(224,169,160,0.10) 13px, rgba(224,169,160,0.10) 14px),
+    radial-gradient(ellipse at center, rgba(214, 53, 74, 0.16), transparent 70%);
+}
+.dojo-card-back-reading .dojo-card-back-pattern::before,
+.dojo-card-back-reading .dojo-card-back-pattern::after { content: '\275D'; color: rgba(224, 169, 160, 0.5); }
+.dojo-card-back-reading .dojo-card-back-icon {
+  color: rgba(240, 196, 188, 0.75);
+  text-shadow: 0 0 24px rgba(214, 53, 74, 0.45);
+}
+
+/* Mathematics - ink blue on graph paper. */
+.dojo-card-back-math {
+  background: linear-gradient(145deg, #0b1f3f 0%, #061327 45%, #0b1f3f 100%);
+  border-color: #8fb6e8;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 0 60px rgba(61, 125, 220, 0.2);
+}
+.dojo-card-back-math::before { border-color: rgba(143, 182, 232, 0.45); }
+.dojo-card-back-math:hover {
+  border-color: #c3dbf7;
+  box-shadow: 0 0 25px rgba(61, 125, 220, 0.35), 0 8px 32px rgba(0,0,0,0.5);
+}
+.dojo-card-back-math .dojo-card-back-pattern {
+  background:
+    repeating-linear-gradient(0deg, transparent 0, transparent 11px, rgba(143,182,232,0.12) 11px, rgba(143,182,232,0.12) 12px),
+    repeating-linear-gradient(90deg, transparent 0, transparent 11px, rgba(143,182,232,0.12) 11px, rgba(143,182,232,0.12) 12px),
+    radial-gradient(ellipse at center, rgba(61, 125, 220, 0.16), transparent 70%);
+}
+.dojo-card-back-math .dojo-card-back-pattern::before,
+.dojo-card-back-math .dojo-card-back-pattern::after { content: '\2211'; color: rgba(143, 182, 232, 0.5); }
+.dojo-card-back-math .dojo-card-back-icon {
+  color: rgba(179, 208, 244, 0.8);
+  text-shadow: 0 0 24px rgba(61, 125, 220, 0.45);
+}
+
+/* Thinking Skills - black and steel, the plainest of the three on purpose. */
+.dojo-card-back-thinking {
+  background: linear-gradient(145deg, #15171b 0%, #0a0b0d 45%, #15171b 100%);
+  border-color: #aeb6c2;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6), inset 0 0 60px rgba(205, 211, 220, 0.09);
+}
+.dojo-card-back-thinking::before { border-color: rgba(174, 182, 194, 0.4); }
+.dojo-card-back-thinking:hover {
+  border-color: #e4e9f0;
+  box-shadow: 0 0 25px rgba(205, 211, 220, 0.28), 0 8px 32px rgba(0,0,0,0.6);
+}
+.dojo-card-back-thinking .dojo-card-back-pattern {
+  background:
+    repeating-linear-gradient(45deg, transparent 0, transparent 7px, rgba(174,182,194,0.08) 7px, rgba(174,182,194,0.08) 8px),
+    radial-gradient(ellipse at center, rgba(205, 211, 220, 0.10), transparent 70%);
+}
+.dojo-card-back-thinking .dojo-card-back-pattern::before,
+.dojo-card-back-thinking .dojo-card-back-pattern::after { content: '\25C8'; color: rgba(174, 182, 194, 0.45); }
+.dojo-card-back-thinking .dojo-card-back-icon {
+  color: rgba(214, 221, 231, 0.75);
+  text-shadow: 0 0 24px rgba(205, 211, 220, 0.3);
+}
+
+/* Everything else - warm grey, flat, and quiet.
+   Warm rather than a third cool dark: beside Thinking Skills, which is
+   black, a slate card was the same card in another shade. This one also
+   loses the inner glow and the pulsing emblem, so it reads as a card
+   waiting to be told what it is rather than as a fourth subject. */
+.dojo-card-back-uncategorised {
+  background: linear-gradient(145deg, #2e2a24 0%, #1c1a16 45%, #2e2a24 100%);
+  border-color: #938a79;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+}
+.dojo-card-back-uncategorised::before { border-color: rgba(147, 138, 121, 0.4); }
+.dojo-card-back-uncategorised .dojo-card-back-pattern {
+  background: radial-gradient(ellipse at center, rgba(147, 138, 121, 0.10), transparent 70%);
+}
+.dojo-card-back-uncategorised .dojo-card-back-pattern::before,
+.dojo-card-back-uncategorised .dojo-card-back-pattern::after { content: '\2756'; color: rgba(147, 138, 121, 0.45); }
+.dojo-card-back-uncategorised .dojo-card-back-icon {
+  color: rgba(199, 188, 168, 0.6);
+  text-shadow: none;
+  animation: none;
+}
+
+@media (max-width: 560px) {
+  .dojo-strips { gap: 8px; }
+  .dojo-strip { flex: 1 1 calc(50% - 4px); padding: 9px 11px; font-size: 0.76rem; }
+}

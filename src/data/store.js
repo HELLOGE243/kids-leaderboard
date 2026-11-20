@@ -4725,7 +4725,28 @@ function withLiveQuestion(card) {
   if (!card || isCustomCard(card)) return card
   const live = findLiveQuestion(card.sourceId, card.questionId, card.questionIndex)
   const base = live ? { ...card, question: live.question, questionIndex: live.index } : card
-  return withOrigin(base, loadData())
+  const data = loadData()
+  // Read from the quiz, here, every time - not stored on the card. See
+  // setQuizSetSubject for why that matters.
+  const set = (data.importedQuizSets || []).find((s) => s.id === card.sourceId)
+  return withOrigin({ ...base, subject: subjectOfQuizSet(set) }, data)
+}
+
+/**
+ * Which strip of the Revision Hall a card belongs on.
+ *
+ * Three subjects have a strip of their own and everything else shares the
+ * fourth. Writing is deliberately among the everything else: a writing task is
+ * marked by a teacher rather than being right or wrong, so it has no business
+ * in a deck of multiple-choice cards - but a stray multiple-choice question
+ * inside a writing quiz is still worth practising, and dropping it on the
+ * floor would quietly lose revision a student had earned.
+ */
+export const HALL_STRIPS = ['reading', 'math', 'thinking', 'uncategorised']
+
+export function hallStripOf(card) {
+  const s = card?.subject
+  return s === 'reading' || s === 'math' || s === 'thinking' ? s : 'uncategorised'
 }
 
 // A card only stays in the dojo while its question still exists. If quiz sets
@@ -5197,6 +5218,52 @@ export function getDojoTopics(studentId) {
     topics[t] = (topics[t] || 0) + 1
   }
   return topics
+}
+
+/**
+ * Which subject a quiz is under: the teacher's answer, or a guess at it.
+ *
+ * An explicitly set subject always wins. `subjectForQuizSet` reads the title
+ * and gets about 98 of every 100 right, which is what makes this worth having
+ * as a fallback rather than a thousand quizzes needing to be labelled by hand
+ * before the hall works at all. The panel shows the guess filled in so a
+ * teacher corrects rather than enters.
+ *
+ * @returns {string|null} a TAG_SUBJECTS id, or null when nothing can say
+ */
+export function subjectOfQuizSet(set) {
+  if (!set) return null
+  const chosen = String(set.subject || '')
+  if (TAG_SUBJECTS.some((s) => s.id === chosen)) return chosen
+  return subjectForQuizSet(set) || null
+}
+
+/** True when the subject was a teacher's decision rather than read off a title. */
+export function quizSetSubjectIsExplicit(set) {
+  return TAG_SUBJECTS.some((s) => s.id === String(set?.subject || ''))
+}
+
+/**
+ * Files a quiz under a subject. Every question in it is that subject.
+ *
+ * Nothing is written to the questions or to the revision cards made from them.
+ * The card reads its subject back through the quiz set every time it is shown,
+ * in the same breath as it reads the question itself - so a quiz filed wrongly
+ * and put right later corrects every card ever made from it, including cards
+ * made months ago. Copying the value onto the cards, which is what the older
+ * `topic` field does below, would leave those needing a repair script.
+ *
+ * Passing null clears it, and the title guess takes over again.
+ */
+export function setQuizSetSubject(quizSetId, subject) {
+  const data = loadData()
+  const set = (data.importedQuizSets || []).find((s) => s.id === quizSetId)
+  if (!set) return false
+  const valid = TAG_SUBJECTS.some((s) => s.id === subject)
+  if (!subject || !valid) delete set.subject
+  else set.subject = subject
+  saveData(data)
+  return true
 }
 
 export function setQuizSetTopic(quizSetId, topic) {

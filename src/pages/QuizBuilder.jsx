@@ -31,6 +31,9 @@ import {
   getLastImportBatch,
   undoLastImport,
   getQuizFolders,
+  setQuizSetSubject,
+  subjectOfQuizSet,
+  quizSetSubjectIsExplicit,
   createQuizFolder,
   renameQuizFolder,
   deleteQuizFolder,
@@ -88,6 +91,20 @@ function emptyQuestion(type = 'multiple-choice') {
 function emptyQuestions() {
   return Array.from({ length: 15 }, emptyQuestion)
 }
+
+/**
+ * The subjects a quiz can be filed under, with names that fit a table column.
+ *
+ * The ids are the tag library's - the same ones reports and the Revision Hall
+ * use - so this is a shorter label for an existing thing, not a second list
+ * that can drift away from it.
+ */
+const SUBJECT_CHOICES = [
+  { id: 'reading', short: 'Reading' },
+  { id: 'math', short: 'Maths' },
+  { id: 'thinking', short: 'Thinking' },
+  { id: 'writing', short: 'Writing' },
+]
 
 function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
   const [refresh, setRefresh] = useState(0)
@@ -2112,6 +2129,33 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                     </td>
                     <td style={{ textAlign: 'center', fontSize: '0.55rem', color: set.year ? 'var(--token)' : 'var(--text-dim)' }}>{set.year || '--'}</td>
                     <td style={{ textAlign: 'center', fontSize: '0.55rem', color: set.week ? 'var(--coin)' : 'var(--text-dim)' }}>{set.week || '--'}</td>
+                    {/* The subject the whole quiz is under. Nothing is written to
+                        the questions or to the revision cards already made from
+                        them - they read it back through here - so correcting a
+                        quiz filed wrongly fixes every card that came from it.
+                        The title is read for a suggestion so a thousand quizzes
+                        did not have to be labelled by hand before the hall
+                        worked; choosing one makes it certain. */}
+                    <td style={{ textAlign: 'center', padding: '2px' }} onClick={(e) => e.stopPropagation()}>
+                      {(() => {
+                        const explicit = quizSetSubjectIsExplicit(set)
+                        const guess = SUBJECT_CHOICES.find((c) => c.id === subjectOfQuizSet(set))
+                        return (
+                          <select
+                            value={set.subject || ''}
+                            onChange={(e) => { e.stopPropagation(); setQuizSetSubject(set.id, e.target.value || null); forceRefresh() }}
+                            onClick={(e) => e.stopPropagation()}
+                            title={explicit
+                              ? 'Set by hand. Every question in this quiz is filed under it.'
+                              : 'Read from the title, and used as it stands. Choose one to make it certain.'}
+                            style={{ width: 92, fontSize: '0.5rem', padding: '1px', background: 'transparent', border: `1px solid ${explicit ? 'var(--accent)' : 'rgba(255,255,255,0.15)'}`, color: explicit ? 'var(--accent)' : 'var(--text-dim)', fontStyle: explicit ? 'normal' : 'italic', borderRadius: 2 }}
+                          >
+                            <option value="">{guess ? `auto · ${guess.short}` : 'auto · none'}</option>
+                            {SUBJECT_CHOICES.map((c) => <option key={c.id} value={c.id}>{c.short}</option>)}
+                          </select>
+                        )
+                      })()}
+                    </td>
                     <td style={{ textAlign: 'center', fontSize: '0.55rem' }}>{set.questions.length}</td>
                     <td style={{ textAlign: 'center', padding: '2px' }} onClick={(e) => e.stopPropagation()}>
                       <input
@@ -2190,6 +2234,12 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                         </span>
                       </div>
                     </td>
+                    {/* Eight blanks, so the folder's buttons sit under the
+                        Action heading. There were six against ten headings
+                        before the subject column existed, which is why they
+                        used to sit one short of it. */}
+                    <td></td>
+                    <td></td>
                     <td></td>
                     <td></td>
                     <td></td>
@@ -2268,6 +2318,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                         <th className="sortable-th" style={{ textAlign: 'center', width: 32, fontSize: '0.5rem' }} onClick={() => toggleImportSort('term')}>T{arrow('term')}</th>
                         <th className="sortable-th" style={{ textAlign: 'center', width: 32, fontSize: '0.5rem' }} onClick={() => toggleImportSort('year')}>Y{arrow('year')}</th>
                         <th className="sortable-th" style={{ textAlign: 'center', width: 32, fontSize: '0.5rem' }} onClick={() => toggleImportSort('week')}>W{arrow('week')}</th>
+                        <th style={{ textAlign: 'center', width: 96, fontSize: '0.5rem' }} title="The subject this quiz is under. Every question in it is filed under the same one, and that is what sorts the Revision Hall.">Subject</th>
                         <th style={{ textAlign: 'center', width: 24, fontSize: '0.5rem' }}>Q</th>
                         <th style={{ textAlign: 'center', width: 34, fontSize: '0.5rem' }} title="Time limit in minutes">Mins</th>
                         <th style={{ textAlign: 'center', width: 52, fontSize: '0.5rem' }}>Trial</th>
