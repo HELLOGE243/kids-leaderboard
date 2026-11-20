@@ -375,10 +375,16 @@ function make(deps) {
    * @param {object} paper
    * @param {string[]} [onlyTypes] when given, ask for these types and nothing
    *   else: a top-up round after the giveaway gate has emptied a required slot
+   * @param {number} [atLeast] the smallest useful number to come back with.
+   *   Two of each missing type is the floor, not the answer: a paper may be
+   *   three questions short and missing only one type, and asking for two
+   *   then leaves it one short and discards the passage anyway.
    */
-  async function writeQuestions(paper, onlyTypes) {
+  async function writeQuestions(paper, onlyTypes, atLeast) {
     const topUp = !!(onlyTypes && onlyTypes.length)
-    const wanted = topUp ? onlyTypes.length * 2 : QUESTIONS_ASKED
+    const wanted = topUp
+      ? Math.max(onlyTypes.length * 2, Number(atLeast) || 0)
+      : QUESTIONS_ASKED
     const plan = topUp
       ? onlyTypes.map((t) => `- two ${t} questions`).join('\n')
       : QL.QUESTION_PLAN.map((t, i) => `${i + 1}. ${t}`).join('\n')
@@ -401,6 +407,9 @@ function make(deps) {
         // thing that makes the second attempt differ from the first.
         ? 'The earlier attempts at these types could be answered without reading'
           + ' the passage. Anchor each of these in a specific sentence.'
+          + (wanted > onlyTypes.length * 2
+            ? ` Write more of any of those types beyond the first two of each, to make ${wanted} in all.`
+            : '')
         : `and two more of any of those types, to make ${wanted}.`,
       '',
       'Rules, all of which matter:',
@@ -615,7 +624,14 @@ function make(deps) {
     if (missing.length || kept.length < QUESTIONS_WANTED) {
       why.push(`topping up: ${kept.length} kept, missing ${missing.join(', ') || 'nothing but short'}`)
       try {
-        const more = await writeQuestions(paper, missing.length ? missing : QL.REQUIRED_TYPES)
+        // Enough to finish the paper, not merely enough to fill the gaps in
+        // the type list. Twice the shortfall, because the giveaway gate is
+        // about to take some of these too.
+        const more = await writeQuestions(
+          paper,
+          missing.length ? missing : QL.REQUIRED_TYPES,
+          (QUESTIONS_WANTED - kept.length) * 2,
+        )
         const batch = Array.isArray(more) ? more : []
 
         // One of each missing type before any second helping. Sifting the
@@ -627,9 +643,11 @@ function make(deps) {
           for (const q of batch.filter((c) => c && c.type === type)) {
             if (kept.some((k) => k.type === type)) break
             if (kept.length >= QUESTIONS_WANTED) {
-              // Full, and still missing a type the paper must have. A detail
-              // question is the one kind there is more than one of by design,
-              // so that is what makes way.
+              // Full, and still missing a type the paper must have. What makes
+              // way is a question of a type the paper does not require - a
+              // gist, vocabulary or purpose one - because dropping a detail or
+              // an inference question to make room for a detail or an
+              // inference question would be a swap for its own sake.
               const spare = kept.findIndex((k) => !QL.REQUIRED_TYPES.includes(k.type))
               if (spare < 0) break
               why.push(`made room for a ${type} question by dropping a ${kept[spare].type} one`)

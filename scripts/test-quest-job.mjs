@@ -199,7 +199,13 @@ function fakeClaude(behaviour) {
           if (b.topUpFails) return reply('I could not write those either.')
           const types = QL.REQUIRED_TYPES.filter((t) => new RegExp(`two ${t} questions`).test(prompt))
           b.toppedUpTypes = types
-          return reply(ofTypes(types.flatMap((t) => [t, t])))
+          // However many the round actually asked for, not two per type.
+          // A paper three questions short of six and missing only one type
+          // asks for six, and a stub that always answered with two left it
+          // one short - which is the real job's failure, not the stub's.
+          const asked = Number((/Write (\d+) multiple-choice/.exec(prompt) || [])[1]) || types.length * 2
+          const spread = Array.from({ length: asked }, (_, i) => types[i % types.length])
+          return reply(ofTypes(spread))
         }
         // An exact set of types for the first round, to build the awkward
         // case: six good questions that between them still miss a type the
@@ -415,15 +421,31 @@ const run = async (behaviour) => {
 }
 
 // A full paper that still misses a required type has to drop something to
-// make room, and the thing it drops must be the kind there is a spare of.
+// make room, and the thing it drops must be a type the paper does not require.
 {
   const { report } = await run({
-    firstRoundTypes: ['gist', 'detail', 'detail', 'detail', 'inference', 'vocabulary'],
+    firstRoundTypes: ['gist', 'gist', 'vocabulary', 'vocabulary', 'purpose', 'detail'],
   })
-  eq('a full paper missing a type is still set', report.set, 6)
+  eq('a full paper missing a required type is still set', report.set, 6)
   const notes = report.made.flatMap((m) => m.dropped || []).join(' ')
-  ok('room was made by dropping a detail question',
-    /made room for a purpose question by dropping a detail one/.test(notes), notes.slice(0, 300))
+  ok('room was made for the inference question by dropping a spare one',
+    /made room for a inference question by dropping a (gist|vocabulary|purpose) one/.test(notes),
+    notes.slice(0, 300))
+}
+
+// The other side of the relaxed spec: a full paper missing only a type the
+// paper does not require is set as it stands, with no second round at all.
+// Under the old spec this paper was short of vocabulary and purpose, and a
+// passage that had been downloaded, measured and checked died for it.
+{
+  // The stub counts its top-up rounds on the behaviour object it was handed,
+  // so that is what has to be read afterwards - not the stub it returns.
+  const behaviour = {
+    firstRoundTypes: ['gist', 'detail', 'detail', 'detail', 'inference', 'inference'],
+  }
+  const { report } = await run(behaviour)
+  eq('a paper with no vocabulary or purpose question is set', report.set, 6)
+  eq('and nothing was topped up to get there', behaviour.topUps, undefined)
 }
 
 // --- too few questions, and the top-up cannot help ----------------------

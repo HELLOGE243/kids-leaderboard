@@ -280,7 +280,7 @@ if (built.paper) {
   ok('rotation keeps the right answer right on real wording', kept)
 
   const types = built.paper.questions.map((q) => q.type)
-  ok('the required types all survive', ['gist', 'inference', 'vocabulary', 'purpose']
+  ok('the required types all survive', ['detail', 'inference']
     .every((t) => types.includes(t)), types.join(', '))
   console.log(`      kept: ${types.join(', ')}`)
 }

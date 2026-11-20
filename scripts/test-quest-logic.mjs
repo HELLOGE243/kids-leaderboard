@@ -221,14 +221,31 @@ eq('five questions is refused',
 
 // The type mix is the difference between a paper and a quiz, so a set of six
 // detail questions must be refused even though every one of them is sound.
+//
+// Only inference is named now. What a paper must carry was relaxed to detail
+// and inference - see REQUIRED_TYPES for the measurements behind that - but a
+// paper that asks the same thing six times over is still not a paper.
 const allDetail = Q.paperStructurallyOk({
   ...goodPaper,
   questions: sixQuestions.map((q, i) => ({ ...q, type: 'detail', question: `Detail question ${i} about the passage?` })),
 })
-ok('six detail questions are refused for the missing types',
-  ['no gist question', 'no inference question', 'no vocabulary question', 'no purpose question']
-    .every((f) => allDetail.includes(f)),
-  JSON.stringify(allDetail))
+ok('six detail questions are refused for the missing inference question',
+  allDetail.includes('no inference question'), JSON.stringify(allDetail))
+
+// The other half of that decision, and the one that changes what the school
+// gets: a paper the giveaway gate has stripped of its gist, vocabulary and
+// purpose questions is now publishable rather than thrown away. Under the old
+// spec this exact paper was discarded, and discarding it is why no reading day
+// was ever set.
+const noTrimmings = Q.paperStructurallyOk({
+  ...goodPaper,
+  questions: sixQuestions.map((q, i) => ({
+    ...q,
+    type: i < 4 ? 'detail' : 'inference',
+    question: `${i < 4 ? 'Detail' : 'Inference'} question ${i} about the passage?`,
+  })),
+})
+eq('detail and inference alone make a publishable paper', noTrimmings, [])
 
 ok('an unknown genre is refused', Q.paperStructurallyOk({ ...goodPaper, genre: 'poetry' }).includes('unknown genre poetry'))
 ok('a missing attribution is refused', Q.paperStructurallyOk({ ...goodPaper, attribution: '' }).includes('no attribution'))

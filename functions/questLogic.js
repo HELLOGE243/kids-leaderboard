@@ -141,8 +141,35 @@ function passageFitsBand(text, band) {
  */
 const QUESTION_PLAN = ['gist', 'detail', 'detail', 'inference', 'vocabulary', 'purpose']
 
-/** The types a paper must contain at least one of, whatever else it has. */
-const REQUIRED_TYPES = ['gist', 'inference', 'vocabulary', 'purpose']
+/**
+ * The types a paper must contain at least one of, whatever else it has.
+ *
+ * The plan above is still what gets asked for, and most papers will carry the
+ * full Cambridge mix. This is the narrower question of what makes a paper
+ * publishable rather than thrown away, and it is deliberately only two.
+ *
+ * It used to be gist, inference, vocabulary and purpose, and that spec and the
+ * giveaway gate could not both be satisfied. The gate asks a model to answer
+ * each question with the passage withheld and throws it away if it gets it
+ * right - which is exactly the right test for a detail or an inference
+ * question, and close to impossible for the other three. A vocabulary-in-
+ * context question asks what a word means, and a model knows what the word
+ * means without reading anything; gist and purpose hand most of the answer to
+ * the options. One night's measured rejections:
+ *
+ *     vocabulary 56   gist 39   purpose 36   inference 35   detail 14
+ *
+ * "no vocabulary question" was the commonest reason a finished paper was
+ * discarded. So every night produced nothing, for six weeks, while the gate
+ * and the spec each did exactly what they were written to do.
+ *
+ * Detail and inference are the two the gate is a fair test of, so those are
+ * the two required. A paper that also keeps its gist or vocabulary question is
+ * a better paper and is set as such; a paper that lost them to the gate is
+ * still six real questions about a passage, and is worth more than the empty
+ * card the school has been getting instead.
+ */
+const REQUIRED_TYPES = ['detail', 'inference']
 
 /** Two questions asking the same thing in different words share a stem. */
 function questionStem(question) {
