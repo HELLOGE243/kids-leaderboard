@@ -77,6 +77,7 @@ import { writingSessionId, loadWritingSession, saveWritingSession } from '../dat
 import { countSentences } from '../utils/writingText.js'
 import { stopSpeaking } from '../utils/speech.js'
 import { checkExplanation, parseExplanation, generateWordDefinition, generateExplanation } from '../utils/aiChat.js'
+import { classCorrectPct } from '../data/classStats.js'
 
 const TRIAL_INSTRUCTIONS = {
   'sel-reading': { heading: 'Selective High School Placement Practice Test', subject: 'Reading', body: `<p><b>INSTRUCTIONS</b></p><p><b>Please read these instructions carefully.</b></p><p>You have <b>45 minutes</b> to complete <b>17 questions</b> in this test.</p><p>For Questions 1–8, choose <b>one</b> correct answer to each question.</p><p>For Question 9, choose the <b>eight</b> correct answers.</p><p>For Questions 10–15, choose <b>one</b> correct answer to each question.</p><p>For Question 16, choose the <b>six</b> correct answers.</p><p>For Question 17, choose the <b>ten</b> correct answers.</p><p>You will <b>not</b> lose marks for incorrect answers, so you should attempt <b>all</b> questions.</p><p>Please note that some words and phrases are in bold in the texts as they are referred to in some questions.</p><p>Calculators and dictionaries are not allowed.</p>` },
@@ -126,7 +127,12 @@ function HwResults({ title, score, total, pct, coins, grade, gradeColor, rank, t
 
   const sortedBreakdown = [...questionBreakdown].sort((a, b) => {
     if (sortBy === 'number') return sortAsc ? a.num - b.num : b.num - a.num
-    if (sortBy === 'classPct') return sortAsc ? a.classPct - b.classPct : b.classPct - a.classPct
+    // Questions nobody else has answered sort to the end either way, rather
+    // than to wherever NaN happens to leave them.
+    if (sortBy === 'classPct') {
+      if (a.classPct == null || b.classPct == null) return (a.classPct == null ? 1 : 0) - (b.classPct == null ? 1 : 0)
+      return sortAsc ? a.classPct - b.classPct : b.classPct - a.classPct
+    }
     return 0
   })
 
@@ -298,10 +304,16 @@ function HwResults({ title, score, total, pct, coins, grade, gradeColor, rank, t
                     {q.tag && <span className="hw-res-qtag">{q.tag}</span>}
                   </span>
                   <span className="hw-res-qcell hw-res-qcell-class">
-                    <span className="hw-res-qclass-bar">
-                      <span className="hw-res-qclass-fill" style={{ width: `${q.classPct}%` }} />
-                    </span>
-                    <span className="hw-res-qclass-val">{q.classPct}%</span>
+                    {q.classPct == null ? (
+                      <span className="hw-res-qclass-val" style={{ color: 'var(--text-dim)' }} title="Nobody else has sat this paper yet">—</span>
+                    ) : (
+                      <>
+                        <span className="hw-res-qclass-bar">
+                          <span className="hw-res-qclass-fill" style={{ width: `${q.classPct}%` }} />
+                        </span>
+                        <span className="hw-res-qclass-val">{q.classPct}%</span>
+                      </>
+                    )}
                   </span>
                   <span className="hw-res-qcell hw-res-qcell-action">
                     <button className="hw-res-qgo" onClick={() => onGoToQuestion(q.at)}>Review</button>
@@ -1655,8 +1667,13 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
         const skipped = answer === -1 || answer === null || answer === undefined
         // The cohort answered the whole paper, so their answers are looked up
         // by the paper's question number rather than by this screen's.
-        const correctCount = totalStudents > 0 ? allAttempts.filter(a => isQuestionCorrect(q, a.answers?.[paperQ(qi)])).length : 0
-        const classPct = totalStudents > 0 ? Math.round((correctCount / totalStudents) * 100) : 0
+        //
+        // This divided a count of correct answers by every attempt, and the
+        // attempts served from the quizStats aggregate carry no answers - so
+        // every one of them counted as wrong and the column read 0% on every
+        // question, which was not missing data but a false statement about the
+        // class. null now means nobody could be counted, and the column says so.
+        const classPct = classCorrectPct(allAttempts, paperQ(qi), (ans) => isQuestionCorrect(q, ans))
         const tag = q.tag || ''
         // Numbered as the student sat it. A revision is its own short paper -
         // the header during the sitting says "Question 1 of 2" - so the
@@ -2022,13 +2039,11 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
                 const isCorrectQ = isQuestionCorrect(q, picked)
                 const skipped = isWritingType(qType) ? (typeof picked !== 'string' || !picked.trim()) : (Array.isArray(picked) ? picked.every(x => x === -1) : picked === -1)
                 const allAttempts = getHomeworkAttemptsForQuiz(takingQuiz.id)
-                const totalStudents = allAttempts.length
-                // Attempts served from the quizStats aggregate carry a score but
-                // no answer list, so only the ones that have answers can say
-                // whether this particular question was right.
-                const markable = allAttempts.filter((a) => Array.isArray(a.answers))
-                const correctCount = markable.filter(a => isQuestionCorrect(q, a.answers[currentQ])).length
-                const classPct = markable.length > 0 ? Math.round((correctCount / markable.length) * 100) : null
+                // Attempts served from the quizStats aggregate carry a score and
+                // a per-question right/wrong list, but no answers - so the share
+                // of the class who got this right is read from that list, and
+                // only falls back to marking answers for attempts held locally.
+                const classPct = classCorrectPct(allAttempts, currentQ, (ans) => isQuestionCorrect(q, ans))
                 const timesForQ = allAttempts.map(a => a.questionTimes?.[currentQ]).filter(t => t != null && t > 0)
                 const avgTimeSec = timesForQ.length > 0 ? Math.round(timesForQ.reduce((a, b) => a + b, 0) / timesForQ.length) : null
                 const studentTimeSec = submittedResult.questionTimes?.[currentQ]

@@ -455,6 +455,16 @@ exports.onStudentDataWrite = functions
              fields; the answers are what was worth leaving out of this
              collection, and they still are. */
           questionTimes: (a.questionTimes || []).map((t) => Math.round(Number(t) || 0)),
+          /* Right or wrong per question, as the paper was marked.
+             The review screen asks what share of the class got a question
+             right. It used to work that out from everyone's answers, which
+             these rows do not carry - so it showed a dash reading "no class
+             data yet" on one screen and a flat 0% on the other, telling a
+             student nobody had answered correctly when most had. One number
+             per question answers it without publishing a single answer.
+             null means there was nothing to be right about yet: a writing
+             question is zero out of zero until a teacher marks it. */
+          questionCorrect: (a.questionCorrect || []).map((v) => (v === 1 || v === 0 ? v : null)),
           date: a.date || null,
           term: a.term || null,
           orgId: a.orgId || null,
@@ -1849,6 +1859,7 @@ exports.authAdmin = functions
                 studentId: d.id, score, total, pct: total > 0 ? (score / total) * 100 : 0,
                 seconds: Math.round((a.questionTimes || []).reduce((n, t) => n + (Number(t) || 0), 0)),
                 questionTimes: (a.questionTimes || []).map((t) => Math.round(Number(t) || 0)),
+                questionCorrect: (a.questionCorrect || []).map((v) => (v === 1 || v === 0 ? v : null)),
                 date: a.date || null, term: a.term || null, orgId: a.orgId || null,
               })
               written++

@@ -26,6 +26,7 @@ import { pickSolutionVideo } from '../utils/video.js'
 import { planImport, applyAiSplit, mergeCloze, describeCoverage } from '../utils/cleverspaceImport.js'
 import { writeStudentGroups, askTeacher, loadAskedForStudent, loadAskedForClasses, answerAsked, markAskedSeen } from './firebase.js'
 import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, deleteStudentFirestore, ensureQuizSetsLoaded, refreshQuizSet, loadAiExplanations, saveAiExplanation, deleteAiExplanations, clearAiExplanationCache, archiveSubmission, saveAttemptDraft, findArchivedPapers, loadArchivedSubmissions, loadAttemptDrafts, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
+import { questionCorrectness } from './classStats.js'
 
 export { onDataChange, onBroadcast, sendBroadcast, loadContacts, isDataReady }
 
@@ -1990,7 +1991,7 @@ export function submitQuizAttempt(quizId, studentId, answers, questionTimes, met
   const student = data.students[studentId]
   const orgId = student?.orgId || null
   const term = orgId ? (data.organisations[orgId]?.activeTerm || null) : null
-  const attempt = { id, quizId, studentId, answers, score, total: quiz.questions.length, date: new Date().toISOString(), questionTimes: questionTimes || [], term, orgId, ...screenMeta(meta) }
+  const attempt = { id, quizId, studentId, answers, score, total: quiz.questions.length, date: new Date().toISOString(), questionTimes: questionTimes || [], questionCorrect: markPaper(quiz.questions, answers, id), term, orgId, ...screenMeta(meta) }
   mutateStudentArray(studentId, 'quizAttempts', (arr) => arr.push(attempt))
   archiveAttempt({ ...attempt, quizSetId: quizId }, quiz, 'checkpoint')
   return attempt
@@ -3359,6 +3360,32 @@ function scoreOneQuestion(q, answer, writingMark) {
   return 0
 }
 
+/**
+ * Right or wrong for each question of a paper, recorded at marking time.
+ *
+ * Carried into the quizStats aggregate so the review screen can say what share
+ * of the class got a question right. It used to work that out from everyone's
+ * answers, which the aggregate does not carry and should not - see
+ * classStats.js for what that cost.
+ */
+function markPaper(questions, answers, attemptId, questionIndices) {
+  // A writing question is worth nothing until a teacher marks it, and its mark
+  // once given, so the mark has to be in hand for the question to be judged at
+  // all - otherwise every unmarked piece of writing reads as full marks.
+  const mark = (i) => (attemptId ? getWritingMark(attemptId, i) : null)
+  const list = questionCorrectness(
+    questions, answers,
+    (q, a, i) => scoreOneQuestion(q, a, mark(i)),
+    (q, i) => totalMarksForQuestion(q, mark(i)),
+  )
+  // A revision sitting asks only the questions the student got wrong. The rest
+  // were never put to them, so they are neither right nor wrong - marking them
+  // would report a revision of two questions as thirty-six failures.
+  if (!Array.isArray(questionIndices)) return list
+  const asked = new Set(questionIndices)
+  return list.map((v, i) => (asked.has(i) ? v : null))
+}
+
 function totalMarksForQuestion(q, writingMark) {
   const type = q.type || 'multiple-choice'
   if (type === 'dropdown-cloze') return q.blanks?.length || 1
@@ -3745,7 +3772,7 @@ export function submitHomeworkAttempt(quizSetId, studentId, answers, questionTim
   const orgId = student?.orgId || null
   const term = orgId ? (data.organisations[orgId]?.activeTerm || null) : null
   const writingPending = set.questions.filter((q) => isWritingType(q.type || 'multiple-choice')).length
-  const attempt = { id, quizSetId, studentId, answers, score, total, writingPending, questionTimes: questionTimes || [], date: new Date().toISOString(), term, orgId, ...screenMeta(meta) }
+  const attempt = { id, quizSetId, studentId, answers, score, total, writingPending, questionTimes: questionTimes || [], questionCorrect: markPaper(set.questions, answers, id), date: new Date().toISOString(), term, orgId, ...screenMeta(meta) }
   mutateStudentArray(studentId, 'homeworkAttempts', (arr) => arr.push(attempt))
   archiveAttempt(attempt, set, 'homework')
   return attempt
@@ -4128,7 +4155,7 @@ export function submitHomeworkRedo(quizSetId, studentId, answers, questionTimes,
   const student = data.students[studentId]
   const orgId = student?.orgId || null
   const term = orgId ? (data.organisations[orgId]?.activeTerm || null) : null
-  const attempt = { id, quizSetId, studentId, answers, score, total, questionIndices: asked, questionTimes: questionTimes || [], date: new Date().toISOString(), term, orgId, ...screenMeta(meta) }
+  const attempt = { id, quizSetId, studentId, answers, score, total, questionIndices: asked, questionTimes: questionTimes || [], questionCorrect: markPaper(set.questions, answers, id, asked), date: new Date().toISOString(), term, orgId, ...screenMeta(meta) }
   mutateStudentArray(studentId, 'homeworkRedos', (arr) => arr.push(attempt))
   archiveAttempt(attempt, set, 'redo')
   return attempt
@@ -7378,13 +7405,20 @@ export function applyWritingMarkToAttempt(attemptId, studentId) {
     if (!set) return false
     const { score, total } = rescoreAttempt(set, attempt)
     const pending = countWritingPending(set, attempt)
-    if (score === attempt.score && total === attempt.total && pending === attempt.writingPending) return false
+    // Right or wrong per question is recomputed too, not just the score. Until
+    // a teacher marks it a writing question is recorded as null - nothing to be
+    // right about yet - and if that were never refreshed, writing would stay
+    // permanently absent from what the class is shown having got right.
+    const correct = markPaper(set.questions, attempt.answers, attemptId, attempt.questionIndices)
+    const sameCorrect = JSON.stringify(correct) === JSON.stringify(attempt.questionCorrect || [])
+    if (score === attempt.score && total === attempt.total && pending === attempt.writingPending && sameCorrect) return false
     mutateStudentArray(studentId, key, (arr) => {
       const a = arr.find((x) => x.id === attemptId)
       if (!a) return
       a.score = score
       a.total = total
       a.writingPending = pending
+      a.questionCorrect = correct
       a.markedAt = new Date().toISOString()
     })
     return true
