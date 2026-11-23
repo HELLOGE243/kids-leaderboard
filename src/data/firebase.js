@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app'
 import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction, updateDoc, arrayUnion, deleteField, writeBatch, FieldPath } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
+import { wouldDestroyWork, uncheckedWriteRefusal } from './writeGuard.js'
 
 const firebaseConfig = {
   apiKey: "AIzaSyB4plF1oMkqzR2pW40Ecw094u-6ftbYuJI",
@@ -1555,55 +1556,6 @@ export async function loadStudentFirestore(studentId) {
  * parts left over from a larger version are deleted in the same batch.
  */
 /** The arrays that hold work a student cannot get back if they are dropped. */
-const WORK_KEYS = ['homeworkAttempts', 'homeworkRedos', 'quizAttempts', 'scores']
-
-/**
- * Whether this write would destroy work, and must not be made.
- *
- * A record is written as a whole document, so a write says "this is everything
- * the student has" - and anything the incoming copy does not mention is gone.
- * That is fine when the copy is current and wrong when it is not, and there is
- * one way for it not to be: a snapshot is taken when a save is made and
- * committed when the queue reaches it, which can be hours later if the tab was
- * suspended in between. A laptop closed mid-morning and opened at night writes
- * the morning's record over the evening's.
- *
- * One child lost eight papers that way. The record carried _savedAt 05:28 and
- * the document was modified at 21:01; every healthy record in the school was
- * within a minute of itself.
- *
- * Two refusals, both deliberately narrow:
- *
- * - the stored copy was saved after this snapshot was taken, so this one is
- *   behind and cannot be the whole truth;
- * - it would empty an array of work that is not empty, which no single action
- *   in the app does - a teacher clears one paper at a time.
- *
- * @returns {string} why it must not be written, or '' if it is safe
- */
-function wouldDestroyWork(stored, incoming) {
-  if (!stored) return ''
-  const storedAt = Number(stored._savedAt) || 0
-  const incomingAt = Number(incoming._savedAt) || 0
-  // A second of slack: two saves in the same moment are not a rollback.
-  if (storedAt && incomingAt && storedAt > incomingAt + 1000) {
-    return `snapshot is ${Math.round((storedAt - incomingAt) / 1000)}s behind the stored record`
-  }
-  // Emptying an array of work outright. A teacher clearing a paper so it can
-  // be sat again does this legitimately when it was the only one, so it is
-  // refused only for a record that is also thinner than the stored one -
-  // which is a stub standing in for a record, not a record.
-  const thinner = Object.keys(incoming).length < Object.keys(stored).length
-  for (const key of WORK_KEYS) {
-    const had = Array.isArray(stored[key]) ? stored[key].length : 0
-    const has = Array.isArray(incoming[key]) ? incoming[key].length : 0
-    if (had > 0 && has === 0 && thinner) {
-      return `${key} would go from ${had} to none, from a record missing `
-        + `${Object.keys(stored).length - Object.keys(incoming).length} of its keys`
-    }
-  }
-  return ''
-}
 
 /**
  * Folds a record that was never read from the server into the stored one.
@@ -1623,19 +1575,62 @@ function mergeOverStored(stored, incoming) {
   return out
 }
 
+/*
+ * How many times to ask for the stored record before writing without it.
+ *
+ * Three, spaced out, because the read fails for the same reasons any request
+ * fails - a tab waking on a dead connection, most often - and a record that
+ * arrives on the second try is worth more than any rule applied without it.
+ */
+const READ_TRIES = 3
+
+/**
+ * The last record this tab wrote for a student, as an object.
+ *
+ * Stands in for the server's copy when the server cannot be read. It is not
+ * authoritative, but it is a true lower bound on what the student had.
+ */
+function lastWrittenRecord(studentId) {
+  const raw = _studentLastWritten[studentId]
+  if (!raw) return null
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
 async function writeRecord(studentId, snapshot) {
   const ref = doc(db, 'studentData', studentId)
 
-  // What is there now, so a write cannot silently replace work with less.
+  /* What is there now, so a write cannot silently replace work with less.
+   *
+   * The two reasons there is no stored record are kept apart, because they are
+   * opposites and conflating them is what emptied a Year 4 student's record on
+   * 22 Nov. A read that succeeds and finds nothing is a student with no
+   * document yet, and writing is how their first one gets made - `readError`
+   * stays null and the write goes ahead. A read that fails is a record that
+   * exists and could not be seen, and writing over that unchecked is how work
+   * disappears.
+   *
+   * The read is retried before it is given up on, since the usual cause is a
+   * moment of no connection rather than anything to do with the record.
+   */
   let stored = null
-  try {
-    const snap = await getDoc(ref)
-    if (snap.exists()) stored = await joinRecord(studentId, unpackNested(snap.data()))
-  } catch (e) {
-    // Reading failed, so there is nothing to compare against. A write that
-    // cannot be checked is still better than a student's work sitting only in
-    // a tab, and the submission archive is the backstop either way.
-    console.warn(`Firestore: could not read ${studentId}'s record before writing:`, e?.code || e)
+  let readError = null
+  for (let attempt = 0; attempt < READ_TRIES; attempt++) {
+    try {
+      const snap = await getDoc(ref)
+      if (snap.exists()) stored = await joinRecord(studentId, unpackNested(snap.data()))
+      readError = null
+      break
+    } catch (e) {
+      readError = e
+      if (attempt < READ_TRIES - 1) await new Promise((r) => setTimeout(r, 400 * (attempt + 1)))
+    }
+  }
+  if (readError) {
+    console.warn(`Firestore: could not read ${studentId}'s record in ${READ_TRIES} tries:`, readError?.code || readError)
   }
 
   let record = snapshot
@@ -1646,6 +1641,15 @@ async function writeRecord(studentId, snapshot) {
     if (refusal) {
       console.error(`Firestore: refused a write to ${studentId} that would lose work - ${refusal}`)
       throw new Error(`stale write refused for ${studentId}: ${refusal}`)
+    }
+  } else if (readError) {
+    // Nothing to compare against, so the rule is in writeGuard.js. A refusal
+    // throws, which sends the write back through the queue's retry with the
+    // work still held in memory - it is a wait, not a loss.
+    const refusal = uncheckedWriteRefusal(snapshot, lastWrittenRecord(studentId))
+    if (refusal) {
+      console.error(`Firestore: refused an unchecked write to ${studentId} - ${refusal}`)
+      throw new Error(`unchecked write refused for ${studentId}: ${refusal}`)
     }
   }
   delete record._partial
