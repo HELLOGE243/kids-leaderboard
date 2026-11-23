@@ -1930,6 +1930,77 @@ exports.authAdmin = functions
           return sendJson(res, 200, { ok: true, dry, alreadyFiled: have.size, count: found.length, papers: found })
         }
 
+        if (action === 'restoreFromArchive') {
+          // Puts a student's archived papers back into their own record.
+          //
+          // The mirror of backfillArchive above. That one rebuilds the archive
+          // from the student document; this one rebuilds the student document
+          // from the archive, which is the direction that matters on the day a
+          // record is lost. On 22 Nov a Year 4 student's document was
+          // overwritten with every work array empty while 30 of her papers sat
+          // in the archive, and there was no way to put them back.
+          //
+          // Two safeguards, because this writes to a live child's record:
+          //
+          //   - what to add is decided by restorePlan, which is pure and
+          //     tested, so the duplicate and wrong-field cases are covered
+          //     without touching the database;
+          //   - the document as it stands is copied to studentBackups BEFORE
+          //     anything is written, so this is itself undoable.
+          //
+          // Dry by default, like every other action here that writes.
+          const { restorePlan } = require('./archiveRestore')
+          const studentId = String(req.body?.studentId || '').trim()
+          const dry = req.body?.dry !== false
+          if (!studentId) return sendJson(res, 400, { error: 'Which student? Pass studentId.' })
+
+          const ref = db.collection('studentData').doc(studentId)
+          const [snap, filed] = await Promise.all([
+            ref.get(),
+            db.collection('submissions').where('studentId', '==', studentId).get(),
+          ])
+          const current = snap.exists ? (snap.data() || {}) : {}
+          const submissions = filed.docs.map((d) => d.data() || {})
+          const plan = restorePlan(current, submissions)
+
+          const report = {
+            ok: true,
+            dry,
+            studentId,
+            documentExists: snap.exists,
+            archived: submissions.length,
+            willRestore: plan.restored.length,
+            into: Object.fromEntries(Object.entries(plan.adds).map(([f, a]) => [f, a.length])),
+            papers: plan.restored,
+            skipped: plan.skipped,
+            unknown: plan.unknown,
+          }
+          if (dry || !plan.restored.length) return sendJson(res, 200, { ...report, backup: null })
+
+          // The backup first, and awaited on its own: a restore that could not
+          // record what it was about to change must not go ahead.
+          const backupId = `${studentId}-${new Date().toISOString().replace(/[:.]/g, '-')}`
+          await db.collection('studentBackups').doc(backupId).set({
+            studentId,
+            takenAt: admin.firestore.FieldValue.serverTimestamp(),
+            reason: 'before restoreFromArchive',
+            by: caller.uid || caller.name || 'admin',
+            documentExisted: snap.exists,
+            document: current,
+          })
+
+          // The arrays are written whole rather than with arrayUnion, so the
+          // result is exactly what restorePlan decided and nothing arrives
+          // from a concurrent save in between.
+          const fields = {}
+          for (const [field, additions] of Object.entries(plan.adds)) {
+            const was = Array.isArray(current[field]) ? current[field] : []
+            fields[field] = [...was, ...additions]
+          }
+          await ref.set(fields, { merge: true })
+          return sendJson(res, 200, { ...report, backup: backupId })
+        }
+
         if (action === 'syncStudentGroups') {
           const content = await getContent()
           const report = await syncStudentGroups(content.classGroups || [], content.courses || [])
