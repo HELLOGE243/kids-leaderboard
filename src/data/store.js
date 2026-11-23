@@ -3934,9 +3934,15 @@ export function getHomeworkAttemptsForQuiz(quizSetId) {
       studentId: s.studentId,
       score: s.score,
       total: s.total,
-      // One number rather than the per-question list: it is all the cohort
-      // figures need, and the list is not in the aggregate.
+      // The whole sitting, and the per-question breakdown behind it.
+      //
+      // Only the total used to come through, and the review strip reads the
+      // list: it asks how long the class took on the question being looked
+      // at. Every row it got carried a total and no list, so the class
+      // average time was never once shown on a paper whose cohort came from
+      // the aggregate - which is every paper, once anyone else has sat it.
       seconds: s.seconds || 0,
+      questionTimes: Array.isArray(s.questionTimes) ? s.questionTimes : [],
       date: s.date,
       term: s.term,
       orgId: s.orgId,

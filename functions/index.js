@@ -445,6 +445,16 @@ exports.onStudentDataWrite = functions
           // what the average sitting was - it had only its own figure to go on,
           // so the line never appeared at all.
           seconds: Math.round((a.questionTimes || []).reduce((n, t) => n + (Number(t) || 0), 0)),
+          /* The per-question list as well as the total.
+             The review strip asks "how long did the class take on THIS
+             question", and it was reading a.questionTimes on rows served from
+             here - which carried a total and nothing else, so the figure was
+             never once shown. One number cannot answer a per-question
+             question. A sitting is a few dozen small integers, which is a
+             few hundred bytes against a document that already holds eight
+             fields; the answers are what was worth leaving out of this
+             collection, and they still are. */
+          questionTimes: (a.questionTimes || []).map((t) => Math.round(Number(t) || 0)),
           date: a.date || null,
           term: a.term || null,
           orgId: a.orgId || null,
@@ -1838,6 +1848,7 @@ exports.authAdmin = functions
               batch.set(db.collection('quizStats').doc(a.quizSetId).collection('attempts').doc(d.id), {
                 studentId: d.id, score, total, pct: total > 0 ? (score / total) * 100 : 0,
                 seconds: Math.round((a.questionTimes || []).reduce((n, t) => n + (Number(t) || 0), 0)),
+                questionTimes: (a.questionTimes || []).map((t) => Math.round(Number(t) || 0)),
                 date: a.date || null, term: a.term || null, orgId: a.orgId || null,
               })
               written++
