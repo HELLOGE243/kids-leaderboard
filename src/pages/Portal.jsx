@@ -227,7 +227,7 @@ function Portal({ user, onLogout }) {
     revisionDojo: { en: 'Revision Hall', zh: '复习大厅' },
     battlegrounds: { en: 'Battlegrounds', zh: '竞技场' },
     vocabBank: { en: 'Vocabulary Bank', zh: '词汇库' },
-    reading: { en: 'Reading', zh: '阅读' },
+    reading: { en: 'Reading Quest', zh: '阅读任务' },
     myReports: { en: 'My Reports', zh: '我的报告' },
     locked: { en: 'Locked', zh: '已锁定' },
     back: { en: 'Back', zh: '返回' },
@@ -700,7 +700,10 @@ function Portal({ user, onLogout }) {
       <button className="btn-vocab w-full mt-16" data-help="vocab" onClick={() => setShowVocab(true)}>
         🔤 {t('vocabBank')}
       </button>
-      <button className="btn-readings w-full mt-16" data-help="reading" style={{ position: 'relative' }} onClick={() => setShowReading(true)}>
+      <button className="btn-readings w-full mt-16" data-help="reading" onClick={() => setShowReading(true)}>
+        {/* The sheen that crosses the brass on hover. It needs an element of
+            its own: the tile's two pseudo-elements are the corner brackets. */}
+        <span className="btn-readings-sheen" aria-hidden="true" />
         📖 {t('reading')}
         {readingsDue > 0 && <span className="hw-badge-warn">{readingsDue}</span>}
       </button>
@@ -922,7 +925,7 @@ function Portal({ user, onLogout }) {
           { selector: '[data-help="checkpoints"]', title: 'Checkpoint Tests', desc: 'Formal tests set by your teacher. Timed and single-attempt.' },
           { selector: '[data-help="dojo"]', title: 'Revision Hall', desc: 'Review questions you got wrong. Master cards by getting 3 correct in a row. Earns tokens.' },
           { selector: '[data-help="vocab"]', title: 'Vocabulary Bank', desc: 'Words you have saved from quizzes. Study with flashcards and practice.' },
-          { selector: '[data-help="reading"]', title: 'Reading', desc: 'The piece set for today, and the library behind it. Finishing a daily reading earns tokens, and missed days are kept for you.' },
+          { selector: '[data-help="reading"]', title: 'Reading Quest', desc: "Today's quest, the readings still owed, and the library behind them. Finishing a daily reading earns tokens, and missed days are kept for you." },
           { selector: '[data-help="battlegrounds"]', title: 'Battlegrounds', desc: 'Daily word games, live arena battles, and the Arcade.' },
           { selector: '[data-help="leaderboards"]', title: 'Leaderboards', desc: 'See how you rank against classmates in each subject.' },
         ]

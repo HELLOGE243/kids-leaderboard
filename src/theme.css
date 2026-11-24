@@ -20173,24 +20173,9 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 
 /* --- Daily readings -------------------------------------------------------
    The reading challenge: its own portal card, above the vocabulary bank. */
-.btn-readings {
-  border: 2px solid #d4953f;
-  background: linear-gradient(135deg, #251704, #432c0b);
-  color: #f0c88a;
-  font-family: var(--font-pixel);
-  font-size: 0.8rem;
-  font-weight: bold;
-  padding: 18px 24px;
-  border-radius: var(--radius);
-  cursor: pointer;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  box-shadow: 0 3px 0 rgba(0,0,0,0.3), 0 4px 12px rgba(212,149,63,0.1);
-  transition: transform 0.1s, box-shadow 0.15s;
-}
-.btn-readings:hover { transform: translateY(-2px); box-shadow: 0 5px 0 rgba(0,0,0,0.3), 0 8px 18px rgba(212,149,63,0.2); }
-.btn-readings:active { transform: translateY(1px); box-shadow: 0 2px 0 rgba(0,0,0,0.3); }
-.theme-light .btn-readings { background: linear-gradient(135deg, #fdf3e2, #f8e8cd); border-color: #b07314; color: #7d5210; }
+/* The Reading Quest tile is gilded, in the "Reading Quest: the gilding"
+   section at the end of this file. It keeps this row's pixel face and press;
+   only its materials differ. */
 
 .dr-page { max-width: 880px; margin: 0 auto; padding: 18px 16px 60px; }
 .dr-top { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
@@ -20952,3 +20937,236 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 /* On the completion screen he replaces the star, so the heading needs less
    room above it than the star did. */
 .td-done-ninja { width: 196px; height: 196px; margin: -14px auto -6px; }
+
+/* ===== Reading Quest: the gilding =====
+   A quest board on a treasure chest. The chest is the dark tooled leather of
+   the lid, the gilding is the brass that holds it together: a banded gradient
+   border, corner brackets, and a highlight that only moves when touched.
+
+   One gold ramp for all of it, declared once. Gold read as a flat colour looks
+   like mustard; what makes it look like metal is a ramp that goes light at the
+   top, dark through the middle and light again at the bottom, which is what a
+   curved metal surface does under one light. */
+:root {
+  --gilt-hi: #fbeec2;
+  --gilt-mid: #c79a3a;
+  --gilt-deep: #8a6318;
+  --gilt-ramp: linear-gradient(160deg, #fff6dc 0%, #f0d386 16%, #d7a93f 38%, #a87c25 52%, #e9c470 72%, #fff2cf 100%);
+  /* The same metal seen against a pale background. The light stops of the
+     main ramp are near-white, which disappears on cream - so light mode gets
+     a ramp of the same shape pitched lower, rather than the same one. */
+  --gilt-ramp-deep: linear-gradient(160deg, #b8891f 0%, #e0b44a 16%, #8a6318 42%, #6d4c0f 56%, #d1a337 76%, #8a6318 100%);
+  --chest-leather: linear-gradient(150deg, #2d1c06 0%, #462d0c 45%, #30200a 100%);
+}
+
+/* --- The portal tile ------------------------------------------------------
+   It sits in a column of flat arcade buttons, so it keeps their pixel face,
+   size and press. Only its materials change, or it stops reading as one of
+   the row. */
+.btn-readings {
+  position: relative;
+  /* A true gradient border: the padding box carries the leather, the border
+     box carries the gold ramp, and the border itself is transparent so the
+     ramp shows through only where the border is. A border-image would do the
+     same but cannot keep the rounded corners. */
+  border: 3px solid transparent;
+  background:
+    var(--chest-leather) padding-box,
+    var(--gilt-ramp) border-box;
+  color: #f7e4b4;
+  font-family: var(--font-pixel);
+  font-size: 0.8rem;
+  font-weight: bold;
+  /* Matches the rest of the column exactly. The 3px gilded border is 1px
+     wider than theirs, so the padding stays at the row's 18/24 rather than
+     being nudged up with it - the tile has to sit level with its neighbours. */
+  padding: 18px 24px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  /* The text is stamped rather than printed: a dark line under each letter
+     and a pale one above it is what engraving into metal looks like. */
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.75), 0 -1px 0 rgba(255, 233, 176, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(251, 238, 194, 0.22),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.45),
+    0 3px 0 #1b1004,
+    0 4px 14px rgba(201, 151, 47, 0.18);
+  /* Deliberately NOT overflow:hidden. The due-count badge is positioned at
+     top:-8px right:-8px, outside the tile, and hiding the overflow to contain
+     the sheen would cut the badge in half. The sheen clips itself instead. */
+  transition: transform 0.1s, box-shadow 0.15s;
+}
+
+/* The brass corner brackets. Two pseudo-elements, each an L: one holds the
+   top-left and the other the bottom-right, which is enough to read as a
+   fitted plate without drawing four separate pieces. */
+.btn-readings::before,
+.btn-readings::after {
+  content: '';
+  position: absolute;
+  width: 14px; height: 14px;
+  pointer-events: none;
+  opacity: 0.85;
+}
+.btn-readings::before {
+  top: 4px; left: 4px;
+  border-top: 2px solid var(--gilt-hi);
+  border-left: 2px solid var(--gilt-hi);
+  border-top-left-radius: 2px;
+}
+.btn-readings::after {
+  bottom: 4px; right: 4px;
+  border-bottom: 2px solid var(--gilt-hi);
+  border-right: 2px solid var(--gilt-hi);
+  border-bottom-right-radius: 2px;
+}
+
+.btn-readings:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 rgba(251, 238, 194, 0.3),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.4),
+    0 5px 0 #1b1004,
+    0 8px 22px rgba(233, 196, 112, 0.3);
+}
+.btn-readings:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.55),
+    0 2px 0 #1b1004;
+}
+
+/* The sheen. It crosses once on hover and then stops: a highlight that sweeps
+   on a timer turns a button into a slot machine, and this one sits in a
+   column of six. */
+.btn-readings-sheen {
+  position: absolute; inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.btn-readings-sheen::after {
+  content: '';
+  position: absolute; inset: -40% -20%;
+  background: linear-gradient(74deg,
+    transparent 38%,
+    rgba(255, 246, 214, 0.42) 48%,
+    rgba(255, 246, 214, 0.06) 54%,
+    transparent 62%);
+  transform: translateX(-130%);
+}
+.btn-readings:hover .btn-readings-sheen::after {
+  animation: gilt-sheen 0.75s ease-out;
+}
+@keyframes gilt-sheen {
+  from { transform: translateX(-130%); }
+  to   { transform: translateX(130%); }
+}
+
+.theme-light .btn-readings {
+  background:
+    linear-gradient(150deg, #fdf4e0, #f6e6c4) padding-box,
+    var(--gilt-ramp-deep) border-box;
+  color: #6b4a0d;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 3px 0 #c2a257,
+    0 4px 14px rgba(201, 151, 47, 0.2);
+}
+.theme-light .btn-readings::before,
+.theme-light .btn-readings::after { border-color: #b8860b; }
+
+/* --- The title inside -----------------------------------------------------
+   Gilded type, which is the one place a gradient belongs on text: the letters
+   are the metal, so the same ramp that edges the chest runs through them. */
+.rr-title-gilt {
+  /* Not inline-block: the subtitle is a sibling span and would sit alongside
+     it. Block keeps the line break, width:fit-content keeps the gradient the
+     width of the letters rather than the width of the header. */
+  display: block;
+  width: fit-content;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  background: var(--gilt-ramp);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  /* Clipping a gradient to text drops any text-shadow with it, so the
+     engraved edge is drawn behind the letters instead. */
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.55));
+}
+.theme-light .rr-title-gilt {
+  background: var(--gilt-ramp-deep);
+  -webkit-background-clip: text;
+  background-clip: text;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.7));
+}
+
+/* A hairline rule under the header, fading out: the lid's seam. */
+.rr-top { position: relative; padding-bottom: 14px; }
+.rr-top::after {
+  content: '';
+  position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+  background: linear-gradient(90deg,
+    rgba(233, 196, 112, 0.75),
+    rgba(233, 196, 112, 0.25) 45%,
+    transparent 92%);
+  border-radius: 1px;
+}
+.theme-light .rr-top::after {
+  background: linear-gradient(90deg,
+    rgba(138, 99, 24, 0.7),
+    rgba(138, 99, 24, 0.22) 45%,
+    transparent 92%);
+}
+
+/* --- The tab bar ----------------------------------------------------------
+   The same brass, thinner. The bar is the plate and the chosen tab is the one
+   stud pressed in, so the selected tab is darker and inset rather than
+   brighter and raised - which is how a pressed brass button actually reads. */
+.rr-tabs-gilt {
+  border: 2px solid transparent;
+  /* Opaque, not rgba. A translucent padding-box layer lets the border-box
+     layer show through it, and the whole bar fills with the gold ramp instead
+     of only its edge - which is exactly what happened the first time. */
+  background:
+    linear-gradient(180deg, #2f1f08, #241805) padding-box,
+    var(--gilt-ramp) border-box;
+  box-shadow: inset 0 1px 0 rgba(251, 238, 194, 0.12), 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+.rr-tabs-gilt .rr-tab { color: #d8c398; }
+.rr-tabs-gilt .rr-tab:hover { color: #fbeec2; background: rgba(233, 196, 112, 0.1); }
+.rr-tabs-gilt .rr-tab-on,
+.rr-tabs-gilt .rr-tab-on:hover {
+  color: #fff3d0;
+  background: linear-gradient(180deg, rgba(120, 84, 22, 0.55), rgba(72, 49, 12, 0.6));
+  box-shadow:
+    inset 0 0 0 1px rgba(233, 196, 112, 0.65),
+    inset 0 2px 6px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+}
+.rr-tabs-gilt .rr-tab-badge {
+  background: var(--gilt-ramp);
+  color: #2a1a04;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+.theme-light .rr-tabs-gilt {
+  background:
+    linear-gradient(180deg, #fbf2de, #f3e5c6) padding-box,
+    var(--gilt-ramp-deep) border-box;
+}
+.theme-light .rr-tabs-gilt .rr-tab { color: #7a5a1c; }
+.theme-light .rr-tabs-gilt .rr-tab-badge { background: var(--gilt-ramp-deep); color: #fff6dc; }
+.theme-light .rr-tabs-gilt .rr-tab-on,
+.theme-light .rr-tabs-gilt .rr-tab-on:hover {
+  color: #4a3208;
+  background: linear-gradient(180deg, #e8d19a, #dcc184);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-readings:hover .btn-readings-sheen::after { animation: none; }
+}

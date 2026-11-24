@@ -49,3 +49,5 @@ core-students-before-*.json
 .dojo-demo/
 dojo-demo.html
 dojo-demo.jsx
+gilt-demo.html
+gilt-demo.jsx

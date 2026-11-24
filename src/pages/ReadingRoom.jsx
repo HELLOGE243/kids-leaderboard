@@ -5,7 +5,12 @@ import Library from './Library.jsx'
 import { getReadingStreak } from '../data/store.js'
 
 /**
- * Daily Readings and the Library behind one door.
+ * Reading Quest: the daily quest, the readings still owed, and the Library,
+ * behind one door.
+ *
+ * "Reading Quest" is what it is called everywhere a student sees it. The file
+ * and the component keep the older Reading Room name: renaming them would
+ * touch every import for no change a student could notice.
  *
  * They were two cards on the portal, next to each other, both of them about
  * reading - one the piece set for today, the other everything else worth
@@ -32,7 +37,7 @@ function ReadingRoom({ student, due = 0, onBack, onOpenQuiz }) {
       <header className="rr-top">
         <button className="btn btn-outline" onClick={onBack}>&larr; Back</button>
         <div className="rr-top-mid">
-          <h2 className="rr-title">Reading</h2>
+          <h2 className="rr-title rr-title-gilt">Reading Quest</h2>
           <span className="rr-sub">Today&rsquo;s three, what is still owed, and the shelf</span>
         </div>
         <div className={`dr-streak${streak > 0 ? ' is-on' : ''}`} title="Days in a row">
@@ -41,7 +46,7 @@ function ReadingRoom({ student, due = 0, onBack, onOpenQuiz }) {
         </div>
       </header>
 
-      <nav className="rr-tabs">
+      <nav className="rr-tabs rr-tabs-gilt">
         <button
           className={`rr-tab${tab === 'quest' ? ' rr-tab-on' : ''}`}
           onClick={() => setTab('quest')}
