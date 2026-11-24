@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import QuestionPassage from '../components/QuestionPassage.jsx'
 import { renderMath } from '../utils/renderMath.js'
 import { prepareMath } from '../utils/mathify.js'
 import {
@@ -709,7 +710,7 @@ Return ONLY valid JSON:
         </div>
         <div className="qt-split">
           <div className="qt-split-left">
-            <div className="qt-question-text" dangerouslySetInnerHTML={{ __html: q.text }} />
+            <QuestionPassage key={q.id} question={q} />
           </div>
           <div className="qt-split-divider" />
           <div className="qt-split-right">
@@ -1267,7 +1268,7 @@ Return ONLY valid JSON:
                 </div>
                 <div className="qt-split">
                   <div className="qt-split-left">
-                    {q.text && <div className="qt-question-text" dangerouslySetInnerHTML={{ __html: q.text }} />}
+                    <QuestionPassage key={q.id} question={q} />
                   </div>
                   <div className="qt-split-divider" />
                   <div className="qt-split-right">

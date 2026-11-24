@@ -25,6 +25,7 @@ import {
   effectiveTimeLimit,
 } from '../data/store.js'
 import { RichText } from '../components/RichTextEditor.jsx'
+import QuestionPassage from '../components/QuestionPassage.jsx'
 import { useScreenGuard } from '../utils/screenGuard.js'
 import { checkExplanation, parseExplanation, generateExplanation } from '../utils/aiChat.js'
 
@@ -433,9 +434,7 @@ function QuizDashboard({ user, onBack, initialNav }) {
           {/* Two-panel content area */}
           <div className={`qt-split ${expandedLeft ? 'qt-split-expanded' : ''}`}>
             <div className="qt-split-left">
-              <div className="qt-question-text">
-                <RichText html={q.text} />
-              </div>
+              <QuestionPassage key={currentQ} question={q} />
             </div>
             <div className="qt-split-divider" onClick={() => setExpandedLeft(e => !e)} />
             <div className="qt-split-right">
@@ -642,10 +641,8 @@ function QuizDashboard({ user, onBack, initialNav }) {
                 <iframe src={youtubeEmbedUrl(q.videoUrl)} allowFullScreen title="Solution video" />
               </div>
             )}
-            <div className="qt-question-text">
-              <RichText html={q.text} />
-              {skipped && <p style={{ color: '#c62828', marginTop: 12 }}>Not answered</p>}
-            </div>
+            <QuestionPassage key={reviewCurrentQ} question={q} />
+            {skipped && <p style={{ color: '#c62828', marginTop: 12 }}>Not answered</p>}
             {q.prompt && <div className="qt-prompt-display" dangerouslySetInnerHTML={{ __html: q.prompt }} />}
             <div className="qt-options">
               {q.options.map((opt, oi) => {

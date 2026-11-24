@@ -4,6 +4,7 @@ import { prepareMath } from '../utils/mathify.js'
 import { getDojoCardsForStudent, recordCompulsoryRevisionAnswer, markDojoAskTeacher, askTeacherAboutCard, reportQuestionError, studentRecordReady, onDataChange, recordDailyRevision } from '../data/store.js'
 import ReportIssueModal from '../components/ReportIssueModal.jsx'
 import { RichText } from '../components/RichTextEditor.jsx'
+import QuestionPassage from '../components/QuestionPassage.jsx'
 import { resolveImages } from '../data/imageStore.js'
 import { playCorrectChime } from '../utils/soundManager.js'
 
@@ -128,6 +129,9 @@ function SessionRevision({ user, onComplete }) {
   }
   if (q?.text) resolveField(q.text)
   if (q?.prompt) resolveField(q.prompt)
+  // A reading question keeps its passages in `descriptions`, and those carry
+  // images of their own, so they need resolving the same way the stem does.
+  for (const d of q?.descriptions || []) if (d?.content) resolveField(d.content)
 
   function handleFlip() {
     setFlipped(true)
@@ -338,7 +342,6 @@ function SessionRevision({ user, onComplete }) {
   }
 
   const selfMarked = !(q?.options || []).some((o) => o && String(o).trim())
-  const textHtml = resolvedHtml[q?.text] || q?.text || ''
   const promptHtml = resolvedHtml[q?.prompt] || q?.prompt || ''
   const hasPrompt = promptHtml && promptHtml.trim()
 
@@ -394,8 +397,12 @@ function SessionRevision({ user, onComplete }) {
                   </div>
                   <div className="qt-split">
                     <div className="qt-split-left">
-                      {textHtml && <div className="qt-question-text"><RichText html={textHtml} /></div>}
-                      {!textHtml && <div className="qt-question-text" style={{ color: '#888' }}>Question</div>}
+                      <QuestionPassage
+                        key={card.id}
+                        question={q}
+                        resolve={(html) => resolvedHtml[html] || html}
+                        empty={<div className="qt-question-text" style={{ color: '#888' }}>Question</div>}
+                      />
                     </div>
                     <div className="qt-split-divider" />
                     <div className="qt-split-right">
