@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { answerStage, nextStageIndex } from '../data/trainingDojo.js'
+import NinjaSalute from '../components/NinjaSalute.jsx'
 
 /**
  * The Training Dojo: a short course built from one question a student missed.
@@ -62,7 +63,7 @@ function TrainingDojo({ suite, run, heuristics = [], onProgress, onClose, now = 
     return (
       <div className="td-overlay" role="dialog" aria-label="Training Dojo complete">
         <div className="td-panel td-panel-done">
-          <div className="td-done-badge">&#9733;</div>
+          <NinjaSalute className="td-done-ninja" />
           <h2 className="td-done-title">Training complete</h2>
           <p className="td-done-score"><strong>{right}</strong> of <strong>{stages.length}</strong> along the way</p>
           <p className="td-done-sub">
