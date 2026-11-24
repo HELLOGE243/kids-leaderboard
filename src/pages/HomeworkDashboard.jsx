@@ -78,6 +78,8 @@ import { countSentences } from '../utils/writingText.js'
 import { stopSpeaking } from '../utils/speech.js'
 import { checkExplanation, parseExplanation, generateWordDefinition, generateExplanation } from '../utils/aiChat.js'
 import { classCorrectPct } from '../data/classStats.js'
+import TrainingDojoLauncher from '../components/TrainingDojoLauncher.jsx'
+import { subjectOfQuizSet } from '../data/store.js'
 
 const TRIAL_INSTRUCTIONS = {
   'sel-reading': { heading: 'Selective High School Placement Practice Test', subject: 'Reading', body: `<p><b>INSTRUCTIONS</b></p><p><b>Please read these instructions carefully.</b></p><p>You have <b>45 minutes</b> to complete <b>17 questions</b> in this test.</p><p>For Questions 1–8, choose <b>one</b> correct answer to each question.</p><p>For Question 9, choose the <b>eight</b> correct answers.</p><p>For Questions 10–15, choose <b>one</b> correct answer to each question.</p><p>For Question 16, choose the <b>six</b> correct answers.</p><p>For Question 17, choose the <b>ten</b> correct answers.</p><p>You will <b>not</b> lose marks for incorrect answers, so you should attempt <b>all</b> questions.</p><p>Please note that some words and phrases are in bold in the texts as they are referred to in some questions.</p><p>Calculators and dictionaries are not allowed.</p>` },
@@ -2972,12 +2974,31 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
               {!isReview && takingQuiz.homeworkMode && (
                 <button className="qt-save-exit-btn qt-click-flash" onClick={saveAndExitHomework}>Save &amp; Exit</button>
               )}
-              {isReview && submittedResult && !isQuestionCorrect(q, submittedResult.answers[currentQ]) && (
-                <button
-                  className={`qt-ask-teacher-btn qt-click-flash${askedTeacher.has(currentQ) ? ' is-sent' : ''}`}
-                  disabled={askedTeacher.has(currentQ)}
-                  onClick={() => sendQuestionToTeacher(currentQ, q)}
-                >{askedTeacher.has(currentQ) ? 'Sent to your teacher ✓' : 'Ask Teacher'}</button>
+              {/* The pair, flush: Ask Teacher only on a question they got
+                  wrong, the dojo on any maths or thinking skills question in
+                  Review All - a student who guessed one right still wants the
+                  method behind it. */}
+              {isReview && submittedResult && (
+                <div className="qt-action-pair">
+                  {!isQuestionCorrect(q, submittedResult.answers[currentQ]) && (
+                    <button
+                      className={`qt-ask-teacher-btn qt-click-flash${askedTeacher.has(currentQ) ? ' is-sent' : ''}`}
+                      disabled={askedTeacher.has(currentQ)}
+                      onClick={() => sendQuestionToTeacher(currentQ, q)}
+                    >{askedTeacher.has(currentQ) ? 'Sent to your teacher ✓' : 'Ask Teacher'}</button>
+                  )}
+                  <TrainingDojoLauncher
+                    key={`${takingQuiz?.id}-${currentQ}`}
+                    question={q}
+                    sourceId={takingQuiz?.id}
+                    questionIndex={currentQ}
+                    subject={subjectOfQuizSet(takingQuiz)}
+                    student={user}
+                    setTitle={takingQuiz?.friendlyTitle || ''}
+                    year={takingQuiz?.year || ''}
+                    className="qt-click-flash"
+                  />
+                </div>
               )}
             </div>
             <div className="qt-bottom-center">

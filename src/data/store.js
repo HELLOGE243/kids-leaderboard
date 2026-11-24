@@ -4708,6 +4708,92 @@ export function addDojoCard(studentId, question, sourceType, sourceId, questionI
   return card
 }
 
+// ============================================================
+// THE TRAINING DOJO
+//
+// The suites themselves are shared and live in Firestore (trainingSuites).
+// What is kept here is only this student's way through one: which suite, which
+// heuristics it taught, and what they answered.
+//
+// Deliberately not a copy of the questions. A suite is around 6 KB and a
+// student's record is one Firestore document with a 1 MiB ceiling on it - the
+// ceiling that has already cost this school a record once. The reference plus
+// the progress is under a kilobyte, and reads back identically.
+// ============================================================
+
+/**
+ * The most runs one student keeps.
+ *
+ * At roughly 900 bytes each this is about 180 KB at the cap, which is a lot
+ * of a student's document to spend on history. Finished runs are dropped
+ * oldest-first when it is reached; an unfinished one is never dropped,
+ * because that is work a child can still go back to.
+ */
+const MAX_TRAINING_RUNS = 200
+
+/**
+ * The question one run was built from, as it stands today.
+ *
+ * Read live rather than from the run, for the reason the dojo cards are: a
+ * question edited since has to come back edited, and a question deleted since
+ * has to come back as nothing so My Progress can say so instead of opening an
+ * empty dojo.
+ */
+export function questionForTrainingRun(run) {
+  if (!run?.sourceId) return null
+  const data = loadData()
+  const set = (data.importedQuizSets || []).find((x) => x.id === run.sourceId)
+  if (!set) return null
+  const byId = (set.questions || []).find((q) => q?.id === run.questionKey)
+  if (byId) return { question: byId, index: set.questions.indexOf(byId), set }
+  const m = /^idx-(\d+)$/.exec(String(run.questionKey || ''))
+  if (!m) return null
+  const i = Number(m[1])
+  return set.questions?.[i] ? { question: set.questions[i], index: i, set } : null
+}
+
+/** Every Training Dojo this student has opened, newest last. */
+export function getTrainingRuns(studentId) {
+  return getStudentArray(studentId, 'dojoTraining')
+}
+
+/** This student's run on one question, if they have opened it before. */
+export function getTrainingRun(studentId, sourceId, questionKey) {
+  return getTrainingRuns(studentId).find(
+    (r) => r && r.sourceId === sourceId && r.questionKey === questionKey) || null
+}
+
+/**
+ * Writes a run, replacing the student's earlier state for the same question.
+ *
+ * Matched on the question rather than on the run id, so a second run started
+ * because a device had not yet synced replaces the first instead of sitting
+ * beside it as a duplicate row in My Progress.
+ */
+export function saveTrainingRun(studentId, run) {
+  if (!studentId || !run?.id) return
+  mutateStudentArray(studentId, 'dojoTraining', (arr) => {
+    const at = arr.findIndex(
+      (r) => r && r.sourceId === run.sourceId && r.questionKey === run.questionKey)
+    if (at === -1) arr.push(run)
+    else arr[at] = run
+
+    if (arr.length <= MAX_TRAINING_RUNS) return
+    // Oldest finished first. An unfinished run is work in progress and stays.
+    const spare = arr
+      .map((r, i) => ({ r, i }))
+      .filter(({ r }) => r?.completedAt)
+      .sort((a, b) => (a.r.completedAt || 0) - (b.r.completedAt || 0))
+    let over = arr.length - MAX_TRAINING_RUNS
+    const drop = new Set()
+    for (const { i } of spare) { if (over-- <= 0) break; drop.add(i) }
+    if (!drop.size) return
+    const kept = arr.filter((_, i) => !drop.has(i))
+    arr.length = 0
+    arr.push(...kept)
+  })
+}
+
 export function findQuizSetLocation(quizSetId) {
   const data = loadData()
   for (const c of (data.courses || [])) {

@@ -21162,3 +21162,115 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 /* The completion sheet replaces the SVG ninja, so the heading needs less room
    above it than the drawing did. */
 .td-done-sprite { margin: -18px auto -10px; }
+
+/* ===== The Training Dojo, in the admin =====
+   The suite editor sits inside the question editor, so it is quiet until it is
+   opened: it is one more thing on a screen that already has a lot on it, and
+   most questions will never have a suite at all. */
+
+.tsa { margin: 14px 0; border-top: 1px solid rgba(124, 58, 237, 0.25); padding-top: 10px; }
+.tsa-toggle {
+  background: none; border: 0; cursor: pointer; padding: 4px 0;
+  color: #b39ddb; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.tsa-toggle:hover { color: #d1c4e9; }
+.tsa-count {
+  background: rgba(124, 58, 237, 0.25); color: #ddd6fe;
+  padding: 1px 7px; border-radius: 9px; font-size: 0.62rem; font-weight: 700;
+}
+.tsa-body { margin-top: 10px; }
+.tsa-note { margin: 6px 0; font-size: 0.68rem; color: #8b8b9e; line-height: 1.55; }
+
+.tsa-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap; margin-bottom: 10px;
+}
+.tsa-meta { font-size: 0.65rem; color: #8b8b9e; }
+.tsa-confirm {
+  display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 0.68rem; color: #ffab91;
+}
+
+.tsa-btn {
+  padding: 3px 10px; border-radius: 5px; cursor: pointer;
+  border: 1px solid rgba(124, 58, 237, 0.55); background: transparent;
+  color: #c4b5fd; font-size: 0.62rem; font-weight: 700;
+}
+.tsa-btn:hover { background: rgba(124, 58, 237, 0.25); color: #fff; }
+.tsa-btn-danger { border-color: #c62828; color: #ef9a9a; }
+.tsa-btn-danger:hover { background: #c62828; color: #fff; }
+
+.tsa-stage {
+  border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 7px;
+  padding: 9px 11px; margin-bottom: 9px; background: rgba(255, 255, 255, 0.03);
+}
+.tsa-stage-head { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 7px; }
+.tsa-step {
+  flex-shrink: 0; width: 19px; height: 19px; border-radius: 50%;
+  background: rgba(124, 58, 237, 0.3); color: #ddd6fe;
+  font-size: 0.6rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.tsa-knowledge { flex: 1; font-size: 0.68rem; color: #b39ddb; line-height: 1.5; }
+
+.tsa-input {
+  width: 100%; box-sizing: border-box;
+  padding: 5px 8px; border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.3); color: #eaeaea;
+  font-family: var(--font-body); font-size: 0.72rem; line-height: 1.45;
+  resize: vertical;
+}
+.tsa-input:focus { outline: none; border-color: #7c3aed; }
+.tsa-explain { margin-top: 7px; color: #a0a0b0; }
+
+.tsa-options { display: flex; flex-direction: column; gap: 5px; margin-top: 7px; }
+.tsa-option { display: flex; align-items: center; gap: 7px; }
+/* The marked answer is the one thing on this panel that must be unmissable:
+   a suite with the wrong option marked teaches the wrong thing to everyone. */
+.tsa-option.is-right .tsa-input { border-color: #2e7d32; background: rgba(46, 125, 50, 0.14); }
+.tsa-mark {
+  flex-shrink: 0; width: 21px; height: 21px; border-radius: 50%; cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.22); background: transparent;
+  color: #8b8b9e; font-size: 0.6rem; font-weight: 700;
+}
+.tsa-option.is-right .tsa-mark { background: #2e7d32; border-color: #2e7d32; color: #fff; }
+.tsa-mark:hover { border-color: #7c3aed; color: #fff; }
+
+/* ===== The heuristic library ===== */
+
+.hl { font-size: 0.75rem; }
+.hl-bar { display: flex; align-items: center; gap: 7px; margin-bottom: 12px; }
+.hl-tab {
+  padding: 5px 13px; border-radius: 6px; cursor: pointer;
+  border: 1px solid rgba(124, 58, 237, 0.4); background: transparent;
+  color: #b39ddb; font-size: 0.68rem; font-weight: 700;
+}
+.hl-tab.is-on { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+.hl-count { margin-left: auto; font-size: 0.65rem; color: #8b8b9e; }
+
+.hl-row {
+  display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap;
+  padding: 9px 11px; margin-bottom: 7px; border-radius: 7px;
+  background: rgba(124, 58, 237, 0.08);
+}
+/* Retired and merged ones stay on the screen, dimmed. They are still the label
+   on questions and on students' runs, and hiding them would make those rows
+   unexplainable. */
+.hl-row.is-retired { opacity: 0.5; }
+.hl-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.hl-name { font-weight: 700; color: #eaeaea; }
+.hl-desc { font-size: 0.68rem; color: #a0a0b0; line-height: 1.5; }
+.hl-id { font-size: 0.6rem; color: #6b6b80; }
+.hl-merged { font-size: 0.65rem; color: #ffab00; }
+.hl-actions { display: flex; gap: 5px; flex-shrink: 0; }
+.hl-edit { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.hl-merge {
+  flex-basis: 100%; display: flex; flex-direction: column; gap: 6px;
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+/* My Progress resumes a run with the ordinary launch button, sized to sit in
+   the list rather than to lead a quiz bar. */
+.tp-resume-btn.td-launch { font-size: 0.85rem; padding: 10px 18px; margin-top: 14px; }

@@ -62,6 +62,8 @@ import { extractTextFromPDF, processWithAI, parseBookletMeta, getPDFPageCount } 
 import { RichTextEditor, RichText } from '../components/RichTextEditor.jsx'
 import { WRITING_MODES, WRITING_FORMS, composeBrief } from '../data/writingGenres.js'
 import { generateExplanation, parseExplanation, serializeExplanation } from '../utils/aiChat.js'
+import TrainingSuiteAdmin from '../components/TrainingSuiteAdmin.jsx'
+import HeuristicLibrary from '../components/HeuristicLibrary.jsx'
 import { resolveImages, extractAndStoreImages } from '../data/imageStore.js'
 import { getLastWriteErrors, getChunkSizes, flushPendingWrites, resyncQuizSets, uploadMissingQuizSets, getLibraryError } from '../data/firebase.js'
 
@@ -167,6 +169,7 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
   const [selectedUnassigned, setSelectedUnassigned] = useState(new Set())
   const [unassignedQuizName, setUnassignedQuizName] = useState('')
   const [showReports, setShowReports] = useState(false)
+  const [showHeuristics, setShowHeuristics] = useState(false)
   const dragItem = useRef(null)
   const dragOver = useRef(null)
   const fileInputRef = useRef(null)
@@ -1086,6 +1089,18 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
                 </div>
               )}
 
+              {/* The course the AI wrote from this question, if a student has
+                  missed it. The only place anybody sees it before a child
+                  does, so it is here beside the explanation rather than on a
+                  screen of its own. */}
+              {editingImported && (
+                <TrainingSuiteAdmin
+                  setId={editingImported}
+                  question={q}
+                  questionIndex={currentEditQ}
+                />
+              )}
+
               {/* --- Explanation area (all types) --- */}
               <div className="qe-explain-area">
                 <p style={{ fontSize: '0.7rem', color: '#888', marginBottom: 4 }}>
@@ -1725,9 +1740,20 @@ function QuizBuilder({ orgId, onBack, initialEditQuizId, onSave }) {
             if (total === 0) return null
             return <button className="btn btn-small" style={{ fontSize: '0.6rem', background: '#e65100', position: 'relative' }} onClick={() => setShowReports(!showReports)}>&#9888; Reports ({total})</button>
           })()}
+          <button className="btn btn-small" style={{ fontSize: '0.6rem', background: '#5b21b6' }} onClick={() => setShowHeuristics(!showHeuristics)}>Heuristics</button>
           <button className="btn-logout" onClick={onBack}>Back</button>
         </div>
       </div>
+
+      {showHeuristics && (
+        <div className="card mt-8" style={{ maxHeight: 460, overflowY: 'auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <p className="pixel-heading" style={{ fontSize: '0.7rem', margin: 0 }}>Training Dojo Heuristics</p>
+            <button className="btn btn-small btn-outline" style={{ fontSize: '0.5rem' }} onClick={() => setShowHeuristics(false)}>Close</button>
+          </div>
+          <HeuristicLibrary />
+        </div>
+      )}
 
       {showReports && (() => {
         const qr = getQuestionReports(orgId)

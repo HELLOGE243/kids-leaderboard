@@ -29,7 +29,7 @@ const CHUNK_KEYS = {
   content: ['topics', 'tagLibrary', 'classGroups', 'policies', 'quizzes', 'quizAttempts', 'courses', 'quizFolders', 'writingMarks', 'questionReports', 'explanationReports', 'newsfeedPosts', 'libraryNews', 'libraryBook', 'dailyReadings'],
   activity: ['scores', 'testEvents', 'eventTemplates', 'homeworkAttempts', 'homeworkStarts', 'homeworkRedos', 'homeworkProgress', 'dailyTrivia', 'dailyPuzzles', 'triviaOutcomes'],
   shop: ['shopItems', 'shopCategories', 'purchases', 'avatarPool', 'shopPools', 'lootChestPool', 'voucherConfig'],
-  extras: ['battlegroundsData', 'dojoCards', 'dojoClones', 'dojoKills', 'dojoCustomReview', 'vocabBank', 'wordleSolvers', 'arenaGhosts'],
+  extras: ['battlegroundsData', 'dojoCards', 'dojoTraining', 'dojoClones', 'dojoKills', 'dojoCustomReview', 'vocabBank', 'wordleSolvers', 'arenaGhosts'],
 }
 
 let _cache = null
@@ -716,6 +716,154 @@ export async function deleteAiExplanations(setId, questionKeys) {
 }
 
 /** Drops a set's memoised explanations (after a teacher edits its questions). */
+const TRAINING_SUITES_COLLECTION = 'trainingSuites'
+const HEURISTICS_COLLECTION = 'heuristics'
+const _suiteCache = new Map()     // setId -> { [questionKey]: suite }
+const _heuristicCache = new Map() // subject -> { [id]: heuristic }
+
+/**
+ * The Training Dojo's suites for one quiz set.
+ *
+ * Shaped exactly like the explanation cache above, and for the same reason:
+ * one document per paper, keyed inside by question, so the first student to
+ * miss a question pays for the course and everyone after reads it.
+ */
+export async function loadTrainingSuites(setId) {
+  if (!setId) return {}
+  if (_suiteCache.has(setId)) return _suiteCache.get(setId)
+  let data = {}
+  try {
+    const snap = await getDoc(doc(db, TRAINING_SUITES_COLLECTION, String(setId)))
+    if (snap.exists()) data = snap.data() || {}
+  } catch (e) {
+    console.warn('Firestore: failed to load training suites:', e)
+  }
+  _suiteCache.set(setId, data)
+  return data
+}
+
+/**
+ * Stores one question's suite for everyone else.
+ *
+ * An update against the field path rather than a merging set, for the reason
+ * written against saveAiExplanation: a merging set expands to one path per
+ * leaf, so a suite rewritten after the question changed would be merged into
+ * the old one and stages from the old course would survive underneath the new
+ * ones. An update replaces the whole entry.
+ */
+export async function saveTrainingSuite(setId, questionKey, suite) {
+  if (!setId || !questionKey || !suite) return false
+  const local = _suiteCache.get(setId) || {}
+  local[questionKey] = suite
+  _suiteCache.set(setId, local)
+  const ref = doc(db, TRAINING_SUITES_COLLECTION, String(setId))
+  try {
+    await updateDoc(ref, new FieldPath(questionKey), suite)
+    return true
+  } catch (e) {
+    if (e?.code === 'not-found') {
+      try {
+        await setDoc(ref, { [questionKey]: suite }, { merge: true })
+        return true
+      } catch (e2) {
+        console.warn('Firestore: failed to start the training suite document:', e2)
+        return false
+      }
+    }
+    console.warn('Firestore: failed to save a training suite:', e)
+    return false
+  }
+}
+
+/** Removes named questions' suites. An admin destroying a bad course. */
+export async function deleteTrainingSuites(setId, questionKeys) {
+  if (!setId || !questionKeys?.length) return false
+  const local = _suiteCache.get(setId)
+  if (local) for (const k of questionKeys) delete local[k]
+  try {
+    const ref = doc(db, TRAINING_SUITES_COLLECTION, String(setId))
+    const updates = {}
+    for (const k of questionKeys) updates[k] = deleteField()
+    await setDoc(ref, {}, { merge: true })
+    await updateDoc(ref, updates)
+    return true
+  } catch (e) {
+    console.warn('Firestore: failed to delete a training suite:', e)
+    return false
+  }
+}
+
+/** Drops a set's memoised suites (after a teacher edits its questions). */
+export function clearTrainingSuiteCache(setId) {
+  if (setId) _suiteCache.delete(setId)
+  else _suiteCache.clear()
+}
+
+/** Every heuristic known for one subject, as {id: heuristic}. */
+export async function loadHeuristics(subject) {
+  if (!subject) return {}
+  if (_heuristicCache.has(subject)) return _heuristicCache.get(subject)
+  let data = {}
+  try {
+    const snap = await getDoc(doc(db, HEURISTICS_COLLECTION, String(subject)))
+    if (snap.exists()) data = snap.data() || {}
+  } catch (e) {
+    console.warn('Firestore: failed to load heuristics:', e)
+  }
+  _heuristicCache.set(subject, data)
+  return data
+}
+
+/**
+ * Adds newly recognised heuristics to a subject's library.
+ *
+ * One field write per heuristic, never the whole document. Two students
+ * finishing an analysis at the same moment would otherwise each write the
+ * library as they found it, and the second would erase what the first added.
+ */
+export async function saveHeuristics(subject, list) {
+  if (!subject || !list?.length) return false
+  const local = _heuristicCache.get(subject) || {}
+  for (const h of list) if (h?.id) local[h.id] = h
+  _heuristicCache.set(subject, local)
+  const ref = doc(db, HEURISTICS_COLLECTION, String(subject))
+  try {
+    for (const h of list) {
+      if (!h?.id) continue
+      try {
+        await updateDoc(ref, new FieldPath(h.id), h)
+      } catch (e) {
+        if (e?.code !== 'not-found') throw e
+        await setDoc(ref, { [h.id]: h }, { merge: true })
+      }
+    }
+    return true
+  } catch (e) {
+    console.warn('Firestore: failed to save heuristics:', e)
+    return false
+  }
+}
+
+/** An admin renaming, retiring or merging one. */
+export async function updateHeuristic(subject, id, fields) {
+  if (!subject || !id) return false
+  const local = _heuristicCache.get(subject) || {}
+  local[id] = { ...(local[id] || {}), ...fields }
+  _heuristicCache.set(subject, local)
+  try {
+    await updateDoc(doc(db, HEURISTICS_COLLECTION, String(subject)), new FieldPath(id), local[id])
+    return true
+  } catch (e) {
+    console.warn('Firestore: failed to update a heuristic:', e)
+    return false
+  }
+}
+
+export function clearHeuristicCache(subject) {
+  if (subject) _heuristicCache.delete(subject)
+  else _heuristicCache.clear()
+}
+
 export function clearAiExplanationCache(setId) {
   if (setId) _aiExpCache.delete(setId)
   else _aiExpCache.clear()

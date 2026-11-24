@@ -1,5 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import QuestionPassage from '../components/QuestionPassage.jsx'
+import TrainingDojoLauncher from '../components/TrainingDojoLauncher.jsx'
+import TrainingProgress from '../components/TrainingProgress.jsx'
+import { getTrainingRuns, questionForTrainingRun, subjectOfQuizSet } from '../data/store.js'
+import { loadHeuristics } from '../data/firebase.js'
 import { renderMath } from '../utils/renderMath.js'
 import { prepareMath } from '../utils/mathify.js'
 import {
@@ -328,6 +332,19 @@ function RevisionDojo({ user, onBack, onNavigateToQuiz, initialTab }) {
     return () => { alive = false }
   }, [wallpaper.src, bgReady])
   const [tab, setTab] = useState(initialTab || 'training')
+  const [heuristicNames, setHeuristicNames] = useState({})
+  const [resumeRun, setResumeRun] = useState(null)
+  // Both subjects' libraries, fetched the first time My Progress is opened.
+  // Two documents, read once per session, and not at sign-in: most students
+  // will not look at this screen on most days.
+  useEffect(() => {
+    if (tab !== 'progress' || Object.keys(heuristicNames).length) return undefined
+    let alive = true
+    Promise.all([loadHeuristics('math'), loadHeuristics('thinking')])
+      .then(([a, b]) => { if (alive) setHeuristicNames({ ...(a || {}), ...(b || {}) }) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [tab, heuristicNames])
   // How many answers are waiting to be read, for the badge on the tab. The
   // questions live in their own collection rather than in the deck, so this
   // is a read of its own rather than a count of cards.
@@ -433,6 +450,13 @@ function RevisionDojo({ user, onBack, onNavigateToQuiz, initialTab }) {
     setAnswered(false)
     setResult(null)
   }
+
+  // My Progress: this student's Training Dojo runs, grouped by the method
+  // each one taught. The names come from the shared library, which is read
+  // once when the tab is first opened rather than at sign-in - it is a screen
+  // most students will not visit on most days.
+  const trainingRuns = getTrainingRuns(user.id)
+  const unfinishedTraining = trainingRuns.filter((x) => x && !x.completedAt && (x.stages || []).some((st) => (st?.attempts || []).length)).length
 
   const allCards = getDojoCardsForStudent(user.id)
   const askTeacherCards = getDojoAskTeacherCards(user.id)
@@ -850,6 +874,10 @@ Return ONLY valid JSON:
           <button className={`dojo-tab ${tab === 'endless' ? 'dojo-tab-active' : ''}`} onClick={() => { setTab('endless'); setEndlessBuilding(true) }}>
             Endless Practice
           </button>
+          <button className={`dojo-tab ${tab === 'progress' ? 'dojo-tab-active' : ''}`} onClick={() => { setTab('progress'); setAskViewCard(null) }} style={{ position: 'relative' }}>
+            &#128218; My Progress
+            {unfinishedTraining > 0 && <span className="dojo-tab-badge dojo-tab-badge-yellow">{unfinishedTraining}</span>}
+          </button>
           <button className={`dojo-tab ${tab === 'archive' ? 'dojo-tab-active' : ''}`} onClick={() => { setTab('archive'); if (archivedCards.length > 0) setArchiveDeck(shuffleArray(archivedCards)); setArchiveIdx(0); setArchiveSel(-1); setArchiveAnswered(false); setArchiveResult(null); setArchiveFlipped(false) }}>
             Archive
           </button>
@@ -974,9 +1002,21 @@ Return ONLY valid JSON:
                           source: [currentCard.className, currentCard.courseName, currentCard.quizTitle].filter(Boolean).join(' · '),
                           sourceId: currentCard.sourceId,
                           encounter: currentCard.correctStreak + 1,
+                          // Ask for Help before answering; the dojo after a
+                          // wrong one, which is where the course is worth
+                          // something.
                           leftContent: !answered
                             ? <button className="qt-action-btn-left" onClick={() => { markDojoAskTeacher(currentCard.id); askTeacherAboutCard(user.id, currentCard); nextCard() }}>Ask for Help</button>
-                            : null,
+                            : result === 'correct' ? null
+                            : <TrainingDojoLauncher
+                                key={currentCard.id}
+                                question={currentCard.question}
+                                sourceId={currentCard.sourceId}
+                                questionIndex={currentCard.questionIndex}
+                                subject={currentCard.subject}
+                                student={user}
+                                setTitle={currentCard.quizTitle || ''}
+                              />,
                           centerContent: answered
                             ? <span className={`dojo-feedback-text ${result === 'correct' ? 'dojo-fb-correct' : 'dojo-fb-wrong'}`}>
                                 {result === 'correct' ? currentCard.correctStreak >= 3 ? 'Mastered! +5 tokens' : `Correct! ${currentCard.correctStreak}/3` : 'Incorrect. Streak reset.'}
@@ -1188,6 +1228,37 @@ Return ONLY valid JSON:
         )}
 
         {/* ===== ARCHIVED TAB ===== */}
+        {tab === 'progress' && (() => {
+          const open = resumeRun && questionForTrainingRun(resumeRun)
+          return (
+            <>
+              <TrainingProgress
+                runs={trainingRuns}
+                heuristicsById={heuristicNames}
+                onOpen={(run) => setResumeRun(run)}
+              />
+              {resumeRun && !open && (
+                <p className="tp-empty-sub" style={{ marginTop: 16 }}>
+                  That question is no longer in the paper it came from, so its dojo cannot be opened.
+                </p>
+              )}
+              {open && (
+                <TrainingDojoLauncher
+                  key={resumeRun.id}
+                  question={open.question}
+                  sourceId={resumeRun.sourceId}
+                  questionIndex={open.index}
+                  subject={subjectOfQuizSet(open.set)}
+                  student={user}
+                  setTitle={open.set?.friendlyTitle || ''}
+                  year={open.set?.year || ''}
+                  className="tp-resume-btn"
+                />
+              )}
+            </>
+          )
+        })()}
+
         {tab === 'archive' && (() => {
           const filtered = archivedCards.filter(c => {
             if (!archiveSearch) return true

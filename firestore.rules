@@ -148,6 +148,32 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // The Training Dojo's shared work, on the same terms as aiExplanations and
+    // for the same reason: the first student to miss a question pays for the
+    // course to be written, and every student after reads it.
+    //
+    // A student writes here. That is deliberate and it is the only way the
+    // cache can work - the generation happens in their browser, on their
+    // allowance, and the result has to be kept for the next child. The blast
+    // radius is bounded by what these documents are: question banks that an
+    // admin can read, edit and destroy from the question editor. Nothing here
+    // is read back as an instruction, and nothing here can reach a student's
+    // record, their balance or anyone's marks.
+    match /trainingSuites/{setId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn();
+      allow delete: if isAdmin();
+    }
+
+    // One document per subject, holding the named methods the suites are
+    // labelled with. Students add to it as new ones are recognised; only an
+    // admin may rename, merge or retire one.
+    match /heuristics/{subject} {
+      allow read: if signedIn();
+      allow create, update: if signedIn();
+      allow delete: if isAdmin();
+    }
+
     // --- The submission archive -------------------------------------------
     // A written record of every paper as it was handed in, kept apart from the
     // student's own document so that a bad write, a bug or a deletion there
