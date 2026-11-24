@@ -12,6 +12,7 @@ import {
   stageState, questionForStage, recordReflection, addVariant, runEffort,
   buildVariantPrompt, buildReflectionPrompt, parseReflection, reflectionTooShort,
   MIN_STAGES, MAX_STAGES, MIN_REFLECTION_WORDS,
+  waitWord, DOJO_WAIT_WORDS,
 } from '../src/data/trainingDojo.js'
 import {
   CELEBRATIONS, frameOrder, runLength, pickCelebration, pickPassWord, PASS_WORDS,
@@ -472,6 +473,35 @@ ok('PASS is the most common word, because it is the one that is true',
   eq('but wrapped the way the prompts ask for, it survives intact',
     parseJsonLoose('{"a":"' + B + '(' + B + 'frac{1}{2}' + B + ')"}').a,
     B + '(' + B + 'frac{1}{2}' + B + ')')
+}
+
+// ===== The waiting screen's phrases =====
+{
+  eq('the first phrase of a run is the one at the start index',
+    waitWord(0, 3), DOJO_WAIT_WORDS[3])
+  eq('each tick moves one along the list',
+    waitWord(1, 3), DOJO_WAIT_WORDS[4])
+  eq('the list wraps rather than running off the end',
+    waitWord(DOJO_WAIT_WORDS.length, 2), DOJO_WAIT_WORDS[2])
+
+  // The point of starting at an index and walking in order, rather than
+  // picking at random each tick: a student never sees the same phrase twice
+  // until they have seen all of them.
+  const seen = []
+  for (let i = 0; i < DOJO_WAIT_WORDS.length; i++) seen.push(waitWord(i, 5))
+  eq('one trip through the list repeats nothing',
+    new Set(seen).size, DOJO_WAIT_WORDS.length)
+
+  ok('every phrase is a non-empty string',
+    DOJO_WAIT_WORDS.every((w) => typeof w === 'string' && w.trim().length > 0))
+  // The screen appends its own ellipsis, so a phrase carrying one would
+  // render two.
+  ok('no phrase brings its own ellipsis',
+    DOJO_WAIT_WORDS.every((w) => !w.endsWith('.') && !w.includes('…')))
+
+  eq('a junk tick is treated as the start of the list', waitWord(null, 1), DOJO_WAIT_WORDS[1])
+  eq('a negative tick does not index backwards', waitWord(-4, 1), DOJO_WAIT_WORDS[1])
+  eq('an empty list yields an empty string rather than undefined', waitWord(2, 0, []), '')
 }
 
 console.log(`${pass} pass, ${fails.length} fail`)

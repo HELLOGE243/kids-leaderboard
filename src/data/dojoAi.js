@@ -39,7 +39,11 @@ async function ask(prompt, maxTokens) {
   try { body = await res.json() } catch { body = null }
   if (!res.ok) return { ok: false, error: body?.error?.message || `AI service error (${res.status})` }
   // A reply cut off at the ceiling is not short JSON, it is broken JSON.
-  if (body?.stop_reason === 'max_tokens') return { ok: false, error: 'The AI ran out of room' }
+  // Flagged rather than just worded, because the caller can do something
+  // about this one: ask for less in a smaller batch.
+  if (body?.stop_reason === 'max_tokens') {
+    return { ok: false, truncated: true, error: 'The AI ran out of room' }
+  }
   if (body?.stop_reason === 'refusal') return { ok: false, error: 'The AI declined this one' }
   const out = (body?.content || []).find((b) => b.type === 'text')?.text || ''
   // Models fence JSON even when told not to.
@@ -62,7 +66,7 @@ async function ask(prompt, maxTokens) {
  */
 export async function buildSuite({ question, subject, library, year }, onProgress) {
   onProgress?.('Working out what this question is really testing')
-  const first = await ask(buildAnalysePrompt(question, subject, library, year), 3000)
+  const first = await ask(buildAnalysePrompt(question, subject, library, year), 4000)
   if (!first.ok) return { ok: false, error: first.error }
   const analysis = parseAnalysis(first.data, library)
   if (!analysis.ok) return { ok: false, error: analysis.error }
@@ -70,14 +74,26 @@ export async function buildSuite({ question, subject, library, year }, onProgres
   const merged = mergeHeuristics(library, analysis.heuristics, subject)
   const total = analysis.breakdown.length
   const stages = []
-  for (let i = 0; i < total; i += STAGE_BATCH) {
-    const slice = analysis.breakdown.slice(i, i + STAGE_BATCH)
+  // The proxy caps a reply at 4000 tokens, and a wordy question with LaTeX in
+  // it can need more than that for four stages at once. A batch cut off at
+  // the ceiling is not a question that cannot be taught, it is one that asked
+  // for too much in a go: halve the batch and carry on from the same stage.
+  // The smaller size sticks, because a question verbose enough to overflow
+  // once will overflow again.
+  let batch = STAGE_BATCH
+  let i = 0
+  while (i < total) {
+    const slice = analysis.breakdown.slice(i, i + batch)
     onProgress?.(`Writing questions ${i + 1}–${i + slice.length} of ${total}`)
     const res = await ask(buildStagesPrompt(question, slice, i, total, year), 4000)
-    if (!res.ok) return { ok: false, error: res.error }
+    if (!res.ok) {
+      if (res.truncated && batch > 1) { batch = Math.floor(batch / 2); continue }
+      return { ok: false, error: res.error }
+    }
     const parsed = parseStages(res.data, slice, i)
     if (!parsed.ok) return { ok: false, error: parsed.error }
     stages.push(...parsed.stages)
+    i += slice.length
   }
 
   return {
@@ -90,7 +106,7 @@ export async function buildSuite({ question, subject, library, year }, onProgres
 
 /** One more question on a step the student has just missed. */
 export async function buildVariant({ question, stage, existing, year }) {
-  const res = await ask(buildVariantPrompt(question, stage, existing, year), 1500)
+  const res = await ask(buildVariantPrompt(question, stage, existing, year), 2500)
   if (!res.ok) return { ok: false, error: res.error }
   const parsed = parseStages(res.data, [{ knowledge: stage?.knowledge, why: stage?.skillNote }], 0)
   if (!parsed.ok) return { ok: false, error: parsed.error }

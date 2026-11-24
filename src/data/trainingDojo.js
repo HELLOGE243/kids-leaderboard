@@ -25,6 +25,40 @@ export const MIN_STAGES = 4
 /** Stages are written in batches this size, so one call stays inside the cap. */
 export const STAGE_BATCH = 4
 
+/**
+ * What the waiting screen says while a suite is being written.
+ *
+ * The real steps underneath are one call to analyse the question and one per
+ * batch of stages, and naming those tells a ten year old nothing. These do
+ * not pretend to narrate the work: they pass the time while it happens,
+ * which is the honest job of a waiting screen that has no real percentage
+ * to show.
+ */
+export const DOJO_WAIT_WORDS = [
+  'Identifying categories',
+  'Discovering skills',
+  'Creating practice loops',
+  'Determining solutions',
+  'Generating set',
+  'Upping the difficulty',
+  'Sharpening the blade',
+  'Tinkering',
+]
+
+/**
+ * The phrase at one tick of the waiting screen, starting anywhere in the list.
+ *
+ * Index-based and pure rather than a timer pulling a random phrase each time,
+ * so the sequence a student sees is something a test can assert on, and so no
+ * phrase repeats until the list has been round once.
+ */
+export function waitWord(tick, start = 0, words = DOJO_WAIT_WORDS) {
+  if (!words.length) return ''
+  const n = Math.max(0, Math.floor(Number(tick) || 0))
+  const s0 = Math.max(0, Math.floor(Number(start) || 0))
+  return words[(s0 + n) % words.length]
+}
+
 const text = (v) => String(v == null ? '' : v)
 
 const plain = (html) => text(html)

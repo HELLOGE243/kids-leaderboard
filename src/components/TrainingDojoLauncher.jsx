@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import TrainingDojo from '../pages/TrainingDojo.jsx'
 import {
-  canTrain, suiteKey, newRun, stageState, addVariant,
+  canTrain, suiteKey, newRun, stageState, addVariant, waitWord, DOJO_WAIT_WORDS,
 } from '../data/trainingDojo.js'
 import { buildSuite, buildVariant, checkReflection } from '../data/dojoAi.js'
 import {
@@ -49,6 +49,20 @@ function TrainingDojoLauncher({
   const [error, setError] = useState('')
   const alive = useRef(true)
   useEffect(() => () => { alive.current = false }, [])
+
+  // The waiting screen rotates a phrase rather than naming the real step,
+  // which is one API call followed by another and means nothing to a child.
+  // The start is drawn once per mount so two students waiting on the same
+  // question do not read the same line, and the tick only runs while there
+  // is something to wait for.
+  const [tick, setTick] = useState(0)
+  const [waitStart] = useState(() => Math.floor(Math.random() * DOJO_WAIT_WORDS.length))
+  const waiting = open && !!status
+  useEffect(() => {
+    if (!waiting) return undefined
+    const id = setInterval(() => setTick((t) => t + 1), 2400)
+    return () => clearInterval(id)
+  }, [waiting])
 
   const key = suiteKey(question, questionIndex)
   const existing = student?.id ? getTrainingRun(student.id, sourceId, key) : null
@@ -183,12 +197,8 @@ function TrainingDojoLauncher({
               <>
                 <div className="td-waiting">
                   <span className="td-waiting-spin" aria-hidden="true" />
-                  <p>{status || 'Opening the dojo…'}</p>
+                  <p>{waitWord(tick, waitStart)}&hellip;</p>
                 </div>
-                <p className="td-done-sub">
-                  The first student to miss a question has their course written for them.
-                  Everyone after opens it straight away.
-                </p>
                 <button className="td-btn" onClick={close}>Cancel</button>
               </>
             )}
