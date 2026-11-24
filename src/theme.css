@@ -3524,7 +3524,11 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 /* Bottom bar — dark navy */
 .qt-bottombar {
   display: flex;
-  align-items: center;
+  /* stretch, not center: the buttons in this bar size themselves from their
+     own text, and a label carrying a glyph (the arrow on Back) makes a taller
+     line box than a plain word (Done). Centred, Done sat two pixels short at
+     the top and the bottom of the bar. Stretched, every button is the bar. */
+  align-items: stretch;
   justify-content: space-between;
   padding: 0;
   background: #dde3e8;
@@ -3549,9 +3553,9 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
 .qt-nav-next:hover:not(:disabled) { background: #001a3a; }
 .qt-nav-done { background: #4caf50; color: #fff; }
 .qt-nav-done:hover { background: #388e3c; }
-.qt-bottom-left { flex: 1; display: flex; align-items: center; min-width: 0; }
+.qt-bottom-left { flex: 1; display: flex; align-items: stretch; min-width: 0; }
 .qt-bottom-center { flex: 1; display: flex; justify-content: center; min-width: 0; }
-.qt-bottom-right { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 0; min-width: 0; }
+.qt-bottom-right { flex: 1; display: flex; align-items: stretch; justify-content: flex-end; gap: 0; min-width: 0; }
 .qt-submit-btn {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 1.2rem;
@@ -20583,13 +20587,34 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
    of their labels - without the zero basis the longer label takes more room,
    which is the uneven look this replaced. */
 .qt-action-pair { display: flex; align-items: stretch; }
+
+/* In the quiz bottom bar the two buttons get a row of their own, above the
+   Back / Done / Next row. They do not fit beside Back: the left column is a
+   third of the bar and three full-size buttons need more than all of it, so
+   Back was squeezed and the row spilled over. A full-width row is also the
+   only way each of the two gets an exact half.
+
+   align-items: stretch, not center: Ask Teacher sizes itself from a text
+   baseline and the dojo button from an inline-flex line box, so left alone
+   they land a pixel or two apart. Stretching grows the shorter one to the
+   row, which is what flush means here. */
+.qt-action-band {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  border-top: 1px solid #bcc5ce;
+  background: #dde3e8;
+}
 .qt-action-pair > .qt-ask-teacher-btn,
-.qt-action-pair > .td-launch {
+.qt-action-pair > .td-launch,
+.qt-action-band > .qt-ask-teacher-btn,
+.qt-action-band > .td-launch {
   flex: 1 1 0; min-width: 0; margin: 0;
 }
 @media (max-width: 640px) {
   .td-launch { font-size: 1rem; padding: 16px 20px; }
   .qt-action-pair { flex-wrap: wrap; }
+  .qt-action-band { flex-wrap: wrap; }
 }
 
 .td-overlay {

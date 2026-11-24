@@ -2958,6 +2958,38 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
 
           {/* Stats popup removed — now inline strip */}
 
+          {/* The action band: its own full-width row above the nav row.
+              Three full-size buttons will not fit in the left third of the
+              bar - Back was being squeezed and the row overflowed - and a
+              band gives Ask Teacher and the dojo an exact half each, which
+              is what "the same width, flush" asked for in the first place.
+
+              Ask Teacher only on a question they got wrong, the dojo on any
+              maths or thinking skills question in Review All: a student who
+              guessed one right still wants the method behind it. */}
+          {isReview && submittedResult && (
+            <div className="qt-action-band">
+              {!isQuestionCorrect(q, submittedResult.answers[currentQ]) && (
+                <button
+                  className={`qt-ask-teacher-btn qt-click-flash${askedTeacher.has(currentQ) ? ' is-sent' : ''}`}
+                  disabled={askedTeacher.has(currentQ)}
+                  onClick={() => sendQuestionToTeacher(currentQ, q)}
+                >{askedTeacher.has(currentQ) ? 'Sent to your teacher ✓' : 'Ask Teacher'}</button>
+              )}
+              <TrainingDojoLauncher
+                key={`${takingQuiz?.id}-${currentQ}`}
+                question={q}
+                sourceId={takingQuiz?.id}
+                questionIndex={currentQ}
+                subject={subjectOfQuizSet(takingQuiz)}
+                student={user}
+                setTitle={takingQuiz?.friendlyTitle || ''}
+                year={takingQuiz?.year || ''}
+                className="qt-click-flash"
+              />
+            </div>
+          )}
+
           {/* Bottom bar */}
           <div className="qt-bottombar">
             <div className="qt-bottom-left">
@@ -2973,32 +3005,6 @@ function HomeworkDashboard({ user, onBack, initialNav }) {
               </button>
               {!isReview && takingQuiz.homeworkMode && (
                 <button className="qt-save-exit-btn qt-click-flash" onClick={saveAndExitHomework}>Save &amp; Exit</button>
-              )}
-              {/* The pair, flush: Ask Teacher only on a question they got
-                  wrong, the dojo on any maths or thinking skills question in
-                  Review All - a student who guessed one right still wants the
-                  method behind it. */}
-              {isReview && submittedResult && (
-                <div className="qt-action-pair">
-                  {!isQuestionCorrect(q, submittedResult.answers[currentQ]) && (
-                    <button
-                      className={`qt-ask-teacher-btn qt-click-flash${askedTeacher.has(currentQ) ? ' is-sent' : ''}`}
-                      disabled={askedTeacher.has(currentQ)}
-                      onClick={() => sendQuestionToTeacher(currentQ, q)}
-                    >{askedTeacher.has(currentQ) ? 'Sent to your teacher ✓' : 'Ask Teacher'}</button>
-                  )}
-                  <TrainingDojoLauncher
-                    key={`${takingQuiz?.id}-${currentQ}`}
-                    question={q}
-                    sourceId={takingQuiz?.id}
-                    questionIndex={currentQ}
-                    subject={subjectOfQuizSet(takingQuiz)}
-                    student={user}
-                    setTitle={takingQuiz?.friendlyTitle || ''}
-                    year={takingQuiz?.year || ''}
-                    className="qt-click-flash"
-                  />
-                </div>
               )}
             </div>
             <div className="qt-bottom-center">
