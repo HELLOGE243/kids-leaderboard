@@ -19,6 +19,7 @@ import {
   buildAnalysePrompt, parseAnalysis, buildStagesPrompt, parseStages,
   mergeHeuristics, canTrain, suiteKey, STAGE_BATCH,
 } from '../src/data/trainingDojo.js'
+import { parseJsonLoose } from '../src/utils/jsonLoose.js'
 
 const args = process.argv.slice(2)
 const argOf = (n, d = null) => { const i = args.indexOf(`--${n}`); return i === -1 ? d : args[i + 1] }
@@ -119,7 +120,10 @@ async function ask(prompt, maxTokens) {
   const out = (body.content || []).find((b) => b.type === 'text')?.text || ''
   // Models fence JSON even when told not to.
   const fenced = out.match(/```(?:json)?\s*([\s\S]*?)```/)
-  return JSON.parse(fenced ? fenced[1] : out)
+  // Not JSON.parse: the prompts now ask for LaTeX, and a model writing rac
+  // inside a JSON string emits a single backslash, which is not a legal JSON
+  // escape. parseJsonLoose is what the app uses for the same reason.
+  return parseJsonLoose(fenced ? fenced[1] : out)
 }
 
 let library = []

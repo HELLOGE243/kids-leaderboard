@@ -16,6 +16,8 @@ import {
 import {
   CELEBRATIONS, frameOrder, runLength, pickCelebration, pickPassWord, PASS_WORDS,
 } from '../src/data/celebrations.js'
+import { prepareDojoText, escapeOutsideMath } from '../src/utils/dojoText.js'
+import { parseJsonLoose } from '../src/utils/jsonLoose.js'
 
 let pass = 0
 const fails = []
@@ -386,6 +388,91 @@ ok('the band does not say the same word twice running', pickPassWord('PASS', () 
 ok('a word is always returned, even when it is the only one left', !!pickPassWord('ONLY', () => 0, ['ONLY']))
 ok('PASS is the most common word, because it is the one that is true',
   PASS_WORDS.filter((w) => w === 'PASS').length > PASS_WORDS.length / 3)
+
+
+// --- maths in the dojo's text ------------------------------------------------
+//
+// Two routes in, and both are needed: the prompts ask for LaTeX because only
+// the model can tell an equation from a range, and the detector catches the
+// fractions a model told to use LaTeX still types as "1/2".
+
+{
+  const stagesPrompt = buildStagesPrompt(mcq(), steps(2), 0, 4, 'Y4')
+  ok('the stages prompt asks for LaTeX rather than forbidding it', stagesPrompt.includes('\\( ... \\)'))
+  ok('and no longer says plain text only', !/no LaTeX/i.test(stagesPrompt))
+  ok('it names the things that must be marked up', /fraction, power, root, inequality/.test(stagesPrompt))
+  ok('and says a bare number is not mathematics, so "8 apples" is left alone',
+    /bare number with no operator/.test(stagesPrompt))
+  ok('the variant prompt asks for the same',
+    buildVariantPrompt(mcq(), { knowledge: 'k', text: 't' }, [], 'Y4').includes('\\( ... \\)'))
+}
+
+{
+  // What the model marked up is rendered, and is not re-detected.
+  const out = prepareDojoText('Solve \\(2x - 7 = x + 5\\) for x')
+  ok('LaTeX from the model is kept for KaTeX', out.includes('\\(2x - 7 = x + 5\\)'))
+  ok('and the prose around it is left as prose', out.includes('Solve') && out.includes('for x'))
+}
+{
+  // What it forgot is caught.
+  const out = prepareDojoText('What is 1/2 of 8?')
+  ok('a fraction typed as 1/2 is still set as a fraction', out.includes('\\frac{1}{2}'))
+  ok('bare LaTeX with no delimiters is given them', prepareDojoText('The answer is \\frac{3}{4}').includes('\\(\\frac{3}{4}\\)'))
+  ok('a power typed as x^2 is caught', prepareDojoText('Simplify x^2 please').includes('x^{2}'))
+}
+{
+  // Prose is not mangled.
+  eq('a line with no maths in it comes back unchanged',
+    prepareDojoText('Which phrase could he be representing?'), 'Which phrase could he be representing?')
+  eq('an empty string is an empty string', prepareDojoText(''), '')
+  eq('null does not throw', prepareDojoText(null), '')
+  ok('a bare number keeps its ordinary font', !prepareDojoText('There are 8 apples').includes('\\('))
+}
+{
+  // The escaping, which is why this is a helper and not two calls at each site.
+  const out = prepareDojoText('Pick a value where x < y and y > 0')
+  ok('a stray angle bracket in prose is escaped, not treated as a tag', out.includes('&lt;') || out.includes('&gt;'))
+  ok('and nothing is swallowed after it', out.includes('y'))
+  ok('an ampersand in prose is escaped', prepareDojoText('Tom & Jo').includes('&amp;'))
+  ok('no script tag survives the escape',
+    !prepareDojoText('<script>alert(1)</script>').includes('<script'))
+}
+{
+  eq('maths regions are left for KaTeX and only the prose around them is escaped',
+    escapeOutsideMath('a < b \\(x < y\\) c > d'),
+    'a &lt; b \\(x < y\\) c &gt; d')
+  eq('text with no maths is escaped throughout', escapeOutsideMath('1 < 2'), '1 &lt; 2')
+}
+
+
+{
+  // Now that the prompts ask for LaTeX, every reply is JSON with single
+  // backslashes in it, which JSON.parse refuses outright.
+  const B = String.fromCharCode(92)
+  const reply = '{"text":"Solve ' + B + '(2n - 7' + B + ')"}'
+  let strictThrew = false
+  try { JSON.parse(reply) } catch { strictThrew = true }
+  ok('JSON.parse alone cannot read a reply with LaTeX in it', strictThrew)
+  eq('parseJsonLoose can, and keeps the maths',
+    parseJsonLoose(reply).text, 'Solve ' + B + '(2n - 7' + B + ')')
+  eq('ordinary JSON still parses', parseJsonLoose('{"a":1}').a, 1)
+  eq('a real escape is not doubled', parseJsonLoose('{"a":"line' + B + 'nbreak"}').a, 'line' + String.fromCharCode(10) + 'break')
+  // A trap worth knowing about rather than papering over. JSON.parse accepts
+  // \f as a formfeed, so a reply holding a BARE "\frac" with no \( around it
+  // parses on the first try and comes back as formfeed + "rac". The repair
+  // never runs, because nothing threw.
+  //
+  // It is not reachable from here: the dojo prompts wrap every expression in
+  // \( ... \), "\(" is not a legal JSON escape, so the strict parse always
+  // throws first and the repair then fixes the \frac inside it too. The test
+  // records the real behaviour so the next person does not discover it in a
+  // student's question.
+  eq('a bare LaTeX command beginning with a JSON escape letter is NOT repaired',
+    parseJsonLoose('{"a":"' + B + 'frac{1}{2}"}').a, String.fromCharCode(12) + 'rac{1}{2}')
+  eq('but wrapped the way the prompts ask for, it survives intact',
+    parseJsonLoose('{"a":"' + B + '(' + B + 'frac{1}{2}' + B + ')"}').a,
+    B + '(' + B + 'frac{1}{2}' + B + ')')
+}
 
 console.log(`${pass} pass, ${fails.length} fail`)
 for (const f of fails) console.log('  FAIL: ' + f)

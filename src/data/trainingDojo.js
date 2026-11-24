@@ -99,6 +99,8 @@ Do two things.
 
 2. Break the question into the pieces of knowledge a student needs IN ORDER, easiest first, ending with the whole question. Between ${MIN_STAGES} and ${MAX_STAGES} steps. Each step is one idea, not a list.
 
+Write any mathematics in both of those as LaTeX inside \\( ... \\) - every fraction, power, root, inequality and algebraic expression - and leave the words around it outside. These lines are shown to the student, so "\\(2n - 7\\)" and not "2n - 7".
+
 Reply with JSON only, no other text:
 {"heuristics":[{"existingId":null,"name":"...","description":"one sentence a teacher would recognise"}],
  "breakdown":[{"knowledge":"what this step teaches","why":"why it is needed for the original question"}]}`
@@ -170,7 +172,7 @@ Rules for every question you write:
 - Difficulty rises with the step number. Step ${offset + steps.length} must be harder than step ${offset + 1}.
 - "skillNote" is written TO the student, before they see the question: say what this one is teaching and how it leads to the question they got wrong. Two sentences at most.
 - "explanation" is shown after they answer: the worked reasoning, not just the answer.
-- Plain text. No markup, no LaTeX.
+- No HTML. Write any mathematics as LaTeX inside \\( ... \\), and leave the words around it outside: every fraction, power, root, inequality, and every algebraic expression or equation. "What is \\(\\frac{1}{2} + \\frac{1}{4}\\)?" and "Solve \\(2x - 7 = x + 5\\)". A bare number with no operator on it is not mathematics: write "8 apples", not "\\(8\\) apples".
 
 Reply with JSON only, no other text:
 {"stages":[{"skillNote":"...","text":"...","options":["...","...","...","..."],"correctIndex":0,"explanation":"..."}]}`
@@ -308,7 +310,7 @@ Rules:
 - Come at it from a different angle: if they were asked to pick a result, ask them to pick the method, or work it the other way round.
 - Exactly four options, exactly one correct. Wrong options must be mistakes a student would really make.
 - "explanation" is the worked reasoning, shown after they answer.
-- Plain text. No markup, no LaTeX.
+- No HTML. Write any mathematics as LaTeX inside \\( ... \\), and leave the words around it outside: every fraction, power, root, inequality, and every algebraic expression or equation. "What is \\(\\frac{1}{2} + \\frac{1}{4}\\)?" and "Solve \\(2x - 7 = x + 5\\)". A bare number with no operator on it is not mathematics: write "8 apples", not "\\(8\\) apples".
 
 Reply with JSON only, no other text:
 {"stages":[{"skillNote":"...","text":"...","options":["...","...","...","..."],"correctIndex":0,"explanation":"..."}]}`

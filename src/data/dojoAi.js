@@ -1,5 +1,5 @@
 import { authedFetch } from './auth.js'
-import { parseJsonLoose } from '../utils/aiChat.js'
+import { parseJsonLoose } from '../utils/jsonLoose.js'
 import {
   buildAnalysePrompt, parseAnalysis, buildStagesPrompt, parseStages,
   buildVariantPrompt, buildReflectionPrompt, parseReflection,

@@ -6,6 +6,8 @@ import {
 import { pickCelebration } from '../data/celebrations.js'
 import SpriteAnimation from '../components/SpriteAnimation.jsx'
 import PassBand from '../components/PassBand.jsx'
+import { prepareDojoText } from '../utils/dojoText.js'
+import { renderMath } from '../utils/renderMath.js'
 
 /**
  * The Training Dojo: a short course built from one question a student missed.
@@ -35,6 +37,11 @@ import PassBand from '../components/PassBand.jsx'
  * @param {(stageIndex: number, written: string) => Promise<object>} onCheckReflection
  * @param {() => void} onClose
  */
+/** Model-written text, with its maths set as maths. */
+function Tex({ children, className }) {
+  return <span className={className} dangerouslySetInnerHTML={{ __html: renderMath(prepareDojoText(children)) }} />
+}
+
 function TrainingDojo({
   suite, run, heuristics = [], onProgress, onNeedVariant, onCheckReflection, onClose,
   now = () => Date.now(),
@@ -210,12 +217,12 @@ function TrainingDojo({
               {state.variant > 0 && <> &middot; another go</>}
               {state.variant === 0 && <> &middot; why this one</>}
             </span>
-            <p className="td-skill-note">{skillNote}</p>
+            <p className="td-skill-note"><Tex>{skillNote}</Tex></p>
             {/* Only when it adds something. A variant's note often comes back as
                 the step's own description, and the same sentence printed twice
                 reads as a bug rather than as emphasis. */}
             {stage.knowledge && stage.knowledge.trim() !== skillNote.trim()
-              && <p className="td-skill-knowledge">{stage.knowledge}</p>}
+              && <p className="td-skill-knowledge"><Tex>{stage.knowledge}</Tex></p>}
           </div>
 
           {buildingVariant ? (
@@ -233,7 +240,7 @@ function TrainingDojo({
             <div className="td-reflect">
               <div className="td-explain">
                 <span className="td-explain-label">The working</span>
-                <p>{question.explanation}</p>
+                <p><Tex>{question.explanation}</Tex></p>
               </div>
               <label className="td-reflect-label" htmlFor="td-reflect-box">
                 In your own words: what did you miss?
@@ -267,7 +274,7 @@ function TrainingDojo({
             </div>
           ) : (
             <>
-              <div className="td-question">{question.text}</div>
+              <div className="td-question"><Tex>{question.text}</Tex></div>
               <div className="td-options">
                 {question.options.map((opt, i) => {
                   let cls = 'td-option'
@@ -278,7 +285,7 @@ function TrainingDojo({
                   return (
                     <button key={i} className={cls} onClick={() => choose(i)} disabled={showingAnswer}>
                       <span className="td-option-letter">{String.fromCharCode(65 + i)}</span>
-                      <span className="td-option-text">{opt}</span>
+                      <Tex className="td-option-text">{opt}</Tex>
                     </button>
                   )
                 })}
@@ -288,7 +295,7 @@ function TrainingDojo({
                   <span className="td-explain-label">
                     {chosen === question.correctIndex ? 'Right — here is why' : 'Not this time — here is why'}
                   </span>
-                  <p>{question.explanation}</p>
+                  <p><Tex>{question.explanation}</Tex></p>
                 </div>
               )}
             </>
