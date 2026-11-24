@@ -9078,17 +9078,34 @@ button.hw-res-qth.active {
 }
 
 /* --- Session Revision (uses dojo card classes) --- */
+/* Three columns, not three flex items.
+   space-between spreads items by the gaps between them, so the middle one sits
+   centred only when the two outer ones happen to be the same width - and the
+   title and the card count never are. The bank drifted left of centre, which
+   is also where the filed card flies to, so it was visibly off on both counts.
+   Equal 1fr side columns put the bank on the page's true centre line whatever
+   the other two say. */
 .sr-top-bar {
-  display: flex; justify-content: space-between; align-items: center;
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
   width: 100%; margin-bottom: 12px; padding: 0 16px; box-sizing: border-box;
+  gap: 12px;
 }
 .sr-top-title {
   font-family: var(--font-body);
   font-size: 1.1rem; font-weight: 600; color: var(--text);
+  justify-self: start; min-width: 0;
 }
+.sr-bank { justify-self: center; }
 .sr-top-progress {
   font-family: var(--font-body);
   font-size: 0.85rem; color: var(--text-dim);
+  justify-self: end; min-width: 0; text-align: right;
+}
+/* Narrow screens: the title is the first thing that can go, since the bank is
+   the thing the card flies into and the count is the thing being counted. */
+@media (max-width: 560px) {
+  .sr-top-title { font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sr-top-progress { font-size: 0.75rem; }
 }
 /* ===== Vocab trainer: the wait, and taking a word back out ===== */
 
@@ -9332,33 +9349,67 @@ button.hw-res-qth.active {
   100% { transform: translateY(0) scale(1); }
 }
 
-/* The fold. The card creases away from the reader on its bottom edge, the way
-   a sheet of paper is folded before it is filed, then drops into the bank.
-   --file-dx and --file-dy are measured at the moment it starts: the bank is in
-   the top bar and the card fills what is left, so the distance between them
-   depends on the window and cannot be written down here. */
+/* The fold. The card creases, then warps away into the folder in the top bar.
+   --file-dx and --file-dy are measured at the moment it starts, from the card's
+   centre to the folder ICON's centre: the bank is in the top bar and the card
+   fills what is left, so the distance depends on the window and cannot be
+   written down here.
+
+   transform-origin is the middle, and that is load-bearing rather than taste.
+   The offsets are measured centre to centre, so the only origin that makes them
+   true is the centre. This creased about `50% 100%` instead, which pins the
+   bottom edge while it shrinks - so the card's centre slid down by nearly half
+   its height as it went, and it came to rest well below the folder it was aimed
+   at. The fold looked right and the landing was never on target.
+
+   The travel is held back until the crease has happened, so it reads as two
+   movements - fold, then file - rather than one diagonal slide. */
 .sr-filing {
-  transform-origin: 50% 100%;
-  animation: sr-file-away 0.95s cubic-bezier(0.5, 0.02, 0.42, 1) forwards;
+  transform-origin: 50% 50%;
+  animation: sr-file-away 0.95s linear forwards;
   pointer-events: none;
   z-index: 4;
 }
 @keyframes sr-file-away {
+  /* linear, and shaped by the keyframes rather than by an easing curve.
+     A timing function applies to each keyframe interval on its own, not to the
+     animation as a whole, so a strong ease-in-out raced through every segment
+     and the card was a flat sliver a third of the way across. Linear makes
+     these percentages mean what they say. */
   0% {
-    transform: perspective(1400px) translate(0, 0) scale(1) rotateX(0deg);
+    transform: perspective(2000px) translate(0, 0) scale(1) rotateX(0deg);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.5, 1);
+  }
+  /* The crease, on the spot. Held well short of flat: rotateX alone costs most
+     of the height - at 80deg a card is down to about a sixth of it - so
+     creasing hard here as well as scaling left nothing to watch travel. */
+  20% {
+    transform: perspective(2000px) translate(0, 0) scale(0.95) rotateX(46deg);
     opacity: 1;
   }
-  34% {
-    transform: perspective(1400px) translate(0, 0) scale(1) rotateX(78deg);
+  /* Most of the distance, still recognisably a card. The journey is the part
+     that has to read; the vanishing is the last tenth. */
+  60% {
+    transform: perspective(2000px)
+      translate(calc(var(--file-dx, 0px) * 0.6), calc(var(--file-dy, -40vh) * 0.58))
+      scale(0.52) rotateX(42deg);
     opacity: 1;
   }
-  48% {
-    transform: perspective(1400px) translate(0, 0) scale(0.92) rotateX(84deg);
-    opacity: 1;
+  /* Close to the folder and close to its size: the last leg is a tuck, not a
+     pop, so it has to arrive already about as big as the thing it goes into. */
+  88% {
+    transform: perspective(2000px)
+      translate(calc(var(--file-dx, 0px) * 0.96), calc(var(--file-dy, -40vh) * 0.95))
+      scale3d(0.1, 0.07, 1) rotateX(58deg);
+    opacity: 0.8;
   }
+  /* Into the folder, and only now flattened into it. */
   100% {
-    transform: perspective(1400px) translate(var(--file-dx, 0px), var(--file-dy, -40vh)) scale(0.1) rotateX(84deg);
-    opacity: 0.12;
+    transform: perspective(2000px)
+      translate(var(--file-dx, 0px), var(--file-dy, -40vh))
+      scale3d(0.05, 0.03, 1) rotateX(80deg);
+    opacity: 0;
   }
 }
 

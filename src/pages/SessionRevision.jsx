@@ -275,20 +275,29 @@ function SessionRevision({ user, onComplete }) {
     const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (!deck || !bank || still) { then(); return }
     const c = deck.getBoundingClientRect()
-    const b = bank.getBoundingClientRect()
+    // The folder itself, not the pill around it. The pill is most of a
+    // sentence wide, so its centre sits somewhere in the middle of the words
+    // and the card lands beside the folder rather than in it.
+    const b = (bank.querySelector('.sr-bank-icon') || bank).getBoundingClientRect()
     deck.style.setProperty('--file-dx', `${(b.left + b.width / 2) - (c.left + c.width / 2)}px`)
     deck.style.setProperty('--file-dy', `${(b.top + b.height / 2) - (c.top + c.height / 2)}px`)
     setFiling(true)
     fileTimers.current.forEach(clearTimeout)
+    /* The folder reacts when the card reaches it, not partway through.
+       This bumped at 620ms, which was two thirds of the way through a 950ms
+       flight - so the bank jumped while the card was still crossing the
+       screen, and the two halves of one gesture looked unrelated. The card is
+       at the folder by about 840ms, which is where the bump belongs; the bump
+       itself runs 380ms and is left to finish after the deck has moved on. */
     fileTimers.current = [
-      setTimeout(() => setBankHit(true), 620),
+      setTimeout(() => setBankHit(true), 840),
       setTimeout(() => {
         setFiling(false)
-        setBankHit(false)
         deck.style.removeProperty('--file-dx')
         deck.style.removeProperty('--file-dy')
         then()
-      }, 950),
+      }, 960),
+      setTimeout(() => setBankHit(false), 1240),
     ]
   }
 
