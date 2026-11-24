@@ -20557,3 +20557,222 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
   .dojo-strips { gap: 8px; }
   .dojo-strip { flex: 1 1 calc(50% - 4px); padding: 9px 11px; font-size: 0.76rem; }
 }
+
+/* ===== Training Dojo =====
+   A short course built from one question a student missed. Purple throughout,
+   and purple nowhere else on these screens, so the button and the thing it
+   opens are visibly the same feature: #7c3aed is the purple the rest of the
+   platform already uses.
+
+   The dojo takes the whole screen rather than sitting in a corner. It is the
+   task while it is open, and a panel the student can see their wrong answer
+   behind invites them to keep staring at the wrong answer. */
+
+.td-launch {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 22px; border: none; border-radius: 10px;
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: #fff; font-weight: 700; font-size: 0.95rem; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.td-launch:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(124, 58, 237, 0.45); }
+.td-launch:active { transform: translateY(0); }
+.td-launch-icon { font-size: 1.05rem; line-height: 1; }
+/* A suite already started says so on the button, so Resume is never a surprise. */
+.td-launch-resume { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+
+.td-overlay {
+  position: fixed; inset: 0; z-index: 120;
+  background: rgba(14, 10, 26, 0.86);
+  backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.td-panel {
+  width: min(980px, 100%); max-height: 92vh;
+  display: flex; flex-direction: column;
+  background: #fff; border-radius: 18px; overflow: hidden;
+  border: 1px solid rgba(124, 58, 237, 0.35);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+}
+
+.td-head {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #4c1d95, #6d28d9);
+  color: #fff;
+}
+.td-head-left { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.td-badge { font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.85; }
+.td-origin { font-size: 0.92rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* The rail is the only place a student sees how far the course goes. Each pip
+   is clickable so a stage already answered can be read again. */
+.td-rail { display: flex; gap: 7px; margin-left: auto; }
+.td-pip {
+  width: 13px; height: 13px; padding: 0; border-radius: 50%; cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.55); background: transparent;
+}
+.td-pip-now { background: #fff; border-color: #fff; transform: scale(1.18); }
+.td-pip-right { background: #34d399; border-color: #34d399; }
+.td-pip-wrong { background: #fb7185; border-color: #fb7185; }
+
+.td-close {
+  background: transparent; border: none; color: #fff; opacity: 0.8;
+  font-size: 1.1rem; cursor: pointer; padding: 4px 6px;
+}
+.td-close:hover { opacity: 1; }
+
+.td-body { padding: 24px 28px; overflow-y: auto; flex: 1; min-height: 0; }
+
+/* The skill note comes before the question and is styled as a note rather than
+   as content, because it is the teacher talking, not the paper. */
+.td-skill {
+  border-left: 4px solid #7c3aed; background: #f5f3ff;
+  padding: 14px 18px; border-radius: 0 10px 10px 0; margin-bottom: 22px;
+}
+.td-skill-label {
+  display: block; font-size: 0.72rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: #6d28d9; font-weight: 700; margin-bottom: 6px;
+}
+.td-skill-note { margin: 0; color: #2e1065; font-size: 1.02rem; line-height: 1.55; }
+.td-skill-knowledge { margin: 8px 0 0; color: #6b21a8; font-size: 0.88rem; font-style: italic; }
+
+.td-question {
+  font-family: var(--font-content); font-size: var(--size-content);
+  line-height: var(--line-content); color: #1a1a2e; margin-bottom: 18px;
+}
+
+.td-options { display: flex; flex-direction: column; gap: 10px; }
+.td-option {
+  display: flex; align-items: flex-start; gap: 12px; width: 100%;
+  padding: 13px 16px; border: 2px solid #d8d4e8; border-radius: 10px;
+  background: #fff; text-align: left; cursor: pointer;
+  font-family: var(--font-content); font-size: 1.02rem; color: #1a1a2e;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.td-option:hover:not(:disabled) { border-color: #7c3aed; background: #faf8ff; }
+.td-option:disabled { cursor: default; }
+.td-option-letter {
+  flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%;
+  background: #ede9fe; color: #6d28d9; font-weight: 700; font-size: 0.85rem;
+  display: flex; align-items: center; justify-content: center;
+}
+.td-option-text { flex: 1; }
+.td-option-right { border-color: #15803d; background: #f0fdf4; }
+.td-option-right .td-option-letter { background: #15803d; color: #fff; }
+.td-option-wrong { border-color: #dc2626; background: #fef2f2; }
+.td-option-wrong .td-option-letter { background: #dc2626; color: #fff; }
+
+/* Shown after answering, never before. A worked explanation beside an
+   unanswered question is just the answer. */
+.td-explain {
+  margin-top: 18px; padding: 14px 18px; border-radius: 10px;
+  background: #fef2f2; border-left: 4px solid #dc2626;
+}
+.td-explain.is-right { background: #f0fdf4; border-left-color: #15803d; }
+.td-explain-label {
+  display: block; font-size: 0.72rem; letter-spacing: 0.12em;
+  text-transform: uppercase; font-weight: 700; color: #991b1b; margin-bottom: 6px;
+}
+.td-explain.is-right .td-explain-label { color: #15803d; }
+.td-explain p { margin: 0; color: #1f2937; line-height: 1.6; font-size: 1rem; }
+
+.td-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 24px; border-top: 1px solid #e8e4f2; background: #faf9fd;
+}
+.td-foot-count { font-size: 0.88rem; color: #6b7280; }
+.td-foot-hint { font-size: 0.88rem; color: #9ca3af; font-style: italic; }
+
+.td-btn {
+  padding: 11px 26px; border: none; border-radius: 9px;
+  font-weight: 700; font-size: 0.95rem; cursor: pointer;
+}
+.td-btn-primary { background: #7c3aed; color: #fff; }
+.td-btn-primary:hover { background: #6d28d9; }
+
+.td-panel-done { padding: 40px 36px; text-align: center; align-items: center; }
+.td-done-badge { font-size: 3rem; color: #7c3aed; line-height: 1; }
+.td-done-title { margin: 12px 0 4px; color: #2e1065; font-size: 1.6rem; }
+.td-done-score { margin: 0 0 10px; color: #4c1d95; font-size: 1.1rem; }
+.td-done-sub { margin: 0 auto 22px; color: #6b7280; max-width: 46ch; line-height: 1.6; }
+.td-done-heuristics { text-align: left; margin: 0 auto 24px; max-width: 46ch; }
+.td-done-label {
+  display: block; font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: #6d28d9; font-weight: 700; margin-bottom: 8px;
+}
+.td-heuristic-row {
+  padding: 10px 14px; border-radius: 8px; background: #f5f3ff; margin-bottom: 8px;
+}
+.td-heuristic-name { display: block; font-weight: 700; color: #2e1065; }
+.td-heuristic-desc { display: block; font-size: 0.88rem; color: #6b21a8; margin-top: 3px; }
+
+/* ===== My Progress =====
+   The same training, read the other way round: by method rather than by
+   question, because "which methods do I still not have" is the question a
+   student cannot answer from a list of papers. */
+
+.tp { display: flex; flex-direction: column; gap: 22px; padding: 4px 2px 24px; }
+.tp-subject { background: rgba(255, 255, 255, 0.04); border-radius: 12px; padding: 14px 16px; }
+.tp-subject-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  border-bottom: 1px solid rgba(124, 58, 237, 0.4); padding-bottom: 8px; margin-bottom: 10px;
+}
+.tp-subject-name { margin: 0; color: #c4b5fd; font-size: 1.05rem; }
+.tp-subject-count { font-size: 0.82rem; color: var(--text-dim); }
+
+.tp-group { border-radius: 9px; overflow: hidden; margin-bottom: 7px; background: rgba(124, 58, 237, 0.1); }
+.tp-group-head {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 11px 14px; background: transparent; border: none;
+  color: var(--text); cursor: pointer; text-align: left; font-size: 0.95rem;
+}
+.tp-group-head:hover { background: rgba(124, 58, 237, 0.18); }
+.tp-caret { color: #a78bfa; font-size: 0.8rem; width: 12px; }
+.tp-group-name { flex: 1; font-weight: 600; }
+.tp-group-count {
+  font-size: 0.8rem; color: var(--text-dim);
+  background: rgba(0, 0, 0, 0.25); padding: 3px 9px; border-radius: 10px;
+}
+.tp-group-count.is-done { color: #34d399; }
+.tp-group-body { padding: 4px 14px 12px 36px; }
+.tp-group-desc { margin: 0 0 10px; font-size: 0.86rem; color: var(--text-dim); font-style: italic; }
+
+.tp-run {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 0; border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.tp-run-main { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.tp-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.tp-dot-complete { background: #34d399; }
+.tp-dot-unfinished { background: var(--warning); }
+.tp-dot-notStarted { background: #4b5563; }
+.tp-run-q {
+  font-size: 0.9rem; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tp-run-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.tp-status { font-size: 0.8rem; }
+.tp-status-complete { color: #34d399; }
+.tp-status-unfinished { color: var(--warning); }
+.tp-status-notStarted { color: var(--text-dim); }
+.tp-run-btn {
+  padding: 5px 14px; border-radius: 7px; border: 1px solid #7c3aed;
+  background: transparent; color: #c4b5fd; font-size: 0.8rem; cursor: pointer;
+}
+.tp-run-btn:hover { background: #7c3aed; color: #fff; }
+
+.tp-empty { text-align: center; padding: 48px 24px; }
+.tp-empty-title { color: #c4b5fd; font-size: 1.1rem; margin: 0 0 8px; }
+.tp-empty-sub { color: var(--text-dim); margin: 0 auto; max-width: 50ch; line-height: 1.6; }
+
+@media (max-width: 720px) {
+  .td-overlay { padding: 0; }
+  .td-panel { max-height: 100vh; height: 100vh; border-radius: 0; }
+  .td-body { padding: 18px 16px; }
+  .td-origin { display: none; }
+  .tp-group-body { padding-left: 18px; }
+  .tp-run { flex-wrap: wrap; }
+}

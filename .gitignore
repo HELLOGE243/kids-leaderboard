@@ -44,3 +44,8 @@ site/site.config.json.bak
 creds.json
 balances-before-*.json
 core-students-before-*.json
+
+# Training Dojo local demo (generated suites + demo harness)
+.dojo-demo/
+dojo-demo.html
+dojo-demo.jsx
