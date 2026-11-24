@@ -9,8 +9,13 @@ import {
   canTrain, questionAsText, suiteKey, buildAnalysePrompt, parseAnalysis,
   buildStagesPrompt, parseStages, heuristicId, mergeHeuristics,
   newRun, answerStage, nextStageIndex, runStatus, progressTree,
-  MIN_STAGES, MAX_STAGES,
+  stageState, questionForStage, recordReflection, addVariant, runEffort,
+  buildVariantPrompt, buildReflectionPrompt, parseReflection, reflectionTooShort,
+  MIN_STAGES, MAX_STAGES, MIN_REFLECTION_WORDS,
 } from '../src/data/trainingDojo.js'
+import {
+  CELEBRATIONS, frameOrder, runLength, pickCelebration, pickPassWord, PASS_WORDS,
+} from '../src/data/celebrations.js'
 
 let pass = 0
 const fails = []
@@ -179,69 +184,208 @@ ok('merging does not mutate the library it was given', (() => {
   return lib.length === 1
 })())
 
-// --- one student's run through a suite --------------------------------------
 
-const suite = { heuristicIds: ['heu-math-a', 'heu-math-b'], stages: [stage(), stage({ correctIndex: 2 }), stage()] }
+// --- the replacement question ---------------------------------------------
 
 {
-  const run = newRun(suite, { sourceId: 's1', questionKey: 'q1', subject: 'math', questionSnippet: 'A question', now: 1000 })
+  const stage = { knowledge: 'adding fractions', text: 'What is 1/2 + 1/4?', options: ['a','b','c','d'], correctIndex: 0 }
+  const prompt = buildVariantPrompt(mcq(), stage, [{ text: 'An earlier variant' }], 'Y5')
+  ok('the variant prompt names the idea the step teaches', prompt.includes('adding fractions'))
+  ok('it shows the model the question they already failed', prompt.includes('What is 1/2 + 1/4?'))
+  ok('and every variant already written, so it does not repeat one', prompt.includes('An earlier variant'))
+  ok('it shows the original question for context', prompt.includes('What is 2 + 2?'))
+  ok('it asks for the same difficulty, not a harder one', /same difficulty/i.test(prompt))
+}
+
+// --- the written reflection -------------------------------------------------
+
+{
+  const stage = { text: 'Q?', options: ['a','b','c','d'], correctIndex: 2, explanation: 'because c' }
+  const prompt = buildReflectionPrompt(stage, 0, 'I thought it was a but actually')
+  ok('the reflection prompt says which option was right', prompt.includes('correct answer is C'))
+  ok('and which one the student chose', prompt.includes('They chose A'))
+  ok('it passes on what the student wrote', prompt.includes('I thought it was a but actually'))
+  ok('it tells the model to ignore spelling and grammar', /spelling and grammar do not matter/i.test(prompt))
+  ok('and not to give the answer away in its feedback', /without giving the answer away/i.test(prompt))
+}
+
+ok('a reflection of a few words is refused before any call is made', reflectionTooShort('I misread it'))
+ok('a reflection of enough words is sent', !reflectionTooShort('I added the numerators and forgot to change the bottom number first'))
+ok('an empty reflection is refused', reflectionTooShort(''))
+ok('whitespace is not a reflection', reflectionTooShort('      '))
+eq(`the floor is ${MIN_REFLECTION_WORDS} words`,
+  reflectionTooShort(Array.from({ length: MIN_REFLECTION_WORDS }, () => 'word').join(' ')), false)
+
+eq('a clear yes is read as understood', parseReflection({ understood: true, feedback: 'Good' }).understood, true)
+eq('a clear no is read as not understood', parseReflection({ understood: false, feedback: 'Look again' }).understood, false)
+eq('the feedback is carried through', parseReflection({ understood: false, feedback: ' Look again ' }).feedback, 'Look again')
+ok('an unreadable verdict lets the student through rather than trapping them',
+  parseReflection(null).understood && parseReflection(null).degraded)
+ok('and says it was degraded, so the caller can log it', parseReflection('nonsense').degraded)
+
+// --- one student's run through a suite ---------------------------------------
+
+const suite = {
+  heuristicIds: ['heu-math-a', 'heu-math-b'],
+  stages: [stage(), stage({ correctIndex: 2 }), stage()],
+}
+const start = (s = suite) => newRun(s, { sourceId: 's1', questionKey: 'q1', subject: 'math', questionSnippet: 'A question', now: 1000 })
+
+{
+  const run = start()
   eq('a new run knows how many stages it has to get through', run.stageCount, 3)
   eq("a new run copies the suite's heuristics, so My Progress needs no second read", run.heuristicIds, ['heu-math-a', 'heu-math-b'])
-  eq('a new run has answered nothing', run.answers.length, 0)
+  eq('a new run has a slot per stage', run.stages.length, 3)
+  eq('nothing is passed yet', run.stages.filter((s) => s.passed).length, 0)
   eq('a new run is not complete', run.completedAt, null)
   eq('an unfinished run starts at the first stage', nextStageIndex(run, suite), 0)
   eq('a run that has answered nothing reads as not started', runStatus(run).state, 'notStarted')
+  eq('and it starts on the stage as written, not on a variant', questionForStage(suite, run, 0), suite.stages[0])
 }
+
 {
-  let run = newRun(suite, { sourceId: 's1', questionKey: 'q1', subject: 'math', now: 1000 })
+  // The straight run: three right answers, no reflections.
+  let run = start()
   const a = answerStage(run, 0, 0, suite, 2000)
   ok('a right answer is recorded as right', a.correct)
-  ok('answering one of three does not finish the suite', !a.done)
-  eq('a part-done run reads as unfinished', runStatus(a.run).state, 'unfinished')
-  eq('and resume lands on the next unanswered stage', nextStageIndex(a.run, suite), 1)
+  ok('a right answer passes the stage', stageState(a.run, 0).passed)
+  ok('and asks for no reflection', !a.needsReflection)
+  ok('one of three does not finish the suite', !a.done)
+  eq('resume moves to the next unpassed stage', nextStageIndex(a.run, suite), 1)
 
-  const b = answerStage(a.run, 1, 0, suite, 3000)
-  ok('a wrong answer is recorded as wrong', !b.correct)
-  ok('but a wrong answer still counts as answered', !b.done && runStatus(b.run).answered === 2)
-
+  const b = answerStage(a.run, 1, 2, suite, 3000)
   const c = answerStage(b.run, 2, 0, suite, 4000)
-  ok('answering the last stage finishes the suite', c.done)
+  ok('passing the last stage finishes the suite', c.done)
   eq('and the run is stamped complete', c.run.completedAt, 4000)
   eq('a complete run reads as complete', runStatus(c.run).state, 'complete')
+  eq('three stages passed first time', runEffort(c.run).firstTime, 3)
+  eq('and nothing was retried', runEffort(c.run).retries, 0)
 }
+
+{
+  // The wrong answer: it does not fail the stage, it asks for the reflection.
+  let run = start()
+  const wrong = answerStage(run, 0, 3, suite, 2000)
+  ok('a wrong answer is recorded as wrong', !wrong.correct)
+  ok('a wrong answer does NOT pass the stage', !stageState(wrong.run, 0).passed)
+  ok('it asks for a written reflection', wrong.needsReflection)
+  ok('a wrong answer never finishes the suite', !wrong.done)
+  eq('resume stays on the stage they have not passed', nextStageIndex(wrong.run, suite), 0)
+  eq('an unpassed stage reads as unfinished, not failed', runStatus(wrong.run).state, 'unfinished')
+
+  // A reflection the model does not accept keeps them where they are.
+  const bluff = recordReflection(wrong.run, 0, 'because it just is', { understood: false, feedback: 'Look at the second line again' }, 2500)
+  ok('a reflection that misses is not accepted', !bluff.understood)
+  ok('and the stage still wants one', stageState(bluff.run, 0).needsReflection)
+  eq('they stay on the same question, not a new one', stageState(bluff.run, 0).variant, 0)
+  eq('the feedback comes back for the student to read', bluff.feedback, 'Look at the second line again')
+  eq('the attempt is kept, so nothing is lost', stageState(bluff.run, 0).reflections.length, 1)
+
+  // One that lands moves them to the next variant.
+  const got = recordReflection(bluff.run, 0, 'I used the first number instead of the total', { understood: true, feedback: 'That is it' }, 3000)
+  ok('a reflection that lands is accepted', got.understood)
+  ok('and the stage stops asking for one', !stageState(got.run, 0).needsReflection)
+  eq('they move on to the first variant', stageState(got.run, 0).variant, 1)
+  eq('both reflections are kept', stageState(got.run, 0).reflections.length, 2)
+  eq('and the stage is still not passed - the reflection is not the pass', stageState(got.run, 0).passed, false)
+}
+
+{
+  // The variant bank.
+  const withVariant = addVariant(suite, 0, { text: 'Another go', options: ['w','x','y','z'], correctIndex: 1, explanation: 'why' })
+  eq('a variant is added to the stage', withVariant.stages[0].variants.length, 1)
+  eq('and the other stages are untouched', withVariant.stages[1].variants, undefined)
+  ok('the original suite is not mutated', suite.stages[0].variants === undefined)
+
+  let run = start(withVariant)
+  run = answerStage(run, 0, 3, withVariant, 2000).run
+  run = recordReflection(run, 0, 'I misread which total it wanted from me', { understood: true }, 2500).run
+  eq('after a reflection the student faces the variant, not the original',
+    questionForStage(withVariant, run, 0).text, 'Another go')
+
+  const hit = answerStage(run, 0, 1, withVariant, 3000)
+  ok('and the variant is marked against the variant’s own answer key', hit.correct)
+  ok('passing the variant passes the stage', stageState(hit.run, 0).passed)
+  eq('two attempts were needed', runEffort(hit.run).attempts, 2)
+  eq('which counts as one retry', runEffort(hit.run).retries, 1)
+  eq('and it was not a first-time pass', runEffort(hit.run).firstTime, 0)
+}
+
+{
+  // Running the bank dry is the caller's cue to have one written.
+  let run = start()
+  run = answerStage(run, 0, 3, suite, 2000).run
+  run = recordReflection(run, 0, 'I picked the one that looked biggest instead', { understood: true }, 2500).run
+  eq('with no variant written yet there is no question to show', questionForStage(suite, run, 0), null)
+  eq('answering when there is no question changes nothing', answerStage(run, 0, 0, suite, 3000).run, run)
+}
+
 {
   // Out of order, because the rail lets a student jump back.
-  let run = newRun(suite, { sourceId: 's1', questionKey: 'q1', subject: 'math', now: 1000 })
+  let run = start()
   run = answerStage(run, 2, 0, suite, 2000).run
-  eq('answering the last stage first does not finish the suite', runStatus(run).state, 'unfinished')
+  eq('passing the last stage first does not finish the suite', runStatus(run).state, 'unfinished')
   eq('and resume goes back to the first gap, not to the end', nextStageIndex(run, suite), 0)
 }
-{
-  const run = newRun(suite, { sourceId: 's1', questionKey: 'q1', subject: 'math', now: 1000 })
-  eq('answering a stage that does not exist changes nothing', answerStage(run, 99, 0, suite, 2000).run.answers.length, 0)
-}
+eq('answering a stage that does not exist changes nothing', answerStage(start(), 99, 0, suite, 2000).run.stages.length, 3)
+eq('a stage index past the end reads as a blank stage rather than throwing', stageState(start(), 99).passed, false)
 
-// --- My Progress -------------------------------------------------------------
+// --- My Progress ---------------------------------------------------------------
 
 {
-  const runs = [
-    { id: 'r1', subject: 'math', heuristicIds: ['heu-math-a', 'heu-math-b'], stageCount: 3, answers: [1, 1, 1], completedAt: 9 },
-    { id: 'r2', subject: 'thinking', heuristicIds: ['heu-think-a'], stageCount: 4, answers: [1], completedAt: null },
-    { id: 'r3', subject: 'math', heuristicIds: [], stageCount: 5, answers: [], completedAt: null },
-  ]
+  const made = (id, subject, ids, passed, total, complete) => ({
+    id, subject, heuristicIds: ids, stageCount: total,
+    stages: Array.from({ length: total }, (_, i) => ({ attempts: i < passed ? [{}] : [], reflections: [], passed: i < passed })),
+    completedAt: complete ? 9 : null,
+  })
+  const runs = [made('r1', 'math', ['heu-math-a', 'heu-math-b'], 3, 3, true),
+    made('r2', 'thinking', ['heu-think-a'], 1, 4, false),
+    made('r3', 'math', [], 0, 5, false)]
   const byId = { 'heu-math-a': { name: 'Work backwards' }, 'heu-math-b': { name: 'Check it' }, 'heu-think-a': { name: 'Find the assumption' } }
   const tree = progressTree(runs, byId)
   eq('both subjects appear', tree.map((s) => s.subject), ['math', 'thinking'])
   eq('a run with two heuristics is listed under both', tree[0].groups.length, 3)
   eq('groups are named, not left as ids', tree[0].groups[0].name, 'Check it')
-  ok('a run with no heuristic still appears, rather than vanishing',
-    tree[0].groups.some((g) => g.id === '_none'))
+  ok('a run with no heuristic still appears, rather than vanishing', tree[0].groups.some((g) => g.id === '_none'))
   eq('an unknown heuristic id falls back to the id rather than showing blank',
     progressTree([runs[0]], {})[0].groups[0].name, 'heu-math-a')
   eq('no runs is an empty tree, not a crash', progressTree([], {}).length, 0)
   eq('an unknown subject is not dropped on the floor',
-    progressTree([{ id: 'x', subject: 'astrology', heuristicIds: [], stageCount: 1, answers: [] }], {}).length, 1)
+    progressTree([{ id: 'x', subject: 'astrology', heuristicIds: [], stageCount: 1, stages: [] }], {}).length, 1)
 }
+
+// --- the celebrations ------------------------------------------------------------
+
+{
+  const sheet = { id: 's', use: 'complete', cols: 5, rows: 5, frames: 25, skip: [5], fps: 10, size: 256 }
+  eq('a skipped frame is left out of the order', frameOrder(sheet).length, 24)
+  ok('and the frames around it still play', frameOrder(sheet).includes(4) && frameOrder(sheet).includes(6))
+  ok('the skipped frame itself does not', !frameOrder(sheet).includes(5))
+  eq('a sheet with nothing skipped plays every frame', frameOrder({ frames: 9 }).length, 9)
+  eq('the run length is counted in playing frames, not in cells', runLength(sheet), 2400)
+  eq('a sheet with no fps is assumed to be twelve', runLength({ frames: 12 }), 1000)
+}
+{
+  const list = [
+    { id: 'a', use: 'complete' }, { id: 'b', use: 'complete' }, { id: 'c', use: 'pass' },
+  ]
+  eq('a celebration is picked from the right kind', pickCelebration('pass', null, () => 0, list).id, 'c')
+  eq('the one that played last is not played again', pickCelebration('complete', 'a', () => 0, list).id, 'b')
+  eq('unless it is the only one there is', pickCelebration('pass', 'c', () => 0, list).id, 'c')
+  eq('nothing registered for a kind returns null, not a crash', pickCelebration('nope', null, () => 0, list), null)
+  eq('an empty registry returns null', pickCelebration('complete', null, () => 0, []), null)
+  ok('a random of almost one does not run off the end', !!pickCelebration('complete', null, () => 0.999999, list))
+}
+ok('the ninja sheet is registered for the end of a suite',
+  CELEBRATIONS.some((c) => c.id === 'ninja-smoke' && c.use === 'complete'))
+ok('every registered sheet has enough frames to fill its grid',
+  CELEBRATIONS.every((c) => c.frames <= c.cols * c.rows))
+ok('every registered sheet plays at least one frame', CELEBRATIONS.every((c) => frameOrder(c).length > 0))
+
+ok('the band does not say the same word twice running', pickPassWord('PASS', () => 0) !== 'PASS')
+ok('a word is always returned, even when it is the only one left', !!pickPassWord('ONLY', () => 0, ['ONLY']))
+ok('PASS is the most common word, because it is the one that is true',
+  PASS_WORDS.filter((w) => w === 'PASS').length > PASS_WORDS.length / 3)
 
 console.log(`${pass} pass, ${fails.length} fail`)
 for (const f of fails) console.log('  FAIL: ' + f)

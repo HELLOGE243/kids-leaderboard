@@ -271,9 +271,117 @@ export function mergeHeuristics(library, proposed, subject) {
   return { library: next, ids, added }
 }
 
+
+// ============================================================
+// REPLACEMENT QUESTIONS
+//
+// A wrong answer is not the end of a stage. The student says why they got it
+// wrong, and then faces another question on the same step. That second
+// question is a variant, and variants are kept on the suite rather than being
+// generated per student per failure: the next child to miss that step gets the
+// one already written, and one is only ever generated when the bank runs dry.
+// ============================================================
+
+/**
+ * @param {object} question the ORIGINAL question the suite was built from
+ * @param {object} stage the stage being replaced
+ * @param {Array} existing the variants already written for it, so the model
+ *   is told what not to write again
+ */
+export function buildVariantPrompt(question, stage, existing, year) {
+  const seen = [stage, ...(existing || [])]
+    .map((v, i) => `${i + 1}. ${text(v?.text).trim()}`)
+    .join('\n')
+  return `A ${year || 'primary school'} student just got the question below wrong, and has explained what they missed. Write them ONE more question on the same idea, so they can show they have it now.
+
+THE IDEA THIS STEP TEACHES
+${text(stage?.knowledge).trim()}
+
+THE QUESTIONS THEY HAVE ALREADY SEEN ON IT - do not repeat any of these, and do not simply change the numbers in one
+${seen}
+
+FOR CONTEXT, the harder question the whole course builds towards
+${questionAsText(question)}
+
+Rules:
+- Same idea, same difficulty. This is another go, not a harder one and not an easier one.
+- Come at it from a different angle: if they were asked to pick a result, ask them to pick the method, or work it the other way round.
+- Exactly four options, exactly one correct. Wrong options must be mistakes a student would really make.
+- "explanation" is the worked reasoning, shown after they answer.
+- Plain text. No markup, no LaTeX.
+
+Reply with JSON only, no other text:
+{"stages":[{"skillNote":"...","text":"...","options":["...","...","...","..."],"correctIndex":0,"explanation":"..."}]}`
+}
+
+// ============================================================
+// THE WRITTEN REFLECTION
+//
+// Between the wrong answer and the next question, the student writes what they
+// got wrong. It is checked, because an unchecked box that says "I understand"
+// is a box every child learns to tick.
+// ============================================================
+
+/** The shortest reflection worth sending to the model. Below this it is refused locally, free. */
+export const MIN_REFLECTION_WORDS = 8
+
+export function buildReflectionPrompt(stage, chosenIndex, written) {
+  const options = (stage?.options || []).map((o, i) => `${String.fromCharCode(65 + i)}. ${o}`).join('\n')
+  return `A student answered this practice question wrongly and has written what they think went wrong. Decide whether they have actually understood it.
+
+QUESTION
+${text(stage?.text).trim()}
+${options}
+
+The correct answer is ${String.fromCharCode(65 + (Number(stage?.correctIndex) || 0))}.
+They chose ${String.fromCharCode(65 + (Number(chosenIndex) || 0))}.
+The worked explanation they were shown: ${text(stage?.explanation).trim()}
+
+WHAT THEY WROTE
+"${text(written).trim()}"
+
+They understand if they name the specific thing that makes the right answer right, or the specific mistake they made. Their spelling and grammar do not matter at all, and nor does how short it is, as long as the reasoning is there.
+
+They do NOT understand if they only restate the answer, say it "makes sense" or "I misread", copy the explanation back without adding anything, or write something unrelated.
+
+Be generous about expression and strict about reasoning. The point is to find out whether to move them on, not to catch them out.
+
+Reply with JSON only, no other text:
+{"understood": true, "feedback": "one sentence TO the student - if they have it, name what they got; if not, point at the thing to look at again without giving the answer away"}`
+}
+
+/**
+ * Reads the reflection verdict.
+ *
+ * An unreadable reply is treated as understood, on purpose. The student has
+ * already answered the question and already written something; holding them
+ * there because the model returned bad JSON would punish a child for an
+ * outage. The failure is logged by the caller and the loop goes on.
+ */
+export function parseReflection(parsed) {
+  if (!parsed || typeof parsed !== 'object') {
+    return { understood: true, feedback: '', degraded: true }
+  }
+  return {
+    understood: parsed.understood !== false,
+    feedback: text(parsed.feedback).trim(),
+    degraded: false,
+  }
+}
+
+/** Refuses a reflection too short to be worth a call, before one is made. */
+export function reflectionTooShort(written) {
+  return text(written).trim().split(/\s+/).filter(Boolean).length < MIN_REFLECTION_WORDS
+}
+
 // ============================================================
 // A student's run through a suite
 // ============================================================
+
+/** One stage's slot on a fresh run. */
+function blankStage() {
+  return { attempts: [], reflections: [], variant: 0, passed: false, needsReflection: false }
+}
 
 /**
  * Where a student is in a suite.
@@ -283,6 +391,7 @@ export function mergeHeuristics(library, proposed, subject) {
  * to load every suite document the student has ever opened to draw itself.
  */
 export function newRun(suite, { sourceId, questionKey, subject, questionSnippet, now }) {
+  const count = (suite?.stages || []).length
   return {
     id: `run_${now}_${Math.random().toString(36).slice(2, 8)}`,
     sourceId,
@@ -290,42 +399,120 @@ export function newRun(suite, { sourceId, questionKey, subject, questionSnippet,
     subject,
     questionSnippet: text(questionSnippet).slice(0, 180),
     heuristicIds: [...(suite?.heuristicIds || [])],
-    stageCount: (suite?.stages || []).length,
-    answers: [],
+    stageCount: count,
+    stages: Array.from({ length: count }, blankStage),
     startedAt: now,
     completedAt: null,
   }
 }
 
-/** Records one answer and says whether that finished the suite. */
-export function answerStage(run, stageIndex, chosen, suite, now) {
-  const stages = suite?.stages || []
-  const stage = stages[stageIndex]
-  if (!stage) return { run, correct: false, done: false }
-  const answers = [...(run.answers || [])]
-  answers[stageIndex] = { chosen, correct: chosen === stage.correctIndex, at: now }
-  const attempted = answers.filter(Boolean).length
-  const done = attempted >= stages.length
+/** This student's state on one stage, tolerating a run written before it existed. */
+export function stageState(run, index) {
+  return (run?.stages || [])[index] || blankStage()
+}
+
+/**
+ * The question this student is facing on a stage right now.
+ *
+ * Variant 0 is the stage as written; after that it is the next question in the
+ * stage's variant bank. A student who has run the bank dry gets null, which is
+ * the caller's cue to have one written.
+ */
+export function questionForStage(suite, run, index) {
+  const stage = (suite?.stages || [])[index]
+  if (!stage) return null
+  const at = stageState(run, index).variant || 0
+  if (at === 0) return stage
+  const variant = (stage.variants || [])[at - 1]
+  return variant || null
+}
+
+/**
+ * Records one answer.
+ *
+ * A right answer passes the stage for good. A wrong one does not fail it: it
+ * asks for the written reflection, which is the only way past.
+ */
+export function answerStage(run, index, chosen, suite, now) {
+  const question = questionForStage(suite, run, index)
+  if (!question) return { run, correct: false, done: false, needsReflection: false }
+  const correct = chosen === question.correctIndex
+  const stages = [...(run.stages || [])]
+  const was = stageState(run, index)
+  stages[index] = {
+    ...was,
+    attempts: [...was.attempts, { chosen, correct, at: now, variant: was.variant || 0 }],
+    passed: was.passed || correct,
+    passedAt: was.passed ? was.passedAt : (correct ? now : null),
+    needsReflection: !correct,
+  }
+  const done = stages.every((s) => s.passed)
   return {
-    run: { ...run, answers, completedAt: done ? now : null },
-    correct: chosen === stage.correctIndex,
+    run: { ...run, stages, completedAt: done ? now : null },
+    correct,
     done,
+    needsReflection: !correct,
   }
 }
 
-/** The first stage with no answer against it - where Resume should land. */
+/**
+ * Records a written reflection and its verdict.
+ *
+ * Understood, and the stage moves to its next variant for another go. Not
+ * understood, and nothing moves: they are asked to look again and write again,
+ * on the same question, with the explanation still in front of them.
+ */
+export function recordReflection(run, index, written, verdict, now) {
+  const stages = [...(run.stages || [])]
+  const was = stageState(run, index)
+  const understood = verdict?.understood !== false
+  stages[index] = {
+    ...was,
+    reflections: [...was.reflections, { text: text(written).trim(), ok: understood, at: now }],
+    needsReflection: !understood,
+    variant: understood ? (was.variant || 0) + 1 : (was.variant || 0),
+  }
+  return { run: { ...run, stages }, understood, feedback: text(verdict?.feedback).trim() }
+}
+
+/** Adds a freshly written variant to a stage, for this student and every one after. */
+export function addVariant(suite, index, variant) {
+  const stages = [...(suite?.stages || [])]
+  const stage = stages[index]
+  if (!stage || !variant) return suite
+  stages[index] = { ...stage, variants: [...(stage.variants || []), variant] }
+  return { ...suite, stages }
+}
+
+/** The first stage not yet passed - where Resume should land. */
 export function nextStageIndex(run, suite) {
-  const stages = (suite?.stages || []).length
-  for (let i = 0; i < stages; i++) if (!(run?.answers || [])[i]) return i
-  return stages ? stages - 1 : 0
+  const count = (suite?.stages || []).length
+  for (let i = 0; i < count; i++) if (!stageState(run, i).passed) return i
+  return count ? count - 1 : 0
 }
 
 /** Done, part-done or not started - what My Progress prints against a run. */
 export function runStatus(run) {
-  const answered = (run?.answers || []).filter(Boolean).length
-  if (run?.completedAt) return { state: 'complete', answered, total: run.stageCount || 0 }
-  if (answered > 0) return { state: 'unfinished', answered, total: run.stageCount || 0 }
-  return { state: 'notStarted', answered: 0, total: run?.stageCount || 0 }
+  const stages = run?.stages || []
+  const passed = stages.filter((s) => s?.passed).length
+  const touched = stages.filter((s) => (s?.attempts || []).length).length
+  const total = run?.stageCount || stages.length || 0
+  if (run?.completedAt) return { state: 'complete', answered: passed, total }
+  if (touched > 0) return { state: 'unfinished', answered: passed, total }
+  return { state: 'notStarted', answered: 0, total }
+}
+
+/** How many questions it took - what the completion screen reports. */
+export function runEffort(run) {
+  const stages = run?.stages || []
+  const attempts = stages.reduce((n, s) => n + (s?.attempts || []).length, 0)
+  const firstTime = stages.filter((s) => (s?.attempts || []).length === 1 && s.passed).length
+  // Counted per stage, not as `attempts - stages.length`. That subtracts a go
+  // for every stage, including ones never opened, so a part-done run reported
+  // fewer retries than it had - and a run with one stage retried twice and the
+  // rest untouched reported none at all.
+  const retries = stages.reduce((n, s) => n + Math.max(0, (s?.attempts || []).length - 1), 0)
+  return { attempts, firstTime, retries, stages: stages.length }
 }
 
 /**
