@@ -51,6 +51,7 @@ function TeacherHome({ teacher, onLogout }) {
   const groups = useMemo(
     () => (ready && isDataReady() ? getGroupsForTeacher(teacher.id) : []),
     [teacher.id, ready, refresh])
+  const groupIds = useMemo(() => groups.map((g) => g.id), [groups])
 
   // Marking reads whichever students are loaded, so their groups are pulled in
   // first - not the whole school, which the rules would refuse anyway.
@@ -89,7 +90,16 @@ function TeacherHome({ teacher, onLogout }) {
   }
 
   if (marking) {
-    return <WritingReview orgId={teacher.orgId} teacherId={teacher.id} onBack={() => setMarking(false)} />
+    // Her groups go in, so the list is her students' writing on her classes'
+    // papers rather than the whole organisation's.
+    return (
+      <WritingReview
+        orgId={teacher.orgId}
+        teacherId={teacher.id}
+        groupIds={groupIds}
+        onBack={() => setMarking(false)}
+      />
+    )
   }
 
   return (

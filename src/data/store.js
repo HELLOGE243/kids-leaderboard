@@ -27,6 +27,7 @@ import { planImport, applyAiSplit, mergeCloze, describeCoverage } from '../utils
 import { writeStudentGroups, askTeacher, loadAskedForStudent, loadAskedForClasses, answerAsked, markAskedSeen } from './firebase.js'
 import { getFirestoreCache, saveToFirestore, isDataReady, onDataChange, onBroadcast, sendBroadcast, loadStudentFirestore, saveStudentFirestore, isStudentDataReady, getStudentCache, getStudentDataKeys, getStudentProfileKeys, subscribeLeaderboard, getLeaderboardCache, subscribeQuizStats, getQuizStatsCache, preloadStudents, getAllStudentCaches, deleteStudentFirestore, ensureQuizSetsLoaded, refreshQuizSet, loadAiExplanations, saveAiExplanation, deleteAiExplanations, clearAiExplanationCache, archiveSubmission, saveAttemptDraft, findArchivedPapers, loadArchivedSubmissions, loadAttemptDrafts, scheduleLocalMirror, getContact, saveContact, loadContacts } from './firebase.js'
 import { questionCorrectness } from './classStats.js'
+import { teacherScope, classInScope, studentInScope } from './teacherScope.js'
 
 export { onDataChange, onBroadcast, sendBroadcast, loadContacts, isDataReady }
 
@@ -6377,10 +6378,26 @@ export const WRITING_RUBRIC = [
   { key: 'mechanics', name: 'Spelling, Punctuation, and Grammar', criteria: ['Spells common and grade-level words correctly', 'Uses capital letters and full stops accurately', 'Applies commas, quotation marks, and apostrophes correctly'] },
 ]
 
-export function getWritingSubmissions(quizSetId, orgId) {
+/**
+ * The writing waiting on one paper.
+ *
+ * @param {string} quizSetId the paper
+ * @param {string} orgId the organisation
+ * @param {object} [opts]
+ * @param {string[]|null} [opts.groupIds] the groups the reader holds. Given,
+ *   only their students' writing comes back; omitted, the whole organisation's
+ *   does, which is what an administrator wants and what a teacher must not
+ *   have. The filter is here rather than left to whichever students happen to
+ *   be loaded: collectStudentArray falls back to the top-level arrays for any
+ *   student it has no cache for, so "we only preloaded her groups" was never
+ *   the guarantee it looked like.
+ * @returns {Array<object>} newest first
+ */
+export function getWritingSubmissions(quizSetId, orgId, opts = {}) {
   const data = loadData()
   const set = data.importedQuizSets.find(s => s.id === quizSetId)
   if (!set) return []
+  const scope = teacherScope(data.classGroups || [], opts.groupIds)
   const writingIndices = set.questions.map((q, i) => isWritingType(q.type) ? i : -1).filter(i => i >= 0)
   if (writingIndices.length === 0) return []
   const attempts = collectStudentArray('homeworkAttempts').filter(a => a.quizSetId === quizSetId && (!orgId || !a.orgId || a.orgId === orgId))
@@ -6388,6 +6405,7 @@ export function getWritingSubmissions(quizSetId, orgId) {
   const allAttempts = [...attempts, ...redos]
   const submissions = []
   for (const att of allAttempts) {
+    if (!studentInScope(scope, att.studentId)) continue
     const student = data.students[att.studentId]
     if (!student) continue
     for (const qi of writingIndices) {
@@ -6609,19 +6627,34 @@ export function getStudentWritingMarks(studentId) {
  * wants what has just come in, not an alphabet of papers nobody has sat.
  * Papers with nothing submitted sort last, by name.
  */
-export function getQuizSetsWithWriting(orgId) {
+/**
+ * The papers with writing on them, with how much is waiting on each.
+ *
+ * @param {string} orgId the organisation
+ * @param {object} [opts]
+ * @param {string[]|null} [opts.groupIds] the groups the reader holds. Given,
+ *   the list narrows to papers set in the classes those groups sit in, counted
+ *   over those groups' students only, and papers nobody of theirs has
+ *   submitted drop out: this screen is reached by a button called "Writing to
+ *   mark", and a paper with nothing of theirs on it is not that. Omitted, the
+ *   whole organisation comes back.
+ */
+export function getQuizSetsWithWriting(orgId, opts = {}) {
   const data = loadData()
+  const scope = teacherScope(data.classGroups || [], opts.groupIds)
   return data.importedQuizSets.filter(s => {
     if (orgId && s.orgId && s.orgId !== orgId) return false
     return s.questions.some(q => isWritingType(q.type))
   }).map(s => {
     const writingCount = s.questions.filter(q => isWritingType(q.type)).length
-    const submissions = getWritingSubmissions(s.id, orgId)
-    const marked = submissions.filter(sub => sub.mark).length
     const loc = findQuizSetLocation(s.id)
     const course = loc ? (data.courses || []).find((c) => c.id === loc.courseId) : null
     const cls = course ? (data.classes || {})[course.classId] : null
     const mod = course && loc ? (course.modules || []).find((m) => m.id === loc.moduleId) : null
+    if (!classInScope(scope, course?.classId)) return null
+    const submissions = getWritingSubmissions(s.id, orgId, opts)
+    if (scope && submissions.length === 0) return null
+    const marked = submissions.filter(sub => sub.mark).length
     return {
       id: s.id,
       title: s.friendlyTitle || s.rawTitle || s.name || 'Untitled quiz',
@@ -6635,7 +6668,7 @@ export function getQuizSetsWithWriting(orgId) {
       // getWritingSubmissions already returns newest first.
       lastSubmittedAt: submissions[0]?.date || null,
     }
-  }).sort((a, b) => {
+  }).filter(Boolean).sort((a, b) => {
     if (a.lastSubmittedAt && b.lastSubmittedAt) return new Date(b.lastSubmittedAt) - new Date(a.lastSubmittedAt)
     if (a.lastSubmittedAt) return -1
     if (b.lastSubmittedAt) return 1

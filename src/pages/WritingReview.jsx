@@ -73,7 +73,20 @@ function migrateAnnotations(annotations, plainText) {
   })
 }
 
-function WritingReview({ orgId, teacherId, onBack }) {
+/**
+ * Marking writing.
+ *
+ * @param {object} props
+ * @param {string} props.orgId
+ * @param {string} props.teacherId whoever the mark is recorded against
+ * @param {string[]|null} [props.groupIds] the groups the reader holds. A
+ *   teacher is given hers, and sees only her groups' writing, on papers set in
+ *   her classes. An administrator passes nothing and sees the school. The
+ *   distinction is this prop and not the presence of a teacherId, because an
+ *   administrator has one of those too and signs their marks with it.
+ * @param {() => void} props.onBack
+ */
+function WritingReview({ orgId, teacherId, groupIds = null, onBack }) {
   // The task a child is answering is as much the school's to keep as the
   // questions on a paper, so marking is held to the same conditions as
   // reading one. Typing feedback is unaffected: what is blocked is copying
@@ -112,8 +125,14 @@ function WritingReview({ orgId, teacherId, onBack }) {
     return unsub
   }, [])
 
-  const quizSets = useMemo(() => getQuizSetsWithWriting(orgId), [orgId, refresh])
-  const submissions = useMemo(() => selectedSet ? getWritingSubmissions(selectedSet, orgId) : [], [selectedSet, orgId, refresh])
+  // Joined into a string, because the parent hands down a fresh array on every
+  // render and every list here would otherwise be rebuilt on every keystroke.
+  const groupKey = groupIds ? groupIds.join(',') : null
+  const scope = useMemo(
+    () => ({ groupIds: groupKey === null ? null : groupKey.split(',').filter(Boolean) }),
+    [groupKey])
+  const quizSets = useMemo(() => getQuizSetsWithWriting(orgId, scope), [orgId, scope, refresh])
+  const submissions = useMemo(() => selectedSet ? getWritingSubmissions(selectedSet, orgId, scope) : [], [selectedSet, orgId, scope, refresh])
 
   function openSubmission(sub) {
     setActiveSubmission(sub)
@@ -583,8 +602,12 @@ function WritingReview({ orgId, teacherId, onBack }) {
         {quizSets.length === 0 ? (
           <div className="wr-empty">
             <span className="wr-empty-icon">📝</span>
-            <p>No quiz sets with writing questions found.</p>
-            <p style={{ fontSize: '0.85rem', opacity: 0.6 }}>Create a quiz with a "Free Write" question in the Quiz Builder.</p>
+            <p>{groupIds ? 'Nothing to mark yet.' : 'No quiz sets with writing questions found.'}</p>
+            <p style={{ fontSize: '0.85rem', opacity: 0.6 }}>
+              {groupIds
+                ? 'Writing appears here once a student in one of your groups submits a piece.'
+                : 'Create a quiz with a "Free Write" question in the Quiz Builder.'}
+            </p>
           </div>
         ) : (
           <div className="wr-set-list">
