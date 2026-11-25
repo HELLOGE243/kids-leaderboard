@@ -12,7 +12,7 @@ import {
   stageState, questionForStage, recordReflection, addVariant, runEffort,
   buildVariantPrompt, buildReflectionPrompt, parseReflection, reflectionTooShort,
   MIN_STAGES, MAX_STAGES, MIN_REFLECTION_WORDS,
-  waitWord, DOJO_WAIT_WORDS,
+  waitWord, DOJO_WAIT_WORDS, mathMark, MATH_MARKS,
 } from '../src/data/trainingDojo.js'
 import {
   CELEBRATIONS, frameOrder, runLength, pickCelebration, pickPassWord, PASS_WORDS,
@@ -569,6 +569,28 @@ ok('PASS is the most common word, because it is the one that is true',
   ok('the prompt still asks for the verdict', prompt.includes('"understood"'))
   ok('the prompt shows the model what the student actually pressed',
     prompt.includes('They chose A.'))
+}
+
+// ===== The symbols on the maths waiting screen =====
+{
+  eq('the first symbol is the one at the start index', mathMark(0, 2), MATH_MARKS[2])
+  eq('each tick moves one along', mathMark(1, 2), MATH_MARKS[3])
+  eq('the list wraps', mathMark(MATH_MARKS.length, 4), MATH_MARKS[4])
+
+  const seen = []
+  for (let i = 0; i < MATH_MARKS.length; i++) seen.push(mathMark(i, 7))
+  eq('one trip through repeats nothing', new Set(seen).size, MATH_MARKS.length)
+
+  // A digit on the screen while a child waits for a question reads as part
+  // of the question. Signs and constants cannot be mistaken for one.
+  ok('no symbol is a digit', MATH_MARKS.every((m) => !/[0-9]/.test(m)))
+  ok('every symbol is a single character', MATH_MARKS.every((m) => [...m].length === 1))
+  ok('none of them is a plain letter that could read as an unknown',
+    MATH_MARKS.every((m) => m === 'e' || !/^[a-dA-Zf-z]$/.test(m)))
+
+  eq('a junk tick starts the list', mathMark(null, 3), MATH_MARKS[3])
+  eq('a negative tick does not index backwards', mathMark(-5, 3), MATH_MARKS[3])
+  eq('an empty list yields an empty string', mathMark(1, 0, []), '')
 }
 
 console.log(`${pass} pass, ${fails.length} fail`)

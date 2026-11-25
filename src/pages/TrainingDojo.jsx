@@ -6,6 +6,7 @@ import {
 import { pickCelebration } from '../data/celebrations.js'
 import SpriteAnimation from '../components/SpriteAnimation.jsx'
 import PassBand from '../components/PassBand.jsx'
+import DojoWaitMark from '../components/DojoWaitMark.jsx'
 import { prepareDojoText } from '../utils/dojoText.js'
 import { renderMath } from '../utils/renderMath.js'
 
@@ -260,7 +261,7 @@ function TrainingDojo({
 
           {buildingVariant ? (
             <div className="td-waiting">
-              <span className="td-waiting-spin" aria-hidden="true" />
+              <DojoWaitMark subject={suite?.subject} />
               <p>Writing you another question on this&hellip;</p>
             </div>
           ) : !question ? (

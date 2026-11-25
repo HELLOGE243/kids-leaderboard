@@ -80,6 +80,23 @@ export function waitWord(tick, start = 0, words = DOJO_WAIT_WORDS) {
   return words[(s0 + n) % words.length]
 }
 
+/**
+ * The symbols that fade through the waiting screen on a mathematics question.
+ *
+ * Signs and constants rather than digits: a number on the screen while a
+ * child waits for a question looks like part of the question. These cannot be
+ * mistaken for one.
+ */
+export const MATH_MARKS = ['π', 'e', '∑', '√', '∞', '∫', 'θ', 'Δ', '÷', '×', '≈', 'φ']
+
+/** The symbol at one tick. Same walk as waitWord, so neither ever repeats. */
+export function mathMark(tick, start = 0, marks = MATH_MARKS) {
+  if (!marks.length) return ''
+  const n = Math.max(0, Math.floor(Number(tick) || 0))
+  const s0 = Math.max(0, Math.floor(Number(start) || 0))
+  return marks[(s0 + n) % marks.length]
+}
+
 const text = (v) => String(v == null ? '' : v)
 
 const plain = (html) => text(html)

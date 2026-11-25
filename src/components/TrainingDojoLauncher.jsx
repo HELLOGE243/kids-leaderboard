@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import TrainingDojo from '../pages/TrainingDojo.jsx'
+import DojoWaitMark from './DojoWaitMark.jsx'
 import {
   canTrain, suiteKey, newRun, stageState, addVariant, waitWord, DOJO_WAIT_WORDS,
 } from '../data/trainingDojo.js'
@@ -55,9 +56,12 @@ function TrainingDojoLauncher({
   // The start is drawn once per mount so two students waiting on the same
   // question do not read the same line, and the tick only runs while there
   // is something to wait for.
+  // True for the moment between the suite landing and the dojo opening, so
+  // the mark pops out rather than being cut off mid-breath.
+  const [handing, setHanding] = useState(false)
   const [tick, setTick] = useState(0)
   const [waitStart] = useState(() => Math.floor(Math.random() * DOJO_WAIT_WORDS.length))
-  const waiting = open && !!status
+  const waiting = open && !!status && !handing
   useEffect(() => {
     if (!waiting) return undefined
     const id = setInterval(() => setTick((t) => t + 1), 2400)
@@ -127,6 +131,13 @@ function TrainingDojoLauncher({
         .replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(),
       now: nowMs(),
     })
+    // The pop is 420ms; the dojo opens on the end of it. Worth the wait
+    // even on a cached suite that arrived instantly - the mark is how a
+    // student knows the thing they pressed did something.
+    setHanding(true)
+    await new Promise((r) => setTimeout(r, 420))
+    if (!alive.current) return
+    setHanding(false)
     setSuite(found)
     setRun(theirs)
     setStatus('')
@@ -196,7 +207,7 @@ function TrainingDojoLauncher({
             ) : (
               <>
                 <div className="td-waiting">
-                  <span className="td-waiting-spin" aria-hidden="true" />
+                  <DojoWaitMark subject={subject} ready={handing} />
                   <p>{waitWord(tick, waitStart)}&hellip;</p>
                 </div>
                 <button className="td-btn" onClick={close}>Cancel</button>

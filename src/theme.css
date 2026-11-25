@@ -21330,8 +21330,62 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
   animation: td-spin 0.8s linear infinite;
 }
 @keyframes td-spin { to { transform: rotate(360deg); } }
+
+/* ===== What turns while the dojo is written =====
+   A spinner says "something is happening" and nothing else. These say which
+   dojo is being built, which is the only thing worth knowing during the wait.
+   Both sit in the same box as the spinner did so the panel does not jump. */
+
+.td-mark {
+  display: flex; align-items: center; justify-content: center;
+  width: 72px; height: 72px;
+}
+
+/* Mathematics: one symbol at a time, each fading up and away. The element is
+   replaced on every change rather than having its text rewritten, which is
+   what makes the animation restart - a rewritten node keeps its progress. */
+.td-mark-math { position: relative; }
+.td-mark-glyph {
+  position: absolute;
+  font-family: var(--font-content);
+  font-size: 3.1rem; line-height: 1; color: #7c3aed;
+  animation: td-mark-breathe 0.9s ease-in-out both;
+}
+@keyframes td-mark-breathe {
+  0%   { opacity: 0; transform: scale(0.72); filter: blur(3px); }
+  30%  { opacity: 1; transform: scale(1); filter: blur(0); }
+  70%  { opacity: 1; transform: scale(1); filter: blur(0); }
+  100% { opacity: 0; transform: scale(1.18); filter: blur(2px); }
+}
+
+/* Thinking skills: one brain, breathing. It grows and pops when the question
+   lands rather than disappearing mid-breath. */
+.td-mark-brain {
+  font-size: 3.2rem; line-height: 1;
+  animation: td-mark-think 1.9s ease-in-out infinite;
+}
+@keyframes td-mark-think {
+  0%, 100% { transform: scale(0.88); opacity: 0.75; }
+  50%      { transform: scale(1.1); opacity: 1; }
+}
+
+/* The hand-off. Both marks pop out instead of being cut off, so the question
+   arriving reads as the end of the wait rather than an interruption. */
+.td-mark.is-ready { animation: td-mark-pop 0.42s cubic-bezier(.34, 1.56, .64, 1) forwards; }
+.td-mark.is-ready .td-mark-glyph { animation: none; opacity: 1; transform: none; }
+@keyframes td-mark-pop {
+  0%   { transform: scale(1); opacity: 1; }
+  45%  { transform: scale(1.45); opacity: 1; }
+  100% { transform: scale(0.6); opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .td-waiting-spin { animation-duration: 2s; }
+  /* The symbols still change - that is the information - but they stop
+     breathing, and the brain stops pulsing. */
+  .td-mark-glyph, .td-mark-brain, .td-mark.is-ready {
+    animation: none; opacity: 1; transform: none; filter: none;
+  }
 }
 
 /* A stage with a go on the board but not yet passed. Amber, not red: it is
