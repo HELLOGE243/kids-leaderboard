@@ -33,15 +33,36 @@ export const STAGE_BATCH = 4
  * not pretend to narrate the work: they pass the time while it happens,
  * which is the honest job of a waiting screen that has no real percentage
  * to show.
+ *
+ * Plain ones and silly ones alternate on purpose. All silly and the dojo
+ * stops looking like it is doing anything; all plain and a child reads the
+ * same four words every time they wait. Walking the list in order from a
+ * random start means whichever one they land on, the next is the other kind.
  */
 export const DOJO_WAIT_WORDS = [
   'Identifying categories',
+  'Consulting the ancient scrolls',
   'Discovering skills',
+  'Waking the sensei',
   'Creating practice loops',
+  'Negotiating with fractions',
   'Determining solutions',
+  'Rolling out the training mat',
+  'Lining up the easy ones first',
+  'Convincing x to reveal itself',
   'Generating set',
+  'Bribing the abacus',
+  'Mapping the method',
+  'Teaching the ninja long division',
   'Upping the difficulty',
+  'Untangling the tricky bit',
+  'Checking the working twice',
+  'Counting on fingers (just this once)',
   'Sharpening the blade',
+  'Hiding the answers',
+  'Looking for the shortcut',
+  'Asking the numbers nicely',
+  'Making it harder on purpose',
   'Tinkering',
 ]
 
