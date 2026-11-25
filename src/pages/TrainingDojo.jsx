@@ -2,9 +2,11 @@ import { useState, useEffect, useRef } from 'react'
 import {
   answerStage, nextStageIndex, stageState, questionForStage,
   recordReflection, reflectionTooShort, runEffort, MIN_REFLECTION_WORDS,
+  retrainRun,
 } from '../data/trainingDojo.js'
 import { pickCelebration } from '../data/celebrations.js'
 import SpriteAnimation from '../components/SpriteAnimation.jsx'
+import { preloadSheet } from '../utils/spriteCache.js'
 import PassBand from '../components/PassBand.jsx'
 import DojoWaitMark from '../components/DojoWaitMark.jsx'
 import { prepareDojoText } from '../utils/dojoText.js'
@@ -79,6 +81,11 @@ function TrainingDojo({
   // to find the words on their own and shows them what to write.
   const [refused, setRefused] = useState(0)
 
+  // The completion sheet is fetched the moment the dojo opens, so it is
+  // decoded and waiting by the time the last question is passed rather than
+  // downloading over the top of its own animation.
+  useEffect(() => { preloadSheet(pickCelebration('complete')) }, [])
+
   // The page underneath keeps its scrollbar otherwise, and a wheel over the
   // dimmed area scrolls the quiz behind the dojo instead of the dojo.
   useEffect(() => {
@@ -126,6 +133,23 @@ function TrainingDojo({
     const after = nextStageIndex(live, suite)
     if (stages.every((_, i) => stageState(live, i).passed)) { setFinished(true); return }
     setCurrent(after)
+  }
+
+  // Round two, by choice. Everything on screen goes back to the start,
+  // including the streak - a prismatic band earned on a second lap through
+  // questions they have already seen would not mean what the first one did.
+  function trainAgain() {
+    const fresh = retrainRun(live, suite, now())
+    save(fresh)
+    setFinished(false)
+    setCurrent(0)
+    setPicked(null)
+    setWritten('')
+    setFeedback('')
+    setExample('')
+    setRefused(0)
+    setMissed(null)
+    setStreak(0)
   }
 
   // After a wrong answer: read the working, then write what was missed.
@@ -180,10 +204,6 @@ function TrainingDojo({
             All <strong>{effort.stages}</strong> passed
             {effort.retries > 0 && <> &middot; <strong>{effort.retries}</strong> second {effort.retries === 1 ? 'go' : 'goes'}</>}
           </p>
-          <p className="td-done-sub">
-            You did not skip one. Every step behind that question is a step you got right
-            &mdash; and it is still in your revision deck, so you will meet it again knowing how.
-          </p>
           {heuristics.length > 0 && (
             <div className="td-done-heuristics">
               <span className="td-done-label">Methods practised</span>
@@ -195,7 +215,13 @@ function TrainingDojo({
               ))}
             </div>
           )}
-          <button className="td-btn td-btn-primary" onClick={onClose}>Back to the question</button>
+          {/* Two ways out. Going again is not undoing: the run keeps its id
+              and its count of finishes, so My Progress still says they have
+              done this one. */}
+          <div className="td-done-actions">
+            <button className="td-btn" onClick={trainAgain}>Train again</button>
+            <button className="td-btn td-btn-primary" onClick={onClose}>Back to the question</button>
+          </div>
         </div>
       </div>
     )

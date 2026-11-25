@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { frameOrder } from '../data/celebrations.js'
+import { loadSheet, isDecoded } from '../utils/spriteCache.js'
 
 /**
  * Plays one sprite sheet, once.
@@ -27,14 +28,22 @@ function SpriteAnimation({ sheet, size = 220, onDone, className = '' }) {
   // the initialiser rather than by an effect, so the first paint is already
   // right and nothing re-renders to correct it.
   const [reduced] = useState(prefersReducedMotion)
+  const [ready, setReady] = useState(() => isDecoded(sheet?.src))
   const [index, setIndex] = useState(() => (prefersReducedMotion() ? Math.max(0, frameOrder(sheet).length - 1) : 0))
   const done = useRef(false)
   const doneCb = useRef(onDone)
 
   useEffect(() => { doneCb.current = onDone })
 
+  // Nothing is counted until the sheet can actually be painted.
   useEffect(() => {
-    if (!order.length) return undefined
+    let alive = true
+    loadSheet(sheet?.src).then(() => { if (alive) setReady(true) })
+    return () => { alive = false }
+  }, [sheet?.src])
+
+  useEffect(() => {
+    if (!order.length || !ready) return undefined
     if (reduced) {
       const t = setTimeout(() => { if (!done.current) { done.current = true; doneCb.current?.() } }, 400)
       return () => clearTimeout(t)
@@ -57,9 +66,10 @@ function SpriteAnimation({ sheet, size = 220, onDone, className = '' }) {
     return () => cancelAnimationFrame(raf)
     // The sheet is the whole input; `order` is derived from it every render,
     // so depending on the array itself would restart the animation each time.
-  }, [sheet, reduced, order.length])
+  }, [sheet, reduced, ready, order.length])
 
   if (!sheet || !order.length) return null
+  if (!ready) return <div className={`sprite-anim ${className}`} style={{ width: size, height: size }} aria-hidden="true" />
 
   const frame = order[Math.min(index, order.length - 1)]
   const col = frame % sheet.cols

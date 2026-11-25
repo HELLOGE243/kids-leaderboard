@@ -21396,6 +21396,13 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
    above it than the drawing did. */
 .td-done-sprite { margin: -18px auto -10px; }
 
+/* Two ways off the completion screen. Train again is the quieter of the two:
+   going back to the question is what most students want, and the one that
+   costs nothing should not be the one shouting. */
+.td-done-actions {
+  display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 18px;
+}
+
 /* ===== The Training Dojo, in the admin =====
    The suite editor sits inside the question editor, so it is quiet until it is
    opened: it is one more thing on a screen that already has a lot on it, and

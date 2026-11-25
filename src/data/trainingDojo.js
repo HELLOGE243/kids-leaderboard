@@ -484,6 +484,32 @@ export function newRun(suite, { sourceId, questionKey, subject, questionSnippet,
   }
 }
 
+/**
+ * The same suite again, from the top.
+ *
+ * A fresh set of stages, but NOT a fresh run: the id, the question it came
+ * from and the day they started carry over, and `timesCompleted` goes up.
+ * A run is stored against its question, so a brand new one would overwrite
+ * the record of the first pass - and "they have done this one" is the fact
+ * My Progress exists to show. Going again must not be able to undo it.
+ *
+ * The attempts are dropped rather than appended to, because effort is
+ * reported per run and a second voluntary pass is not twelve retries.
+ */
+export function retrainRun(run, suite, now) {
+  if (!run) return run
+  const count = (suite?.stages || []).length || run.stageCount || 0
+  return {
+    ...run,
+    stageCount: count,
+    stages: Array.from({ length: count }, blankStage),
+    startedAt: run.startedAt || now,
+    restartedAt: now,
+    completedAt: null,
+    timesCompleted: (Number(run.timesCompleted) || 0) + (run.completedAt ? 1 : 0),
+  }
+}
+
 /** This student's state on one stage, tolerating a run written before it existed. */
 export function stageState(run, index) {
   return (run?.stages || [])[index] || blankStage()

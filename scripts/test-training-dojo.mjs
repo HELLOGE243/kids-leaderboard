@@ -12,7 +12,7 @@ import {
   stageState, questionForStage, recordReflection, addVariant, runEffort,
   buildVariantPrompt, buildReflectionPrompt, parseReflection, reflectionTooShort,
   MIN_STAGES, MAX_STAGES, MIN_REFLECTION_WORDS,
-  waitWord, DOJO_WAIT_WORDS, mathMark, MATH_MARKS,
+  waitWord, DOJO_WAIT_WORDS, mathMark, MATH_MARKS, retrainRun,
 } from '../src/data/trainingDojo.js'
 import {
   CELEBRATIONS, frameOrder, runLength, pickCelebration, pickPassWord, PASS_WORDS,
@@ -591,6 +591,54 @@ ok('PASS is the most common word, because it is the one that is true',
   eq('a junk tick starts the list', mathMark(null, 3), MATH_MARKS[3])
   eq('a negative tick does not index backwards', mathMark(-5, 3), MATH_MARKS[3])
   eq('an empty list yields an empty string', mathMark(1, 0, []), '')
+}
+
+// ===== Going again =====
+{
+  const suite = {
+    stages: [
+      { text: 'one', options: ['a', 'b'], correctIndex: 0, knowledge: 'k' },
+      { text: 'two', options: ['a', 'b'], correctIndex: 1, knowledge: 'k' },
+    ],
+    heuristicIds: ['h1'],
+  }
+  const first = newRun(suite, {
+    sourceId: 'set1', questionKey: 'q1', subject: 'math', questionSnippet: 'snip', now: 1000,
+  })
+  let done = answerStage(first, 0, 0, suite, 1100).run
+  done = answerStage(done, 1, 1, suite, 1200).run
+  ok('the first pass finished', !!done.completedAt)
+
+  const again = retrainRun(done, suite, 5000)
+
+  // The one rule that matters. A run is stored against its question, so a
+  // brand new run would overwrite the first pass - and "they have done this
+  // one" is the fact My Progress exists to show.
+  eq('going again keeps the run id', again.id, done.id)
+  eq('and the question it came from', again.questionKey, 'q1')
+  eq('and the paper it came from', again.sourceId, 'set1')
+  eq('and the day they first started', again.startedAt, 1000)
+  eq('it counts the finish that just happened', again.timesCompleted, 1)
+
+  ok('every stage is open again', again.stages.every((st) => !st.passed))
+  ok('and carries no attempts from the first pass',
+    again.stages.every((st) => (st.attempts || []).length === 0))
+  eq('the run is no longer complete', again.completedAt, null)
+  eq('and it records when they went again', again.restartedAt, 5000)
+
+  // Effort is reported per run, and a second voluntary lap is not a pile of
+  // retries. If the attempts carried over, the completion screen would tell a
+  // student who went again that they had struggled.
+  eq('effort starts from nothing on the second lap', runEffort(again).retries, 0)
+
+  const third = retrainRun({ ...again, completedAt: 6000 }, suite, 7000)
+  eq('finishing twice counts twice', third.timesCompleted, 2)
+  const quit = retrainRun(again, suite, 8000)
+  eq('abandoning a lap does not count as finishing it', quit.timesCompleted, 1)
+
+  eq('a missing run is handed back untouched', retrainRun(null, suite, 1), null)
+  eq('a suite that has grown since gives the new number of stages',
+    retrainRun(done, { stages: [1, 2, 3] }, 9000).stages.length, 3)
 }
 
 console.log(`${pass} pass, ${fails.length} fail`)
