@@ -404,7 +404,7 @@ They do NOT understand if they only restate the answer, say it "makes sense" or 
 Be generous about expression and strict about reasoning. The point is to find out whether to move them on, not to catch them out.
 
 Reply with JSON only, no other text:
-{"understood": true, "feedback": "one sentence TO the student - if they have it, name what they got; if not, point at the thing to look at again without giving the answer away"}`
+{"understood": true, "feedback": "one sentence TO the student - if they have it, name what they got; if not, point at the thing to look at again without giving the answer away", "example": "one sentence in a 10 year old's own plain words that WOULD count here, written as if they were saying it: 'I chose ... but actually ...'"}`
 }
 
 /**
@@ -422,6 +422,10 @@ export function parseReflection(parsed) {
   return {
     understood: parsed.understood !== false,
     feedback: text(parsed.feedback).trim(),
+    // Asked for on every check so it is already in hand on the refusal that
+    // needs it, rather than costing a second call at the worst moment - a
+    // child who has already been turned down twice.
+    example: text(parsed.example).trim(),
     degraded: false,
   }
 }

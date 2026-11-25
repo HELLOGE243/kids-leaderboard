@@ -121,7 +121,7 @@ export async function buildVariant({ question, stage, existing, year }) {
  * behind an outage is a worse outcome than letting one weak sentence past.
  */
 export async function checkReflection({ stage, chosenIndex, written }) {
-  const res = await ask(buildReflectionPrompt(stage, chosenIndex, written), 600)
+  const res = await ask(buildReflectionPrompt(stage, chosenIndex, written), 900)
   if (!res.ok) {
     console.warn('Training Dojo: the reflection could not be checked:', res.error)
     return { understood: true, feedback: '', degraded: true }

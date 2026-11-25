@@ -16,6 +16,7 @@ import {
 } from '../src/data/trainingDojo.js'
 import {
   CELEBRATIONS, frameOrder, runLength, pickCelebration, pickPassWord, PASS_WORDS,
+  bandTier, BAND_TIERS, STREAK_WORDS,
 } from '../src/data/celebrations.js'
 import { prepareDojoText, escapeOutsideMath } from '../src/utils/dojoText.js'
 import { parseJsonLoose } from '../src/utils/jsonLoose.js'
@@ -502,6 +503,72 @@ ok('PASS is the most common word, because it is the one that is true',
   eq('a junk tick is treated as the start of the list', waitWord(null, 1), DOJO_WAIT_WORDS[1])
   eq('a negative tick does not index backwards', waitWord(-4, 1), DOJO_WAIT_WORDS[1])
   eq('an empty list yields an empty string rather than undefined', waitWord(2, 0, []), '')
+}
+
+// ===== The band gets hotter on a streak =====
+{
+  eq('one right answer is the ordinary green band', bandTier(1), 'go')
+  eq('two is still green', bandTier(2), 'go')
+  eq('three turns it magenta', bandTier(3), 'hot')
+  eq('four is still magenta', bandTier(4), 'hot')
+  eq('five goes prismatic', bandTier(5), 'prism')
+  eq('and it stays prismatic above five', bandTier(40), 'prism')
+
+  // The tier is read from a streak the dojo resets to 0 on a wrong answer.
+  // If this returned anything but the base tier, the reward would survive the
+  // mistake that is supposed to cost it.
+  eq('a reset streak is back to the ordinary band', bandTier(0), 'go')
+
+  eq('a missing streak is treated as none', bandTier(undefined), 'go')
+  eq('a junk streak is treated as none', bandTier('lots'), 'go')
+  eq('a negative streak cannot reach a tier', bandTier(-9), 'go')
+  eq('a fractional streak rounds down rather than up', bandTier(4.9), 'hot')
+
+  // The list is walked top down and the first match wins, so the thresholds
+  // must stay in descending order or every streak would match 'go' first.
+  const froms = BAND_TIERS.map((t) => t.from)
+  ok('the tiers are ordered highest threshold first',
+    froms.every((v, i) => i === 0 || froms[i - 1] > v))
+
+  ok('the streak words are all non-empty',
+    STREAK_WORDS.every((w) => typeof w === 'string' && w.trim().length > 0))
+  ok('the streak words are not just the ordinary ones',
+    STREAK_WORDS.every((w) => !PASS_WORDS.includes(w)))
+
+  // pickPassWord takes the list it is given, which is how the prismatic band
+  // gets its own vocabulary without a second function.
+  const only = ['ONLY ONE']
+  eq('a one-word list still yields that word', pickPassWord('ONLY ONE', () => 0, only), 'ONLY ONE')
+  ok('a streak word is drawn from the streak list',
+    STREAK_WORDS.includes(pickPassWord(null, () => 0.5, STREAK_WORDS)))
+}
+
+// ===== The way out, after two refusals =====
+{
+  const v = parseReflection({ understood: false, feedback: 'Look again.', example: 'I chose B but 3/4 is bigger than 2/3.' })
+  eq('a refusal carries the sentence that would have counted',
+    v.example, 'I chose B but 3/4 is bigger than 2/3.')
+  ok('and it is still a refusal', v.understood === false)
+
+  eq('a verdict with no example gives an empty string, not undefined',
+    parseReflection({ understood: true, feedback: 'Got it' }).example, '')
+  eq('whitespace around the example is trimmed off',
+    parseReflection({ example: '   spaced   ' }).example, 'spaced')
+
+  // The degraded path lets a child through on an outage, so it must not
+  // offer an example - there is nothing to offer, and an empty help panel
+  // appearing on the second refusal would read as the model giving up.
+  const dead = parseReflection(null)
+  ok('an unreadable verdict still lets them through', dead.understood === true)
+  eq('and offers no example', dead.example, undefined)
+
+  // The prompt has to ask for it or the parser never sees one.
+  const prompt = buildReflectionPrompt(
+    { text: 'q', options: ['a', 'b'], correctIndex: 1, explanation: 'because' }, 0, 'dunno')
+  ok('the prompt asks for an example sentence', prompt.includes('"example"'))
+  ok('the prompt still asks for the verdict', prompt.includes('"understood"'))
+  ok('the prompt shows the model what the student actually pressed',
+    prompt.includes('They chose A.'))
 }
 
 console.log(`${pass} pass, ${fails.length} fail`)

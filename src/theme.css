@@ -21129,16 +21129,170 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
   to   { transform: scale(1) translateY(0); opacity: 1; }
 }
 
+/* ===== The band gets hotter on a streak =====
+
+   Three answers in a row and the green shifts to magenta; five and it goes
+   prismatic, with arcade arrows running through behind the word.
+
+   The green band above is the base and stays the base: a student who gets
+   one right still gets the sweep they know from Daily Revision. These two
+   only override the colours, so if the shape of the band is ever changed
+   there is one place to change it and the tiers follow.
+
+   The top tier is losable. A wrong answer puts the streak back to nothing,
+   which is the only thing that makes reaching it mean anything. */
+
+.td-pass-hot .td-pass-strip {
+  background: linear-gradient(90deg,
+    rgba(236, 72, 153, 0) 0%, rgba(236, 72, 153, .55) 18%,
+    rgba(167, 139, 250, .8) 50%, rgba(236, 72, 153, .55) 82%, rgba(236, 72, 153, 0) 100%);
+  border-top-color: rgba(244, 114, 182, .9);
+  border-bottom-color: rgba(244, 114, 182, .9);
+  box-shadow: 0 0 70px rgba(219, 39, 119, .6), inset 0 0 40px rgba(255, 255, 255, .28);
+}
+.td-pass-hot .td-pass-text {
+  color: #ffe6f7;
+  text-shadow:
+    0 0 30px rgba(244, 114, 182, .9),
+    0 0 70px rgba(167, 139, 250, .55),
+    0 4px 12px rgba(0, 0, 0, .45);
+}
+@keyframes td-pass-wash-hot {
+  0%   { background: rgba(236, 72, 153, 0.22); }
+  40%  { background: rgba(236, 72, 153, 0.05); }
+  100% { background: transparent; }
+}
+.td-pass-hot { animation-name: td-pass-wash-hot; }
+
+/* Prismatic: the gradient is wider than the band and slides, so the colours
+   travel through the word instead of sitting under it. */
+.td-pass-prism .td-pass-strip {
+  background: linear-gradient(90deg,
+    #ff2d95, #ff7ac6, #c084fc, #22d3ee, #a3e635, #fde047, #ff2d95);
+  background-size: 300% 100%;
+  animation:
+    td-pass-in 1.6s cubic-bezier(.22, 1, .36, 1) forwards,
+    td-pass-prism-roll 1.1s linear infinite;
+  border-top-color: #fff0fa;
+  border-bottom-color: #fff0fa;
+  box-shadow:
+    0 0 80px rgba(255, 45, 149, .75),
+    0 0 140px rgba(34, 211, 238, .4),
+    inset 0 0 40px rgba(255, 255, 255, .35);
+}
+@keyframes td-pass-prism-roll {
+  from { background-position: 0% 50%; }
+  to   { background-position: 300% 50%; }
+}
+.td-pass-prism .td-pass-text {
+  color: #fff;
+  text-shadow:
+    0 0 18px #fff,
+    0 0 42px rgba(255, 45, 149, .95),
+    0 0 90px rgba(34, 211, 238, .7),
+    0 4px 12px rgba(0, 0, 0, .5);
+}
+@keyframes td-pass-wash-prism {
+  0%   { background: rgba(255, 45, 149, 0.26); }
+  40%  { background: rgba(124, 58, 237, 0.08); }
+  100% { background: transparent; }
+}
+.td-pass-prism { animation-name: td-pass-wash-prism; }
+
+/* The arrows. Chevrons drawn from two borders rather than a glyph, so they
+   are the same shape on every machine and need no font. They sit behind the
+   shimmer and the word, and the band already clips them. */
+.td-pass-arrows { position: absolute; inset: 0; overflow: hidden; }
+.td-pass-arrow {
+  position: absolute;
+  width: 26px; height: 26px;
+  border-top: 6px solid rgba(255, 255, 255, .85);
+  border-right: 6px solid rgba(255, 255, 255, .85);
+  transform: rotate(45deg);
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, .9));
+  animation: td-pass-arrow-fly 1.15s linear infinite;
+}
+@keyframes td-pass-arrow-fly {
+  from { left: -8%; opacity: 0; }
+  12%  { opacity: 1; }
+  80%  { opacity: 1; }
+  to   { left: 104%; opacity: 0; }
+}
+/* Spread by hand rather than with nth-child maths: each one gets its own
+   height, delay and speed so the row reads as six arrows, not one repeated. */
+.td-pass-arrow-0 { top: 14%; animation-duration: 0.95s; animation-delay: 0s; }
+.td-pass-arrow-1 { top: 62%; animation-duration: 1.25s; animation-delay: .1s; }
+.td-pass-arrow-2 { top: 36%; animation-duration: 0.8s;  animation-delay: .22s; transform: rotate(45deg) scale(.7); }
+.td-pass-arrow-3 { top: 78%; animation-duration: 1.05s; animation-delay: .34s; transform: rotate(45deg) scale(.8); }
+.td-pass-arrow-4 { top: 6%;  animation-duration: 1.35s; animation-delay: .46s; transform: rotate(45deg) scale(.6); }
+.td-pass-arrow-5 { top: 48%; animation-duration: 0.9s;  animation-delay: .58s; }
+
 @media (prefers-reduced-motion: reduce) {
   .td-pass-burst, .td-pass-strip, .td-pass-shimmer, .td-pass-text, .td-pass-sprite {
     animation-duration: 0.01ms; animation-iteration-count: 1;
   }
   .td-pass-strip, .td-pass-text { opacity: 1; transform: none; }
+  /* Arrows flying across are exactly what this setting is for: hidden, not
+     slowed, because a stack of frozen chevrons behind the word is worse than
+     no arrows at all. The prismatic colours stay - they are the reward, and
+     a still gradient moves nothing. */
+  .td-pass-arrows { display: none; }
+  .td-pass-prism .td-pass-strip { animation-name: td-pass-in; }
 }
 
 /* ===== The detour: reading the working, then writing what was missed ===== */
 
 .td-reflect { display: flex; flex-direction: column; gap: 4px; }
+
+/* The question, carried onto the detour.
+
+   Smaller and flatter than the live question: it is there to be referred to,
+   not answered, and at full size it would read as a question still open and
+   invite a second press on an option that is no longer a button. Which is
+   also why the options are divs here rather than disabled buttons - nothing
+   on this panel should look pressable except the box and the button. */
+.td-reflect-recap {
+  border: 1px solid #e6e1f5; border-radius: 12px;
+  padding: 14px 16px; margin-bottom: 14px; background: #fcfbff;
+}
+.td-question-recap {
+  font-size: 1rem; line-height: 1.5; margin-bottom: 12px; color: #39354d;
+}
+.td-options-recap { gap: 7px; }
+.td-option-recap {
+  padding: 9px 12px; font-size: 0.95rem; cursor: default;
+  align-items: center;
+}
+.td-option-recap:hover { border-color: #d8d4e8; background: #fff; }
+.td-option-recap.td-option-right:hover { border-color: #15803d; background: #f0fdf4; }
+.td-option-recap.td-option-wrong:hover { border-color: #dc2626; background: #fef2f2; }
+/* Says which is which in words. Red and green alone carry the whole meaning
+   of this panel otherwise, and roughly one boy in twelve cannot read them
+   apart. */
+.td-option-tag {
+  margin-left: auto; flex-shrink: 0;
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 3px 8px; border-radius: 20px;
+}
+.td-option-right .td-option-tag { background: #dcfce7; color: #15803d; }
+.td-option-wrong .td-option-tag { background: #fee2e2; color: #b91c1c; }
+
+/* The way out, after two refusals. Purple, not amber: amber is the "not yet"
+   above it, and this is help rather than another correction. */
+.td-reflect-help {
+  margin: 12px 0 0; padding: 13px 15px; border-radius: 10px;
+  background: #f5f3ff; border-left: 4px solid #7c3aed;
+}
+.td-reflect-help-label {
+  display: block; font-size: 0.72rem; letter-spacing: 0.1em;
+  text-transform: uppercase; color: #6d28d9; font-weight: 700; margin-bottom: 7px;
+}
+.td-reflect-help-text {
+  margin: 0; color: #2e1065; font-size: 1rem; line-height: 1.6; font-style: italic;
+}
+.td-reflect-help-note {
+  display: block; margin-top: 8px; font-size: 0.82rem; color: #6b7280;
+}
 .td-reflect-label {
   margin-top: 18px; font-size: 1.05rem; font-weight: 700; color: #2e1065;
 }

@@ -54,9 +54,29 @@ function TrainingDojo({
   const [written, setWritten] = useState('')
   const [checking, setChecking] = useState(false)
   const [feedback, setFeedback] = useState('')
+  // A sentence the model says WOULD count, kept back until the second refusal.
+  const [example, setExample] = useState('')
   const [buildingVariant, setBuildingVariant] = useState(false)
   const [passNonce, setPassNonce] = useState(null)
   const bandSeq = useRef(0)
+  // Right answers in a row, this sitting. A wrong one puts it back to nothing,
+  // which is what makes the prismatic band worth reaching.
+  const [streak, setStreak] = useState(0)
+  // What they actually pressed on the attempt that sent them here, so the
+  // detour can show it back to them. The run holds it too, but the run is a
+  // list of attempts across variants and this is the one that is on screen.
+  // Seeded from the run, not just set on the press: a student who closed the
+  // dojo mid-detour and came back would otherwise be asked what they got
+  // wrong with no sign of which one they had picked.
+  const [missed, setMissed] = useState(() => {
+    const at = nextStageIndex(run, suite)
+    const tries = stageState(run, at).attempts || []
+    const last = tries[tries.length - 1]
+    return last && !last.correct && typeof last.chosen === 'number' ? last.chosen : null
+  })
+  // Refused reflections on this stage. At two, the detour stops asking them
+  // to find the words on their own and shows them what to write.
+  const [refused, setRefused] = useState(0)
 
   // The page underneath keeps its scrollbar otherwise, and a wheel over the
   // dimmed area scrolls the quiz behind the dojo instead of the dojo.
@@ -87,7 +107,11 @@ function TrainingDojo({
     save(res.run)
     if (res.correct) {
       bandSeq.current += 1
+      setStreak((n) => n + 1)
       setPassNonce(bandSeq.current)
+    } else {
+      setStreak(0)
+      setMissed(index)
     }
   }
 
@@ -96,6 +120,8 @@ function TrainingDojo({
     setPicked(null)
     setWritten('')
     setFeedback('')
+    setRefused(0)
+    setMissed(null)
     const after = nextStageIndex(live, suite)
     if (stages.every((_, i) => stageState(live, i).passed)) { setFinished(true); return }
     setCurrent(after)
@@ -122,7 +148,14 @@ function TrainingDojo({
     const res = recordReflection(live, current, written, verdict, now())
     save(res.run)
     setChecking(false)
-    if (!res.understood) { setFeedback(res.feedback || 'Have another look at the working above, then try again.'); return }
+    if (!res.understood) {
+      setRefused((n) => n + 1)
+      setFeedback(res.feedback || 'Have another look at the working above, then try again.')
+      if (verdict.example) setExample(verdict.example)
+      return
+    }
+    setRefused(0)
+    setExample('')
     setWritten('')
     setFeedback('')
     // They have earned another go; make sure there is a question for it.
@@ -183,7 +216,7 @@ function TrainingDojo({
 
   return (
     <div className="td-overlay" role="dialog" aria-label="Training Dojo">
-      <PassBand nonce={passNonce} />
+      <PassBand nonce={passNonce} streak={streak} />
       <div className="td-panel">
         <header className="td-head">
           <div className="td-head-left">
@@ -238,6 +271,27 @@ function TrainingDojo({
             // The detour. The working stays on screen while they write, because
             // the point is for them to read it, not to recall it.
             <div className="td-reflect">
+              {/* The question comes with them onto the detour. Writing what
+                  you missed with the question gone from the screen is a
+                  memory test, and the thing being asked for is reasoning. */}
+              <div className="td-reflect-recap">
+                <div className="td-question td-question-recap"><Tex>{question.text}</Tex></div>
+                <div className="td-options td-options-recap">
+                  {question.options.map((opt, i) => {
+                    let cls = 'td-option td-option-recap'
+                    if (i === question.correctIndex) cls += ' td-option-right'
+                    else if (i === missed) cls += ' td-option-wrong'
+                    return (
+                      <div key={i} className={cls}>
+                        <span className="td-option-letter">{String.fromCharCode(65 + i)}</span>
+                        <Tex className="td-option-text">{opt}</Tex>
+                        {i === missed && <span className="td-option-tag">you chose this</span>}
+                        {i === question.correctIndex && <span className="td-option-tag">the answer</span>}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
               <div className="td-explain">
                 <span className="td-explain-label">The working</span>
                 <p><Tex>{question.explanation}</Tex></p>
@@ -259,6 +313,20 @@ function TrainingDojo({
                 disabled={checking}
               />
               {feedback && <p className="td-reflect-feedback">{feedback}</p>}
+              {/* Turned down twice is the point where a child stops learning
+                  and starts guessing at what the marker wants. They are shown
+                  a sentence that would count and asked to write it in their
+                  own words - shown, not pasted in, because typing it is the
+                  last bit of the thinking and a button would skip it. */}
+              {refused >= 2 && example && (
+                <div className="td-reflect-help">
+                  <span className="td-reflect-help-label">Stuck? Something like this would do it</span>
+                  <p className="td-reflect-help-text"><Tex>{example}</Tex></p>
+                  <span className="td-reflect-help-note">
+                    Type it in your own words in the box &mdash; it does not have to match.
+                  </span>
+                </div>
+              )}
               <div className="td-reflect-foot">
                 <span className="td-reflect-count">
                   {reflectionTooShort(written)

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import SpriteAnimation from './SpriteAnimation.jsx'
-import { pickCelebration, pickPassWord, runLength } from '../data/celebrations.js'
+import {
+  pickCelebration, pickPassWord, runLength, bandTier, STREAK_WORDS, PASS_WORDS,
+} from '../data/celebrations.js'
 
 /**
  * The band that crosses the screen when a dojo question is got right.
@@ -16,23 +18,33 @@ import { pickCelebration, pickPassWord, runLength } from '../data/celebrations.j
  * the fifth one in a session still lands.
  *
  * @param {number} nonce changes on every correct answer; a new value replays
+ * @param {number} [streak] right answers in a row; drives the colour
  * @param {() => void} [onDone]
  */
-function PassBand({ nonce, onDone }) {
+function PassBand({ nonce, streak = 0, onDone }) {
   const lastWord = useRef(null)
   const lastSheet = useRef(null)
   const [shown, setShown] = useState(null)
   const doneCb = useRef(onDone)
+  // Held in a ref for the same reason as onDone: the band replays on the
+  // nonce alone, and depending on the streak would restart the animation
+  // every time it moved. Written in an effect that runs before the one
+  // below, so the tier is the one the answer arrived with.
+  const streakRef = useRef(streak)
 
-  useEffect(() => { doneCb.current = onDone })
+  useEffect(() => { doneCb.current = onDone; streakRef.current = streak })
 
   useEffect(() => {
     if (nonce == null) return undefined
-    const word = pickPassWord(lastWord.current)
+    // Read here rather than taken as a rendered prop, so the tier is the one
+    // that belonged to the answer that fired the band.
+    const tier = bandTier(streakRef.current)
+    const word = pickPassWord(lastWord.current, Math.random,
+      tier === 'prism' ? STREAK_WORDS : PASS_WORDS)
     const sheet = pickCelebration('pass', lastSheet.current)
     lastWord.current = word
     lastSheet.current = sheet?.id || null
-    setShown({ word, sheet, key: nonce })
+    setShown({ word, sheet, tier, key: nonce })
     // The band's own animation runs 1.6s; a sprite may run longer, and
     // whichever is longer decides when the screen is handed back.
     const ms = Math.max(1600, sheet ? runLength(sheet) + 250 : 0)
@@ -43,8 +55,18 @@ function PassBand({ nonce, onDone }) {
   if (!shown) return null
 
   return (
-    <div className="td-pass-burst" key={shown.key}>
+    <div className={`td-pass-burst td-pass-${shown.tier}`} key={shown.key}>
       <div className="td-pass-strip">
+        {/* Arcade arrows, only once the band has gone prismatic. Six of them
+            rather than a repeating background, so each can carry its own
+            delay and speed and the row does not read as one sliding image. */}
+        {shown.tier === 'prism' && (
+          <span className="td-pass-arrows" aria-hidden="true">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <span key={i} className={`td-pass-arrow td-pass-arrow-${i}`} />
+            ))}
+          </span>
+        )}
         <span className="td-pass-shimmer" aria-hidden="true" />
         <span className="td-pass-text">{shown.word}</span>
       </div>

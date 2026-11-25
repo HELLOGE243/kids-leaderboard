@@ -86,7 +86,39 @@ export function pickCelebration(use, lastId = null, random = Math.random, list =
  * stays the most common because it is the word the dojo uses for the thing
  * that has actually happened.
  */
+/**
+ * How hot the PASS band runs, by how many in a row the student has got right.
+ *
+ * The band is the reward, so it has to be able to get better - a celebration
+ * that is identical on the first and the sixth stops reading as a response to
+ * anything. Three tiers rather than a smooth ramp, because a child has to be
+ * able to notice that it changed: a gradual shift over six answers is a shift
+ * nobody sees.
+ *
+ * The streak is answers in a row with no wrong one between them, and a wrong
+ * answer puts it back to nothing. That is the whole point: the top tier has
+ * to be losable or it is just the band you get eventually.
+ */
+export const BAND_TIERS = [
+  { id: 'prism', from: 5 },
+  { id: 'hot', from: 3 },
+  { id: 'go', from: 0 },
+]
+
+/** The tier id for a streak. Anything unreadable counts as no streak at all. */
+export function bandTier(streak, tiers = BAND_TIERS) {
+  const n = Math.max(0, Math.floor(Number(streak) || 0))
+  const hit = (tiers || []).find((t) => n >= t.from)
+  return hit ? hit.id : 'go'
+}
+
 export const PASS_WORDS = ['PASS', 'PASS', 'PASS', 'NAILED IT', 'CLEAN PASS', 'SHARP']
+
+/**
+ * Words kept for a streak the student had to work for, so the top tier reads
+ * differently as well as looking different.
+ */
+export const STREAK_WORDS = ['ON FIRE', 'UNREAL', 'UNSTOPPABLE', 'FIVE IN A ROW', 'PERFECT RUN']
 
 export function pickPassWord(lastWord = null, random = Math.random, list = PASS_WORDS) {
   const fresh = (list || []).filter((w) => w !== lastWord)
