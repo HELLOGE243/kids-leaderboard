@@ -180,9 +180,16 @@ function TrainingDojoLauncher({
     setError('')
   }
 
-  const label = existing?.completedAt ? 'Review Training Dojo'
-    : existing ? `Resume Training Dojo (${(existing.stages || []).filter((s) => s?.passed).length}/${existing.stageCount})`
-      : 'Open Training Dojo'
+  // Every state says Enter, because the button is a door and the mirror on it
+  // is the corridor behind the door - Review read like a records page, which is
+  // not what is on the other side even once a suite is finished.
+  // Resume keeps its own wording: it is the one state carrying a count, and a
+  // part-finished suite should say so before it is opened. Its condition is the
+  // same one that paints .td-launch-resume, so the word and the colour can
+  // never disagree.
+  const label = existing && !existing.completedAt
+    ? `Resume Training Dojo (${(existing.stages || []).filter((s) => s?.passed).length}/${existing.stageCount})`
+    : 'Enter Training Dojo'
 
   return (
     <>

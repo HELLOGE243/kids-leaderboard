@@ -667,6 +667,17 @@ ok('PASS is the most common word, because it is the one that is true',
   const hall = fs.readFileSync(new URL('../src/pages/RevisionDojo.jsx', import.meta.url), 'utf8')
   ok('the dojo hall still offers training on a missed card',
     hall.includes('TrainingDojoLauncher'))
+
+  const launcher = fs.readFileSync(new URL('../src/components/TrainingDojoLauncher.jsx', import.meta.url), 'utf8')
+  ok('the button invites a student in rather than offering them a record',
+    launcher.includes("'Enter Training Dojo'"))
+  ok('and no state of it still says Review', !launcher.includes('Review Training Dojo'))
+  // The wording and the colour are two different things reading the same
+  // state, and a student should never meet a button that says Resume in a
+  // fresh colour or the reverse. They can only disagree if someone edits one
+  // condition and not the other, so the test is that there is one condition.
+  eq('the Resume wording and the Resume colour are decided by the same test',
+    (launcher.match(/existing && !existing.completedAt/g) || []).length, 2)
 }
 
 console.log(`${pass} pass, ${fails.length} fail`)

@@ -20584,11 +20584,41 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
    task while it is open, and a panel the student can see their wrong answer
    behind invites them to keep staring at the wrong answer. */
 
-/* The launch button is the Ask Teacher button in another colour, on purpose.
-   They sit side by side in the same bar, so every measurement is copied from
-   .qt-ask-teacher-btn rather than chosen: same family, size, weight, padding
-   and square corners. A gradient, a shadow or a hover lift would all break the
-   seam where the two meet, so it has none of them. */
+/* The launch button takes its measurements from the Ask Teacher button beside
+   it, on purpose: they sit side by side in the same bar, so family, size,
+   weight, padding and square corners are all copied rather than chosen. An
+   outer shadow, a gradient across the face or a hover lift would each break
+   the seam where the two meet, so it still has none of those.
+
+   What it has instead is inside it. Fourteen rectangles recede to the centre
+   of the button, each smaller and dimmer than the last, so the face reads as a
+   corridor of reflections rather than a flat purple slab - the mirror behind
+   the door the button is. Three things make it read as depth:
+
+   - Each rectangle is 85% of the one outside it, and carries 75% of its light.
+     Both are constant ratios, which is what a mirror facing a mirror actually
+     does: every bounce costs the same fraction of size and the same fraction
+     of brightness. Nothing here was picked by eye - the nine colours below are
+     one colour scaled in linear light, so the hue never drifts.
+   - That constant light loss is also why the steps between neighbours shrink
+     with distance, from 1.22:1 at the mouth to 1.02:1 at the far end. Near
+     reflections stay distinct, far ones dissolve. An even ramp would have
+     given the opposite, and looked like a stack of plates.
+   - They are centred background layers sized in per cent, not inset shadows.
+     A box-shadow spread insets by the same number of pixels on all four sides,
+     so on a button ten times wider than it is tall it converges to a long
+     horizontal slot - a bevel, not a tunnel. Per cent sizing shrinks both axes
+     together, so the corridor actually leads to the middle. It also means the
+     effect needs no adjustment for the three sizes this button has in this
+     sheet (1.35rem, 1rem under 640px, 0.85rem as .tp-resume-btn).
+
+   Contrast went up rather than down. The label sits over the deep end, where
+   white reads between 10.1:1 and 15.7:1, and the worst any part of it can
+   touch, on the widest button in the app, is 7.23:1. The old flat #7c3aed gave
+   it 5.70:1 everywhere. Because only the mouth carries the state colour, no
+   state can take any of that away.
+
+   border-radius stays 0, which is also what lets the reflections be rectangles. */
 .td-launch {
   display: inline-flex; align-items: center; justify-content: center; gap: 10px;
   font-family: Arial, Helvetica, sans-serif;
@@ -20597,17 +20627,52 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
   padding: 22px 40px;
   border: none;
   border-radius: 0;
-  background: #7c3aed;
+  /* background-color is the mouth of the corridor - the rim left over outside
+     the largest reflection - and it is the only thing the state rules below
+     touch. Keeping state out of the inner layers is deliberate: the label
+     never sits on the mouth, so no state can take contrast away from it.
+     This is still the button's original #7c3aed. */
+  background-color: #7c3aed;
+  background-image:
+    linear-gradient(#0f0326, #0f0326),
+    linear-gradient(#12042c, #12042c),
+    linear-gradient(#160534, #160534),
+    linear-gradient(#1b073c, #1b073c),
+    linear-gradient(#200946, #200946),
+    linear-gradient(#260c50, #260c50),
+    linear-gradient(#2d105c, #2d105c),
+    linear-gradient(#34146a, #34146a),
+    linear-gradient(rgba(255, 255, 255, 0.075) 0 1px, #3d1879 1px calc(100% - 1px), rgba(0, 0, 0, 0.142) calc(100% - 1px)),
+    linear-gradient(rgba(255, 255, 255, 0.089) 0 1px, #461d8a 1px calc(100% - 1px), rgba(0, 0, 0, 0.167) calc(100% - 1px)),
+    linear-gradient(rgba(255, 255, 255, 0.104) 0 1px, #51229e 1px calc(100% - 1px), rgba(0, 0, 0, 0.197) calc(100% - 1px)),
+    linear-gradient(rgba(255, 255, 255, 0.123) 0 1px, #5d28b4 1px calc(100% - 1px), rgba(0, 0, 0, 0.231) calc(100% - 1px)),
+    linear-gradient(rgba(255, 255, 255, 0.145) 0 1px, #6b2fcc 1px calc(100% - 1px), rgba(0, 0, 0, 0.272) calc(100% - 1px)),
+    linear-gradient(rgba(255, 255, 255, 0.170) 0 1px, #7a37e8 1px calc(100% - 1px), rgba(0, 0, 0, 0.320) calc(100% - 1px));
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size:
+    9.4% 9.4%, 11.1% 11.1%, 13.1% 13.1%, 15.4% 15.4%, 18.1% 18.1%,
+    21.3% 21.3%, 25% 25%, 29.4% 29.4%, 34.6% 34.6%, 40.7% 40.7%,
+    47.9% 47.9%, 56.4% 56.4%, 66.3% 66.3%, 78% 78%;
   color: #fff;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background-color 0.15s;
   white-space: nowrap;
+  /* The lit lip along the top edge, so the mouth reads as an opening in a
+     surface rather than a pane printed on one. */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
-.td-launch:hover:not(:disabled) { background: #6d28d9; }
+/* Hover lights the mouth rather than moving the reflections: the corridor
+   brightening as you reach for it is the right reading of the gesture, and it
+   is one property to animate instead of nine. */
+.td-launch:hover:not(:disabled) { background-color: #8b5cf6; }
 .td-launch-icon { font-size: 1.15rem; line-height: 1; }
-/* A suite already started says so on the button, so Resume is never a surprise. */
-.td-launch-resume { background: #6d28d9; }
-.td-launch-resume:hover:not(:disabled) { background: #5b21b6; }
+/* A suite already started says so on the button, so Resume is never a surprise.
+   Its mouth is banked down rather than up, which keeps it clear of a fresh
+   button's hover as well as its rest state - otherwise reaching for Enter would
+   make it look like Resume. */
+.td-launch-resume { background-color: #5b21b6; }
+.td-launch-resume:hover:not(:disabled) { background-color: #6d28d9; }
 
 /* The pair, flush: one bar split in two, no gap and no rounding between them.
    `flex: 1 1 0` with `min-width: 0` is what makes the halves equal regardless
@@ -21540,4 +21605,14 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
 
 /* My Progress resumes a run with the ordinary launch button, sized to sit in
    the list rather than to lead a quiz bar. */
-.tp-resume-btn.td-launch { font-size: 0.85rem; padding: 10px 18px; margin-top: 14px; }
+/* My Progress shows this button at 0.85rem in a 34px-tall box, and the
+   corridor needs height to resolve: fourteen reflections across 34 pixels puts
+   several hairlines inside the label's own x-height, where they read as a
+   strike-through rather than as depth. So at this size it goes back to the
+   flat purple it always was. background-color is left alone, which keeps
+   whichever state colour .td-launch or .td-launch-resume set. */
+.tp-resume-btn.td-launch {
+  font-size: 0.85rem; padding: 10px 18px; margin-top: 14px;
+  background-image: none;
+  box-shadow: none;
+}
