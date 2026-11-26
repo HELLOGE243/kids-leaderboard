@@ -3582,6 +3582,18 @@ select.landing-input option { background: #1a1a2e; color: #fff; }
   cursor: pointer;
 }
 .qt-action-btn-left:hover { background: #c8d3dc; }
+/* Sits where Ask for Help was, with its padding, so the bottom bar keeps the
+   same height whether a button or this note is in the slot. */
+.sr-train-note {
+  display: flex;
+  align-items: center;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1rem;
+  padding: 22px 48px;
+  border-right: 1px solid #bcc5ce;
+  background: #dde3e8;
+  color: #4a5a6a;
+}
 .qt-report-error-btn {
   background: none;
   border: 1px solid rgba(255,255,255,0.25);

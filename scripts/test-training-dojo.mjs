@@ -5,6 +5,7 @@
  * whole school, and what gets written into the heuristic library an admin has
  * to read. Both are shared, so a bad one is not one student's problem.
  */
+import fs from 'fs'
 import {
   canTrain, questionAsText, suiteKey, buildAnalysePrompt, parseAnalysis,
   buildStagesPrompt, parseStages, heuristicId, mergeHeuristics,
@@ -639,6 +640,33 @@ ok('PASS is the most common word, because it is the one that is true',
   eq('a missing run is handed back untouched', retrainRun(null, suite, 1), null)
   eq('a suite that has grown since gives the new number of stages',
     retrainRun(done, { stages: [1, 2, 3] }, 9000).stages.length, 3)
+}
+
+// --- Where the dojo may not be offered ---
+//
+// Not a unit test of a function, because what is being guarded is not a
+// decision in a function: it is that one screen does not reach for this
+// component at all.
+//
+// SessionRevision is the compulsory daily five, and App.jsx renders it as a
+// gate - a student cannot reach the portal until it is finished. A dojo is an
+// AI-written suite of several stages, so an entry point there turns five cards
+// into a session a child cannot leave, and spends their day's model budget
+// before they have opened their homework. The button was removed; this is what
+// stops it coming back the next time somebody adds the dojo to every screen
+// that marks an answer wrong.
+{
+  const gate = fs.readFileSync(new URL('../src/pages/SessionRevision.jsx', import.meta.url), 'utf8')
+  ok('the compulsory daily five does not import the dojo launcher',
+    !gate.includes('TrainingDojoLauncher'))
+  ok('nor does it open a dojo by any other name',
+    !/TrainingDojo/.test(gate))
+
+  // The same question in the Dojo's own hall still offers one, which is where
+  // the card goes and what the note on the gate now promises.
+  const hall = fs.readFileSync(new URL('../src/pages/RevisionDojo.jsx', import.meta.url), 'utf8')
+  ok('the dojo hall still offers training on a missed card',
+    hall.includes('TrainingDojoLauncher'))
 }
 
 console.log(`${pass} pass, ${fails.length} fail`)

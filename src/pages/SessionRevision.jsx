@@ -5,7 +5,6 @@ import { getDojoCardsForStudent, recordCompulsoryRevisionAnswer, markDojoAskTeac
 import ReportIssueModal from '../components/ReportIssueModal.jsx'
 import { RichText } from '../components/RichTextEditor.jsx'
 import QuestionPassage from '../components/QuestionPassage.jsx'
-import TrainingDojoLauncher from '../components/TrainingDojoLauncher.jsx'
 import { resolveImages } from '../data/imageStore.js'
 import { playCorrectChime } from '../utils/soundManager.js'
 
@@ -446,19 +445,21 @@ function SessionRevision({ user, onComplete }) {
                       {!answered && (
                         <button className="qt-action-btn-left" onClick={handleAskForHelp}>Ask for Help</button>
                       )}
-                      {/* After a wrong answer, not before one. Offered on the
-                          way past a question they have just missed, which is
-                          the moment the course behind it is worth anything. */}
+                      {/* No training dojo here, though a missed question is
+                          exactly where one would be offered anywhere else.
+                          This screen is a gate: App.jsx puts it in front of
+                          the portal and a student cannot get past it until the
+                          five are done. A dojo is an AI-written suite of
+                          several stages and a quarter of an hour, so offering
+                          one here turns five cards a child must do into
+                          seventy-five minutes they cannot leave - and it
+                          spends their daily model budget before they have
+                          reached their homework.
+                          The card is not lost: it comes back in the Dojo's own
+                          revision deck, where the dojo is offered and where
+                          there is time to take it. */}
                       {answered && result === 'incorrect' && (
-                        <TrainingDojoLauncher
-                          key={card.id}
-                          question={q}
-                          sourceId={card.sourceId}
-                          questionIndex={card.questionIndex}
-                          subject={card.subject}
-                          student={user}
-                          setTitle={card.quizTitle || ''}
-                        />
+                        <span className="sr-train-note">You can train this one in the Dojo.</span>
                       )}
                     </div>
                     <div className="qt-bottom-center">
