@@ -18798,19 +18798,34 @@ form[aria-busy="true"] input, form[aria-busy="true"] select { opacity: 0.6; curs
   gap: 14px;
 }
 
+/* A card is a deeper navy than the page, and has an edge you can see.
+   It used to be a 4% white wash over the page, which measured 1.11:1 against
+   it - no surface at all, so the gallery read as a column of loose words with
+   nothing round them. Worth saying what the fix is and is not: the word was
+   never short of contrast against its own card (12.8:1 before, 15.0:1 now).
+   What was missing was the card. At these luminances a fill cannot carry a
+   boundary on its own - every navy deep enough to call deep still lands
+   between 1.0 and 1.2:1 against the page - so the border does that work, at
+   3.0:1, and the deeper fill is what makes the serif sit crisply on it. */
 .vbk-card {
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 18px 20px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid #44629d;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
+  background: #0d1430;
+  /* A one-pixel highlight along the top edge, so the card reads as a panel
+     lying on the page rather than a hole cut into it. */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
+/* Still green, still navy. The old rule laid a green wash over the page; this
+   is that same wash resolved over the new fill, so a learned word keeps its
+   tint without going back to being flat against the background. */
 .vbk-card-learned {
-  border-color: rgba(0, 230, 118, 0.4);
-  background: rgba(0, 230, 118, 0.06);
+  border-color: #2e9e68;
+  background: #0c2335;
 }
 
 .vbk-card-head {
