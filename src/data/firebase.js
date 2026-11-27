@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app'
 import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction, updateDoc, arrayUnion, deleteField, writeBatch, FieldPath } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
-import { wouldDestroyWork, uncheckedWriteRefusal } from './writeGuard.js'
+import { wouldDestroyWork, uncheckedWriteRefusal, mergePartialOverStored } from './writeGuard.js'
 
 const firebaseConfig = {
   apiKey: "AIzaSyB4plF1oMkqzR2pW40Ecw094u-6ftbYuJI",
@@ -1703,25 +1703,14 @@ export async function loadStudentFirestore(studentId) {
  * Parent and parts go in one batch so the record is never half-written, and
  * parts left over from a larger version are deleted in the same batch.
  */
-/** The arrays that hold work a student cannot get back if they are dropped. */
-
-/**
- * Folds a record that was never read from the server into the stored one.
- *
- * Something can need to write before a student's record has arrived - a paper
- * handed in on a slow connection, say. The record built in that moment holds
- * only what is being written, and writing it as the whole document would
- * delete the rest. The keys it does carry are the new ones and win; every
- * other key is kept as stored.
+/*
+ * The merge a partial record gets instead of replacing the stored one lives in
+ * writeGuard.js, with the refusals, because it turned out to be one of them.
+ * Copying each incoming key over the stored one let a stand-in record holding a
+ * single attempt replace twenty-five of them, which is how Hannah lost a term
+ * of work with every rule in this file running. It is the same question as the
+ * others - would this write lose work - so it is tested with them.
  */
-function mergeOverStored(stored, incoming) {
-  const out = { ...stored }
-  for (const [k, v] of Object.entries(incoming)) {
-    if (k === '_partial') continue
-    out[k] = v
-  }
-  return out
-}
 
 /*
  * How many times to ask for the stored record before writing without it.
@@ -1783,7 +1772,7 @@ async function writeRecord(studentId, snapshot) {
 
   let record = snapshot
   if (snapshot._partial && stored) {
-    record = mergeOverStored(stored, snapshot)
+    record = mergePartialOverStored(stored, snapshot)
   } else if (stored) {
     const refusal = wouldDestroyWork(stored, snapshot)
     if (refusal) {
